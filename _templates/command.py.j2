@@ -1,0 +1,26 @@
+import logging
+import click
+import engine
+
+@click.command(short_help='{{ summary | capitalize}}.')
+{%- for option in options %}
+@click.option("--{{ option.name }}{%- if option.type == "boolean" -%}/--dont-{{ option.name }}{%- endif -%}", "{{ option.name }}"
+{%- if option.type == "boolean" -%}, type=bool{%- endif -%}
+{%- if option.type == "integer" -%}, type=int{%- endif -%}
+{%- if option.type == "number" -%}, type=float{%- endif -%}
+{%- if option.type == "string" -%}, type=str{%- endif -%}
+{%- if option.default is defined -%}, default="{{ option.default }}", show_default=True{%- endif -%}
+{%- if option.required -%}, required=True{%- endif -%}
+{%- if option.description -%}, help="{{ option.description }}"{%- endif -%}
+)
+{%- endfor %}
+@click.pass_obj
+def {{ command }}(**kwargs):
+    """{{ summary | capitalize }}.
+
+    {{ path }}
+
+    https://www.logicmonitor.com/swagger-ui-master/dist/
+    """
+    print("{{ command }}")
+    print("{{ path }}")

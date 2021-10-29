@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+# ---------------------------------------
+# Author: David Marsh <rdmarsh@gmail.com>
+# ---------------------------------------
+#
+# elm Extract LogicMonitor
+# Copyright (C) 2021 David Marsh rdmarsh@gmail.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+__project__ = 'elm'
+__appname__ = 'elm'
+__appdesc__ = 'Extract LogicMonitor via API'
+__version__ = '0.2'
+__author__ = 'David Marsh'
+__license__ = 'GPLv3'
+__copyright__ = 'Copyright 2021 David Marsh'
+__url__ = 'https://github.com/rdmarsh/elm'
+
+import os
+import sys
+import logging
+import click
+import click_config_file
+import socket
+import socks
+import hashlib
+import base64
+import time
+import hmac
+import requests
+
+{% for command in commands -%}
+from _commands import {{ command.command }}
+{% endfor %}
+root_logger = logging.getLogger()
+config_file = os.path.join(click.get_app_dir(__project__, force_posix=True), 'config.ini')
+
+
+class ELM(object):
+    def __init__(self, config_file, access_id, access_key, account_name, out_fmt, export_filename):
+        self.config_file = config_file
+        self.access_id = access_id
+        self.access_key = access_key
+        self.account_name = account_name
+        self.out_fmt = out_fmt
+        self.export_filename = export_filename
+
+
+@click.group(epilog='default config file: ' + click.format_filename(config_file))
+@click_config_file.configuration_option(config_file_name=config_file)
+@click.option('-i', '--access_id', help='API token access id.')
+@click.option('-k', '--access_key', help='API token access key.')
+@click.option('-a', '--account_name', help='LogicMonitor account name.')
+@click.option('-s', '--proxy', type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port.')
+@click.option('-f', '--format', default='txt', type=click.Choice(['csv', 'html', 'prettyhtml', 'json', 'prettyjson', 'latex', 'sql', 'raw', 'txt']), help='Output format.')
+@click.option('-v', '--verbose', count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
+@click.option('-x', '--export', 'export_filename', type=click.File('w'), help='Export the query to FILENAME')
+@click.version_option(version=__version__)
+@click.pass_context
+def cli(ctx, access_id, access_key, account_name, proxy, format, verbose, export_filename):
+    """
+    Extract LogicMonitor
+    """
+
+    # ensure that ctx.obj exists and is a dict (in case `cli()` is called
+    # by means other than the `if` block below)
+    ctx.ensure_object(dict)
+
+    if verbose >= 2:
+        root_logger.setLevel(logging.DEBUG)
+    elif verbose == 1:
+        root_logger.setLevel(logging.INFO)
+    else:
+        root_logger.setLevel(logging.WARNING)
+
+    if not access_id or not access_key or not account_name:
+        click.secho('Error: access_id, access_key or account_name not set via cli or in config file', fg='red', err=True)
+        click.secho('Default config file: ' + click.format_filename(config_file), fg='red', err=True)
+        sys.exit(1)
+
+    if proxy and None not in proxy:
+        socks.set_default_proxy(socks.SOCKS5, proxy[0], proxy[1])
+        socket.socket = socks.socksocket
+        logging.info('proxy: %s:%s', proxy[0], proxy[1])
+
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, export_filename)
+
+
+{% for command in commands -%}
+cli.add_command({{ command.command }}.{{ command.command }}, name='{{ command.command }}')
+{% endfor %}
+if __name__ == '__main__':
+    cli()
