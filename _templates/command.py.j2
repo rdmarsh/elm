@@ -15,7 +15,7 @@ import engine
 )
 {%- endfor %}
 @click.pass_obj
-def {{ command }}(**kwargs):
+def {{ command }}(elm, **kwargs):
     """{{ summary | capitalize }}.
 
     {{ path }}
