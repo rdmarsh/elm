@@ -49,12 +49,12 @@ config_file = os.path.join(click.get_app_dir(__project__, force_posix=True), 'co
 
 
 class ELM(object):
-    def __init__(self, config_file, access_id, access_key, account_name, out_fmt, export_filename):
+    def __init__(self, config_file, access_id, access_key, account_name, format, export_filename):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
         self.account_name = account_name
-        self.out_fmt = out_fmt
+        self.format = format
         self.export_filename = export_filename
 
 
@@ -62,7 +62,7 @@ class ELM(object):
 @click_config_file.configuration_option(config_file_name=config_file)
 @click.option('-i', '--access_id', help='API token access id.')
 @click.option('-k', '--access_key', help='API token access key.')
-@click.option('-a', '--account_name', help='LogicMonitor account name.')
+@click.option('-a', '--account_name', help='LogicMonitor account (company) name.')
 @click.option('-s', '--proxy', type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port.')
 @click.option('-f', '--format', default='txt', type=click.Choice(['csv', 'html', 'prettyhtml', 'json', 'prettyjson', 'latex', 'sql', 'raw', 'txt']), help='Output format.')
 @click.option('-v', '--verbose', count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
@@ -86,7 +86,7 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, verbose, export
         root_logger.setLevel(logging.WARNING)
 
     if not access_id or not access_key or not account_name:
-        click.secho('Error: access_id, access_key or account_name not set via cli or in config file', fg='red', err=True)
+        click.secho('Error: access_id, access_key or account_name not set via cli or config file', fg='red', err=True)
         click.secho('Default config file: ' + click.format_filename(config_file), fg='red', err=True)
         sys.exit(1)
 
@@ -96,7 +96,6 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, verbose, export
         logging.info('proxy: %s:%s', proxy[0], proxy[1])
 
     ctx.obj = ELM(config_file, access_id, access_key, account_name, format, export_filename)
-
 
 {% for command in commands -%}
 cli.add_command({{ command.command }}.{{ command.command }}, name='{{ command.command }}')
