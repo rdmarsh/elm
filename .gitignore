@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ELM project compiled files
+_commands/
+_definitions/
+elm.py
+engine.py
