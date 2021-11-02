@@ -31,45 +31,48 @@ __url__ = 'https://github.com/rdmarsh/elm'
 import os
 import sys
 import logging
-import click
-import click_config_file
-import socket
-import socks
 import hashlib
 import base64
 import time
 import hmac
+import socket
+import socks
 import requests
+import click
+import click_config_file
 
 {% for command in commands -%}
 from _commands import {{ command.command }}
 {% endfor %}
-root_logger = logging.getLogger()
+logger = logging.getLogger()
+#FORMAT = "[level:%(levelname)s time:%(asctime)s file:%(filename)s line:%(lineno)s func:%(funcName)s()] %(message)s"
+FORMAT = "%(levelname)07s %(asctime)s %(filename)s:%(lineno)s %(funcName)s %(message)s"
+logging.basicConfig(format=FORMAT)
 config_file = os.path.join(click.get_app_dir(__project__, force_posix=True), 'config.ini')
 
 
 class ELM(object):
-    def __init__(self, config_file, access_id, access_key, account_name, format, export_filename):
+    def __init__(self, config_file, access_id, access_key, account_name, output, export):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
         self.account_name = account_name
-        self.format = format
-        self.export_filename = export_filename
+        self.output = output
+        self.export = export
 
 
 @click.group(epilog='default config file: ' + click.format_filename(config_file))
 @click_config_file.configuration_option(config_file_name=config_file)
-@click.option('-i', '--access_id', help='API token access id.')
-@click.option('-k', '--access_key', help='API token access key.')
+@click.option('-i', '--access_id',    help='API token access id.')
+@click.option('-k', '--access_key',   help='API token access key.')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name.')
-@click.option('-s', '--proxy', type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port.')
-@click.option('-f', '--format', default='txt', type=click.Choice(['csv', 'html', 'prettyhtml', 'json', 'prettyjson', 'latex', 'sql', 'raw', 'txt']), help='Output format.')
-@click.option('-v', '--verbose', count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
-@click.option('-x', '--export', 'export_filename', type=click.File('w'), help='Export the query to FILENAME')
+@click.option('-s', '--proxy',        type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port.')
+@click.option('-o', '--output',       default='txt', type=click.Choice(['csv', 'html', 'prettyhtml', 'json', 'prettyjson', 'latex', 'sql', 'raw', 'txt']), help='Output format.')
+@click.option('-v', '--verbose',      count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
+@click.option('-x', '--export',       type=click.File('w'), help='Export the query to FILENAME')
 @click.version_option(version=__version__)
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, verbose, export_filename):
+def cli(ctx, access_id, access_key, account_name, proxy, output, verbose, export):
     """
     Extract LogicMonitor
     """
@@ -79,15 +82,16 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, verbose, export
     ctx.ensure_object(dict)
 
     if verbose >= 2:
-        root_logger.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
     elif verbose == 1:
-        root_logger.setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
     else:
-        root_logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.WARNING)
 
     if not access_id or not access_key or not account_name:
         click.secho('Error: access_id, access_key or account_name not set via cli or config file', fg='red', err=True)
         click.secho('Default config file: ' + click.format_filename(config_file), fg='red', err=True)
+        logging.info('access_id, access_key or account_name not set via cli or config file')
         sys.exit(1)
 
     if proxy and None not in proxy:
@@ -95,7 +99,7 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, verbose, export
         socket.socket = socks.socksocket
         logging.info('proxy: %s:%s', proxy[0], proxy[1])
 
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, export_filename)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, output, export)
 
 {% for command in commands -%}
 cli.add_command({{ command.command }}.{{ command.command }}, name='{{ command.command }}')

@@ -10,17 +10,24 @@ import engine
 {%- if option.type == "number" -%}, type=float{%- endif -%}
 {%- if option.type == "string" -%}, type=str{%- endif -%}
 {%- if option.default is defined -%}, default="{{ option.default }}", show_default=True{%- endif -%}
-{%- if option.required -%}, required=True{%- endif -%}
+{%- if option.required or option.in == "path" -%}, required=True{%- endif -%}
+{%- if option.in == "path" -%}, nargs=1{%- endif -%}
 {%- if option.description -%}, help="{{ option.description }}"{%- endif -%}
 )
 {%- endfor %}
 @click.pass_obj
 def {{ command }}(elm, **kwargs):
-    """{{ summary | capitalize }}.
+    """elm thing thing thing
+
+    {{ summary | capitalize }}.
 
     {{ path }}
 
     https://www.logicmonitor.com/swagger-ui-master/dist/
     """
-    print("{{ command }}")
-    print("{{ path }}")
+    elm.command = '{{ command }}'
+    elm.path = '{{ path }}'
+    logging.debug('elm.command: %s', elm.command)
+    logging.debug('elm.path: %s', elm.path)
+    logging.debug('kwargs: %s', kwargs)
+    engine.engine(elm, **kwargs)

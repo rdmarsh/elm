@@ -1,3 +1,11 @@
+import hashlib
+import re
+
+import base64
+import time
+import hmac
+import requests
+
 import logging
 import htmlmin
 import json
@@ -9,81 +17,101 @@ from jinja2 import Environment, FileSystemLoader
 from pygments import highlight, lexers, formatters
 from collections import defaultdict
 
-
 log = logging.getLogger(__name__)
-
 
 def engine(elm, **kwargs):
     """This is common engine for all commands."""
 
+    logging.debug('passed kwargs: %s', kwargs)
+
     # ben magic, throw away False and Empty flags
     flags = {k: v for k, v in kwargs.items() if v}
-    logging.info('passed flags: %s', flags)
+    logging.debug('passed flags: %s', flags)
+    logging.debug('elm.command: %s', elm.command)
+    logging.debug('elm.path: %s', elm.path)
 
-    for select in [
-        {% for property in properties -%}
-            '{{ property }}',
-        {% endfor -%}
-            ]:
-        try:
-            flags[select]
-            logging.info(flags[select])
+    #obj = getattr(elm, flags).get(**flags)
 
-            if 'extend' in flags[select]:
-                flags[select] = 'extend'
-            if 'count' in flags[select]:
-                flags[select] = 'count'
-        except:
-            pass
+    #Request Info
+    httpVerb ='GET'
 
+    #construct path based on passed attributes (path values)
+    # find everything between {} and replace in path with value
+    attributes = re.findall('\{([A-Za-z0-9_]+?)\}',elm.path)
+    for attribute in attributes:
+        logging.debug('ins "%s" value "%s" into %s', attribute, flags[attribute], elm.path)
+        elm.path = elm.path.replace("{" + attribute + "}", str(flags[attribute]))
 
-    #filters and search need to be dicts
-    #https://docs.python.org/3/library/collections.html#collections.defaultdict.default_factory
-    if 'filter' in flags and flags['filter']:
-        filter_dict = defaultdict(list)
-        for k, v in flags['filter']:
-            filter_dict[k].append(v)
-        flags['filter'] = dict(filter_dict.items())
-        logging.info(flags['filter'])
+        # remove the attribute from flags
+        logging.debug('del "%s" from flags', attribute)
+        del flags[attribute]
 
-    if 'search' in flags and flags['search']:
-        search_dict = defaultdict(list)
-        for k, v in flags['search']:
-            search_dict[k].append(v)
-        flags['search'] = dict(search_dict.items())
-        logging.info(flags['search'])
+    #todo: check for any remaining attributes by looking for {} in elm.path
+    #logging.warning('not all attributes replaced in path: %s', elm.path)
 
+    logging.debug('elm.path: %s', elm.path)
+    logging.debug('remaining flags: %s', flags)
+
+    resourcePath = elm.path
+
+    #construct query
+    queryParams = '?v=2'
+
+    #queryParams += '&size=' + str(flags['size'])
+
+    data = ''
+
+    #Construct URL
+    url = 'https://'+ elm.account_name +'.logicmonitor.com/santaba/rest' + resourcePath + queryParams
+
+    #Get current time in milliseconds
+    epoch = str(int(time.time() * 1000))
+
+    #Concatenate Request details
+    requestVars = httpVerb + epoch + data + resourcePath
+
+    #Construct signature
+    hmac1 = hmac.new(elm.access_key.encode(),msg=requestVars.encode(),digestmod=hashlib.sha256).hexdigest()
+    signature = base64.b64encode(hmac1.encode())
+
+    #Construct headers
+    auth = 'LMv1 ' + elm.access_id + ':' + signature.decode() + ':' + epoch
+    headers = {'Content-Type':'application/json','Authorization':auth}
+
+    #Make request
     try:
-        obj = getattr(elm.zapi, elm.command).get(**flags)
-    except:
-        click.secho('An error occured', fg='red', err=True)
-        click.secho(elm.zapi, fg='red', err=True)
-        click.secho(elm.command, fg='red', err=True)
-        click.secho(flags, fg='red', err=True)
+        response = requests.get(url, data=data, headers=headers)
+        response.encoding = 'utf-8'
 
-    if elm.export_filename:
-        export(elm.export_filename, elm.config_file, elm.command, flags) 
-
-    # print countoutput otherwise send obj to output with format
-    if 'countOutput' in flags and flags['countOutput']:
-        if str(obj).isdigit():
-            click.echo(obj)
-        else:
-            click.secho('0', fg='yellow')
-            click.secho('Warning: no values returned,'
-                        ' assuming 0 or this flag is not supported.',
-                        fg='yellow', err=True)
+        # If the response was successful, no Exception will be raised
+        response.raise_for_status()
+    except HTTPError as http_err:
+        print(f'HTTP error occurred: {http_err}')  # Python 3.6
+    except Exception as err:
+        print(f'Other error occurred: {err}')  # Python 3.6
     else:
-        logging.info('elm.out_fmt: %s', elm.out_fmt)
-        outputformat(obj, elm.command, elm.plural_command, elm.zab_url, elm.out_fmt)
-
-        if 'limit' in flags and len(obj) >= flags['limit']:
-            click.secho('Warning: row limit matches records returned,'
-                        ' there may be data you are not seeing.',
-                        fg='yellow', err=True)
+        print('Success!')
 
 
-def outputformat(obj, command, plural_command, zab_url, outputformat='txt'):
+    #print(response.content.decode('utf-8'))
+
+    #if not response:
+    #    logging.warning('not 200 status code: %s', response.status_code)
+
+    if elm.export:
+        export(elm.export, elm.config_file, elm.command, elm.path, flags) 
+
+    #send obj to output with format
+    logging.debug('elm.command: %s', elm.command)
+    logging.debug('elm.path: %s', elm.path)
+    logging.info('elm.output: %s', elm.output)
+
+    json_response = response.json()
+    output(json_response, elm.command, elm.path, elm.output)
+
+
+
+def output(obj, command, path, output='txt'):
     df = pd.DataFrame(obj)
     pd.set_option('display.max_columns', 0)
     pd.set_option('display.max_colwidth', 0)
@@ -91,29 +119,29 @@ def outputformat(obj, command, plural_command, zab_url, outputformat='txt'):
     if not df.empty:
         #convert any columns with an subdict
 
-        if ( 'html' in outputformat ) and ( command == 'hostgroup' or command == 'host' or command == 'template'):
+        if ( 'html' in output ) and ( command == 'hostgroup' or command == 'host' or command == 'template'):
             id = command + "id"
-            df[id] = zab_url + "/" + plural_command + ".php?form=update&" + id + "=" + df[id]
+            df[id] = zab_url + "/" + command + ".php?form=update&" + id + "=" + df[id]
 
-        if outputformat == 'csv':
+        if output == 'csv':
             click.echo(df.to_csv(index=False))
-        elif outputformat == 'html':
+        elif output == 'html':
             click.echo(htmlmin.minify(df.to_html(index=False, render_links=True, escape=False), remove_empty_space=True))
-        elif outputformat == 'prettyhtml':
+        elif output == 'prettyhtml':
             colorful_html = highlight(df.to_html(index=False, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
             click.echo(colorful_html)
-        elif outputformat == 'json':
-            plain_json=json.dumps({plural_command: obj})
+        elif output == 'json':
+            plain_json=json.dumps({command: obj})
             click.echo(plain_json)
-        elif outputformat == 'prettyjson':
-            formatted_json=json.dumps({plural_command: obj}, sort_keys=True, indent=2)
+        elif output == 'prettyjson':
+            formatted_json=json.dumps({command: obj}, sort_keys=True, indent=2)
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
             click.echo(colorful_json.rstrip("\n")) # highlight adds an extra blank line on the end
-        elif outputformat == 'latex':
+        elif output == 'latex':
             click.echo(df.to_latex(index=False))
-        elif outputformat == 'sql':
+        elif output == 'sql':
             click.echo(df.to_sql(index=False))
-        elif outputformat == 'raw':
+        elif output == 'raw':
             click.echo(obj)
         else:
             # default to txt
@@ -121,10 +149,11 @@ def outputformat(obj, command, plural_command, zab_url, outputformat='txt'):
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
 
-def export(export_filename, config_file, command, flags=""):
+def export(export, config_file, command, path, flags=""):
     '''export python query to file'''
     file_loader = FileSystemLoader('elm')
     env = Environment(loader=file_loader)
     template = env.get_template('save_query.py.j2')
-    output = template.render(config_file=config_file, command=command, flags=flags)
-    export_filename.write(output)
+    output = template.render(config_file=config_file, command=command, path=path, flags=flags)
+    export.write(output)
+
