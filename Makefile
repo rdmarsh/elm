@@ -1,4 +1,4 @@
-# ---------------------------------------
+#/ ---------------------------------------
 # Author: David Marsh <rdmarsh@gmail.com>
 # ---------------------------------------
 #
@@ -50,10 +50,22 @@ CMDTARGETS := $(patsubst $(defdir)/%.json,$(cmddir)/%.py,$(CMDSOURCES))
 all: init commands ## Build everything
 
 # ---------------------------------------
+#  check needed progs
+# ---------------------------------------
+
+.PHONY: checks PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists
+checks: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists ## Perform requirement checks
+PYTHON-exists: ; @which python3 > /dev/null
+CURL-exists: ; @which $(CURL) > /dev/null
+JQ-exists: ; @which $(JQ) > /dev/null
+AWK-exists: ; @which $(AWK) > /dev/null
+JINJA-exists: ; @which $(JINJA) > /dev/null
+
+# ---------------------------------------
 #  init, not called by default
 # ---------------------------------------
 
-.PHONY: init
+.PHONY: checks init
 init: $(bakdir) $(cmddir) $(defdir) $(tmpdir) $(defdir)/commands.json ## Initialise dirs, get swagger file, create definition files
 
 $(bakdir) $(cmddir) $(defdir) $(tmpdir):
@@ -69,11 +81,11 @@ $(defdir)/commands.json: $(defdir)/swagger.json
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId |= gsub("^(get|collect)";"") | { command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".json"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	@echo
-	@echo -----------------------------------------------
-	@echo please run make -j again to pick up the changes
-	@echo -----------------------------------------------
+	@echo --------------------------------------------
+	@echo "\033[0;31mplease run make again to pick up the changes\033[0m"
+	@echo --------------------------------------------
 	@echo
-	false
+	@false
 
 # ---------------------------------------
 #  python commands
@@ -101,15 +113,11 @@ back: nomac ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
 
 .PHONY: clean
 clean: nomac ## Remove generated files
-	$(RM) $(defdir)/swagger.json
-	$(RM) $(defdir)/commands.json
-	$(RM) $(defdir)/[A-Z]*.json
-	$(RM) $(CMDTARGETS)
-	$(RM) -r $(cmddir)/__pycache__
 	$(RM) -r __pycache__
+	$(RM) -r $(cmddir) $(defdir)
+	$(RM) $(CMDTARGETS)
 	$(RM) $(prog)
 	$(RM) engine.py
-	rmdir $(cmddir) $(defdir)
 
 .PHONY: nomac
 nomac:
