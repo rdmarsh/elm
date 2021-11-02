@@ -1,4 +1,4 @@
-#/ ---------------------------------------
+# ---------------------------------------
 # Author: David Marsh <rdmarsh@gmail.com>
 # ---------------------------------------
 #
@@ -76,16 +76,11 @@ $(defdir)/swagger.json:
 
 #cant split this long line
 #high level magic https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
-#this is shit but it'll do for now
 $(defdir)/commands.json: $(defdir)/swagger.json
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId |= gsub("^(get|collect)";"") | { command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".json"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
-	@echo
-	@echo --------------------------------------------
-	@echo "\033[0;31mplease run make again to pick up the changes\033[0m"
-	@echo --------------------------------------------
-	@echo
-	@false
+	$(MAKE)
+
 
 # ---------------------------------------
 #  python commands
