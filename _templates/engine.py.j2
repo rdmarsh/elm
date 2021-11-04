@@ -84,17 +84,11 @@ def engine(elm, **kwargs):
 
     #Construct signature
     hmac1 = hmac.new(elm.access_key.encode(),msg=requestVars.encode(),digestmod=hashlib.sha256).hexdigest()
-    logging.debug('hmac1: %s', hmac1)
-
     signature = base64.b64encode(hmac1.encode())
-    logging.debug('signature: %s', signature)
 
     #Construct headers
     auth = 'LMv1 ' + elm.access_id + ':' + signature.decode() + ':' + epoch
-    logging.debug('auth: %s', auth)
-
     headers = {'Content-Type':'application/json','Authorization':auth}
-    logging.debug('headers: %s', headers)
 
     #Make request
     try:
