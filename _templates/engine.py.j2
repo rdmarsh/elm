@@ -23,21 +23,22 @@ def engine(elm, **kwargs):
     """This is common engine for all commands."""
 
     logging.debug('passed kwargs: %s', kwargs)
+    logging.debug('elm.command: %s', elm.command)
+    logging.debug('elm.path: %s', elm.path)
 
     # ben magic, throw away False and Empty flags
     flags = {k: v for k, v in kwargs.items() if v}
     logging.debug('passed flags: %s', flags)
-    logging.debug('elm.command: %s', elm.command)
-    logging.debug('elm.path: %s', elm.path)
-
-    #obj = getattr(elm, flags).get(**flags)
 
     #Request Info
     httpVerb ='GET'
+    logging.debug('httpVerb: %s', httpVerb)
 
     #construct path based on passed attributes (path values)
     # find everything between {} and replace in path with value
     attributes = re.findall('\{([A-Za-z0-9_]+?)\}',elm.path)
+    logging.debug('attributes: %s', attributes)
+
     for attribute in attributes:
         logging.debug('ins "%s" value "%s" into %s', attribute, flags[attribute], elm.path)
         elm.path = elm.path.replace("{" + attribute + "}", str(flags[attribute]))
@@ -49,54 +50,69 @@ def engine(elm, **kwargs):
     #todo: check for any remaining attributes by looking for {} in elm.path
     #logging.warning('not all attributes replaced in path: %s', elm.path)
 
-    logging.debug('elm.path: %s', elm.path)
+    logging.debug('elm.path attributes: %s', elm.path)
     logging.debug('remaining flags: %s', flags)
 
     resourcePath = elm.path
+    logging.debug('resourcePath: %s', resourcePath)
 
     #construct query
     queryParams = '?v=2'
 
-    #queryParams += '&size=' + str(flags['size'])
+    #turn flags into queryParams key values
+    for flag in flags:
+        logging.debug('flag: %s', flag)
+        logging.debug('flags[flag]: %s', flags[flag])
+        queryParams += '&' + flag + '=' + str(flags[flag])
+
+    logging.debug('queryParams: %s', queryParams)
 
     data = ''
+    logging.debug('data: %s', data)
 
     #Construct URL
     url = 'https://'+ elm.account_name +'.logicmonitor.com/santaba/rest' + resourcePath + queryParams
+    logging.debug('url: %s', url)
 
     #Get current time in milliseconds
     epoch = str(int(time.time() * 1000))
+    logging.debug('epoch: %s', epoch)
 
     #Concatenate Request details
     requestVars = httpVerb + epoch + data + resourcePath
+    logging.debug('requestVars: %s', requestVars)
 
     #Construct signature
     hmac1 = hmac.new(elm.access_key.encode(),msg=requestVars.encode(),digestmod=hashlib.sha256).hexdigest()
+    logging.debug('hmac1: %s', hmac1)
+
     signature = base64.b64encode(hmac1.encode())
+    logging.debug('signature: %s', signature)
 
     #Construct headers
     auth = 'LMv1 ' + elm.access_id + ':' + signature.decode() + ':' + epoch
+    logging.debug('auth: %s', auth)
+
     headers = {'Content-Type':'application/json','Authorization':auth}
+    logging.debug('headers: %s', headers)
 
     #Make request
     try:
         response = requests.get(url, data=data, headers=headers)
-        response.encoding = 'utf-8'
-
-        # If the response was successful, no Exception will be raised
         response.raise_for_status()
-    except HTTPError as http_err:
-        print(f'HTTP error occurred: {http_err}')  # Python 3.6
-    except Exception as err:
-        print(f'Other error occurred: {err}')  # Python 3.6
-    else:
-        print('Success!')
+    except:
+        click.secho('An error occured', fg='red', err=True)
+        click.secho(elm.command, fg='red', err=True)
+        click.secho(elm.path, fg='red', err=True)
+        click.secho(flags, fg='red', err=True)
 
+    # do I need this or is it covered by above raise for status?
+    if not response:
+        logging.warning('not 200 status code: %s', response.status_code)
+        click.secho('Warning: not 200 status code', fg='yellow', err=True)
 
-    #print(response.content.decode('utf-8'))
-
-    #if not response:
-    #    logging.warning('not 200 status code: %s', response.status_code)
+    # where should this go, do we need it?
+    response.encoding = 'utf-8'
 
     if elm.export:
         export(elm.export, elm.config_file, elm.command, elm.path, flags) 
@@ -106,22 +122,29 @@ def engine(elm, **kwargs):
     logging.debug('elm.path: %s', elm.path)
     logging.info('elm.output: %s', elm.output)
 
-    json_response = response.json()
-    output(json_response, elm.command, elm.path, elm.output)
+    #obj = response.content
+    obj = response.json()
+    #obj = response.content.decode('utf-8')
 
+    logging.debug('total: %s', obj['total'])
+    logging.debug('searchId: %s', obj['searchId'])
+    logging.debug('isMin: %s', obj['isMin'])
 
+    #print(obj)
+    output(obj['items'], elm.command, elm.output)
 
-def output(obj, command, path, output='txt'):
-    df = pd.DataFrame(obj)
+    if 'size' in flags and obj['total'] > flags['size']:
+        click.secho('Warning: size limit is less than total records,'
+                    ' there is data you are not seeing.',
+                    fg='yellow', err=True)
+
+def output(items, command, output='json'):
+    df = pd.DataFrame(items)
     pd.set_option('display.max_columns', 0)
     pd.set_option('display.max_colwidth', 0)
 
     if not df.empty:
         #convert any columns with an subdict
-
-        if ( 'html' in output ) and ( command == 'hostgroup' or command == 'host' or command == 'template'):
-            id = command + "id"
-            df[id] = zab_url + "/" + command + ".php?form=update&" + id + "=" + df[id]
 
         if output == 'csv':
             click.echo(df.to_csv(index=False))
@@ -131,10 +154,10 @@ def output(obj, command, path, output='txt'):
             colorful_html = highlight(df.to_html(index=False, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
             click.echo(colorful_html)
         elif output == 'json':
-            plain_json=json.dumps({command: obj})
+            plain_json=json.dumps({command: items})
             click.echo(plain_json)
         elif output == 'prettyjson':
-            formatted_json=json.dumps({command: obj}, sort_keys=True, indent=2)
+            formatted_json=json.dumps({command: items}, sort_keys=True, indent=2)
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
             click.echo(colorful_json.rstrip("\n")) # highlight adds an extra blank line on the end
         elif output == 'latex':
@@ -142,7 +165,7 @@ def output(obj, command, path, output='txt'):
         elif output == 'sql':
             click.echo(df.to_sql(index=False))
         elif output == 'raw':
-            click.echo(obj)
+            click.echo(items)
         else:
             # default to txt
             click.echo(df.to_string(index=False,))
