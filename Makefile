@@ -53,8 +53,8 @@ all: init commands ## Build everything
 #  check needed progs
 # ---------------------------------------
 
-.PHONY: checks PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists
-checks: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists ## Perform requirement checks
+.PHONY: req PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists
+req: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists ## Perform requirement check
 PYTHON-exists: ; @which python3 > /dev/null
 CURL-exists: ; @which $(CURL) > /dev/null
 JQ-exists: ; @which $(JQ) > /dev/null
@@ -65,7 +65,7 @@ JINJA-exists: ; @which $(JINJA) > /dev/null
 #  init, not called by default
 # ---------------------------------------
 
-.PHONY: checks init
+.PHONY: req init
 init: $(bakdir) $(cmddir) $(defdir) $(tmpdir) $(defdir)/commands.json ## Initialise dirs, get swagger file, create definition files
 
 $(bakdir) $(cmddir) $(defdir) $(tmpdir):
@@ -98,6 +98,20 @@ engine.py: $(tmpdir)/engine.py.j2 $(defdir)/commands.json
 
 $(cmddir)/%.py: $(tmpdir)/command.py.j2 $(defdir)/%.json
 	$(JINJA) $^ $(OUTPUT_OPTION)
+
+# ---------------------------------------
+#  tests
+# ---------------------------------------
+
+.PHONY: tests
+tests: ## run tests
+	@echo test $(prog) ; ./$(prog) >/dev/null
+	@echo test $(prog) --help ; ./$(prog) --help >/dev/null
+	@echo test $(prog) --version ; ./$(prog) --version >/dev/null
+
+.PHONY: fail
+fail: ## a failing test
+	@echo test false ; false >/dev/null
 
 # ---------------------------------------
 #  cleanup
