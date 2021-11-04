@@ -67,7 +67,7 @@ class ELM(object):
 @click.option('-k', '--access_key',   help='API token access key.')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name.')
 @click.option('-s', '--proxy',        type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port.')
-@click.option('-o', '--output',       default='txt', type=click.Choice(['csv', 'html', 'prettyhtml', 'json', 'prettyjson', 'latex', 'sql', 'raw', 'txt']), help='Output format.')
+@click.option('-o', '--output',       default='json', type=click.Choice(['csv', 'html', 'prettyhtml', 'json', 'prettyjson', 'latex', 'sql', 'raw', 'txt']), help='Output format.')
 @click.option('-v', '--verbose',      count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
 @click.option('-x', '--export',       type=click.File('w'), help='Export the query to FILENAME')
 @click.version_option(version=__version__)
