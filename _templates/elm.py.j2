@@ -31,13 +31,13 @@ __url__ = 'https://github.com/rdmarsh/elm'
 import os
 import sys
 import logging
-import hashlib
-import base64
-import time
-import hmac
+#import hashlib
+#import base64
+#import time
+#import hmac
 import socket
 import socks
-import requests
+#import requests
 import click
 import click_config_file
 
@@ -45,7 +45,6 @@ import click_config_file
 from _commands import {{ command.command }}
 {% endfor %}
 logger = logging.getLogger()
-#FORMAT = "[level:%(levelname)s time:%(asctime)s file:%(filename)s line:%(lineno)s func:%(funcName)s()] %(message)s"
 FORMAT = "%(levelname)07s %(asctime)s %(filename)s:%(lineno)s %(funcName)s %(message)s"
 logging.basicConfig(format=FORMAT)
 config_file = os.path.join(click.get_app_dir(__project__, force_posix=True), 'config.ini')
