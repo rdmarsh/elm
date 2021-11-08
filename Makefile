@@ -81,7 +81,6 @@ $(defdir)/commands.json: $(defdir)/swagger.json
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".json"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	$(MAKE)
 
-
 # ---------------------------------------
 #  python commands
 # ---------------------------------------
@@ -142,6 +141,8 @@ about: ## About this Makefile
 	@echo 'This Makefile is used to generate files for elm'
 	@echo
 	@echo 'Run "make help" to for how to run'
+	@echo
+	@echo 'See https://github.com/rdmarsh/elm'
 	@echo
 
 .PHONY: copying
