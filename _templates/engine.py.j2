@@ -120,7 +120,7 @@ def engine(elm, **kwargs):
     obj = response.json()
     #obj = response.content.decode('utf-8')
 
-    logging.debug('total: %s', obj['total'])
+    logging.info('total records: %s', obj['total'])
     logging.debug('searchId: %s', obj['searchId'])
     logging.debug('isMin: %s', obj['isMin'])
 
