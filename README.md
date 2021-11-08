@@ -2,9 +2,19 @@
 
 Extract LogicMonitor via API
 
+# needed software
+
+* todo
+
 # compile
 
 `make`
+
+# examples
+
+```
+./elm.py -o csv AdminList -s5 -o id,username -S -username -f id\>:2,id\<:5 
+```
 
 # lm api v2
 
