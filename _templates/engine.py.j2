@@ -4,18 +4,18 @@ import re
 import base64
 import time
 import hmac
-import requests
 
 import logging
-import htmlmin
 import json
-import click
-import pandas as pd
-from pandas.io.json import json_normalize #package for flattening json in pandas df
-from packaging import version
+from collections import defaultdict
 from jinja2 import Environment, FileSystemLoader
 from pygments import highlight, lexers, formatters
-from collections import defaultdict
+from packaging import version
+import pandas as pd
+from pandas.io.json import json_normalize #package for flattening json in pandas df
+import click
+import htmlmin
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ def engine(elm, **kwargs):
     response.encoding = 'utf-8'
 
     if elm.export:
-        export(elm.export, elm.config_file, elm.command, elm.path, flags) 
+        export(elm.export, elm.config_file, elm.command, elm.path, flags)
 
     #send obj to output with format
     logging.debug('elm.command: %s', elm.command)
@@ -125,12 +125,21 @@ def engine(elm, **kwargs):
     logging.debug('isMin: %s', obj['isMin'])
 
     #print(obj)
-    output(obj['items'], elm.command, elm.output)
 
-    if 'size' in flags and obj['total'] > flags['size']:
-        click.secho('Warning: size limit is less than total records,'
-                    ' there is data you are not seeing.',
-                    fg='yellow', err=True)
+    #if total is a flag, show total instead
+    #if count is a flag, show count instead
+    if 'total' in flags:
+        click.echo(obj['total'])
+    elif 'count' in flags:
+        click.echo(len(obj['items']))
+    else:
+        output(obj['items'], elm.command, elm.output)
+
+        #give a warning if there are more records not shown
+        if 'size' in flags and obj['total'] > flags['size']:
+            click.secho('Warning: size limit is less than total records,'
+                        ' there is data you are not seeing.',
+                        fg='yellow', err=True)
 
 def output(items, command, output='json'):
     df = pd.DataFrame(items)
@@ -173,4 +182,3 @@ def export(export, config_file, command, path, flags=""):
     template = env.get_template('save_query.py.j2')
     output = template.render(config_file=config_file, command=command, path=path, flags=flags)
     export.write(output)
-

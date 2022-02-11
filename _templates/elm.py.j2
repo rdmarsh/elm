@@ -18,6 +18,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
+"""This is the main entry point for elm Extract LogicMonitor"""
 
 __project__ = 'elm'
 __appname__ = 'elm'
@@ -51,6 +52,7 @@ config_file = os.path.join(click.get_app_dir(__project__, force_posix=True), 'co
 
 
 class ELM(object):
+    """Load confing and hold the state for cli tool"""
     def __init__(self, config_file, access_id, access_key, account_name, output, export):
         self.config_file = config_file
         self.access_id = access_id
@@ -72,10 +74,7 @@ class ELM(object):
 @click.version_option(version=__version__)
 @click.pass_context
 def cli(ctx, access_id, access_key, account_name, proxy, output, verbose, export):
-    """
-    Extract LogicMonitor
-    """
-
+    """Extract LogicMonitor"""
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
     ctx.ensure_object(dict)

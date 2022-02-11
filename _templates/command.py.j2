@@ -5,8 +5,8 @@ import engine
 @click.command(short_help='{{ summary | capitalize}}.')
 {%- for option in options %}
 @click.option("--{{ option.name }}{%- if option.type == "boolean" -%}/--dont-{{ option.name }}{%- endif -%}" , "{{ option.name }}"
-{%- if option.name == "fields" -%}, "-o"{% endif -%}
-{%- if option.name == "filter" -%}, "-f"{% endif -%}
+{%- if option.name == "fields" -%}, "-f"{% endif -%}
+{%- if option.name == "filter" -%}, "-F"{% endif -%}
 {%- if option.name == "size" -%}, "-s"{%- endif -%}
 {%- if option.type == "boolean" -%}, type=bool, nargs=1{%- endif -%}
 {%- if option.type == "integer" -%}, type=int{%- endif -%}
@@ -15,8 +15,9 @@ import engine
 {%- if option.default is defined -%}, default="{{ option.default }}", show_default=True{%- endif -%}
 {%- if option.required or option.in == "path" -%}, required=True{%- endif -%}
 {%- if option.in == "path" -%}, nargs=1{%- endif -%}
-{%- if option.name == "fields" -%}, metavar="FIELD,..."{% endif -%}
-{%- if option.name == "filter" -%}, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,..."{% endif -%}
+{%- if option.name == "fields" -%}, nargs=1, metavar="FIELD,..."{% endif -%}
+{%- if option.name == "filter" -%}, nargs=1, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,..."{% endif -%}
+{%- if option.name == "size" -%}, nargs=1{%- endif -%}
 {%- if option.description -%}, \
                              help="{{ option.description }}"{%- endif -%}
 )
@@ -24,8 +25,10 @@ import engine
 {# sort is missing in the swagger definitions, added below #}
 {%- if "sort" not in options %}
 @click.option("--sort", "sort", "-S", type=str, metavar="[+,-]FIELD,...", \
-               help="Sort by the field specified")
+               help="Sort the result by the field specified")
 {%- endif %}
+@click.option("--count", "-c", "count", is_flag=True, help="Return count of objects instead of data.")
+@click.option("--total", "-C", "total", is_flag=True, help="Return qty of all objects instead of data.")
 @click.pass_obj
 def {{ command }}(elm, **kwargs):
     """{{ summary | capitalize }}.
