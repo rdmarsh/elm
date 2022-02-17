@@ -18,14 +18,35 @@ import engine
 {%- if option.name == "fields" -%}, nargs=1, metavar="FIELD,..."{% endif -%}
 {%- if option.name == "filter" -%}, nargs=1, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,..."{% endif -%}
 {%- if option.name == "size" -%}, nargs=1{%- endif -%}
-{%- if option.description -%}, \
-                             help="{{ option.description }}"{%- endif -%}
+{%- if option.description -%}, help="{{ option.description }}"
+{%- elif option.name == "fields" -%}, \
+                help="Only include the listed fields."
+{%- elif option.name == "filter" -%}, \
+                help="""Filter by operator and value. Separate multiple filters by a comma.
+
+                Operators:
+
+                \b
+                >: - Greater than or equals
+                <: - Less than or equals
+                >  - Greater than
+                <  - Less than
+                !: - Does not equal
+                :  - Equals
+                ~  - Includes
+                !~ - Does not include
+                """
+{%- elif option.name == "size" -%}, \
+                help="Quantity of results returned. Max is 1000."
+{%- elif option.name == "offset" -%}, \
+                help="Display results starting from offset."
+{%- endif -%}
 )
 {%- endfor -%}
 {# sort is missing in the swagger definitions, added below #}
 {%- if "sort" not in options %}
 @click.option("--sort", "sort", "-S", type=str, metavar="[+,-]FIELD,...", \
-               help="Sort the result by the field specified")
+               help="Sort by field; inc (+), dec (-)")
 {%- endif %}
 @click.option("--count", "-c", "count", is_flag=True, help="Return count of objects instead of data.")
 @click.option("--total", "-C", "total", is_flag=True, help="Return qty of all objects instead of data.")
