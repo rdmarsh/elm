@@ -120,11 +120,23 @@ def engine(elm, **kwargs):
     obj = response.json()
     #obj = response.content.decode('utf-8')
 
-    logging.info('total records: %s', obj['total'])
-    logging.debug('searchId: %s', obj['searchId'])
-    logging.debug('isMin: %s', obj['isMin'])
-
+    #for debugging, remove later
     #print(obj)
+
+    if 'items' not in obj:
+        obj = {
+            "total": 1,
+            "items": [obj],
+            "searchId": None,
+            "isMin": False
+        }
+
+    #for debugging, remove later
+    #print(obj)
+
+    logging.info('total records: %s', obj.get('total', None))
+    logging.debug('searchId: %s', obj.get('searchId', None))
+    logging.debug('isMin: %s', obj.get('isMin', None))
 
     #if total is a flag, show total instead
     #if count is a flag, show count instead
