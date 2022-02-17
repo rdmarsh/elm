@@ -54,9 +54,15 @@ import engine
 def {{ command }}(elm, **kwargs):
     """{{ summary | capitalize }}.
 
+    API Path:
+
+    \b
     {{ path }}
 
-    https://www.logicmonitor.com/swagger-ui-master/dist/
+    Swagger URL:
+
+    \b
+    https://www.logicmonitor.com/swagger-ui-master/dist/#/{{ tag | urlencode }}/{{ opid | urlencode }}
     """
     elm.command = '{{ command }}'
     elm.path = '{{ path }}'

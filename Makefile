@@ -59,8 +59,9 @@ lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.js
 CMDSOURCES := $(wildcard $(defdir)/[A-Z]*.json)
 CMDTARGETS := $(patsubst $(defdir)/%.json,$(cmddir)/%.py,$(CMDSOURCES))
 TSTTARGETS := $(patsubst $(defdir)/%.json,%,$(CMDSOURCES))
-#BROKEN := AdminById
-#TSTTARGETS := $(filter-out $(BROKEN),$(TSTTARGETS))
+IDSOURCES := $(wildcard $(defdir)/[A-Z]*Id.json)
+IDTARGETS := $(patsubst $(defdir)/%.json,%,$(IDSOURCES))
+NONIDTARGETS := $(filter-out $(IDTARGETS),$(TSTTARGETS))
 
 # COLOUR OUTPUT
 # ---------------------------------------
@@ -107,7 +108,7 @@ $(defdir)/swagger.json:
 # cant split this long line, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
 $(defdir)/commands.json: $(defdir)/swagger.json
-	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId |= gsub("^(get|collect)";"") | { command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
+	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".json"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	$(MAKE)
 	@echo "$@ $(OK_STRING)"
@@ -163,9 +164,9 @@ testhelp: ## Run all commands with help flag
 
 .PHONY: testcmds
 testcmds: ## Run all tests with a valid command
-	@$(foreach cmd,$(TSTTARGETS), \
-		echo testing: ./$(name) $(cmd) ;\
-		./$(name) $(cmd) || exit ;\
+	@$(foreach cmd,$(NONIDTARGETS), \
+		echo testing: ./$(name) $(cmd) -s 1 ;\
+		./$(name) $(cmd) -s 1 || exit ;\
 		)
 	@echo "$@ $(OK_STRING)"
 
