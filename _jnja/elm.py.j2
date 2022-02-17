@@ -43,7 +43,7 @@ import click
 import click_config_file
 
 {% for command in commands -%}
-from _commands import {{ command.command }}
+from _cmds import {{ command.command }}
 {% endfor %}
 logger = logging.getLogger()
 FORMAT = "%(levelname)07s %(asctime)s %(filename)s:%(lineno)s %(funcName)s %(message)s"
