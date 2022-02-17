@@ -22,118 +22,184 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+# MAKE FLAGS
+#MAKEFLAGS += -j4
+
+
+# SOURCE DIR and FILENAMES
+# ---------------------------------------
+# change only if needed
+
 name := elm
 prog := $(name).py
+
+bakdir := ../$(name)_back
+cmddir := _cmds
+defdir := _defs
+jnjdir := _jnja
+
+# EXECUTABLE AND PROGRAM FLAGS
+# ---------------------------------------
+# change only if needed
 
 CURL := curl
 JQ := jq
 AWK := awk
 JINJA := jinja2
 
-swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
+TAR := tar
+TARFLAGS += -cvf
 
-bakdir := ../$(name)_back
-cmddir := _commands
-defdir := _definitions
-tmpdir := _templates
+lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
+
+# BUILD SOURCE AND TARGTS
+# ---------------------------------------
+# do not change
 
 CMDSOURCES := $(wildcard $(defdir)/[A-Z]*.json)
 CMDTARGETS := $(patsubst $(defdir)/%.json,$(cmddir)/%.py,$(CMDSOURCES))
+TSTTARGETS := $(patsubst $(defdir)/%.json,%,$(CMDSOURCES))
+#BROKEN := AdminById
+#TSTTARGETS := $(filter-out $(BROKEN),$(TSTTARGETS))
 
-########################################
-###
-### TARGETS
-###
-########################################
+# COLOUR OUTPUT
+# ---------------------------------------
+# do not change
+
+NO_COLOR=\x1b[0m
+OK_COLOR=\x1b[32;01m
+OK_STRING=$(OK_COLOR)[OK]$(NO_COLOR)
+
+# TARGETS
+# ---------------------------------------
+# do not change
 
 .PHONY: all
-all: init commands ## Build everything
+all: init cmds ## Build everything
+	@echo "$@ $(OK_STRING)"
 
-# ---------------------------------------
-#  check needed progs
-# ---------------------------------------
+# INIT FOR COMPILE
+# =======================================
+# do not change
 
-.PHONY: req PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists
-req: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists ## Perform requirement check
+.PHONY: init
+init: reqs $(bakdir) $(cmddir) $(defdir) $(jnjdir) $(defdir)/commands.json ## Initialise dirs, get swagger file, create definition files
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: reqs PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists TAR-exists
+reqs: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists TAR-exists
+	@echo "$@ $(OK_STRING)"
 PYTHON-exists: ; @which python3 > /dev/null
 CURL-exists: ; @which $(CURL) > /dev/null
 JQ-exists: ; @which $(JQ) > /dev/null
 AWK-exists: ; @which $(AWK) > /dev/null
 JINJA-exists: ; @which $(JINJA) > /dev/null
+TAR-exists: ; @which $(TAR) > /dev/null
 
-# ---------------------------------------
-#  init, not called by default
-# ---------------------------------------
-
-.PHONY: req init
-init: $(bakdir) $(cmddir) $(defdir) $(tmpdir) $(defdir)/commands.json ## Initialise dirs, get swagger file, create definition files
-
-$(bakdir) $(cmddir) $(defdir) $(tmpdir):
+$(bakdir) $(cmddir) $(defdir) $(jnjdir):
 	mkdir -p $@
+	@echo "$@ $(OK_STRING)"
 
 $(defdir)/swagger.json:
-	$(CURL) $(swagger_url) $(OUTPUT_OPTION)
+	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
+	@echo "$@ $(OK_STRING)"
 
-#cant split this long line
-#high level magic https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
+# cant split this long line, high level magic
+# https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
 $(defdir)/commands.json: $(defdir)/swagger.json
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId |= gsub("^(get|collect)";"") | { command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".json"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	$(MAKE)
+	@echo "$@ $(OK_STRING)"
 
-# ---------------------------------------
-#  python commands
-# ---------------------------------------
+# BUILD COMMANDS
+# =======================================
+# do not change
 
-.PHONY: commands
-commands: engine.py $(prog)
+.PHONY: cmds
+cmds: engine.py $(name)
+	@echo "$@ $(OK_STRING)"
 
-$(prog): $(tmpdir)/$(prog).j2 $(defdir)/commands.json $(CMDTARGETS)
-	$(JINJA) $(tmpdir)/$(prog).j2 $(defdir)/commands.json  $(OUTPUT_OPTION)
+$(name): $(prog)
+	ln -sf $< $@
+	@echo "$@ $(OK_STRING)"
+
+$(prog): $(jnjdir)/$(prog).j2 $(defdir)/commands.json $(CMDTARGETS)
+	$(JINJA) $(jnjdir)/$(prog).j2 $(defdir)/commands.json  $(OUTPUT_OPTION)
 	chmod 755 $@
+	@echo "$@ $(OK_STRING)"
 
-engine.py: $(tmpdir)/engine.py.j2 $(defdir)/commands.json
+engine.py: $(jnjdir)/engine.py.j2 $(defdir)/commands.json
 	$(JINJA) $^ $(OUTPUT_OPTION)
+	@echo "$@ $(OK_STRING)"
 
-$(cmddir)/%.py: $(tmpdir)/command.py.j2 $(defdir)/%.json
+$(cmddir)/%.py: $(jnjdir)/command.py.j2 $(defdir)/%.json
 	$(JINJA) $^ $(OUTPUT_OPTION)
+	@echo "$@ $(OK_STRING)"
 
-# ---------------------------------------
-#  tests
-# ---------------------------------------
+# TESTS
+# =======================================
+# do not change
 
-.PHONY: tests
-tests: ## run tests
-	@echo test $(prog) ; ./$(prog) >/dev/null
-	@echo test $(prog) --help ; ./$(prog) --help >/dev/null
-	@echo test $(prog) --version ; ./$(prog) --version >/dev/null
+.PHONY: test
+test: testbasic testhelp testcmds ## Run all tests
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testbasic
+testbasic: ## Run basic elm tests
+	@echo testing: ./$(name) ; ./$(name) >/dev/null
+	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
+	@echo testing: ./$(name) --version ; ./$(name) --version >/dev/null
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testhelp
+testhelp: ## Run all commands with help flag
+	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
+	@$(foreach cmd,$(TSTTARGETS), \
+		echo testing: ./$(name) $(cmd) --help ;\
+		./$(name) $(cmd) --help >/dev/null || exit ;\
+		)
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testcmds
+testcmds: ## Run all tests with a valid command
+	@$(foreach cmd,$(TSTTARGETS), \
+		echo testing: ./$(name) $(cmd) ;\
+		./$(name) $(cmd) || exit ;\
+		)
+	@echo "$@ $(OK_STRING)"
 
 .PHONY: fail
 fail: ## a failing test
 	@echo test false ; false >/dev/null
 
-# ---------------------------------------
-#  cleanup
-# ---------------------------------------
+# BACKUP
+# =======================================
+# do not change
 
-back: nomac ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
-	tar -cvf $(bakdir)/$(name).$(shell date +%Y-%m-%d).tar.gz .
+.PHONY: back
+back: nomac $(bakdir) TAR-exists  ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
+	$(TAR) $(TARFLAGS) $(bakdir)/$(name).$(shell date +%Y-%m-%d).tar.gz .
+	@echo "$@ $(OK_STRING)"
 
 .PHONY: clean
 clean: nomac ## Remove generated files
 	$(RM) -r __pycache__
 	$(RM) -r $(cmddir) $(defdir)
 	$(RM) $(CMDTARGETS)
+	$(RM) $(name)
 	$(RM) $(prog)
 	$(RM) engine.py
+	@echo "$@ $(OK_STRING)"
 
 .PHONY: nomac
-nomac:
+nomac: ## Remove unneeded mac files
 	$(RM) .DS_Store
+	@echo "$@ $(OK_STRING)"
 
-# ---------------------------------------
-#  about help
-# ---------------------------------------
+# ABOUT COPY HELP
+# =======================================
+# do not change
 
 .PHONY: about
 about: ## About this Makefile
