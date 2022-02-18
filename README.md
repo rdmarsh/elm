@@ -26,8 +26,8 @@ make
 make cfg
 cp ~./elm/config.example.ini ~./elm/config.ini
 vi ~./elm/config.ini
-./elm testbasic
-./elm testverb
+make testbasic
+make testverb
 ```
 
 ### Pre-requisites
@@ -39,8 +39,8 @@ check some of this for you by running `make init`.
 * `curl`
 * `jq`
 * `awk`
-* `tar` -- to back up files
-* `git` -- to clone the repo
+* `tar` -- to back up files during dev
+* `git` -- to initially clone the repo
 * `jinja2`
 * `python3`
 * `pip` to install the following:
@@ -91,7 +91,7 @@ create the python files from jinja templates.
 
 These are options for the Makefile
 
-```shell
+```
 make help
 
 Usage: make [flags] [option]
@@ -121,9 +121,9 @@ Useful make flags:
 
 ## Configuration
 
-> In a hurry? Put your credentials in `~/.elm/config.ini`
+> In a hurry? Put your credentials in `~/.elm/config.ini` and secure permissions
 
-You don't need a config file, but to save passing values on the command
+You don't need a config file, but to prevent passing values on the command
 line to hide them from a process list you can create a file in (default)
 `~/.elm/config.ini` with the following contents:
 
@@ -141,7 +141,7 @@ it for you:
 `~./elm/config.example.ini`
 
 Ensure the permisions for the dir and file are only readable by your
-account. Again the Makefile should do this for you, or you can re-run it
+account. Again the Makefile should do this for you, which you can re-run
 with `make config`.
 
 * `mkdir ~/.elm`
@@ -165,7 +165,8 @@ reverse username, and put in csv format:
 ```shell
 ./elm -o csv AdminList -s5 -f id,username -S -username -F id\>:2,id\<:5
 ```
-### General help
+
+## General help
 
 ```shell
 $ ./elm --help
