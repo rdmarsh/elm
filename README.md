@@ -11,11 +11,13 @@ raw or txt output
 * Retrieve information from LogicMonitor via the LM API.
 * Format in csv, html, json, latex, plain text
 
-## Installing / Getting started
+## Installing
 
 What you need to do to get up and running.
 
-### Quick start / Initial install
+### Quick start
+
+> In a hurry, just do this:
 
 ```shell
 git clone https://github.com/rdmarsh/elm.git
@@ -64,12 +66,15 @@ cd elm
 You will need the following items configured:
 
 * A LogicMonitor API id and key associated with your account
-* (optional) a config file with the API info (normally in `~/.elm/config.ini`)
-* Pre-requisite software
+* (optional) a config file with the API info (default to `~/.elm/config.ini`)
+  * If you don't have this, run `make cfg`
+* Pre-requisite software listed above
 
 ## Developing
 
-Any changes should be made to the `Makefile` or the templates in `_jnja/`
+Any changes should be made to the `Makefile` or the templates in
+`_jnja/`. Files in `_cmds` and `_defs` are in danger of being
+overwritten.
 
 ### Building
 
@@ -79,10 +84,14 @@ After cloning, to build the needed files, run the following:
 make
 ```
 
-This will Initialise dirs, get swagger file, create definition files,
+This will initialise dirs, get swagger file, create definition files,
 create the python files from jinja templates.
 
-```
+### Makefile Help
+
+These are options for the Makefile
+
+```shell
 make help
 
 Usage: make [flags] [option]
@@ -111,6 +120,8 @@ Useful make flags:
 ```
 
 ## Configuration
+
+> In a hurry? Put your credentials in `~/.elm/config.ini`
 
 You don't need a config file, but to save passing values on the command
 line to hide them from a process list you can create a file in (default)
