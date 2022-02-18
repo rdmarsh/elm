@@ -129,7 +129,9 @@ dmypy.json
 .pyre/
 
 # ELM project compiled files
-_commands/
-_definitions/
+elm
 elm.py
 engine.py
+_cmds/
+_defs/
+
