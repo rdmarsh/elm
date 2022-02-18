@@ -113,12 +113,22 @@ $(defdir)/commands.json: $(defdir)/swagger.json
 	$(MAKE)
 	@echo "$@ $(OK_STRING)"
 
+.PHONY: cfg
+cfg: ## Create config dir, copy example file and set permissions of all config files
+	mkdir -p ~/.$(name)
+	chmod 700 ~/.$(name)
+	cp config.example.ini ~/.$(name)
+	chmod 600 ~/.$(name)/*
+	@echo "Now go copy ~/.$(name)/config.example.ini to ~/.$(name)/config.ini and edit to taste"
+	@echo "$@ $(OK_STRING)"
+
+
 # BUILD COMMANDS
 # =======================================
 # do not change
 
 .PHONY: cmds
-cmds: engine.py $(name)
+cmds: engine.py $(name) ## Make python commands from templates
 	@echo "$@ $(OK_STRING)"
 
 $(name): $(prog)
@@ -143,14 +153,14 @@ $(cmddir)/%.py: $(jnjdir)/command.py.j2 $(defdir)/%.json
 # do not change
 
 .PHONY: test
-test: testbasic testhelp testcmds ## Run all tests
+test: testbasic testhelp testcmds testfmts testverb ## Run all tests
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testbasic
 testbasic: ## Run basic elm tests
 	@echo testing: ./$(name) ; ./$(name) >/dev/null
 	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
-	@echo testing: ./$(name) --version ; ./$(name) --version >/dev/null
+	@echo testing: ./$(name) --version ; ./$(name) --version
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testhelp
@@ -168,6 +178,24 @@ testcmds: ## Run all tests with a valid command
 		echo testing: ./$(name) $(cmd) -s 1 ;\
 		./$(name) $(cmd) -s 1 || exit ;\
 		)
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testfmts
+testfmts: ## Run one test with all formats
+	@echo testing: ./$(name) --output csv        MetricsUsage ; ./$(name) --output csv        MetricsUsage
+	@echo testing: ./$(name) --output html       MetricsUsage ; ./$(name) --output html       MetricsUsage
+	@echo testing: ./$(name) --output prettyhtml MetricsUsage ; ./$(name) --output prettyhtml MetricsUsage
+	@echo testing: ./$(name) --output json       MetricsUsage ; ./$(name) --output json       MetricsUsage
+	@echo testing: ./$(name) --output prettyjson MetricsUsage ; ./$(name) --output prettyjson MetricsUsage
+	@echo testing: ./$(name) --output latex      MetricsUsage ; ./$(name) --output latex      MetricsUsage
+	@echo testing: ./$(name) --output raw        MetricsUsage ; ./$(name) --output raw        MetricsUsage
+	@echo testing: ./$(name) --output txt        MetricsUsage ; ./$(name) --output txt        MetricsUsage
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testverb
+testverb: ## Test the verbose flags
+	@echo testing: ./$(name) -v  MetricsUsage ; ./$(name) -v  MetricsUsage
+	@echo testing: ./$(name) -vv MetricsUsage ; ./$(name) -vv MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: fail
