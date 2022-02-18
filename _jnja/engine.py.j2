@@ -177,8 +177,6 @@ def output(items, command, output='json'):
             click.echo(colorful_json.rstrip("\n")) # highlight adds an extra blank line on the end
         elif output == 'latex':
             click.echo(df.to_latex(index=False))
-        elif output == 'sql':
-            click.echo(df.to_sql(index=False))
         elif output == 'raw':
             click.echo(items)
         else:
