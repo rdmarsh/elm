@@ -8,8 +8,8 @@ raw or txt output
 
 ## Features
 
-* Retrieve information from LogicMonitor via the LM API.
-* Format in csv, html, json, latex, plain text
+* Retrieve information from LogicMonitor via the LM API
+* Format output in csv, html, json, latex, or plain text
 
 ## Installing
 
@@ -17,7 +17,7 @@ What you need to do to get up and running.
 
 ### Quick start
 
-> In a hurry, just do this:
+> In a hurry? Just do this:
 
 ```shell
 git clone https://github.com/rdmarsh/elm.git
@@ -55,29 +55,16 @@ check some of this for you by running `make init`.
 
 ### Clone the repo
 
+To clone the repo, run the following:
+
 ```shell
 git clone https://github.com/rdmarsh/elm.git
 cd elm
 ```
 
-### Initial Configuration
-
-You will need the following items configured:
-
-* A LogicMonitor API id and key associated with your account
-* (optional) a config file with the API info (default to `~/.elm/config.ini`)
-  * If you don't have this, run `make cfg` and follow the directions
-* Pre-requisite software listed above
-
-## Developing
-
-Any changes should be made to the `Makefile` or the templates in
-`_jnja/`. Files in `_cmds` and `_defs` are in danger of being
-overwritten when `make` is run.
-
 ### Building
 
-After cloning, to build the needed files, run the following:
+After cloning, run the following in the `elm` dir:
 
 ```shell
 make
@@ -85,18 +72,35 @@ make
 
 This will:
 
-* initialise needed dirs,
-* get swagger file from LogicMonitor
-* create definition files
-* create the python files from jinja templates
-* create config dir
-* copy example config file
+* Initialise needed dirs
+* Get json swagger file from LogicMonitor
+* Create json definition files
+* Create the python files from jinja templates
+* Create config dir
+* Copy example config file
+
+### Initial configuration
+
+You will need the following items to run the program after building:
+
+* A LogicMonitor API id and key associated with your account
+* (optional) a config file with the API info (default to `~/.elm/config.ini`)
+  * If you don't have this, run `make cfg` and follow the directions
+* Pre-requisite software listed above
+
+See [Configuration][] below for more details.
+
+### Developing
+
+Any changes should be made to the `Makefile` or the templates in the
+`_jnja/` dir. Files in the `_cmds` and `_defs` dir are in danger of
+being overwritten when `make` is (re)run.
 
 ### Makefile Help
 
 These are options for the `Makefile`
 
-```
+```text
 make help
 
 Usage: make [flags] [option]
@@ -129,39 +133,78 @@ Useful make flags:
 > In a hurry? Put your credentials in `~/.elm/config.ini` and secure
 > permissions. See `config.example.ini` for details.
 
-You don't need a config file, but to prevent passing values on the command
-line to hide them from a process list you can create a file in (default)
-`~/.elm/config.ini` with the following contents:
+You don't need a config file, but to prevent passing API details on the
+command line (and hide them from a process list) you can create a file
+in (by default) `~/.elm/config.ini` with the following contents:
 
+```ini
+access_id = '12345678901234567890'
+access_key = '1234567890123456789123456789012345678901'
+account_name = 'example'
 ```
-* `access_id`
-* `access_key`
-* `account_name`
-```
 
-You can set any cli flag in the file, but they are the three most useful.
+Change the details as needed.
 
-The `Makefile` should create this dir and place an example config file in
-it for you:
+Config files use unrepr format:
+https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode
+
+You can set any cli option in the config file, but the above are the
+three most useful.
+
+The `Makefile` should have created this dir and placed an example config
+file in it for you:
 
 `~./elm/config.example.ini`
 
-Ensure the permisions for the dir and file are only readable by your
-account. Again the `Makefile` should do this for you, which you can re-run
-with `make config`.
+Ensure the permisions for the dir and file are readable only by your
+account. Again the `Makefile` should have done this for you. You can
+force it to re-run with `make -B cfg`.
 
-* `mkdir ~/.elm`
-* `chown -R USER:GROUP ~/.elm`
-* `chmod 700 ~/.elm`
-* `chmod 600 ~/.elm/config.ini`
-
-Config files use unrepr format:
-
-https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode
+```shell
+mkdir -p ~/.elm
+chmod 700 ~/.elm
+chmod 600 ~/.elm/*
+chown $(id -u):$(id -g) ~/.elm
+```
 
 ## Examples
 
 The following are useful examples that show you how to get started:
+
+### Get metrics about your LogicMonitor usage
+
+A simple query to get usage metrics and show them in formatted json:
+
+```shell
+./elm -o prettyjson MetricsUsage
+```
+
+```json
+{
+  "MetricsUsage": [
+    {
+      "numOfAWSDevices": 16,
+      "numOfAzureDevices": 6,
+      "numOfCombinedAWSDevices": 8,
+      "numOfCombinedAzureDevices": 12,
+      "numOfCombinedGcpDevices": 0,
+      "numOfConfigSourceDevices": 0,
+      "numOfGcpDevices": 0,
+      "numOfServices": 0,
+      "numOfStoppedAWSDevices": 10,
+      "numOfStoppedAzureDevices": 0,
+      "numOfStoppedGcpDevices": 0,
+      "numOfTerminatedAWSDevices": 6,
+      "numOfTerminatedAzureDevices": 0,
+      "numOfTerminatedGcpCloudDevices": 0,
+      "numOfWebsites": 3,
+      "numberOfDevices": 126,
+      "numberOfKubernetesDevices": 148,
+      "numberOfStandardDevices": 106
+    }
+  ]
+}
+```
 
 ### Export users by userid
 
@@ -172,10 +215,22 @@ reverse username, and put in csv format:
 ./elm -o csv AdminList -s5 -f id,username -S -username -F id\>:2,id\<:5
 ```
 
-## General help
+### Use a different config file
+
+You can have more than one config file. This is handy if you have
+multiple API keys or accounts and want to switch between them:
 
 ```shell
-$ ./elm --help
+./elm --config ~/.elm/dev.ini MetricsUsage
+```
+
+## General help
+
+To see the help, run `./elm --help`, you can also see specific help for
+each command by running `./elm COMMAND --help` (see [AdminById help][]
+below)
+
+```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
 
   Extract LogicMonitor
@@ -339,8 +394,9 @@ Commands:
 This is only one example, but other help messages are similar. The URL
 will take you directly to the swagger document relating to that command.
 
-```
-$ ./elm AdminById --help
+`./elm AdminById --help`
+
+```text
 Usage: elm AdminById [OPTIONS]
 
   Get user.
@@ -366,8 +422,8 @@ Options:
 
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
 
-If you'd like to contribute, please fork the repository and use a feature
-branch. Pull requests are welcome.
+If you'd like to contribute, please fork the repository and use a
+feature branch. Pull requests are welcome.
 
 Please note that this project is released with a Contributor Code of
 Conduct. By participating in this project you agree to abide by its
