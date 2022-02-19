@@ -2,7 +2,7 @@ import logging
 import click
 import engine
 
-@click.command(short_help='{{ summary | capitalize}}.')
+@click.command(short_help='{{ summary | capitalize }}')
 {%- for option in options %}
 @click.option("--{{ option.name }}{%- if option.type == "boolean" -%}/--dont-{{ option.name }}{%- endif -%}" , "{{ option.name }}"
 {%- if option.name == "fields" -%}, "-f"{% endif -%}
@@ -52,7 +52,7 @@ import engine
 @click.option("--total", "-C", "total", is_flag=True, help="Return qty of all objects instead of data.")
 @click.pass_obj
 def {{ command }}(elm, **kwargs):
-    """{{ summary | capitalize }}.
+    """{{ summary | capitalize }}
 
     API Path:
 
