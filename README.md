@@ -2,9 +2,9 @@
 
 > Extract LogicMonitor via API
 
-This is a tool designed to make it simple to run basic queries against
-the LogicMonitor API and format the results as csv, html, json, latex,
-raw or txt output
+This tool is designed to make it simple to run basic queries against the
+LogicMonitor API and format the results as csv, html, json, latex, raw
+or txt output
 
 * [Features](#features)
 * [Installing](#installing)
