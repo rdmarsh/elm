@@ -76,7 +76,7 @@ OK_STRING=$(OK_COLOR)[OK]$(NO_COLOR)
 # do not change
 
 .PHONY: all
-all: init cmds cfg ## Build everything
+all: init cmds cfg ## Build everything (init, cmds, cfg)
 	@echo "$@ $(OK_STRING)"
 
 # INIT FOR COMPILE
@@ -115,15 +115,24 @@ $(defdir)/commands.json: $(defdir)/swagger.json
 
 .PHONY: cfg
 cfg: ~/.$(name)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
+	@echo "$@ $(OK_STRING)"
 
 ~/.$(name)/config.example.ini: config.example.ini
-	mkdir -p ~/.$(name)
-	chmod 700 ~/.$(name)
-	cp config.example.ini ~/.$(name)
-	chmod 600 ~/.$(name)/*
-	chown $$(id -u):$$(id -g) ~/.$(name)
-	@echo "copy ~/.$(name)/config.example.ini to ~/.$(name)/config.ini and edit to taste"
-	@echo "$@ $(OK_STRING)"
+	mkdir -p $(@D)
+	chmod 700 $(@D)
+	cp $< $@
+	chmod 600 $(@D)/*
+	chown $$(id -u):$$(id -g) $(@D)
+	@if [ ! -s $(@D)/config.ini ] ; then \
+		echo ;\
+		echo "$(OK_COLOR)>>> now do the below and edit to taste <<<$(NO_COLOR)" ;\
+		echo ;\
+		echo "$(OK_COLOR)cp $@ $(@D)/config.ini$(NO_COLOR)" ;\
+		echo "$(OK_COLOR)vi $(@D)/config.ini$(NO_COLOR)" ;\
+		echo ;\
+		echo ;\
+	fi
+	@echo "$(@F) $(OK_STRING)"
 
 
 # BUILD COMMANDS
