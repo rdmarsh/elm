@@ -23,8 +23,9 @@ def engine(elm, **kwargs):
     """This is common engine for all commands."""
 
     logging.debug('passed kwargs: %s', kwargs)
-    logging.debug('elm.command: %s', elm.command)
-    logging.debug('elm.path: %s', elm.path)
+    logging.info('elm.command: %s', elm.command)
+    logging.info('elm.path: %s', elm.path)
+    logging.info('elm.output: %s', elm.output)
 
     # ben magic, throw away False and Empty flags
     flags = {k: v for k, v in kwargs.items() if v}
@@ -39,6 +40,7 @@ def engine(elm, **kwargs):
     attributes = re.findall('\{([A-Za-z0-9_]+?)\}',elm.path)
     logging.debug('attributes: %s', attributes)
 
+    #todo: what does this do?
     for attribute in attributes:
         logging.debug('ins "%s" value "%s" into %s', attribute, flags[attribute], elm.path)
         elm.path = elm.path.replace("{" + attribute + "}", str(flags[attribute]))
@@ -109,21 +111,18 @@ def engine(elm, **kwargs):
     response.encoding = 'utf-8'
 
     if elm.export:
+        logging.debug('elm.export: %s', elm.export)
+        logging.debug('elm.config_file: %s', elm.config_file)
+        logging.debug('elm.path: %s', elm.path)
+        logging.debug('elm.flags: %s', elm.flags)
         export(elm.export, elm.config_file, elm.command, elm.path, flags)
-
-    #send obj to output with format
-    logging.debug('elm.command: %s', elm.command)
-    logging.debug('elm.path: %s', elm.path)
-    logging.info('elm.output: %s', elm.output)
 
     #obj = response.content
     obj = response.json()
     #obj = response.content.decode('utf-8')
 
-    #for debugging, remove later
-    #print(obj)
-
     if 'items' not in obj:
+        logging.debug('items not in obj, setting to defaults')
         obj = {
             "total": 1,
             "items": [obj],
@@ -131,18 +130,16 @@ def engine(elm, **kwargs):
             "isMin": False
         }
 
-    #for debugging, remove later
-    #print(obj)
-
     logging.info('total records: %s', obj.get('total', None))
     logging.debug('searchId: %s', obj.get('searchId', None))
     logging.debug('isMin: %s', obj.get('isMin', None))
+    logging.debug('obj: %s', obj)
 
-    #if total is a flag, show total instead
-    #if count is a flag, show count instead
     if 'total' in flags:
+        logging.debug('total is a flag, showing total instead')
         click.echo(obj['total'])
     elif 'count' in flags:
+        logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
     else:
         output(obj['items'], elm.command, elm.output)
@@ -161,6 +158,7 @@ def output(items, command, output='json'):
     if not df.empty:
         #convert any columns with an subdict
 
+        logging.debug('output: %s', output)
         if output == 'csv':
             click.echo(df.to_csv(index=False))
         elif output == 'html':

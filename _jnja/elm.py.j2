@@ -97,6 +97,10 @@ def cli(ctx, access_id, access_key, account_name, proxy, output, verbose, export
         socket.socket = socks.socksocket
         logging.info('proxy: %s:%s', proxy[0], proxy[1])
 
+    logging.info('config_file: %s', config_file)
+    logging.info('account_name: %s', account_name)
+    logging.info('output: %s', output)
+    logging.info('export: %s', export)
     ctx.obj = ELM(config_file, access_id, access_key, account_name, output, export)
 
 {% for command in commands -%}
