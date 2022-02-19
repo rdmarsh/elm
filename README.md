@@ -176,7 +176,7 @@ file in it for you:
 
 `~./elm/config.example.ini`
 
-Ensure the permisions for the dir and file are readable only by your
+Ensure the permissions for the dir and file are readable only by your
 account. Again the `Makefile` should have done this for you. You can
 force it to re-run with `make -B cfg`
 
