@@ -229,7 +229,7 @@ multiple API keys or accounts and want to switch between them:
 To see the help, run `./elm --help`
 
 You can also see specific help for each command by running `./elm
-COMMAND --help` (see [AdminById help](adminbyid-help) below)
+COMMAND --help` (see [AdminById help](#adminbyid-help) below)
 
 ```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
