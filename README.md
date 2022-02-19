@@ -23,7 +23,6 @@ What you need to do to get up and running.
 git clone https://github.com/rdmarsh/elm.git
 cd elm
 make
-make cfg
 cp ~./elm/config.example.ini ~./elm/config.ini
 vi ~./elm/config.ini
 make testbasic
@@ -32,7 +31,7 @@ make testverb
 
 ### Pre-requisites
 
-You will need the following software installed. The Makefile will
+You will need the following software installed. The `Makefile` will
 check some of this for you by running `make init`.
 
 * `make`
@@ -67,14 +66,14 @@ You will need the following items configured:
 
 * A LogicMonitor API id and key associated with your account
 * (optional) a config file with the API info (default to `~/.elm/config.ini`)
-  * If you don't have this, run `make cfg`
+  * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
 
 ## Developing
 
 Any changes should be made to the `Makefile` or the templates in
 `_jnja/`. Files in `_cmds` and `_defs` are in danger of being
-overwritten.
+overwritten when `make` is run.
 
 ### Building
 
@@ -84,18 +83,24 @@ After cloning, to build the needed files, run the following:
 make
 ```
 
-This will initialise dirs, get swagger file, create definition files,
-create the python files from jinja templates.
+This will:
+
+* initialise needed dirs,
+* get swagger file from LogicMonitor
+* create definition files
+* create the python files from jinja templates
+* create config dir
+* copy example config file
 
 ### Makefile Help
 
-These are options for the Makefile
+These are options for the `Makefile`
 
 ```
 make help
 
 Usage: make [flags] [option]
-  make all           Build everything
+  make all           Build everything (init, cmds, cfg)
   make init          Initialise dirs, get swagger file, create definition files
   make cmds          Make python commands from templates
   make cfg           Create config dir, copy example file and set permissions
@@ -121,7 +126,8 @@ Useful make flags:
 
 ## Configuration
 
-> In a hurry? Put your credentials in `~/.elm/config.ini` and secure permissions
+> In a hurry? Put your credentials in `~/.elm/config.ini` and secure
+> permissions. See `config.example.ini` for details.
 
 You don't need a config file, but to prevent passing values on the command
 line to hide them from a process list you can create a file in (default)
@@ -135,13 +141,13 @@ line to hide them from a process list you can create a file in (default)
 
 You can set any cli flag in the file, but they are the three most useful.
 
-The Makefile should create this dir and place an example config file in
+The `Makefile` should create this dir and place an example config file in
 it for you:
 
 `~./elm/config.example.ini`
 
 Ensure the permisions for the dir and file are only readable by your
-account. Again the Makefile should do this for you, which you can re-run
+account. Again the `Makefile` should do this for you, which you can re-run
 with `make config`.
 
 * `mkdir ~/.elm`
