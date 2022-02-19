@@ -6,6 +6,26 @@ This is a tool designed to make it simple to run basic queries against
 the LogicMonitor API and format the results as csv, html, json, latex,
 raw or txt output
 
+* [Features](#features)
+* [Installing](#installing)
+  * [Quick start](#quick-start)
+  * [Pre-requisites](#pre-requisites)
+  * [Clone the repo](#clone-the-repo)
+  * [Building](#building)
+  * [Initial configuration](#initial-configuration)
+  * [Developing](#developing)
+  * [Makefile Help](#makefile-help)
+* [Configuration](#configuration)
+* [Examples](#examples)
+  * [Get metrics](#get-metrics)
+  * [Export users by userid](#export-users-by-userid)
+  * [Use a different config file](#use-a-different-config-file)
+* [General help](#general-help)
+  * [AdminById help](#adminbyid-help)
+* [Contributing](#contributing)
+* [Links](#links)
+* [Licensing](#licensing)
+
 ## Features
 
 * Retrieve information from LogicMonitor via the LM API
@@ -171,7 +191,7 @@ chown $(id -u):$(id -g) ~/.elm
 
 The following are useful examples that show you how to get started:
 
-### Get metrics about your LogicMonitor usage
+### Get metrics
 
 A simple query to get usage metrics and show them in formatted json:
 
