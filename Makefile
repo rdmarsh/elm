@@ -76,7 +76,7 @@ OK_STRING=$(OK_COLOR)[OK]$(NO_COLOR)
 # do not change
 
 .PHONY: all
-all: init cmds ## Build everything
+all: init cmds cfg ## Build everything
 	@echo "$@ $(OK_STRING)"
 
 # INIT FOR COMPILE
@@ -114,13 +114,15 @@ $(defdir)/commands.json: $(defdir)/swagger.json
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: cfg
-cfg: ## Create config dir, copy example file and set permissions of all config files
+cfg: ~/.$(name)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
+
+~/.$(name)/config.example.ini: config.example.ini
 	mkdir -p ~/.$(name)
 	chmod 700 ~/.$(name)
 	cp config.example.ini ~/.$(name)
 	chmod 600 ~/.$(name)/*
 	chown $$(id -u):$$(id -g) ~/.$(name)
-	@echo "Now go copy ~/.$(name)/config.example.ini to ~/.$(name)/config.ini and edit to taste"
+	@echo "copy ~/.$(name)/config.example.ini to ~/.$(name)/config.ini and edit to taste"
 	@echo "$@ $(OK_STRING)"
 
 
