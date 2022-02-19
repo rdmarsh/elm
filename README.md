@@ -13,7 +13,7 @@ raw or txt output
 
 ## Installing
 
-What you need to do to get up and running.
+What you need to do to get up and running
 
 ### Quick start
 
@@ -32,7 +32,7 @@ make testverb
 ### Pre-requisites
 
 You will need the following software installed. The `Makefile` will
-check some of this for you by running `make init`.
+check some of this for you by running `make init`
 
 * `make`
 * `curl`
@@ -88,13 +88,13 @@ You will need the following items to run the program after building:
   * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
 
-See [Configuration](#configuration) below for more details.
+See [Configuration](#configuration) below for more details
 
 ### Developing
 
 Any changes should be made to the `Makefile` or the templates in the
 `_jnja/` dir. Files in the `_cmds` and `_defs` dir are in danger of
-being overwritten when `make` is (re)run.
+being overwritten when `make` is (re)run
 
 ### Makefile Help
 
@@ -131,7 +131,7 @@ Useful make flags:
 ## Configuration
 
 > In a hurry? Put your credentials in `~/.elm/config.ini` and secure
-> permissions. See `config.example.ini` for details.
+> permissions. See `config.example.ini` for details
 
 You don't need a config file, but to prevent passing API details on the
 command line (and hide them from a process list) you can create a file
@@ -143,13 +143,13 @@ access_key = '1234567890123456789123456789012345678901'
 account_name = 'example'
 ```
 
-Change the details as needed.
+Change the details as needed
 
 Config files use unrepr format:
 https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode
 
 You can set any cli option in the config file, but the above are the
-three most useful.
+three most useful
 
 The `Makefile` should have created this dir and placed an example config
 file in it for you:
@@ -158,7 +158,7 @@ file in it for you:
 
 Ensure the permisions for the dir and file are readable only by your
 account. Again the `Makefile` should have done this for you. You can
-force it to re-run with `make -B cfg`.
+force it to re-run with `make -B cfg`
 
 ```shell
 mkdir -p ~/.elm
@@ -226,7 +226,7 @@ multiple API keys or accounts and want to switch between them:
 
 ## General help
 
-To see the help, run `./elm --help`.
+To see the help, run `./elm --help`
 
 You can also see specific help for each command by running `./elm
 COMMAND --help` (see [AdminById help](adminbyid-help) below)
@@ -237,155 +237,155 @@ Usage: elm [OPTIONS] COMMAND [ARGS]...
   Extract LogicMonitor
 
 Options:
-  --config FILE                   Read configuration from FILE.
-  -i, --access_id TEXT            API token access id.
-  -k, --access_key TEXT           API token access key.
-  -a, --account_name TEXT         LogicMonitor account (company) name.
-  -s, --proxy <HOST PORT>         Socks5 proxy address and port.
+  --config FILE                   Read configuration from FILE
+  -i, --access_id TEXT            API token access id
+  -k, --access_key TEXT           API token access key
+  -a, --account_name TEXT         LogicMonitor account (company) name
+  -s, --proxy <HOST PORT>         Socks5 proxy address and port
   -o, --output [csv|html|prettyhtml|json|prettyjson|latex|raw|txt]
-                                  Output format.
+                                  Output format
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME
-  --version                       Show the version and exit.
-  --help                          Show this message and exit.
+  --version                       Show the version and exit
+  --help                          Show this message and exit
 
 Commands:
-  AdminById                       Get user.
-  AdminList                       Get user list.
-  AlertById                       Get alert.
-  AlertList                       Get alert list.
-  AlertListByDeviceGroupId        Get device group alerts.
-  AlertListByDeviceId             Get alerts.
-  AlertRuleById                   Get alert rule by id.
-  AlertRuleList                   Get alert rule list.
-  AllSDTListByDeviceId            Get sdts for a device.
-  AllSDTListByWebsiteGroupId      Get a list of sdts for a website group.
-  ApiTokenList                    Get a list of api tokens across users.
-  ApiTokenListByAdminId           Get api tokens for a user.
-  AppliesToFunctionById           Get applies to function.
-  AppliesToFunctionList           Get applies to function list.
+  AdminById                       Get user
+  AdminList                       Get user list
+  AlertById                       Get alert
+  AlertList                       Get alert list
+  AlertListByDeviceGroupId        Get device group alerts
+  AlertListByDeviceId             Get alerts
+  AlertRuleById                   Get alert rule by id
+  AlertRuleList                   Get alert rule list
+  AllSDTListByDeviceId            Get sdts for a device
+  AllSDTListByWebsiteGroupId      Get a list of sdts for a website group
+  ApiTokenList                    Get a list of api tokens across users
+  ApiTokenListByAdminId           Get api tokens for a user
+  AppliesToFunctionById           Get applies to function
+  AppliesToFunctionList           Get applies to function list
   AssociatedDeviceListByDataSourceId
-                                  Get devices associated with a datasource.
-  AuditLogById                    Get audit log by id.
-  AuditLogList                    Get audit logs.
-  AwsExternalId                   Get aws external id.
-  CollectorById                   Get collector.
-  CollectorGroupById              Get collector group.
-  CollectorGroupList              Get collector group list.
-  CollectorInstaller              Get collector installer.
-  CollectorList                   Get collector list.
-  CollectorVersionList            Get collector version list.
-  DashboardById                   Get dashboard.
-  DashboardGroupById              Get dashboard group.
-  DashboardGroupList              Get dashboard group list.
-  DashboardList                   Get dashboard list.
-  DataSourceOverviewGraphById     Get datasource overview graph by id.
-  DataSourceOverviewGraphList     Get datasource overview graph list.
-  DatasourceById                  Get datasource by id.
-  DatasourceList                  Get datasource list.
-  DebugCommandResult              Get the result of a collector debug command.
-  DeviceById                      Get device by id.
-  DeviceConfigSourceConfig        Collect a config for a device.
-  DeviceConfigSourceConfigById    Get a config for a device.
+                                  Get devices associated with a datasource
+  AuditLogById                    Get audit log by id
+  AuditLogList                    Get audit logs
+  AwsExternalId                   Get aws external id
+  CollectorById                   Get collector
+  CollectorGroupById              Get collector group
+  CollectorGroupList              Get collector group list
+  CollectorInstaller              Get collector installer
+  CollectorList                   Get collector list
+  CollectorVersionList            Get collector version list
+  DashboardById                   Get dashboard
+  DashboardGroupById              Get dashboard group
+  DashboardGroupList              Get dashboard group list
+  DashboardList                   Get dashboard list
+  DataSourceOverviewGraphById     Get datasource overview graph by id
+  DataSourceOverviewGraphList     Get datasource overview graph list
+  DatasourceById                  Get datasource by id
+  DatasourceList                  Get datasource list
+  DebugCommandResult              Get the result of a collector debug command
+  DeviceById                      Get device by id
+  DeviceConfigSourceConfig        Collect a config for a device
+  DeviceConfigSourceConfigById    Get a config for a device
   DeviceConfigSourceConfigList    Get detailed config information for the
-                                  instance.
+                                  instance
 
-  DeviceDatasourceById            Get device datasource .
-  DeviceDatasourceDataById        Get device datasource data .
+  DeviceDatasourceById            Get device datasource
+  DeviceDatasourceDataById        Get device datasource data
   DeviceDatasourceInstanceAlertSettingById
-                                  Get device instance alert setting.
+                                  Get device instance alert setting
   DeviceDatasourceInstanceAlertSettingListOfDSI
                                   Get a list of alert settings for a device
-                                  datasource instance.
+                                  datasource instance
 
   DeviceDatasourceInstanceAlertSettingListOfDevice
-                                  Get a list of alert settings for a device.
-  DeviceDatasourceInstanceById    Get device instance .
-  DeviceDatasourceInstanceData    Get device instance data.
+                                  Get a list of alert settings for a device
+  DeviceDatasourceInstanceById    Get device instance
+  DeviceDatasourceInstanceData    Get device instance data
   DeviceDatasourceInstanceGraphData
-                                  Get device instance graph data .
+                                  Get device instance graph data
   DeviceDatasourceInstanceGroupById
-                                  Get device datasource instance group .
+                                  Get device datasource instance group
   DeviceDatasourceInstanceGroupList
-                                  Get device datasource instance group list .
+                                  Get device datasource instance group list
   DeviceDatasourceInstanceGroupOverviewGraphData
                                   Get device instance group overview graph
-                                  data .
+                                  data
 
-  DeviceDatasourceInstanceList    Get device instance list.
+  DeviceDatasourceInstanceList    Get device instance list
   DeviceDatasourceInstanceSDTHistory
-                                  Get device instance sdt history.
-  DeviceDatasourceList            Get device datasource list .
-  DeviceGroupById                 Get device group.
+                                  Get device instance sdt history
+  DeviceDatasourceList            Get device datasource list
+  DeviceGroupById                 Get device group
   DeviceGroupClusterAlertConfById
-                                  Get cluster alert configuration by id.
+                                  Get cluster alert configuration by id
   DeviceGroupClusterAlertConfList
                                   Get a list of cluster alert configurations
-                                  for a device group.
+                                  for a device group
 
   DeviceGroupDatasourceAlertSetting
-                                  Get device group datasource alert setting .
-  DeviceGroupDatasourceById       Get device group datasource.
-  DeviceGroupDatasourceList       Get device group datasource list.
-  DeviceGroupList                 Get device group list.
-  DeviceGroupPropertyByName       Get device group property by name.
-  DeviceGroupPropertyList         Get device group properties.
-  DeviceGroupSDTList              Get device group sdts.
+                                  Get device group datasource alert setting
+  DeviceGroupDatasourceById       Get device group datasource
+  DeviceGroupDatasourceList       Get device group datasource list
+  DeviceGroupList                 Get device group list
+  DeviceGroupPropertyByName       Get device group property by name
+  DeviceGroupPropertyList         Get device group properties
+  DeviceGroupSDTList              Get device group sdts
   DeviceInstanceGraphDataOnlyByInstanceId
-                                  Get device instance data.
-  DeviceInstanceList              Get device instance list.
-  DeviceList                      Get device list.
-  DevicePropertyByName            Get device property by name.
-  DevicePropertyList              Get device properties.
-  EscalationChainById             Get escalation chain by id.
-  EscalationChainList             Get escalation chain list.
-  EventSourceList                 Get eventsource list.
-  ExternalApiStats                Get external api stats info.
+                                  Get device instance data
+  DeviceInstanceList              Get device instance list
+  DeviceList                      Get device list
+  DevicePropertyByName            Get device property by name
+  DevicePropertyList              Get device properties
+  EscalationChainById             Get escalation chain by id
+  EscalationChainList             Get escalation chain list
+  EventSourceList                 Get eventsource list
+  ExternalApiStats                Get external api stats info
   ImmediateDeviceListByDeviceGroupId
-                                  Get immediate devices under group.
+                                  Get immediate devices under group
   ImmediateWebsiteListByWebsiteGroupId
-                                  Get a list of websites for a group.
-  MetricsUsage                    Get metrics usage.
-  NetflowEndpointList             Get netflow endpoint list.
-  NetflowFlowList                 Get netflow flow list.
-  NetflowPortList                 Get netflow port list.
-  NetscanById                     Get netscan by id.
-  NetscanList                     Get netscan list.
-  OpsNoteById                     Get opsnote by id.
-  OpsNoteList                     Get opsnote list.
-  RecipientGroupById              Get recipient group by id.
-  RecipientGroupList              Get recipient group list.
-  ReportById                      Get report by id.
-  ReportGroupById                 Get report group by id.
-  ReportGroupList                 Get report group list.
-  ReportList                      Get report list.
-  RoleById                        Get role by id.
-  RoleList                        Get role list.
-  SDTById                         Get sdt by id.
-  SDTHistoryByDeviceDataSourceId  Get sdt history for the device datasource.
-  SDTHistoryByDeviceGroupId       Get sdt history for the group.
-  SDTHistoryByDeviceId            Get sdt history for the device.
-  SDTHistoryByWebsiteGroupId      Get sdt history for the website group.
-  SDTHistoryByWebsiteId           Get sdt history for the website.
-  SDTList                         Get sdt list.
-  SiteMonitorCheckPointList       Get website checkpoint list.
-  TopTalkersGraph                 Get top talkers graph.
-  UnmonitoredDeviceList           Get unmonitored device list.
-  UpdateReasonListByDataSourceId  Get update history for a datasource.
-  WebsiteAlertListByWebsiteId     Get alerts for a website.
-  WebsiteById                     Get website by id.
-  WebsiteCheckpointDataById       Get data for a website checkpoint.
-  WebsiteDataByGraphName          Get website data by graph name.
-  WebsiteGraphData                Get website graph data.
-  WebsiteGroupById                Get website group.
-  WebsiteGroupList                Get website group list.
-  WebsiteList                     Get website list.
-  WebsitePropertyListByWebsiteId  Get a list of properties for a website.
-  WebsiteSDTListByWebsiteId       Get a list of sdts for a website.
-  WidgetById                      Get widget by id.
-  WidgetDataById                  Get widget data.
-  WidgetList                      Get widget list.
-  WidgetListByDashboardId         Get widget list by dashboardid.
+                                  Get a list of websites for a group
+  MetricsUsage                    Get metrics usage
+  NetflowEndpointList             Get netflow endpoint list
+  NetflowFlowList                 Get netflow flow list
+  NetflowPortList                 Get netflow port list
+  NetscanById                     Get netscan by id
+  NetscanList                     Get netscan list
+  OpsNoteById                     Get opsnote by id
+  OpsNoteList                     Get opsnote list
+  RecipientGroupById              Get recipient group by id
+  RecipientGroupList              Get recipient group list
+  ReportById                      Get report by id
+  ReportGroupById                 Get report group by id
+  ReportGroupList                 Get report group list
+  ReportList                      Get report list
+  RoleById                        Get role by id
+  RoleList                        Get role list
+  SDTById                         Get sdt by id
+  SDTHistoryByDeviceDataSourceId  Get sdt history for the device datasource
+  SDTHistoryByDeviceGroupId       Get sdt history for the group
+  SDTHistoryByDeviceId            Get sdt history for the device
+  SDTHistoryByWebsiteGroupId      Get sdt history for the website group
+  SDTHistoryByWebsiteId           Get sdt history for the website
+  SDTList                         Get sdt list
+  SiteMonitorCheckPointList       Get website checkpoint list
+  TopTalkersGraph                 Get top talkers graph
+  UnmonitoredDeviceList           Get unmonitored device list
+  UpdateReasonListByDataSourceId  Get update history for a datasource
+  WebsiteAlertListByWebsiteId     Get alerts for a website
+  WebsiteById                     Get website by id
+  WebsiteCheckpointDataById       Get data for a website checkpoint
+  WebsiteDataByGraphName          Get website data by graph name
+  WebsiteGraphData                Get website graph data
+  WebsiteGroupById                Get website group
+  WebsiteGroupList                Get website group list
+  WebsiteList                     Get website list
+  WebsitePropertyListByWebsiteId  Get a list of properties for a website
+  WebsiteSDTListByWebsiteId       Get a list of sdts for a website
+  WidgetById                      Get widget by id
+  WidgetDataById                  Get widget data
+  WidgetList                      Get widget list
+  WidgetListByDashboardId         Get widget list by dashboardid
 
   default config file: /home/user/.elm/config.ini
 ```
@@ -393,14 +393,14 @@ Commands:
 ### AdminById help
 
 This is only one example, but other help messages are similar. The URL
-will take you directly to the swagger document relating to that command.
+will take you directly to the swagger document relating to that command
 
 `./elm AdminById --help`
 
 ```text
 Usage: elm AdminById [OPTIONS]
 
-  Get user.
+  Get user
 
   API Path:
 
@@ -412,11 +412,11 @@ Usage: elm AdminById [OPTIONS]
 
 Options:
   --id INTEGER               [required]
-  -f, --fields FIELD,...     Only include the listed fields.
+  -f, --fields FIELD,...     Only include the listed fields
   -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
-  -c, --count                Return count of objects instead of data.
-  -C, --total                Return qty of all objects instead of data.
-  --help                     Show this message and exit.
+  -c, --count                Return count of objects instead of data
+  -C, --total                Return qty of all objects instead of data
+  --help                     Show this message and exit
 ```
 
 ## Contributing
@@ -424,7 +424,7 @@ Options:
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
 
 If you'd like to contribute, please fork the repository and use a
-feature branch. Pull requests are welcome.
+feature branch. Pull requests are welcome
 
 Please note that this project is released with a Contributor Code of
 Conduct. By participating in this project you agree to abide by its
@@ -448,13 +448,13 @@ terms. See `CODE_OF_CONDUCT.md`
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+(at your option) any later version
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+GNU General Public License for more details
 
 You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+along with this program. If not, see <https://www.gnu.org/licenses/>
 
