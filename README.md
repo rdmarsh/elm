@@ -266,8 +266,8 @@ Options:
                                   Output format
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME
-  --version                       Show the version and exit
-  --help                          Show this message and exit
+  --version                       Show the version and exit.
+  --help                          Show this message and exit.
 
 Commands:
   AdminById                       Get user
@@ -434,9 +434,9 @@ Options:
   --id INTEGER               [required]
   -f, --fields FIELD,...     Only include the listed fields
   -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
-  -c, --count                Return count of objects instead of data
-  -C, --total                Return qty of all objects instead of data
-  --help                     Show this message and exit
+  -c, --count                Return qty of query objects instead of query data
+  -C, --total                Return qty of ALL objects instead of query data
+  --help                     Show this message and exit.
 ```
 
 ## Contributing
