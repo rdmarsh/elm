@@ -172,7 +172,7 @@ test: testbasic testhelp testcmds testfmts testverb ## Run all tests
 testbasic: ## Run basic elm tests
 	@echo testing: ./$(name) ; ./$(name) >/dev/null
 	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
-	@echo testing: ./$(name) --version ; ./$(name) --version
+	@echo testing: ./$(name) --version ; ./$(name) --version >/dev/null
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testhelp
