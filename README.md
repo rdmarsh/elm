@@ -88,7 +88,7 @@ You will need the following items to run the program after building:
   * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
 
-See [Configuration][] below for more details.
+See [Configuration](#configuration) below for more details.
 
 ### Developing
 
@@ -226,9 +226,10 @@ multiple API keys or accounts and want to switch between them:
 
 ## General help
 
-To see the help, run `./elm --help`, you can also see specific help for
-each command by running `./elm COMMAND --help` (see [AdminById help][]
-below)
+To see the help, run `./elm --help`.
+
+You can also see specific help for each command by running `./elm
+COMMAND --help` (see [AdminById help](adminbyid-help) below)
 
 ```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
