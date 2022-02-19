@@ -119,6 +119,7 @@ cfg: ## Create config dir, copy example file and set permissions of all config f
 	chmod 700 ~/.$(name)
 	cp config.example.ini ~/.$(name)
 	chmod 600 ~/.$(name)/*
+	chown $$(id -u):$$(id -g) ~/.$(name)
 	@echo "Now go copy ~/.$(name)/config.example.ini to ~/.$(name)/config.ini and edit to taste"
 	@echo "$@ $(OK_STRING)"
 
