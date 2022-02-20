@@ -131,9 +131,9 @@ Usage: make [flags] [option]
   make test          Run all tests
   make testbasic     Run basic elm tests
   make testhelp      Run all commands with help flag
-  make testcmds      Run all tests with a valid command
-  make testfmts      Run one test with all formats
-  make testverb      Test the verbose flags
+  make testcmds      Run all tests with a valid command (connects to LM)
+  make testfmts      Run one test with all formats (connects to LM)
+  make testverb      Test the verbose flags (connects to LM)
   make fail          a failing test
   make back          TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
   make clean         Remove generated files

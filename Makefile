@@ -185,7 +185,7 @@ testhelp: ## Run all commands with help flag
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testcmds
-testcmds: ## Run all tests with a valid command
+testcmds: ## Run all tests with a valid command (connects to LM)
 	@$(foreach cmd,$(NONIDTARGETS), \
 		echo testing: ./$(name) $(cmd) -s 1 ;\
 		./$(name) $(cmd) -s 1 || exit ;\
@@ -193,7 +193,7 @@ testcmds: ## Run all tests with a valid command
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testfmts
-testfmts: ## Run one test with all formats
+testfmts: ## Run one test with all formats (connects to LM)
 	@echo testing: ./$(name) --output csv        MetricsUsage ; ./$(name) --output csv        MetricsUsage
 	@echo testing: ./$(name) --output html       MetricsUsage ; ./$(name) --output html       MetricsUsage
 	@echo testing: ./$(name) --output prettyhtml MetricsUsage ; ./$(name) --output prettyhtml MetricsUsage
@@ -205,7 +205,7 @@ testfmts: ## Run one test with all formats
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testverb
-testverb: ## Test the verbose flags
+testverb: ## Test the verbose flags (connects to LM)
 	@echo testing: ./$(name) -v  MetricsUsage ; ./$(name) -v  MetricsUsage
 	@echo testing: ./$(name) -vv MetricsUsage ; ./$(name) -vv MetricsUsage
 	@echo "$@ $(OK_STRING)"
