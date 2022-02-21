@@ -218,8 +218,8 @@ testfmts: ## Run one test with all formats (connects to LM)
 	@echo testing: ./$(name) --output csv        MetricsUsage ; ./$(name) --output csv        MetricsUsage
 	@echo testing: ./$(name) --output html       MetricsUsage ; ./$(name) --output html       MetricsUsage
 	@echo testing: ./$(name) --output prettyhtml MetricsUsage ; ./$(name) --output prettyhtml MetricsUsage
-	@echo testing: ./$(name) --output $(JSN)       MetricsUsage ; ./$(name) --output $(JSN)       MetricsUsage
-	@echo testing: ./$(name) --output pretty$(JSN) MetricsUsage ; ./$(name) --output pretty$(JSN) MetricsUsage
+	@echo testing: ./$(name) --output json       MetricsUsage ; ./$(name) --output json       MetricsUsage
+	@echo testing: ./$(name) --output prettyjson MetricsUsage ; ./$(name) --output prettyjson MetricsUsage
 	@echo testing: ./$(name) --output latex      MetricsUsage ; ./$(name) --output latex      MetricsUsage
 	@echo testing: ./$(name) --output raw        MetricsUsage ; ./$(name) --output raw        MetricsUsage
 	@echo testing: ./$(name) --output txt        MetricsUsage ; ./$(name) --output txt        MetricsUsage
