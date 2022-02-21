@@ -178,43 +178,46 @@ $(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN)
 # do not change
 
 .PHONY: test
-test: testbasic testhelp testcmds testfmts testverb ## Run all tests
+test: testbasic testhelp testfmts testverb ## Run quick and simple tests
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testlong
+testlong: testcount testtotal ## Tests that take a long time to complete
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testbasic
-testbasic: ## Run basic elm tests
+testbasic: ## Test basic flags
 	@echo testing: ./$(name) ; ./$(name) >/dev/null
 	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
 	@echo testing: ./$(name) --version ; ./$(name) --version >/dev/null
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testhelp
-testhelp: ## Run all commands with help flag
-	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
+testhelp: ## Test all commands with help flag
 	@$(foreach cmd,$(TSTTARGETS), \
 		echo testing: ./$(name) $(cmd) --help ;\
 		./$(name) $(cmd) --help >/dev/null || exit ;\
 		)
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testcmdscount
-testcmds: ## Run all tests with a valid command (connects to LM)
+.PHONY: testcount
+testcount: ## Test 'non-required' commands with count flag (connects to LM)
 	@$(foreach cmd,$(NONREQTARGETS), \
 		echo testing: ./$(name) $(cmd) -c ;\
 		./$(name) $(cmd) -c || exit ;\
 		)
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testcmdstotal
-testcmds: ## Run all tests with a valid command (connects to LM)
+.PHONY: testtotal
+testtotal: ## Test 'non-required' commands with total flag (connects to LM)
 	@$(foreach cmd,$(NONREQTARGETS), \
-		echo testing: ./$(name) $(cmd) -c ;\
-		./$(name) $(cmd) -c || exit ;\
+		echo testing: ./$(name) $(cmd) -C ;\
+		./$(name) $(cmd) -C || exit ;\
 		)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testfmts
-testfmts: ## Run one test with all formats (connects to LM)
+testfmts: ## Test one command with all formats (connects to LM)
 	@echo testing: ./$(name) --output csv        MetricsUsage ; ./$(name) --output csv        MetricsUsage
 	@echo testing: ./$(name) --output html       MetricsUsage ; ./$(name) --output html       MetricsUsage
 	@echo testing: ./$(name) --output prettyhtml MetricsUsage ; ./$(name) --output prettyhtml MetricsUsage
