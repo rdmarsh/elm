@@ -72,6 +72,11 @@ CMDTARGETS := $(patsubst $(defdir)/%.$(JSN),$(cmddir)/%.py,$(CMDSOURCES))
 
 TSTTARGETS := $(patsubst $(defdir)/%.$(JSN),%,$(CMDSOURCES))
 REQSOURCES := $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"required\":true" $(CMDSOURCES)))
+
+IDSOURCES := $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"name\":\"id\"" $(CMDSOURCES)))
+IDTARGETS := $(IDSOURCES)
+IDTARGETS := $(filter-out AlertById,$(IDSOURCES))
+
 NONREQTARGETS := $(filter-out $(REQSOURCES),$(TSTTARGETS))
 NONREQTARGETS := $(filter-out ExternalApiStats,$(NONREQTARGETS))
 
@@ -178,11 +183,11 @@ $(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN)
 # do not change
 
 .PHONY: test
-test: testbasic testhelp testfmts testverb ## Run quick and simple tests
+test: testbasic testfmts testverb testid ## Run quick and simple tests
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testlong
-testlong: testcount testtotal ## Tests that take a long time to complete
+testlong: testhelp testcount testtotal ## Tests that take a long time to complete
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testbasic
@@ -198,6 +203,11 @@ testhelp: ## Test all commands with help flag
 		echo testing: ./$(name) $(cmd) --help ;\
 		./$(name) $(cmd) --help >/dev/null || exit ;\
 		)
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testid
+testid: ## Test one command with an id flag             (connects to LM)
+	@echo testing: ./$(name) AdminById --id 2 ; ./$(name) AdminById --id 2 ;
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testcount
@@ -217,7 +227,7 @@ testtotal: ## Test 'non-required' commands with total flag (connects to LM)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testfmts
-testfmts: ## Test one command with all formats (connects to LM)
+testfmts: ## Test one command with all formats            (connects to LM)
 	@echo testing: ./$(name) --output csv        MetricsUsage ; ./$(name) --output csv        MetricsUsage
 	@echo testing: ./$(name) --output html       MetricsUsage ; ./$(name) --output html       MetricsUsage
 	@echo testing: ./$(name) --output prettyhtml MetricsUsage ; ./$(name) --output prettyhtml MetricsUsage
@@ -229,7 +239,7 @@ testfmts: ## Test one command with all formats (connects to LM)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testverb
-testverb: ## Test the verbose flags (connects to LM)
+testverb: ## Test the verbose flags                       (connects to LM)
 	@echo testing: ./$(name) -v  MetricsUsage ; ./$(name) -v  MetricsUsage
 	@echo testing: ./$(name) -vv MetricsUsage ; ./$(name) -vv MetricsUsage
 	@echo "$@ $(OK_STRING)"
