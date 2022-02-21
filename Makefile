@@ -25,6 +25,12 @@
 # MAKE FLAGS
 #MAKEFLAGS += -j4
 
+# FILE EXTENSIONS
+# # ---------------------------------------
+# change only if needed
+
+JSN = json
+J2 = j2
 
 # SOURCE DIR and FILENAMES
 # ---------------------------------------
@@ -42,12 +48,17 @@ jnjdir := _jnja
 # ---------------------------------------
 # change only if needed
 
-CURL := curl
-JQ := jq
-AWK := awk
-JINJA := jinja2
+CURL ?= curl
+JQ ?= jq
+AWK ?= awk
+JINJA ?= jinja2
 
-TAR := tar
+# for testing non-required commands
+GREP ?= grep
+GREPFLAGS += -l
+
+# for backup
+TAR ?= tar
 TARFLAGS += -cvf
 
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
@@ -56,12 +67,13 @@ lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.js
 # ---------------------------------------
 # do not change
 
-CMDSOURCES := $(wildcard $(defdir)/[A-Z]*.json)
-CMDTARGETS := $(patsubst $(defdir)/%.json,$(cmddir)/%.py,$(CMDSOURCES))
-TSTTARGETS := $(patsubst $(defdir)/%.json,%,$(CMDSOURCES))
-IDSOURCES := $(wildcard $(defdir)/[A-Z]*Id.json)
-IDTARGETS := $(patsubst $(defdir)/%.json,%,$(IDSOURCES))
-NONIDTARGETS := $(filter-out $(IDTARGETS),$(TSTTARGETS))
+CMDSOURCES := $(wildcard $(defdir)/[A-Z]*.$(JSN))
+CMDTARGETS := $(patsubst $(defdir)/%.$(JSN),$(cmddir)/%.py,$(CMDSOURCES))
+
+TSTTARGETS := $(patsubst $(defdir)/%.$(JSN),%,$(CMDSOURCES))
+REQSOURCES := $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"required\":true" $(CMDSOURCES)))
+NONREQTARGETS := $(filter-out $(REQSOURCES),$(TSTTARGETS))
+NONREQTARGETS := $(filter-out ExternalApiStats,$(NONREQTARGETS))
 
 # COLOUR OUTPUT
 # ---------------------------------------
@@ -84,32 +96,33 @@ all: init cmds cfg ## Build everything (init, cmds, cfg)
 # do not change
 
 .PHONY: init
-init: reqs $(bakdir) $(cmddir) $(defdir) $(jnjdir) $(defdir)/commands.json ## Initialise dirs, get swagger file, create definition files
+init: reqs $(bakdir) $(cmddir) $(defdir) $(jnjdir) $(defdir)/commands.$(JSN) ## Initialise dirs, get swagger file, create definition files
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: reqs PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists TAR-exists
-reqs: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists TAR-exists
+.PHONY: reqs PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists GREP-exists TAR-exists
+reqs: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists GREP-exists TAR-exists
 	@echo "$@ $(OK_STRING)"
 PYTHON-exists: ; @which python3 > /dev/null
 CURL-exists: ; @which $(CURL) > /dev/null
 JQ-exists: ; @which $(JQ) > /dev/null
 AWK-exists: ; @which $(AWK) > /dev/null
 JINJA-exists: ; @which $(JINJA) > /dev/null
+GREP-exists: ; @which $(GREP) > /dev/null
 TAR-exists: ; @which $(TAR) > /dev/null
 
 $(bakdir) $(cmddir) $(defdir) $(jnjdir):
 	mkdir -p $@
 	@echo "$@ $(OK_STRING)"
 
-$(defdir)/swagger.json:
+$(defdir)/swagger.$(JSN):
 	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
 # cant split this long line, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
-$(defdir)/commands.json: $(defdir)/swagger.json
+$(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN)
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
-	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".json"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
+	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	$(MAKE)
 	@echo "$@ $(OK_STRING)"
 
@@ -147,16 +160,16 @@ $(name): $(prog)
 	ln -sf $< $@
 	@echo "$@ $(OK_STRING)"
 
-$(prog): $(jnjdir)/$(prog).j2 $(defdir)/commands.json $(CMDTARGETS)
-	$(JINJA) $(jnjdir)/$(prog).j2 $(defdir)/commands.json  $(OUTPUT_OPTION)
+$(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS)
+	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN)  $(OUTPUT_OPTION)
 	chmod 755 $@
 	@echo "$@ $(OK_STRING)"
 
-engine.py: $(jnjdir)/engine.py.j2 $(defdir)/commands.json
+engine.py: $(jnjdir)/engine.py.$(J2) $(defdir)/commands.$(JSN)
 	$(JINJA) $^ $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
-$(cmddir)/%.py: $(jnjdir)/command.py.j2 $(defdir)/%.json
+$(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN)
 	$(JINJA) $^ $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
@@ -184,11 +197,19 @@ testhelp: ## Run all commands with help flag
 		)
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testcmds
+.PHONY: testcmdscount
 testcmds: ## Run all tests with a valid command (connects to LM)
-	@$(foreach cmd,$(NONIDTARGETS), \
-		echo testing: ./$(name) $(cmd) -s 1 ;\
-		./$(name) $(cmd) -s 1 || exit ;\
+	@$(foreach cmd,$(NONREQTARGETS), \
+		echo testing: ./$(name) $(cmd) -c ;\
+		./$(name) $(cmd) -c || exit ;\
+		)
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testcmdstotal
+testcmds: ## Run all tests with a valid command (connects to LM)
+	@$(foreach cmd,$(NONREQTARGETS), \
+		echo testing: ./$(name) $(cmd) -c ;\
+		./$(name) $(cmd) -c || exit ;\
 		)
 	@echo "$@ $(OK_STRING)"
 
@@ -197,8 +218,8 @@ testfmts: ## Run one test with all formats (connects to LM)
 	@echo testing: ./$(name) --output csv        MetricsUsage ; ./$(name) --output csv        MetricsUsage
 	@echo testing: ./$(name) --output html       MetricsUsage ; ./$(name) --output html       MetricsUsage
 	@echo testing: ./$(name) --output prettyhtml MetricsUsage ; ./$(name) --output prettyhtml MetricsUsage
-	@echo testing: ./$(name) --output json       MetricsUsage ; ./$(name) --output json       MetricsUsage
-	@echo testing: ./$(name) --output prettyjson MetricsUsage ; ./$(name) --output prettyjson MetricsUsage
+	@echo testing: ./$(name) --output $(JSN)       MetricsUsage ; ./$(name) --output $(JSN)       MetricsUsage
+	@echo testing: ./$(name) --output pretty$(JSN) MetricsUsage ; ./$(name) --output pretty$(JSN) MetricsUsage
 	@echo testing: ./$(name) --output latex      MetricsUsage ; ./$(name) --output latex      MetricsUsage
 	@echo testing: ./$(name) --output raw        MetricsUsage ; ./$(name) --output raw        MetricsUsage
 	@echo testing: ./$(name) --output txt        MetricsUsage ; ./$(name) --output txt        MetricsUsage
