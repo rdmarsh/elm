@@ -166,7 +166,7 @@ $(name): $(prog)
 	@echo "$@ $(OK_STRING)"
 
 $(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS)
-	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN)  $(OUTPUT_OPTION)
+	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(OUTPUT_OPTION)
 	chmod 755 $@
 	@echo "$@ $(OK_STRING)"
 
@@ -253,7 +253,7 @@ fail: ## a failing test
 # do not change
 
 .PHONY: back
-back: nomac $(bakdir) TAR-exists  ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
+back: nomac $(bakdir) TAR-exists ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
 	$(TAR) $(TARFLAGS) $(bakdir)/$(name).$(shell date +%Y-%m-%d).tar.gz .
 	@echo "$@ $(OK_STRING)"
 
