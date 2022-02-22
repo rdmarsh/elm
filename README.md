@@ -22,6 +22,7 @@ or txt output
   * [Export users by userid](#export-users-by-userid)
   * [Use a different config file](#use-a-different-config-file)
   * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
+  * [Pipe stdin to jinja](#pipe-stdin-to-jinja)
 * [General help](#general-help)
   * [AdminById help](#adminbyid-help)
 * [Contributing](#contributing)
@@ -253,6 +254,14 @@ To use space in the VALUE of a filter, you will have to quote the VALUE:
 
 ```shell
 ./elm DeviceGroupList -f id,name,description -F name:"group with space"
+```
+
+### Pipe stdin to jinja
+
+You can pipe the output to other programs using standard unix pipes:
+
+```shell
+./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
 ```
 
 ## General help
