@@ -17,14 +17,15 @@ or txt output
   * [Developing](#developing)
   * [Makefile Help](#makefile-help)
 * [Configuration](#configuration)
+* [Usage](#usage)
+  * [General help](#general-help)
+  * [AdminById help](#adminbyid-help)
 * [Examples](#examples)
   * [Get metrics](#get-metrics)
   * [Export users by userid](#export-users-by-userid)
   * [Use a different config file](#use-a-different-config-file)
   * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
-  * [Pipe stdin to jinja](#pipe-stdin-to-jinja)
-* [General help](#general-help)
-  * [AdminById help](#adminbyid-help)
+  * [Pipe stdin to another program](#pipe-stdin-to-another-program)
 * [Contributing](#contributing)
 * [Links](#links)
 * [Licensing](#licensing)
@@ -191,80 +192,19 @@ chmod 600 ~/.elm/*
 chown $(id -u):$(id -g) ~/.elm
 ```
 
-## Examples
+## Usage
 
-The following are useful examples that show you how to get started:
+`Usage: elm [OPTIONS] COMMAND [ARGS]...`
 
-### Get metrics
+* OPTIONS: Options that set access id, key account name, proxy and output
+* COMMAND: Command relates to the LogicMonitor operation
+* ARGS: Args set flags that relate to the command output, such as
+  setting filters, sorting, choosing fields etc
 
-A simple query to get usage metrics and show them in formatted json:
+Quikest way to understand how to run is to look at the
+[Examples](#examples)
 
-```shell
-./elm -o prettyjson MetricsUsage
-```
-
-```json
-{
-  "MetricsUsage": [
-    {
-      "numOfAWSDevices": 16,
-      "numOfAzureDevices": 6,
-      "numOfCombinedAWSDevices": 8,
-      "numOfCombinedAzureDevices": 12,
-      "numOfCombinedGcpDevices": 0,
-      "numOfConfigSourceDevices": 0,
-      "numOfGcpDevices": 0,
-      "numOfServices": 0,
-      "numOfStoppedAWSDevices": 10,
-      "numOfStoppedAzureDevices": 0,
-      "numOfStoppedGcpDevices": 0,
-      "numOfTerminatedAWSDevices": 6,
-      "numOfTerminatedAzureDevices": 0,
-      "numOfTerminatedGcpCloudDevices": 0,
-      "numOfWebsites": 3,
-      "numberOfDevices": 126,
-      "numberOfKubernetesDevices": 148,
-      "numberOfStandardDevices": 106
-    }
-  ]
-}
-```
-
-### Export users by userid
-
-Show the id and username for users with id between 2 and 5, sort by
-reverse username, and put in csv format:
-
-```shell
-./elm -o csv AdminList -s5 -f id,username -S -username -F id\>:2,id\<:5
-```
-
-### Use a different config file
-
-You can have more than one config file. This is handy if you have
-multiple API keys or accounts and want to switch between them:
-
-```shell
-./elm --config ~/.elm/dev.ini MetricsUsage
-```
-
-### Use a filter with a space in the VALUE
-
-To use space in the VALUE of a filter, you will have to quote the VALUE:
-
-```shell
-./elm DeviceGroupList -f id,name,description -F name:"group with space"
-```
-
-### Pipe stdin to jinja
-
-You can pipe the output to other programs using standard unix pipes:
-
-```shell
-./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
-```
-
-## General help
+### General help
 
 To see the help, run `./elm --help`
 
@@ -457,6 +397,79 @@ Options:
   -c, --count                Return qty of query objects instead of query data
   -C, --total                Return qty of ALL objects instead of query data
   --help                     Show this message and exit.
+```
+
+## Examples
+
+The following are useful examples that show you how to get started:
+
+### Get metrics
+
+A simple query to get usage metrics and show them in formatted json:
+
+```shell
+./elm -o prettyjson MetricsUsage
+```
+
+```json
+{
+  "MetricsUsage": [
+    {
+      "numOfAWSDevices": 16,
+      "numOfAzureDevices": 6,
+      "numOfCombinedAWSDevices": 8,
+      "numOfCombinedAzureDevices": 12,
+      "numOfCombinedGcpDevices": 0,
+      "numOfConfigSourceDevices": 0,
+      "numOfGcpDevices": 0,
+      "numOfServices": 0,
+      "numOfStoppedAWSDevices": 10,
+      "numOfStoppedAzureDevices": 0,
+      "numOfStoppedGcpDevices": 0,
+      "numOfTerminatedAWSDevices": 6,
+      "numOfTerminatedAzureDevices": 0,
+      "numOfTerminatedGcpCloudDevices": 0,
+      "numOfWebsites": 3,
+      "numberOfDevices": 126,
+      "numberOfKubernetesDevices": 148,
+      "numberOfStandardDevices": 106
+    }
+  ]
+}
+```
+
+### Export users by userid
+
+Show the id and username for users with id between 2 and 5, sort by
+reverse username, and put in csv format:
+
+```shell
+./elm -o csv AdminList -s5 -f id,username -S -username -F id\>:2,id\<:5
+```
+
+### Use a different config file
+
+You can have more than one config file. This is handy if you have
+multiple API keys or accounts and want to switch between them:
+
+```shell
+./elm --config ~/.elm/dev.ini MetricsUsage
+```
+
+### Use a filter with a space in the VALUE
+
+To use space in the VALUE of a filter, you will have to quote the VALUE:
+
+```shell
+./elm DeviceGroupList -f id,name,description -F name:"group with space"
+```
+
+### Pipe stdin to another program
+
+You can pipe the output to other programs using standard unix pipes:
+
+```shell
+./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
 ```
 
 ## Contributing
