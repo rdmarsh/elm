@@ -244,6 +244,14 @@ multiple API keys or accounts and want to switch between them:
 ./elm --config ~/.elm/dev.ini MetricsUsage
 ```
 
+### Use a filter with a space in the VALUE
+
+To use space in the VALUE of a filter, you will have to quote it:
+
+```shell
+./elm DeviceGroupList -f id,name,description -F name:"group with space"
+```
+
 ## General help
 
 To see the help, run `./elm --help`
