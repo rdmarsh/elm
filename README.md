@@ -249,7 +249,7 @@ multiple API keys or accounts and want to switch between them:
 
 ### Use a filter with a space in the VALUE
 
-To use space in the VALUE of a filter, you will have to quote it:
+To use space in the VALUE of a filter, you will have to quote the VALUE:
 
 ```shell
 ./elm DeviceGroupList -f id,name,description -F name:"group with space"
