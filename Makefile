@@ -26,7 +26,7 @@
 #MAKEFLAGS += -j4
 
 # FILE EXTENSIONS
-# # ---------------------------------------
+# ---------------------------------------
 # change only if needed
 
 JSN = json
