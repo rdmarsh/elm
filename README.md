@@ -6,6 +6,7 @@ This tool is designed to make it simple to run basic queries against the
 LogicMonitor API and format the results as csv, html, json, latex, raw
 or txt output
 
+<!--ts-->
 * [Features](#features)
 * [Installing](#installing)
   * [Quick start](#quick-start)
@@ -20,11 +21,13 @@ or txt output
   * [Get metrics](#get-metrics)
   * [Export users by userid](#export-users-by-userid)
   * [Use a different config file](#use-a-different-config-file)
+  * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
 * [General help](#general-help)
   * [AdminById help](#adminbyid-help)
 * [Contributing](#contributing)
 * [Links](#links)
 * [Licensing](#licensing)
+<!--te-->
 
 ## Features
 
