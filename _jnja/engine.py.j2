@@ -90,7 +90,11 @@ def engine(elm, **kwargs):
 
     #Construct headers
     auth = 'LMv1 ' + elm.access_id + ':' + signature.decode() + ':' + epoch
+    # dont show this as it has the api auth details
+    #logging.info('auth: %s', auth)
     headers = {'Content-Type':'application/json','Authorization':auth}
+    # dont show this as it has the api auth details
+    #logging.info('headers: %s', headers)
 
     #Make request
     try:
@@ -101,6 +105,9 @@ def engine(elm, **kwargs):
         click.secho(elm.command, fg='red', err=True)
         click.secho(elm.path, fg='red', err=True)
         click.secho(flags, fg='red', err=True)
+
+    logging.info('response.status_code: %s', response.status_code)
+    logging.info('response.content: %s', response.content)
 
     # do I need this or is it covered by above raise for status?
     if not response:
@@ -190,3 +197,19 @@ def export(export, config_file, command, path, flags=""):
     template = env.get_template('save_query.py.j2')
     output = template.render(config_file=config_file, command=command, path=path, flags=flags)
     export.write(output)
+
+def validate_filter(ctx, param, value):
+    if value:
+        try:
+            field, operator, value = re.split(r'(>\:|<\:|>|<|\!|\:|~|\!~)', value, 1)
+            logging.debug('field: %s', field)
+            logging.debug('operator: %s', operator)
+            logging.debug('value: %s', value)
+            #filter needs quotes around the value to work for strings
+            #ints are not unaffected, so do it for everything
+            value = '"' + value + '"'
+            logging.debug('value: %s', value)
+            return field + operator + value
+        except ValueError:
+            raise click.BadParameter("format must be 'FIELD[>:,<:,>,<,!,:,~,!~]VALUE'")
+
