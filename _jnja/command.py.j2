@@ -16,7 +16,7 @@ import engine
 {%- if option.required or option.in == "path" -%}, required=True{%- endif -%}
 {%- if option.in == "path" -%}, nargs=1{%- endif -%}
 {%- if option.name == "fields" -%}, nargs=1, metavar="FIELD,..."{% endif -%}
-{%- if option.name == "filter" -%}, nargs=1, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,..."{% endif -%}
+{%- if option.name == "filter" -%}, nargs=1, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,...", callback=engine.validate_filter{% endif -%}
 {%- if option.name == "size" -%}, nargs=1{%- endif -%}
 {%- if option.description -%}, help="{{ option.description }}"
 {%- elif option.name == "fields" -%}, \
