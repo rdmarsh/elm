@@ -128,6 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Vim swap files
+.swp
+
 # ELM project compiled files
 elm
 elm.py
