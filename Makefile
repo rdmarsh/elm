@@ -71,11 +71,7 @@ CMDSOURCES := $(wildcard $(defdir)/[A-Z]*.$(JSN))
 CMDTARGETS := $(patsubst $(defdir)/%.$(JSN),$(cmddir)/%.py,$(CMDSOURCES))
 
 TSTTARGETS := $(patsubst $(defdir)/%.$(JSN),%,$(CMDSOURCES))
-REQSOURCES := $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"required\":true" $(CMDSOURCES)))
-
-IDSOURCES := $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"name\":\"id\"" $(CMDSOURCES)))
-IDTARGETS := $(IDSOURCES)
-IDTARGETS := $(filter-out AlertById,$(IDSOURCES))
+REQSOURCES := $(patsubst $(defdir)/%.$(JSN),%,$$(shell $(GREP) $(GREPFLAGS) "\"required\":true" $(CMDSOURCES)))
 
 NONREQTARGETS := $(filter-out $(REQSOURCES),$(TSTTARGETS))
 NONREQTARGETS := $(filter-out ExternalApiStats,$(NONREQTARGETS))
