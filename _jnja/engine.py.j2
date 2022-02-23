@@ -31,6 +31,14 @@ def engine(elm, **kwargs):
     flags = {k: v for k, v in kwargs.items() if v}
     logging.debug('passed flags: %s', flags)
 
+    #set size to max (1000) if size is 0
+    #0 values are removed by above ben magic
+    if kwargs['size'] == 0:
+        logging.debug('kwargs[\'size\']: %s', kwargs['size'])
+        logging.debug('size set to 0, changing to 1000 for max size allowed by api')
+        flags['size'] = 1000
+        logging.debug('kwargs[\'size\']: %s', kwargs['size'])
+
     #Request Info
     httpVerb ='GET'
     logging.debug('httpVerb: %s', httpVerb)

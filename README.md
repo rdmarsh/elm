@@ -438,13 +438,23 @@ A simple query to get usage metrics and show them in formatted json:
 }
 ```
 
+### Return just one result
+
+Use the `-s` flag to limit the results returned:
+
+```shell
+./elm DeviceList -s 1
+```
+
+> note: setting size to 0 will return all results (up to 1000)
+
 ### Export users by userid
 
 Show the id and username for users with id between 2 and 5, sort by
 reverse username, and put in csv format:
 
 ```shell
-./elm -o csv AdminList -s5 -f id,username -S -username -F id\>:2,id\<:5
+./elm -o csv AdminList -f id,username -S -username -F id\>:2,id\<:5
 ```
 
 ### Use a different config file
@@ -470,6 +480,21 @@ You can pipe the output to other programs using standard unix pipes:
 
 ```shell
 ./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
+```
+
+### Find all hosts in a group by name
+
+This will show all hosts name and display name in the group "Linux Devices":
+
+```shell
+gid=$(./elm DeviceGroupList -f id -F name:"Linux Devices" | jq -r '.DeviceGroupList[].id')
+./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~${gid} | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
+```
+
+In one line:
+
+```shell
+./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~$(./elm DeviceGroupList -f id -F name:"Linux Devices" | jq -r '.DeviceGroupList[].id') | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
 ## Contributing
