@@ -26,7 +26,7 @@ or txt output
   * [Export users by userid](#export-users-by-userid)
   * [Use a different config file](#use-a-different-config-file)
   * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
-  * [Pipe stdin to another program](#pipe-stdin-to-another-program)
+  * [Pipe stdout to another program](#pipe-stdout-to-another-program)
   * [Find all hosts in a group by name](#find-all-hosts-in-a-group-by-name)
 * [Contributing](#contributing)
 * [Links](#links)
@@ -476,9 +476,10 @@ To use space in the VALUE of a filter, you will have to quote the VALUE:
 ./elm DeviceGroupList -f id,name,description -F name:"group with space"
 ```
 
-### Pipe stdin to another program
+### Pipe stdout to another program
 
-You can pipe the output to other programs using standard unix pipes:
+You can pipe the output to other programs using standard unix pipes.
+This example shows the output into jinja:
 
 ```shell
 ./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
