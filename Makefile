@@ -97,7 +97,7 @@ all: init cmds cfg ## Build everything (init, cmds, cfg)
 # do not change
 
 .PHONY: init
-init: reqs $(bakdir) $(cmddir) $(defdir) $(jnjdir) $(defdir)/commands.$(JSN) ## Initialise dirs, get swagger file, create definition files
+init: reqs $(bakdir) $(cmddir) $(defdir) $(defdir)/commands.$(JSN) ## Initialise dirs, get swagger file, create definition files
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: reqs PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists GREP-exists TAR-exists
@@ -111,19 +111,28 @@ JINJA-exists: ; @which $(JINJA) > /dev/null
 GREP-exists: ; @which $(GREP) > /dev/null
 TAR-exists: ; @which $(TAR) > /dev/null
 
-$(bakdir) $(cmddir) $(defdir) $(jnjdir):
+$(bakdir) $(cmddir) $(defdir):
 	mkdir -p $@
 	@echo "$@ $(OK_STRING)"
 
-$(defdir)/swagger.$(JSN):
+$(defdir)/swagger.$(JSN): $(defdir)
 	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
-# cant split this long line, high level magic
+# The commands.json file isn't used, but it's handy to trigger when the
+# individual defs also need to be (re)built as we don't the names of the
+# individual def files at this stage and CMDSOURCES isn't populated.
+# There's probably a better way to do this, but this will do for now
+#
+# First jq creates commands.json from swagger.json file
+# Second jq creates individual def json files from swagger.json file
+# make called again so we don't have to call make manually after all defs have been created
+#
+# cant split these long lines, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
 $(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN)
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
-	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^\"/,"",s); sub(/\"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
+	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	$(MAKE)
 	@echo "$@ $(OK_STRING)"
 
