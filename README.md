@@ -479,7 +479,7 @@ To use space in the VALUE of a filter, you will have to quote the VALUE:
 ### Pipe stdout to another program
 
 You can pipe the output to other programs using standard unix pipes.
-This example shows the output into jinja:
+This example shows passing the output into jinja:
 
 ```shell
 ./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
