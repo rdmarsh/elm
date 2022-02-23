@@ -9,7 +9,8 @@ import engine
 {%- if option.name == "filter" -%}, "-F"{% endif -%}
 {%- if option.name == "size" -%}, "-s"{%- endif -%}
 {%- if option.type == "boolean" -%}, type=bool, nargs=1{%- endif -%}
-{%- if option.type == "integer" -%}, type=int{%- endif -%}
+{%- if option.type == "integer" and option.name == "size" -%}, type=click.IntRange(0, 1000), metavar="INTEGER"
+{%- elif option.type == "integer" -%}, type=int{%- endif -%}
 {%- if option.type == "number" -%}, type=float{%- endif -%}
 {%- if option.type == "string" -%}, type=str{%- endif -%}
 {%- if option.default is defined -%}, default="{{ option.default }}", show_default=True{%- endif -%}
@@ -37,7 +38,7 @@ import engine
                 !~ - Does not include
                 """
 {%- elif option.name == "size" -%}, \
-                help="Quantity of results returned. Max is 1000"
+                help="Quantity of results returned. [0-1000 inclusive, '0' returns all results (up to 1000)]"
 {%- elif option.name == "offset" -%}, \
                 help="Display results starting from offset"
 {%- endif -%}
