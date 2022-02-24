@@ -28,13 +28,13 @@ def engine(elm, **kwargs):
     logging.info('elm.path: %s', elm.path)
     logging.info('elm.output: %s', elm.output)
 
-    # ben magic, throw away False and Empty flags
+    # ben magic, throw away False and Empty flags (also zeros!)
     flags = {k: v for k, v in kwargs.items() if v}
     logging.debug('passed flags: %s', flags)
 
     #set size to max (1000) if size is 0
-    #0 values are removed by above ben magic
-    if kwargs['size'] == 0:
+    #0 values are removed by ben magic above
+    if 'size' in kwargs and kwargs['size'] == 0:
         logging.debug('kwargs[\'size\']: %s', kwargs['size'])
         logging.debug('size set to 0, changing to 1000 for max size allowed by api')
         flags['size'] = 1000
