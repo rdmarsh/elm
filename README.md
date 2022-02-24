@@ -2,9 +2,9 @@
 
 > Extract LogicMonitor via API
 
-This tool is designed to make it simple to run basic queries against the
-LogicMonitor API and format the results as csv, html, json, latex, raw
-or txt output
+This tool is designed to make it simple to run basic queries against
+the LogicMonitor API and format the results as csv, html, json, latex,
+table, raw or txt output
 
 <!--ts-->
 * [Features](#features)
@@ -70,6 +70,7 @@ check some of this for you by running `make init`
   * `pygments`
   * `packaging`
   * `pandas`
+  * `tabulate`
   * `htmlmin`
   * `requests`
 
@@ -217,7 +218,7 @@ Options:
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -o, --output [csv|html|prettyhtml|json|prettyjson|latex|raw|txt]
+  -o, --output [csv|html|prettyhtml|json|prettyjson|latex|table|raw|txt]
                                   Output format
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME
