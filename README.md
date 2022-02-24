@@ -18,6 +18,7 @@ table, raw or txt output
   * [Makefile Help](#makefile-help)
 * [Configuration](#configuration)
 * [Usage](#usage)
+  * [Output](#output)
   * [General help](#general-help)
   * [AdminById help](#adminbyid-help)
 * [Examples](#examples)
@@ -199,6 +200,22 @@ chown $(id -u):$(id -g) ~/.elm
 
 Quikest way to understand how to run is to look at the
 [Examples](EXAMPLES.md)
+
+### Output
+
+These output options are available:
+
+| output     | result                                    |
+| ---        | ---                                       |
+| csv        | comma-separated values                    |
+| html       | html table                                |
+| prettyhtml | html table with human readable formatting |
+| json       | json                                      |
+| prettyjson | json with human readable formatting       |
+| latex      | latex table                               |
+| table      | text table                                |
+| raw        | python dict                               |
+| txt        | pandas text output                        |
 
 ### General help
 
