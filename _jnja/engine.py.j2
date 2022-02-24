@@ -108,6 +108,9 @@ def engine(elm, **kwargs):
     #Make request
     try:
         response = requests.get(url, data=data, headers=headers)
+        logging.debug('response.headers.X-Rate-Limit-Limit: %s', response.headers['X-Rate-Limit-Limit'])
+        logging.debug('response.headers.X-Rate-Limit-Remaining: %s', response.headers['X-Rate-Limit-Remaining'])
+        logging.debug('response.headers.X-Rate-Limit-Window: %s', response.headers['X-Rate-Limit-Window'])
         response.raise_for_status()
     except:
         click.secho('An error occured', fg='red', err=True)
