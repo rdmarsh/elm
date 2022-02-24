@@ -4,7 +4,7 @@ htmlmin==0.1.12
 Jinja2==2.11.3
 packaging==20.9
 pandas==1.2.1
-Pygments==2.6.1
+Pygments==2.7.4
 requests==2.25.1
 SocksiPy_branch==1.01
 tabulate==0.8.9
