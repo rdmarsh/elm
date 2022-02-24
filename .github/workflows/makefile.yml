@@ -14,11 +14,11 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       
-    - name: Install dependencies
-      run: make
-      
-    - name: Run basic tests
-      run: make testbasic
-      
-    - name: Run help tests
-      run: make testhelp
+    - name: Make help
+      run: make help
+
+    - name: Make about
+      run: make about
+
+    - name: Make copying
+      run: make copying
