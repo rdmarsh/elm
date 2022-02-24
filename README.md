@@ -44,6 +44,7 @@ What you need to do to get up and running
 git clone https://github.com/rdmarsh/elm.git
 cd elm
 make
+pip install -r requirements.txt
 cp ~./elm/config.example.ini ~./elm/config.ini
 vi ~./elm/config.ini
 make testbasic
@@ -63,17 +64,8 @@ check some of this for you by running `make init`
 * `git` -- to initially clone the repo
 * `jinja2`
 * `python3`
-* `pip` to install the following:
-  * `socks`
-  * `click`
-  * `click_config_file`
-  * `jinja2`
-  * `pygments`
-  * `packaging`
-  * `pandas`
-  * `tabulate`
-  * `htmlmin`
-  * `requests`
+* `pip` to install python requirements
+* run `pip install -r requirements.txt` to install requirements
 
 ### Clone the repo
 
@@ -90,6 +82,7 @@ After cloning, run the following in the `elm` dir:
 
 ```shell
 make
+pip install -r requirements.txt
 ```
 
 This will:
@@ -100,6 +93,7 @@ This will:
 * Create the python files from jinja templates
 * Create config dir
 * Copy example config file
+* Install the required python packages
 
 ### Initial configuration
 
