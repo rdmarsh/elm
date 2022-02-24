@@ -4,7 +4,7 @@
 
 This tool is designed to make it simple to run basic queries against
 the LogicMonitor API and format the results as csv, html, json, latex,
-table, raw or txt output
+tab, raw or txt output
 
 <!--ts-->
 * [Features](#features)
@@ -213,7 +213,7 @@ These output options are available:
 | json       | json                                      |
 | prettyjson | json with human readable formatting       |
 | latex      | latex table                               |
-| table      | text table                                |
+| tab        | text table                                |
 | raw        | python dict                               |
 | txt        | pandas text output                        |
 
@@ -235,7 +235,7 @@ Options:
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -o, --output [csv|html|prettyhtml|json|prettyjson|latex|table|raw|txt]
+  -o, --output [csv|html|prettyhtml|json|prettyjson|latex|tab|raw|txt]
                                   Output format
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME

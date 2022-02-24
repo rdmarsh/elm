@@ -239,7 +239,7 @@ testfmts: ## Test one command with all formats            (connects to LM)
 	@echo testing: ./$(name) --output json       MetricsUsage ; ./$(name) --output json       MetricsUsage
 	@echo testing: ./$(name) --output prettyjson MetricsUsage ; ./$(name) --output prettyjson MetricsUsage
 	@echo testing: ./$(name) --output latex      MetricsUsage ; ./$(name) --output latex      MetricsUsage
-	@echo testing: ./$(name) --output table      MetricsUsage ; ./$(name) --output table      MetricsUsage
+	@echo testing: ./$(name) --output tab        MetricsUsage ; ./$(name) --output tab        MetricsUsage
 	@echo testing: ./$(name) --output raw        MetricsUsage ; ./$(name) --output raw        MetricsUsage
 	@echo testing: ./$(name) --output txt        MetricsUsage ; ./$(name) --output txt        MetricsUsage
 	@echo "$@ $(OK_STRING)"
