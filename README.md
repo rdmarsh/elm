@@ -17,8 +17,9 @@ tab, raw or txt output
   * [Clone the repo](#clone-the-repo)
   * [Building](#building)
   * [Initial configuration](#initial-configuration)
+  * [Installing in path](#installing-in-path)
   * [Developing](#developing)
-  * [Makefile Help](#makefile-help)
+  * [Makefile help](#makefile-help)
 * [Configuration](#configuration)
 * [Usage](#usage)
   * [Output](#output)
@@ -47,9 +48,14 @@ What you need to do to get up and running
 git clone https://github.com/rdmarsh/elm.git
 cd elm
 make
-pip install -r requirements.txt
 cp ~./elm/config.example.ini ~./elm/config.ini
 vi ~./elm/config.ini
+```
+
+Optional install and tests:
+
+```shell
+make install
 make testbasic
 make testverb
 ```
@@ -67,8 +73,7 @@ check some of this for you by running `make init`
 * `git` -- to initially clone the repo
 * `jinja2`
 * `python3`
-* `pip` to install python requirements
-* run `pip install -r requirements.txt` to install requirements
+* `pip` -- to install python requirements
 
 ### Clone the repo
 
@@ -85,7 +90,6 @@ After cloning, run the following in the `elm` dir:
 
 ```shell
 make
-pip install -r requirements.txt
 ```
 
 This will:
@@ -109,13 +113,21 @@ You will need the following items to run the program after building:
 
 See [Configuration](#configuration) below for more details
 
+### Installing in path
+
+You can install the script in your path by running
+
+* `make install`
+
+which runs `pip install --editable .`
+
 ### Developing
 
 Any changes should be made to the `Makefile` or the templates in the
 `_jnja/` dir. Files in the `_cmds` and `_defs` dir are in danger of
 being overwritten when `make` is (re)run
 
-### Makefile Help
+### Makefile help
 
 These are options for the `Makefile`
 
@@ -123,17 +135,22 @@ These are options for the `Makefile`
 make help
 
 Usage: make [flags] [option]
-  make all           Build everything (init, cmds, cfg)
-  make init          Initialise dirs, get swagger file, create definition files
-  make cmds          Make python commands from templates
-  make cfg           Create config dir, copy example file and set permissions
-  make test          Run all tests
-  make testbasic     Run basic elm tests
-  make testhelp      Run all commands with help flag
-  make testcmds      Run all tests with a valid command (connects to LM)
-  make testfmts      Run one test with all formats (connects to LM)
-  make testverb      Test the verbose flags (connects to LM)
-  make fail          a failing test
+  make all           Build everything except install (init, cmds, cfg)
+  make init          Check prerequisites, initialise dirs, get swagger file, create definition files
+  make cfg           Create config dir, copy example file and set permissions of all config files
+  make cmds          Make python commands from templates and install requirements
+  make reqs          Install python requirements
+  make install       (Re)installs the script so it's available in the path
+  make test          Run quick and simple tests
+  make testlong      Tests that take a long time to complete
+  make testbasic     Test basic flags
+  make testhelp      Test all commands with help flag
+  make testid        Test one command with an id flag             (connects to LM)
+  make testcount     Test 'non-required' commands with count flag (connects to LM)
+  make testtotal     Test 'non-required' commands with total flag (connects to LM)
+  make testfmts      Test one command with all formats            (connects to LM)
+  make testverb      Test the verbose flags                       (connects to LM)
+  make fail          A failing test
   make back          TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
   make clean         Remove generated files
   make nomac         Remove unneeded mac files
