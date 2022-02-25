@@ -22,3 +22,6 @@ jobs:
 
     - name: Make copying
       run: make copying
+      
+    - name: get swagger file
+      run: make _defs/swagger.json
