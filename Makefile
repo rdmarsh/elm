@@ -29,8 +29,8 @@
 # ---------------------------------------
 # change only if needed
 
-JSN = json
-J2 = j2
+JSN ?= json
+J2 ?= j2
 
 # SOURCE DIR and FILENAMES
 # ---------------------------------------
@@ -40,6 +40,7 @@ name := elm
 prog := $(name).py
 
 bakdir := ../$(name)_back
+cfgdir := ~/.$(name)
 cmddir := _cmds
 defdir := _defs
 jnjdir := _jnja
@@ -60,6 +61,9 @@ GREPFLAGS += -l
 # for backup
 TAR ?= tar
 TARFLAGS += -cvf
+
+# pip for install
+PIP ?= pip
 
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
 
@@ -89,7 +93,7 @@ OK_STRING=$(OK_COLOR)[OK]$(NO_COLOR)
 # do not change
 
 .PHONY: all
-all: init cmds cfg ## Build everything (init, cmds, cfg)
+all: init cmds cfg ## Build everything except install (init, cmds, cfg)
 	@echo "$@ $(OK_STRING)"
 
 # INIT FOR COMPILE
@@ -97,26 +101,20 @@ all: init cmds cfg ## Build everything (init, cmds, cfg)
 # do not change
 
 .PHONY: init
-init: reqs $(bakdir) $(cmddir) $(defdir) $(defdir)/commands.$(JSN) ## Initialise dirs, get swagger file, create definition files
+init: $(defdir)/commands.$(JSN) | PYTHON-exists JINJA-exists ## Check prerequisites, initialise dirs, get swagger file, create definition files
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: reqs PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists GREP-exists TAR-exists
-reqs: PYTHON-exists CURL-exists JQ-exists AWK-exists JINJA-exists GREP-exists TAR-exists
-	@echo "$@ $(OK_STRING)"
-PYTHON-exists: ; @which python3 > /dev/null
-CURL-exists: ; @which $(CURL) > /dev/null
-JQ-exists: ; @which $(JQ) > /dev/null
-AWK-exists: ; @which $(AWK) > /dev/null
-JINJA-exists: ; @which $(JINJA) > /dev/null
-GREP-exists: ; @which $(GREP) > /dev/null
-TAR-exists: ; @which $(TAR) > /dev/null
+.PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists PIP-exists
+PYTHON-exists: ; which python3
+CURL-exists: ; which $(CURL)
+JINJA-exists: ; which $(JINJA)
+JQ-exists: ; which $(JQ)
+PIP-exists: ; which $(PIP)
 
-$(bakdir) $(cmddir) $(defdir):
+$(bakdir) $(cmddir) $(defdir) $(cfgdir):
 	mkdir -p $@
-	@echo "$@ $(OK_STRING)"
-
-$(defdir)/swagger.$(JSN): $(defdir)
-	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
+	chown $$(id -u):$$(id -g) $@
+	chmod 700 $@
 	@echo "$@ $(OK_STRING)"
 
 # The commands.json file isn't used, but it's handy to trigger when the
@@ -126,26 +124,27 @@ $(defdir)/swagger.$(JSN): $(defdir)
 #
 # First jq creates commands.json from swagger.json file
 # Second jq creates individual def json files from swagger.json file
-# make called again so we don't have to call make manually after all defs have been created
+# MAKE called again so we don't have to call make manually after all defs have been created
 #
 # cant split these long lines, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
-$(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN)
+$(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN) | $(defdir) JQ-exists
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
+	@echo "$@ $(OK_STRING)"
 	$(MAKE)
+
+$(defdir)/swagger.$(JSN): | $(defdir) CURL-exists
+	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: cfg
-cfg: ~/.$(name)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
+cfg: $(cfgdir)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
 	@echo "$@ $(OK_STRING)"
 
-~/.$(name)/config.example.ini: config.example.ini
-	mkdir -p $(@D)
-	chmod 700 $(@D)
+$(cfgdir)/config.example.ini: config.example.ini | $(cfgdir)
 	cp $< $@
 	chmod 600 $(@D)/*
-	chown $$(id -u):$$(id -g) $(@D)
 	@if [ ! -s $(@D)/config.ini ] ; then \
 		echo ;\
 		echo "$(OK_COLOR)>>> now do the below and edit to taste <<<$(NO_COLOR)" ;\
@@ -155,15 +154,14 @@ cfg: ~/.$(name)/config.example.ini ## Create config dir, copy example file and s
 		echo ;\
 		echo ;\
 	fi
-	@echo "$(@F) $(OK_STRING)"
+	@echo "$@ $(OK_STRING)"
 
-
-# BUILD COMMANDS
+# BUILD AND INSTALL COMMANDS
 # =======================================
 # do not change
 
 .PHONY: cmds
-cmds: engine.py $(name) ## Make python commands from templates
+cmds: reqs engine.py $(name) ## Make python commands from templates and install requirements
 	@echo "$@ $(OK_STRING)"
 
 $(name): $(prog)
@@ -179,9 +177,18 @@ engine.py: $(jnjdir)/engine.py.$(J2) $(defdir)/commands.$(JSN)
 	$(JINJA) $^ $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
-$(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN)
+$(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN) | $(cmddir)
 	$(JINJA) $^ $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
+
+.PHONY: reqs
+reqs: requirements.txt | PIP-exists ## Install python requirements
+	$(PIP) install -r $<
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: install
+install: | PIP-exists ## (Re)installs the script so it's available in the path
+	$(PIP) install --editable .
 
 # TESTS
 # =======================================
@@ -251,7 +258,7 @@ testverb: ## Test the verbose flags                       (connects to LM)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: fail
-fail: ## a failing test
+fail: ## A failing test
 	@echo test false ; false >/dev/null
 
 # BACKUP
@@ -259,7 +266,7 @@ fail: ## a failing test
 # do not change
 
 .PHONY: back
-back: nomac $(bakdir) TAR-exists ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
+back: nomac $(bakdir) ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
 	$(TAR) $(TARFLAGS) $(bakdir)/$(name).$(shell date +%Y-%m-%d).tar.gz .
 	@echo "$@ $(OK_STRING)"
 
@@ -285,11 +292,11 @@ nomac: ## Remove unneeded mac files
 .PHONY: about
 about: ## About this Makefile
 	@echo
-	@echo 'This Makefile is used to generate files for elm'
+	@echo 'This Makefile is used to generate files for $(name)'
 	@echo
 	@echo 'Run "make help" to for how to run'
 	@echo
-	@echo 'See https://github.com/rdmarsh/elm'
+	@echo 'See https://github.com/rdmarsh/$(name)'
 	@echo
 
 .PHONY: copying
@@ -317,3 +324,4 @@ help: ## Show this help
 	@echo '  make -j  run simultaneous jobs'
 	@echo '  make -B  force make target'
 	@echo
+
