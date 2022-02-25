@@ -14,14 +14,29 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       
-    - name: Make help
-      run: make help
-
-    - name: Make about
-      run: make about
-
-    - name: Make copying
-      run: make copying
-      
     - name: get swagger file
       run: make _defs/swagger.json
+      
+    - name: Install python requirements
+      run: make reqs
+      
+    - name: Create config dir, copy example file and set permissions of all config files
+      run: make cfg
+
+    - name: TAR and backup
+      run: make back
+      
+    - name: Remove generated files
+      run: make clean
+      
+    - name: Remove unneeded mac files
+      run: make nomac
+
+    - name: About this Makefile
+      run: make about
+
+    - name: Copyright notice
+      run: make copying
+
+    - name: Show this help
+      run: make help
