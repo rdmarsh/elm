@@ -6,8 +6,8 @@
 > Extract LogicMonitor via API
 
 This tool is designed to make it simple to run basic queries against
-the LogicMonitor API and format the results as csv, html, json, latex,
-tab, raw or txt output
+the LogicMonitor API and format the data as csv, html, json, latex,
+tab, raw or txt
 
 <!--ts-->
 * [Features](#features)
@@ -22,7 +22,7 @@ tab, raw or txt output
   * [Makefile help](#makefile-help)
 * [Configuration](#configuration)
 * [Usage](#usage)
-  * [Output](#output)
+  * [Format](#format)
   * [General help](#general-help)
   * [AdminById help](#adminbyid-help)
 * [Examples](#examples)
@@ -34,7 +34,7 @@ tab, raw or txt output
 ## Features
 
 * Retrieve information from LogicMonitor via the LM API
-* Format output in csv, html, json, latex, or plain text
+* Format data in csv, html, json, latex, or plain text
 
 ## Installing
 
@@ -207,19 +207,19 @@ chown $(id -u):$(id -g) ~/.elm
 
 `Usage: elm [OPTIONS] COMMAND [ARGS]...`
 
-* OPTIONS: Options that set access id, key account name, proxy and output
+* OPTIONS: Options that set access id, key account name, proxy, format and output file
 * COMMAND: Command relates to the LogicMonitor operation
-* ARGS: Args set flags that relate to the command output, such as
+* ARGS: Args set flags that relate to the command data, such as
   setting filters, sorting, choosing fields etc
 
 Quikest way to understand how to run is to look at the
 [Examples](EXAMPLES.md)
 
-### Output
+### Format
 
-These output options are available:
+These format options are available:
 
-| output     | result                                    |
+| format     | result                                    |
 | ---        | ---                                       |
 | csv        | comma-separated values                    |
 | html       | html table                                |
@@ -229,7 +229,7 @@ These output options are available:
 | latex      | latex table                               |
 | tab        | text table                                |
 | raw        | python dict                               |
-| txt        | pandas text output                        |
+| txt        | pandas text                               |
 
 ### General help
 
@@ -244,13 +244,14 @@ Usage: elm [OPTIONS] COMMAND [ARGS]...
   Extract LogicMonitor
 
 Options:
-  --config FILE                   Read configuration from FILE
+  --config FILE                   Read configuration from FILE.
   -i, --access_id TEXT            API token access id
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -o, --output [csv|html|prettyhtml|json|prettyjson|latex|tab|raw|txt]
-                                  Output format
+  -f, --format [csv|html|prettyhtml|json|prettyjson|latex|tab|raw|txt]
+                                  Format of data  [default: json]
+  -o, --output FILE               Output to file name  [default: -]
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME
   --version                       Show the version and exit.

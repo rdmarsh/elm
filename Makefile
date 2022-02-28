@@ -240,15 +240,15 @@ testtotal: ## Test 'non-required' commands with total flag (connects to LM)
 
 .PHONY: testfmts
 testfmts: ## Test one command with all formats            (connects to LM)
-	@echo testing: ./$(name) --output csv        MetricsUsage ; ./$(name) --output csv        MetricsUsage
-	@echo testing: ./$(name) --output html       MetricsUsage ; ./$(name) --output html       MetricsUsage
-	@echo testing: ./$(name) --output prettyhtml MetricsUsage ; ./$(name) --output prettyhtml MetricsUsage
-	@echo testing: ./$(name) --output json       MetricsUsage ; ./$(name) --output json       MetricsUsage
-	@echo testing: ./$(name) --output prettyjson MetricsUsage ; ./$(name) --output prettyjson MetricsUsage
-	@echo testing: ./$(name) --output latex      MetricsUsage ; ./$(name) --output latex      MetricsUsage
-	@echo testing: ./$(name) --output tab        MetricsUsage ; ./$(name) --output tab        MetricsUsage
-	@echo testing: ./$(name) --output raw        MetricsUsage ; ./$(name) --output raw        MetricsUsage
-	@echo testing: ./$(name) --output txt        MetricsUsage ; ./$(name) --output txt        MetricsUsage
+	@echo testing: ./$(name) --format csv        MetricsUsage ; ./$(name) --format csv        MetricsUsage
+	@echo testing: ./$(name) --format html       MetricsUsage ; ./$(name) --format html       MetricsUsage
+	@echo testing: ./$(name) --format prettyhtml MetricsUsage ; ./$(name) --format prettyhtml MetricsUsage
+	@echo testing: ./$(name) --format json       MetricsUsage ; ./$(name) --format json       MetricsUsage
+	@echo testing: ./$(name) --format prettyjson MetricsUsage ; ./$(name) --format prettyjson MetricsUsage
+	@echo testing: ./$(name) --format latex      MetricsUsage ; ./$(name) --format latex      MetricsUsage
+	@echo testing: ./$(name) --format tab        MetricsUsage ; ./$(name) --format tab        MetricsUsage
+	@echo testing: ./$(name) --format raw        MetricsUsage ; ./$(name) --format raw        MetricsUsage
+	@echo testing: ./$(name) --format txt        MetricsUsage ; ./$(name) --format txt        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testverb
