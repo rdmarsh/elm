@@ -187,7 +187,7 @@ reqs: requirements.txt | PIP-exists ## Install python requirements
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: install
-install: | PIP-exists ## (Re)installs the script so it's available in the path
+install: reqs | PIP-exists ## (Re)installs the script so it's available in the path
 	$(PIP) install --editable .
 
 # TESTS
