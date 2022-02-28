@@ -26,7 +26,8 @@ def engine(elm, **kwargs):
     logging.debug('passed kwargs: %s', kwargs)
     logging.info('elm.command: %s', elm.command)
     logging.info('elm.path: %s', elm.path)
-    logging.info('elm.output: %s', elm.output)
+    logging.info('elm.outfile: %s', elm.outfile)
+    logging.info('elm.outfmt: %s', elm.outfmt)
 
     # ben magic, throw away False and Empty flags (also zeros!)
     flags = {k: v for k, v in kwargs.items() if v}
@@ -161,7 +162,7 @@ def engine(elm, **kwargs):
         logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
     else:
-        output(obj['items'], elm.command, elm.output)
+        output(obj['items'], elm.command, elm.outfile, elm.outfmt)
 
         #give a warning if there are more records not shown
         if 'size' in flags and obj['total'] > flags['size']:
@@ -169,7 +170,7 @@ def engine(elm, **kwargs):
                         ' there is data you are not seeing.',
                         fg='yellow', err=True)
 
-def output(items, command, output='json'):
+def output(items, command, outfile='-', outfmt='json'):
     df = pd.DataFrame(items)
     pd.set_option('display.max_columns', 0)
     pd.set_option('display.max_colwidth', 0)
@@ -177,30 +178,31 @@ def output(items, command, output='json'):
     if not df.empty:
         #convert any columns with an subdict
 
-        logging.debug('output: %s', output)
-        if output == 'csv':
-            click.echo(df.to_csv(index=False))
-        elif output == 'html':
-            click.echo(htmlmin.minify(df.to_html(index=False, render_links=True, escape=False), remove_empty_space=True))
-        elif output == 'prettyhtml':
-            colorful_html = highlight(df.to_html(index=False, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
-            click.echo(colorful_html)
-        elif output == 'json':
-            plain_json=json.dumps({command: items})
-            click.echo(plain_json)
-        elif output == 'prettyjson':
+        logging.debug('format: %s', outfmt)
+        if outfmt == 'csv':
+            output = df.to_csv(index=False)
+        elif outfmt == 'html':
+            output = htmlmin.minify(df.to_html(index=False, render_links=True, escape=False), remove_empty_space=True)
+        elif outfmt == 'prettyhtml':
+            output = highlight(df.to_html(index=False, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
+        elif outfmt == 'json':
+            output = json.dumps({command: items})
+        elif outfmt == 'prettyjson':
             formatted_json=json.dumps({command: items}, sort_keys=True, indent=2)
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
-            click.echo(colorful_json.rstrip("\n")) # highlight adds an extra blank line on the end
-        elif output == 'latex':
-            click.echo(df.to_latex(index=False))
-        elif output == 'tab':
-            click.echo(tabulate(df, showindex=False, headers=df.columns))
-        elif output == 'raw':
-            click.echo(items)
+            output = colorful_json.rstrip("\n")
+        elif outfmt == 'latex':
+            output = df.to_latex(index=False)
+        elif outfmt == 'tab':
+            output = tabulate(df, showindex=False, headers=df.columns)
+        elif outfmt == 'raw':
+            output = items
         else:
-            # default to txt
-            click.echo(df.to_string(index=False))
+            # fail to txt
+            output = df.to_string(index=False)
+
+        output_file = click.open_file(outfile, mode='w')
+        click.echo(output, file=output_file)
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
 
