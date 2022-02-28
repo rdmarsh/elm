@@ -17,7 +17,7 @@ The following are useful examples that show you how to get started:
 A simple query to get usage metrics and show them in formatted json:
 
 ```shell
-./elm -o prettyjson MetricsUsage
+./elm -f prettyjson MetricsUsage
 ```
 
 ```json
@@ -63,7 +63,7 @@ Show the id and username for users with id between 2 and 5, sort by
 reverse username, and put in csv format:
 
 ```shell
-./elm -o csv AdminList -f id,username -S -username -F id\>:2,id\<:5
+./elm -f csv AdminList -f id,username -S -username -F id\>:2,id\<:5
 ```
 
 ## Use a different config file
@@ -85,8 +85,9 @@ To use space in the VALUE of a filter, you will have to quote the VALUE:
 
 ## Pipe stdout to another program
 
-You can pipe the output to other programs using standard unix pipes.
-This example shows passing the output into jinja:
+You can pipe the data to other programs using standard unix pipes.
+STDOUT is the default option. This example shows passing the data into
+jinja:
 
 ```shell
 ./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
@@ -107,3 +108,8 @@ In one line:
 ./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~$(./elm DeviceGroupList -f id -F name:"Linux Devices" | jq -r '.DeviceGroupList[].id') | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
+## Write data to a file
+
+```shell
+./elm -o filename MetricsUsage
+```
