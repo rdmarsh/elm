@@ -185,6 +185,8 @@ def output(items, command, outfile='-', outfmt='json'):
             output = htmlmin.minify(df.to_html(index=False, render_links=True, escape=False), remove_empty_space=True)
         elif outfmt == 'prettyhtml':
             output = highlight(df.to_html(index=False, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
+        elif outfmt == 'jira':
+            output = df.to_markdown(index=False,tablefmt="jira")
         elif outfmt == 'json':
             output = json.dumps({command: items})
         elif outfmt == 'prettyjson':
