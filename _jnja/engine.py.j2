@@ -197,6 +197,8 @@ def output(items, command, outfile='-', outfmt='json'):
             output = df.to_latex(index=False)
         elif outfmt == 'md':
             output = df.to_markdown(index=False)
+        elif outfmt == 'rst':
+            output = df.to_markdown(index=False,tablefmt="rst")
         elif outfmt == 'tab':
             output = tabulate(df, showindex=False, headers=df.columns)
         elif outfmt == 'raw':
