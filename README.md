@@ -7,7 +7,7 @@
 
 This tool is designed to make it simple to run basic read-only queries
 against the LogicMonitor API and format the data as csv, html, jira,
-json, latex, md (markdown), tab (tab seperated), raw or txt
+json, latex, md (markdown), tab (text table), raw or txt
 
 <!--ts-->
 * [Features](#features)
