@@ -248,6 +248,7 @@ testfmts: ## Test one command with all formats            (connects to LM)
 	@echo testing: ./$(name) --format prettyjson MetricsUsage ; ./$(name) --format prettyjson MetricsUsage
 	@echo testing: ./$(name) --format latex      MetricsUsage ; ./$(name) --format latex      MetricsUsage
 	@echo testing: ./$(name) --format md         MetricsUsage ; ./$(name) --format md         MetricsUsage
+	@echo testing: ./$(name) --format rst        MetricsUsage ; ./$(name) --format rst        MetricsUsage
 	@echo testing: ./$(name) --format tab        MetricsUsage ; ./$(name) --format tab        MetricsUsage
 	@echo testing: ./$(name) --format raw        MetricsUsage ; ./$(name) --format raw        MetricsUsage
 	@echo testing: ./$(name) --format txt        MetricsUsage ; ./$(name) --format txt        MetricsUsage
