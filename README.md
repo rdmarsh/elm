@@ -6,8 +6,8 @@
 > Extract LogicMonitor data via API
 
 This tool is designed to make it simple to run basic read-only queries
-against the LogicMonitor API and format the data as csv, html, json,
-latex, md (markdown), tab (tab seperated), raw or txt
+against the LogicMonitor API and format the data as csv, html, jira,
+json, latex, md (markdown), tab (tab seperated), raw or txt
 
 <!--ts-->
 * [Features](#features)
@@ -224,6 +224,7 @@ These format options are available:
 | csv        | comma-separated values                    |
 | html       | html table                                |
 | prettyhtml | html table with human readable formatting |
+| jira       | jira / confluence                         |
 | json       | json                                      |
 | prettyjson | json with human readable formatting       |
 | latex      | latex table                               |
