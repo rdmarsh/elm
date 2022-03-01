@@ -69,7 +69,7 @@ class ELM(object):
 @click.option('-k', '--access_key',   help='API token access key')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name')
 @click.option('-s', '--proxy',        type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port')
-@click.option('-f', '--format',       'outfmt', default='json', show_default=True, type=click.Choice(['csv', 'html', 'prettyhtml', 'jira', 'json', 'prettyjson', 'latex', 'md', 'tab', 'raw', 'txt']), help='Format of data')
+@click.option('-f', '--format',       'outfmt', default='json', show_default=True, type=click.Choice(['csv', 'html', 'prettyhtml', 'jira', 'json', 'prettyjson', 'latex', 'md', 'rst', 'tab', 'raw', 'txt']), help='Format of data')
 @click.option('-o', '--output',       'outfile', type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True, allow_dash=True), default='-', show_default=True, help='Output to file name')
 @click.option('-v', '--verbose',      count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
 @click.option('-x', '--export',       type=click.File('w'), help='Export the query to FILENAME')
