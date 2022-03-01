@@ -243,6 +243,7 @@ testfmts: ## Test one command with all formats            (connects to LM)
 	@echo testing: ./$(name) --format csv        MetricsUsage ; ./$(name) --format csv        MetricsUsage
 	@echo testing: ./$(name) --format html       MetricsUsage ; ./$(name) --format html       MetricsUsage
 	@echo testing: ./$(name) --format prettyhtml MetricsUsage ; ./$(name) --format prettyhtml MetricsUsage
+	@echo testing: ./$(name) --format jira       MetricsUsage ; ./$(name) --format jira       MetricsUsage
 	@echo testing: ./$(name) --format json       MetricsUsage ; ./$(name) --format json       MetricsUsage
 	@echo testing: ./$(name) --format prettyjson MetricsUsage ; ./$(name) --format prettyjson MetricsUsage
 	@echo testing: ./$(name) --format latex      MetricsUsage ; ./$(name) --format latex      MetricsUsage
