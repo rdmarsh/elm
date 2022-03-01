@@ -3,11 +3,11 @@
 [![Makefile CI](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
-> Extract LogicMonitor via API
+> Extract LogicMonitor data via API
 
-This tool is designed to make it simple to run basic queries against
-the LogicMonitor API and format the data as csv, html, json, latex,
-tab, raw or txt
+This tool is designed to make it simple to run basic read-only queries
+against the LogicMonitor API and format the data as csv, html, json,
+latex, md (markdown), tab (tab seperated), raw or txt
 
 <!--ts-->
 * [Features](#features)
@@ -227,6 +227,7 @@ These format options are available:
 | json       | json                                      |
 | prettyjson | json with human readable formatting       |
 | latex      | latex table                               |
+| md         | markdown table                            |
 | tab        | text table                                |
 | raw        | python dict                               |
 | txt        | pandas text                               |
@@ -249,7 +250,7 @@ Options:
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -f, --format [csv|html|prettyhtml|json|prettyjson|latex|tab|raw|txt]
+  -f, --format [csv|html|prettyhtml|json|prettyjson|latex|md|tab|raw|txt]
                                   Format of data  [default: json]
   -o, --output FILE               Output to file name  [default: -]
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
