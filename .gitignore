@@ -131,6 +131,9 @@ dmypy.json
 # Vim swap files
 .swp
 
+# mac files
+.DS_Store
+
 # ELM project compiled files
 elm
 elm.py
