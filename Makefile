@@ -253,6 +253,7 @@ testfmts: ## Test one command with all formats            (connects to LM)
 	@echo testing: ./$(name) --format tab        MetricsUsage ; ./$(name) --format tab        MetricsUsage
 	@echo testing: ./$(name) --format raw        MetricsUsage ; ./$(name) --format raw        MetricsUsage
 	@echo testing: ./$(name) --format txt        MetricsUsage ; ./$(name) --format txt        MetricsUsage
+	@echo testing: ./$(name) --format url        MetricsUsage ; ./$(name) --format url        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testverb
