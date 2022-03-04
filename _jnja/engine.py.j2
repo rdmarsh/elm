@@ -65,11 +65,16 @@ def engine(elm, **kwargs):
     logging.debug('elm.path attributes: %s', elm.path)
     logging.debug('remaining flags: %s', flags)
 
+    #construct resourcePath
     resourcePath = elm.path
     logging.debug('resourcePath: %s', resourcePath)
 
-    #construct query
-    queryParams = '?v=2'
+    #construct URL
+    url = 'https://'+ elm.account_name +'.logicmonitor.com/santaba/rest' + resourcePath
+    logging.debug('url: %s', url)
+
+    #construct queryParams
+    queryParams = 'v=2'
 
     #turn flags into queryParams key values
     for flag in flags:
@@ -81,10 +86,6 @@ def engine(elm, **kwargs):
 
     data = ''
     logging.debug('data: %s', data)
-
-    #Construct URL
-    url = 'https://'+ elm.account_name +'.logicmonitor.com/santaba/rest' + resourcePath + queryParams
-    logging.debug('url: %s', url)
 
     #Get current time in milliseconds
     epoch = str(int(time.time() * 1000))
@@ -108,7 +109,7 @@ def engine(elm, **kwargs):
 
     #Make request
     try:
-        response = requests.get(url, data=data, headers=headers)
+        response = requests.get(url, data=data, headers=headers, params=queryParams)
         logging.debug('response.headers.X-Rate-Limit-Limit: %s', response.headers['X-Rate-Limit-Limit'])
         logging.debug('response.headers.X-Rate-Limit-Remaining: %s', response.headers['X-Rate-Limit-Remaining'])
         logging.debug('response.headers.X-Rate-Limit-Window: %s', response.headers['X-Rate-Limit-Window'])
@@ -119,8 +120,9 @@ def engine(elm, **kwargs):
         click.secho(elm.path, fg='red', err=True)
         click.secho(flags, fg='red', err=True)
 
+    logging.info('response.url: %s', response.url)
     logging.info('response.status_code: %s', response.status_code)
-    logging.info('response.content: %s', response.content)
+    logging.debug('response.content: %s', response.content)
 
     # do I need this or is it covered by above raise for status?
     if not response:
@@ -155,7 +157,9 @@ def engine(elm, **kwargs):
     logging.debug('isMin: %s', obj.get('isMin', None))
     logging.debug('obj: %s', obj)
 
-    if 'total' in flags:
+    if elm.outfmt == "url":
+        click.echo(response.url)
+    elif 'total' in flags:
         logging.debug('total is a flag, showing total instead')
         click.echo(obj['total'])
     elif 'count' in flags:
