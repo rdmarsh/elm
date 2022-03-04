@@ -63,7 +63,7 @@ TAR ?= tar
 TARFLAGS += -cvf
 
 # pip for install
-PIP ?= pip
+PIP ?= pip3
 
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
 
