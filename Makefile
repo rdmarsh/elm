@@ -64,6 +64,7 @@ TARFLAGS += -cvf
 
 # pip for install
 PIP ?= pip3
+PIPFLAGS += install --user
 
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
 
@@ -183,12 +184,12 @@ $(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN) | $(cmddir)
 
 .PHONY: reqs
 reqs: requirements.txt | PIP-exists ## Install python requirements
-	$(PIP) install --user -r $<
+	$(PIP) $(PIPFLAGS) -r $<
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: install
 install: reqs | PIP-exists ## (Re)installs the script so it's available in the path
-	$(PIP) install --editable .
+	$(PIP) $(PIPFLAGS) --editable .
 
 # TESTS
 # =======================================
