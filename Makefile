@@ -183,7 +183,7 @@ $(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN) | $(cmddir)
 
 .PHONY: reqs
 reqs: requirements.txt | PIP-exists ## Install python requirements
-	$(PIP) install -r $<
+	$(PIP) install --user -r $<
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: install
