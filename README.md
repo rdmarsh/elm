@@ -233,6 +233,7 @@ These format options are available:
 | tab        | text table                                |
 | raw        | python dict                               |
 | txt        | pandas text                               |
+| url        | just show the encoded url of the api call |
 
 ### General help
 
@@ -252,7 +253,7 @@ Options:
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -f, --format [csv|html|prettyhtml|json|prettyjson|latex|md|tab|raw|txt]
+  -f, --format [csv|html|prettyhtml|json|prettyjson|latex|md|tab|raw|txt|url]
                                   Format of data  [default: json]
   -o, --output FILE               Output to file name  [default: -]
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
