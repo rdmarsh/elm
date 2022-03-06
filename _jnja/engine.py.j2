@@ -159,6 +159,7 @@ def engine(elm, **kwargs):
 
     if elm.outfmt == "url":
         click.echo(response.url)
+        click.echo(auth)
     elif 'total' in flags:
         logging.debug('total is a flag, showing total instead')
         click.echo(obj['total'])
