@@ -2,6 +2,9 @@
 
 [![Makefile CI](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+![OSS Lifecycle](https://img.shields.io/osslifecycle/rdmarsh/elm)
+![GitHub last commit](https://img.shields.io/github/last-commit/rdmarsh/elm)
+![GitHub](https://img.shields.io/github/license/rdmarsh/elm)
 
 > Extract LogicMonitor data via API
 
@@ -436,8 +439,6 @@ Options:
 See [EXAMPLES.md](EXAMPLES.md)
 
 ## Contributing
-
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 If you'd like to contribute, please fork the repository
 and use a feature branch. Pull requests are welcome. See
