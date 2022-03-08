@@ -225,18 +225,27 @@ def export(export, config_file, command, path, flags=""):
     output = template.render(config_file=config_file, command=command, path=path, flags=flags)
     export.write(output)
 
-def validate_filter(ctx, param, value):
-    if value:
-        try:
-            field, operator, value = re.split(r'(>\:|<\:|>|<|\!|\:|~|\!~)', value, 1)
-            logging.debug('field: %s', field)
-            logging.debug('operator: %s', operator)
-            logging.debug('value: %s', value)
-            #filter needs quotes around the value to work for strings
-            #ints are not unaffected, so do it for everything
-            value = '"' + value + '"'
-            logging.debug('value: %s', value)
-            return field + operator + value
-        except ValueError:
-            raise click.BadParameter("format must be 'FIELD[>:,<:,>,<,!,:,~,!~]VALUE'")
+def validate_filter(ctx, param, filters):
+    if filters:
+        filters_fmtchkd=[]
+        logging.debug('filters_fmtchkd: %s', filters_fmtchkd)
+        for filter in filters.split(","):
+            logging.debug('filter: %s', filter)
+            try:
+                field, operator, value = re.split(r'(>\:|<\:|>|<|\!|\:|~|\!~)', filter, 1)
+
+                logging.debug('field: %s', field)
+                logging.debug('operator: %s', operator)
+                logging.debug('value: %s', value)
+                #filter needs quotes around the value to work for strings
+                #this saves the user from having to escape quotes on the cli
+                #ints are not unaffected, so do it for everything
+                value = '"' + value + '"'
+                logging.debug('value: %s', value)
+                filters_fmtchkd.append(field + operator + value)
+                logging.debug('filters_fmtchkd: %s', filters_fmtchkd)
+            except ValueError:
+                raise click.BadParameter("format must be 'FIELD[>:,<:,>,<,!,:,~,!~]VALUE'")
+
+        return ",".join(filters_fmtchkd)
 

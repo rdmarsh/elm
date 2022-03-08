@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='elm',
-    version='0.9.1',
+    version='0.9.2',
     description='Install elm',
     url='https://github.com/rdmarsh/elm',
     author='David Marsh',
