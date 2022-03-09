@@ -6,7 +6,7 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/rdmarsh/elm)
 ![GitHub](https://img.shields.io/github/license/rdmarsh/elm)
 
-> Extract LogicMonitor data via API
+> A cli interface to make extracting LogicMonitor data via the api simpler
 
 This tool is designed to make it simple to run basic read-only queries
 against the LogicMonitor API and format the data as csv, html, jira,
