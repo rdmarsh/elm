@@ -10,6 +10,8 @@ The following are useful examples that show you how to get started:
 * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
 * [Pipe stdout to another program](#pipe-stdout-to-another-program)
 * [Find all hosts in a group by name](#find-all-hosts-in-a-group-by-name)
+* [Write data to a file](#write-data-to-a-file)
+* [Hostgroup and Collector Group don't match](#hostgroup-and-collector-group-dont-match)
 <!--te-->
 
 ## Get metrics
@@ -112,4 +114,15 @@ In one line:
 
 ```shell
 ./elm -o filename MetricsUsage
+```
+
+## Hostgroup and Collector Group don't match
+
+Useful for matching hosts to collector groups. Assumes you use a similar
+naming pattern for both hosts and collector groups (eg foo)
+
+Note: the "!" has to be escaped to stop bash interperating it
+
+```shell
+elm DeviceList -f name,displayName,preferredCollectorGroupName -F displayName~foo,preferredCollectorGroupName\!~foo
 ```
