@@ -149,11 +149,14 @@ Usage: make [flags] [option]
   make testlong      Tests that take a long time to complete
   make testbasic     Test basic flags
   make testhelp      Test all commands with help flag
-  make testid        Test one command with an id flag             (connects to LM)
-  make testcount     Test 'non-required' commands with count flag (connects to LM)
-  make testtotal     Test 'non-required' commands with total flag (connects to LM)
-  make testfmts      Test one command with all formats            (connects to LM)
-  make testverb      Test the verbose flags                       (connects to LM)
+  make testid        Test one command with an id flag              (connects to LM)
+  make testcount     Test 'non-required' commands with count flag  (connects to LM)
+  make testtotal     Test 'non-required' commands with total flag  (connects to LM)
+  make testfmts      Test one command with all formats             (connects to LM)
+  make testhead      Test one command and hide headers             (connects to LM)
+  make testindx      Test one command and show index               (connects to LM)
+  make testheadindx  Test one command, hide headers and show index (connects to LM)
+  make testverb      Test the verbose flags                        (connects to LM)
   make fail          A failing test
   make back          TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
   make clean         Remove generated files
