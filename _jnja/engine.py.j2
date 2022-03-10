@@ -203,6 +203,8 @@ def output(items, command, outfile='-', outfmt='json', header=True, index=False)
 
         if outfmt == 'csv':
             output = df.to_csv(header=header, index=index)
+            #to_csv adds a blank line to the end, this is to remove it
+            output = output[:-1]
         elif outfmt == 'html':
             output = htmlmin.minify(df.to_html(header=header, index=index, render_links=True, escape=False), remove_empty_space=True)
         elif outfmt == 'prettyhtml':
