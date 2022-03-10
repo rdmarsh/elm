@@ -16,7 +16,7 @@ See `config.example.ini`
 ## Warning: size limit is less than total records
 
 There is a valid size limit option (`--size INTEGER`, defaults to 50),
-but there are more resurts returned by the query that aren't displayed
+but there are more results returned by the query that aren't displayed
 
 ## Error: no valid fields selected
 
