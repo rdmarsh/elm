@@ -180,6 +180,8 @@ def output(items, command, outfile='-', outfmt='json'):
     pd.set_option('display.max_columns', 0)
     pd.set_option('display.max_colwidth', 0)
 
+    logging.debug('df: %s', df)
+
     if not df.empty:
         #convert any columns with an subdict
 
@@ -214,6 +216,8 @@ def output(items, command, outfile='-', outfmt='json'):
 
         output_file = click.open_file(outfile, mode='w')
         click.echo(output, file=output_file)
+    elif len(df.columns) == 0 and len(df.index) > 0:
+        click.secho('Error: no valid fields selected', fg='red', err=True)
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
 

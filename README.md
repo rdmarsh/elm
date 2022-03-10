@@ -29,6 +29,7 @@ json, latex, md (markdown), rst, tab (text table), raw or txt
   * [General help](#general-help)
   * [AdminById help](#adminbyid-help)
 * [Examples](#examples)
+* [Errors](#errors)
 * [Contributing](#contributing)
 * [Links](#links)
 * [Licensing](#licensing)
@@ -215,8 +216,9 @@ chown $(id -u):$(id -g) ~/.elm
 * ARGS: Args set flags that relate to the command data, such as
   setting filters, sorting, choosing fields etc
 
-Quikest way to understand how to run is to look at the
-[Examples](EXAMPLES.md)
+Quickest way to understand how to run is to look at
+[EXAMPLES.md](EXAMPLES.md). Common errors are show in
+[ERRORS.md](ERRORS.md)
 
 ### Format
 
@@ -437,6 +439,10 @@ Options:
 ## Examples
 
 See [EXAMPLES.md](EXAMPLES.md)
+
+## Errors
+
+See [ERRORS.md](ERRORS.md)
 
 ## Contributing
 
