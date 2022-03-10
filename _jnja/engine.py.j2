@@ -28,6 +28,8 @@ def engine(elm, **kwargs):
     logging.info('elm.path: %s', elm.path)
     logging.info('elm.outfile: %s', elm.outfile)
     logging.info('elm.outfmt: %s', elm.outfmt)
+    logging.info('elm.header: %s', elm.header)
+    logging.info('elm.index: %s', elm.index)
 
     # ben magic, throw away False and Empty flags (also zeros!)
     flags = {k: v for k, v in kwargs.items() if v}
@@ -167,7 +169,7 @@ def engine(elm, **kwargs):
         logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
     else:
-        output(obj['items'], elm.command, elm.outfile, elm.outfmt)
+        output(obj['items'], elm.command, elm.outfile, elm.outfmt, elm.header, elm.index)
 
         #give a warning if there are more records not shown
         if 'size' in flags and obj['total'] > flags['size']:
@@ -175,25 +177,38 @@ def engine(elm, **kwargs):
                         ' there is data you are not seeing.',
                         fg='yellow', err=True)
 
-def output(items, command, outfile='-', outfmt='json'):
+def output(items, command, outfile='-', outfmt='json', header=True, index=False):
     df = pd.DataFrame(items)
-    pd.set_option('display.max_columns', 0)
-    pd.set_option('display.max_colwidth', 0)
-
     logging.debug('df: %s', df)
 
     if not df.empty:
-        #convert any columns with an subdict
+        pd.set_option('display.max_columns', 0)
+        pd.set_option('display.max_colwidth', 0)
+
+        #todo: convert any columns with an subdict
+
+        #number index from 1 instead of 0
+        df.index = df.index + 1
 
         logging.debug('format: %s', outfmt)
+        logging.debug('header: %s', header)
+        logging.debug('index: %s', index)
+
+        #set headers to an empty array, this is for passing
+        #to tabulate as it doesn't understand header=False
+        if not header:
+            headers=[]
+        else:
+            headers=df.columns
+
         if outfmt == 'csv':
-            output = df.to_csv(index=False)
+            output = df.to_csv(header=header, index=index)
         elif outfmt == 'html':
-            output = htmlmin.minify(df.to_html(index=False, render_links=True, escape=False), remove_empty_space=True)
+            output = htmlmin.minify(df.to_html(header=header, index=index, render_links=True, escape=False), remove_empty_space=True)
         elif outfmt == 'prettyhtml':
-            output = highlight(df.to_html(index=False, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
+            output = highlight(df.to_html(header=header, index=index, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
         elif outfmt == 'jira':
-            output = df.to_markdown(index=False,tablefmt="jira")
+            output = df.to_markdown(headers=headers, index=index, tablefmt="jira")
         elif outfmt == 'json':
             output = json.dumps({command: items})
         elif outfmt == 'prettyjson':
@@ -201,18 +216,20 @@ def output(items, command, outfile='-', outfmt='json'):
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
             output = colorful_json.rstrip("\n")
         elif outfmt == 'latex':
-            output = df.to_latex(index=False)
+            output = df.to_latex(header=header, index=index)
         elif outfmt == 'md':
-            output = df.to_markdown(index=False)
+            output = df.to_markdown(headers=headers, index=index)
         elif outfmt == 'rst':
-            output = df.to_markdown(index=False,tablefmt="rst")
+            output = df.to_markdown(headers=headers, index=index, tablefmt="rst")
         elif outfmt == 'tab':
-            output = tabulate(df, showindex=False, headers=df.columns)
+            output = tabulate(df, headers=headers, showindex=index)
         elif outfmt == 'raw':
             output = items
         else:
             # fail to txt
-            output = df.to_string(index=False)
+            #output = df.to_string(header=header, index=index)
+            #better looking text output than above
+            output = df.to_markdown(headers=headers, index=index, tablefmt="plain")
 
         output_file = click.open_file(outfile, mode='w')
         click.echo(output, file=output_file)

@@ -260,6 +260,8 @@ Options:
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
   -f, --format [csv|html|prettyhtml|json|prettyjson|latex|md|tab|raw|txt|url]
                                   Format of data  [default: json]
+  -H, --header                    Hide the header  [default: True]
+  -I, --index                     Show the index  [default: False]
   -o, --output FILE               Output to file name  [default: -]
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME
