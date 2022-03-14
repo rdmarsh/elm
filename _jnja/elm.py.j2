@@ -108,11 +108,12 @@ def cli(ctx, access_id, access_key, account_name, proxy, outfmt, header, index, 
         sys.exit(1)
 
     #make sure the perms aren't open
-    if not good_perms(config_file):
-        click.secho('Error: config file perms are group or world readable', fg='red', err=True)
-        click.secho('Config file: ' + click.format_filename(config_file), fg='red', err=True)
-        logging.info('config file permissions are group or world readable')
-        sys.exit(1)
+    #this doesn't work, config file is still the default here
+    #if not good_perms(config_file):
+    #    click.secho('Error: config file perms are group or world readable', fg='red', err=True)
+    #    click.secho('Config file: ' + click.format_filename(config_file), fg='red', err=True)
+    #    logging.info('config file permissions are group or world readable')
+    #    sys.exit(1)
 
     #if using a proxy
     if proxy and None not in proxy:
