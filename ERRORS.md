@@ -13,6 +13,13 @@ The following show some errors you may see and what they mean:
 Missing the values needed to access the API from the cli or config file.
 See `config.example.ini`
 
+## Error: config file permissions are group or world readable
+
+Permissions for the config file are either group or world readable. This
+is enforced as these files can store api access ids or keys
+
+To correct: `chmod 600 ~/.elm/config.ini`
+
 ## Warning: size limit is less than total records
 
 There is a valid size limit option (`--size INTEGER`, defaults to 50),

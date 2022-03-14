@@ -23,7 +23,7 @@
 __project__ = 'elm'
 __appname__ = 'elm'
 __appdesc__ = 'Extract LogicMonitor via API'
-__version__ = '0.9.5'
+__version__ = '0.9.6'
 __author__ = 'David Marsh'
 __license__ = 'GPLv3'
 __copyright__ = 'Copyright 2021--2022 David Marsh'
@@ -31,6 +31,7 @@ __url__ = 'https://github.com/rdmarsh/elm'
 
 import os
 import sys
+import stat
 import logging
 #import hashlib
 #import base64
@@ -64,6 +65,13 @@ class ELM(object):
         self.outfile = outfile
         self.export = export
 
+def good_perms(file):
+    filemode = os.stat(file).st_mode
+    logging.info('filemode: %s', filemode)
+    if bool(filemode & stat.S_IRGRP) or bool (filemode & stat.S_IROTH):
+        return False
+    else:
+        return True
 
 @click.group(epilog='default config file: ' + click.format_filename(config_file))
 @click_config_file.configuration_option(config_file_name=config_file)
@@ -92,12 +100,21 @@ def cli(ctx, access_id, access_key, account_name, proxy, outfmt, header, index, 
     else:
         logger.setLevel(logging.WARNING)
 
+    #make sure we've got the bare minimun access needs
     if not access_id or not access_key or not account_name:
         click.secho('Error: access_id, access_key or account_name not set via cli or config file', fg='red', err=True)
         click.secho('Default config file: ' + click.format_filename(config_file), fg='red', err=True)
         logging.info('access_id, access_key or account_name not set via cli or config file')
         sys.exit(1)
 
+    #make sure the perms aren't open
+    if not good_perms(config_file):
+        click.secho('Error: config file perms are group or world readable', fg='red', err=True)
+        click.secho('Config file: ' + click.format_filename(config_file), fg='red', err=True)
+        logging.info('config file permissions are group or world readable')
+        sys.exit(1)
+
+    #if using a proxy
     if proxy and None not in proxy:
         socks.set_default_proxy(socks.SOCKS5, proxy[0], proxy[1])
         socket.socket = socks.socksocket
