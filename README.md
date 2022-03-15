@@ -150,16 +150,16 @@ Usage: make [flags] [option]
   make testbasic     Test basic flags
   make testtext      Test commands that alter columns, indices, header and footer
   make testhelp      Test all commands with help flag
-  make testid        Test one command with an id flag              (connects to LM)
+  make testid        Test a command with an id flag                (connects to LM)
   make testcount     Test 'non-required' commands with count flag  (connects to LM)
   make testtotal     Test 'non-required' commands with total flag  (connects to LM)
-  make testfmts      Test one command with all formats             (connects to LM)
-  make testhead      Test one command and hide headers             (connects to LM)
-  make testindx      Test one command and show index               (connects to LM)
-  make testheadindx  Test one command, hide headers and show index (connects to LM)
-  make testheadtxt   Test one command, show header text            (connects to LM)
-  make testfoottxt   Test one command, show footer text            (connects to LM)
-  make testheadfoot  Test one command, show header and footer text (connects to LM)
+  make testfmts      Test a command with all formats               (connects to LM)
+  make testH         Test a command and hide headers               (connects to LM)
+  make testI         Test a command and show index                 (connects to LM)
+  make testHI        Test a command, hide headers and show index   (connects to LM)
+  make testhead      Test a command, custom header text            (connects to LM)
+  make testfoot      Test a command, custom footer text            (connects to LM)
+  make testheadfoot  Test a command, custom header and footer text (connects to LM)
   make testverb      Test the verbose flags                        (connects to LM)
   make fail          A failing test
   make back          TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
@@ -267,9 +267,9 @@ Options:
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
   -f, --format [csv|html|prettyhtml|jira|json|prettyjson|latex|md|rst|tab|raw|txt|url]
                                   Format of data  [default: json]
-  -H, --header                    Hide the header  [default: True]
-  -I, --index                     Show the index  [default: False]
-  -o, --output FILE               Output to file name  [default: -]
+  -H, --noheaders                 Hide the column headers  [default: False]
+  -I, --index                     Show the row indices  [default: False]
+  -o, --filename FILE             Output to file name  [default: -]
   --head TEXT                     Text to prepend before the output
   --foot TEXT                     Text to append after the output
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG

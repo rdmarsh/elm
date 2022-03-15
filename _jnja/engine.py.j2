@@ -26,12 +26,12 @@ def engine(elm, **kwargs):
     logging.debug('passed kwargs: %s', kwargs)
     logging.info('elm.command: %s', elm.command)
     logging.info('elm.path: %s', elm.path)
-    logging.info('elm.outfile: %s', elm.outfile)
-    logging.info('elm.headtxt: %s', elm.headtxt)
-    logging.info('elm.foottxt: %s', elm.foottxt)
-    logging.info('elm.outfmt: %s', elm.outfmt)
-    logging.info('elm.header: %s', elm.header)
+    logging.info('elm.format: %s', elm.format)
+    logging.info('elm.noheaders: %s', elm.noheaders)
     logging.info('elm.index: %s', elm.index)
+    logging.info('elm.filename: %s', elm.filename)
+    logging.info('elm.head: %s', elm.head)
+    logging.info('elm.foot: %s', elm.foot)
 
     # ben magic, throw away False and Empty flags (also zeros!)
     flags = {k: v for k, v in kwargs.items() if v}
@@ -103,7 +103,7 @@ def engine(elm, **kwargs):
     hmac1 = hmac.new(elm.access_key.encode(),msg=requestVars.encode(),digestmod=hashlib.sha256).hexdigest()
     signature = base64.b64encode(hmac1.encode())
 
-    #Construct headers
+    #Construct html headers
     auth = 'LMv1 ' + elm.access_id + ':' + signature.decode() + ':' + epoch
     # dont show this as it has the api auth details
     #logging.info('auth: %s', auth)
@@ -161,7 +161,7 @@ def engine(elm, **kwargs):
     logging.debug('isMin: %s', obj.get('isMin', None))
     logging.debug('obj: %s', obj)
 
-    if elm.outfmt == "url":
+    if elm.format == "url":
         click.echo(response.url)
         click.echo(auth)
     elif 'total' in flags:
@@ -171,7 +171,7 @@ def engine(elm, **kwargs):
         logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
     else:
-        output(obj['items'], elm.command, elm.outfile, elm.outfmt, elm.header, elm.index, elm.headtxt, elm.foottxt)
+        output(obj['items'], elm.command, elm.filename, elm.format, elm.noheaders, elm.index, elm.head, elm.foot)
 
         #give a warning if there are more records not shown
         if 'size' in flags and obj['total'] > flags['size']:
@@ -179,7 +179,7 @@ def engine(elm, **kwargs):
                         ' there is data you are not seeing.',
                         fg='yellow', err=True)
 
-def output(items, command, outfile='-', outfmt='json', header=True, index=False, headtxt='', foottxt=''):
+def output(items, command, filename='-', format='json', noheaders=False, index=False, head='', foot=''):
     df = pd.DataFrame(items)
     logging.debug('df: %s', df)
 
@@ -192,56 +192,58 @@ def output(items, command, outfile='-', outfmt='json', header=True, index=False,
         #number index from 1 instead of 0
         df.index = df.index + 1
 
-        logging.debug('format: %s', outfmt)
-        logging.debug('header: %s', header)
+        logging.debug('format: %s', format)
+        logging.debug('noheaders: %s', noheaders)
         logging.debug('index: %s', index)
 
         #set headers to an empty array, this is for passing
         #to tabulate as it doesn't understand header=False
-        if not header:
-            headers=[]
+        if noheaders:
+            colheads=[]
         else:
-            headers=df.columns
+            colheads=df.columns
 
-        if outfmt == 'csv':
-            output = df.to_csv(header=header, index=index)
+        logging.debug('colheads: %s', colheads)
+
+        if format == 'csv':
+            output = df.to_csv(header=noheaders, index=index)
             #to_csv adds a blank line to the end, this is to remove it
             output = output[:-1]
-        elif outfmt == 'html':
-            output = htmlmin.minify(df.to_html(header=header, index=index, render_links=True, escape=False), remove_empty_space=True)
-        elif outfmt == 'prettyhtml':
-            output = highlight(df.to_html(header=header, index=index, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
-        elif outfmt == 'jira':
-            output = df.to_markdown(headers=headers, index=index, tablefmt="jira")
-        elif outfmt == 'json':
+        elif format == 'html':
+            output = htmlmin.minify(df.to_html(header=noheaders, index=index, render_links=True, escape=False), remove_empty_space=True)
+        elif format == 'prettyhtml':
+            output = highlight(df.to_html(header=noheaders, index=index, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
+        elif format == 'jira':
+            output = df.to_markdown(headers=colheads, index=index, tablefmt="jira")
+        elif format == 'json':
             output = json.dumps({command: items})
-        elif outfmt == 'prettyjson':
+        elif format == 'prettyjson':
             formatted_json=json.dumps({command: items}, sort_keys=True, indent=2)
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
             output = colorful_json.rstrip("\n")
-        elif outfmt == 'latex':
-            output = df.to_latex(header=header, index=index)
-        elif outfmt == 'md':
-            output = df.to_markdown(headers=headers, index=index)
-        elif outfmt == 'rst':
-            output = df.to_markdown(headers=headers, index=index, tablefmt="rst")
-        elif outfmt == 'tab':
-            output = tabulate(df, headers=headers, showindex=index)
-        elif outfmt == 'raw':
+        elif format == 'latex':
+            output = df.to_latex(header=noheaders, index=index)
+        elif format == 'md':
+            output = df.to_markdown(headers=colheads, index=index)
+        elif format == 'rst':
+            output = df.to_markdown(headers=colheads, index=index, tablefmt="rst")
+        elif format == 'tab':
+            output = tabulate(df, headers=colheads, showindex=index)
+        elif format == 'raw':
             output = items
         else:
             # fail to txt
             #output = df.to_string(header=header, index=index)
             #better looking text output than above
-            output = df.to_markdown(headers=headers, index=index, tablefmt="plain")
+            output = df.to_markdown(headers=colheads, index=index, tablefmt="plain")
 
-        output_file = click.open_file(outfile, mode='w')
+        output_file = click.open_file(filename, mode='w')
 
-        if headtxt:
-            output = headtxt + '\n\n' + output
+        if head:
+            output = head + '\n\n' + output
 
-        if foottxt:
-            output = output + '\n\n' + foottxt
+        if foot:
+            output = output + '\n\n' + foot
 
         click.echo(output, file=output_file)
     elif len(df.columns) == 0 and len(df.index) > 0:
