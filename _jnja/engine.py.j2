@@ -27,6 +27,8 @@ def engine(elm, **kwargs):
     logging.info('elm.command: %s', elm.command)
     logging.info('elm.path: %s', elm.path)
     logging.info('elm.outfile: %s', elm.outfile)
+    logging.info('elm.headtxt: %s', elm.headtxt)
+    logging.info('elm.foottxt: %s', elm.foottxt)
     logging.info('elm.outfmt: %s', elm.outfmt)
     logging.info('elm.header: %s', elm.header)
     logging.info('elm.index: %s', elm.index)
@@ -169,7 +171,7 @@ def engine(elm, **kwargs):
         logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
     else:
-        output(obj['items'], elm.command, elm.outfile, elm.outfmt, elm.header, elm.index)
+        output(obj['items'], elm.command, elm.outfile, elm.outfmt, elm.header, elm.index, elm.headtxt, elm.foottxt)
 
         #give a warning if there are more records not shown
         if 'size' in flags and obj['total'] > flags['size']:
@@ -177,7 +179,7 @@ def engine(elm, **kwargs):
                         ' there is data you are not seeing.',
                         fg='yellow', err=True)
 
-def output(items, command, outfile='-', outfmt='json', header=True, index=False):
+def output(items, command, outfile='-', outfmt='json', header=True, index=False, headtxt='', foottxt=''):
     df = pd.DataFrame(items)
     logging.debug('df: %s', df)
 
@@ -234,6 +236,13 @@ def output(items, command, outfile='-', outfmt='json', header=True, index=False)
             output = df.to_markdown(headers=headers, index=index, tablefmt="plain")
 
         output_file = click.open_file(outfile, mode='w')
+
+        if headtxt:
+            output = headtxt + '\n\n' + output
+
+        if foottxt:
+            output = output + '\n\n' + foottxt
+
         click.echo(output, file=output_file)
     elif len(df.columns) == 0 and len(df.index) > 0:
         click.secho('Error: no valid fields selected', fg='red', err=True)

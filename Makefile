@@ -196,7 +196,7 @@ install: reqs | PIP-exists ## (Re)installs the script so it's available in the p
 # do not change
 
 .PHONY: test
-test: testbasic testfmts testverb testid testhead testindx testheadindx ## Run quick and simple tests
+test: testbasic testfmts testverb testid ## Run quick and simple tests
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testlong
@@ -208,6 +208,10 @@ testbasic: ## Test basic flags
 	@echo testing: ./$(name) ; ./$(name) >/dev/null
 	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
 	@echo testing: ./$(name) --version ; ./$(name) --version >/dev/null
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: texttext
+testtext: testhead testindx testheadindx testheadtxt testfoottxt testheadfoot ## Test commands that alter columns, indices, header and footer
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testhelp
@@ -293,6 +297,33 @@ testheadindx: ## Test one command, hide headers and show index (connects to LM)
 	@echo testing: ./$(name) -H -I --format rst        MetricsUsage ; ./$(name) -H -I --format rst        MetricsUsage
 	@echo testing: ./$(name) -H -I --format tab        MetricsUsage ; ./$(name) -H -I --format tab        MetricsUsage
 	@echo testing: ./$(name) -H -I --format txt        MetricsUsage ; ./$(name) -H -I --format txt        MetricsUsage
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testheadtxt
+testheadtxt: ## Test one command, show header text            (connects to LM)
+	@echo testing: ./$(name) --head \"this is header text\" --format jira       MetricsUsage ; ./$(name) --head "this is header text" --format jira       MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --format md         MetricsUsage ; ./$(name) --head "this is header text" --format md         MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --format rst        MetricsUsage ; ./$(name) --head "this is header text" --format rst        MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --format tab        MetricsUsage ; ./$(name) --head "this is header text" --format tab        MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --format txt        MetricsUsage ; ./$(name) --head "this is header text" --format txt        MetricsUsage
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testfoottxt
+testfoottxt: ## Test one command, show footer text            (connects to LM)
+	@echo testing: ./$(name) --foot \"this is footer text\" --format jira       MetricsUsage ; ./$(name) --foot "this is footer text" --format jira       MetricsUsage
+	@echo testing: ./$(name) --foot \"this is footer text\" --format md         MetricsUsage ; ./$(name) --foot "this is footer text" --format md         MetricsUsage
+	@echo testing: ./$(name) --foot \"this is footer text\" --format rst        MetricsUsage ; ./$(name) --foot "this is footer text" --format rst        MetricsUsage
+	@echo testing: ./$(name) --foot \"this is footer text\" --format tab        MetricsUsage ; ./$(name) --foot "this is footer text" --format tab        MetricsUsage
+	@echo testing: ./$(name) --foot \"this is footer text\" --format txt        MetricsUsage ; ./$(name) --foot "this is footer text" --format txt        MetricsUsage
+	@echo "$@ $(OK_STRING)"
+
+.PHONY: testheadfoot
+testheadfoot: ## Test one command, show header and footer text (connects to LM)
+	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format jira       MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format jira       MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format md         MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format md         MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format rst        MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format rst        MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format tab        MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format tab        MetricsUsage
+	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format txt        MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format txt        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testverb

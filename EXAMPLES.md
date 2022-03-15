@@ -12,6 +12,7 @@ The following are useful examples that show you how to get started:
 * [Find all hosts in a group by name](#find-all-hosts-in-a-group-by-name)
 * [Write data to a file](#write-data-to-a-file)
 * [Hostgroup and Collector Group don't match](#hostgroup-and-collector-group-dont-match)
+* [Add header and footer custom text](#add-header-and-footer-custom-text)
 <!--te-->
 
 ## Get metrics
@@ -124,5 +125,15 @@ naming pattern for both hosts and collector groups (eg foo)
 Note: the "!" has to be escaped to stop bash interperating it
 
 ```shell
-elm DeviceList -f name,displayName,preferredCollectorGroupName -F displayName~foo,preferredCollectorGroupName\!~foo
+./elm DeviceList -f name,displayName,preferredCollectorGroupName -F displayName~foo,preferredCollectorGroupName\!~foo
+```
+
+## Add header and footer custom text
+
+Useful for adding a warning to the top of text that the data is
+automatically generated, and adding a datestamp to the footer. The
+example below is in jira markup:
+
+```shell
+./elm --head "{warning}This information is automatically generated. Changes will be overwritten!{warning}" --foot "_above extracted at $(date "+%Y-%m-%d %H:%M")_" --format jira MetricsUsage
 ```
