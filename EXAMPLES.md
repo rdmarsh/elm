@@ -135,5 +135,5 @@ automatically generated, and adding a datestamp to the footer. The
 example below is in jira markup:
 
 ```shell
-./elm --head "{warning}This information is automatically generated. Changes will be overwritten!{warning}" --foot "_above extracted at $(date "+%Y-%m-%d %H:%M")_" --format jira MetricsUsage
+./elm --head "{warning}This information is automatically generated. Changes may be overwritten!{warning}" --foot "_above extracted at $(date "+%Y-%m-%d %H:%M")_" --format jira MetricsUsage
 ```
