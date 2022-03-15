@@ -23,7 +23,7 @@
 __project__ = 'elm'
 __appname__ = 'elm'
 __appdesc__ = 'Extract LogicMonitor via API'
-__version__ = '0.9.7'
+__version__ = '0.9.8'
 __author__ = 'David Marsh'
 __license__ = 'GPLv3'
 __copyright__ = 'Copyright 2021--2022 David Marsh'
@@ -54,17 +54,17 @@ config_file = os.path.join(click.get_app_dir(__project__, force_posix=True), 'co
 
 class ELM(object):
     """Load confing and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, outfmt, header, index, outfile, headtxt, foottxt, export):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
         self.account_name = account_name
-        self.outfmt = outfmt
-        self.header = header
+        self.format = format
+        self.noheaders = noheaders
         self.index = index
-        self.outfile = outfile
-        self.headtxt = headtxt
-        self.foottxt = foottxt
+        self.filename = filename
+        self.head = head
+        self.foot = foot
         self.export = export
 
 def good_perms(file):
@@ -81,17 +81,17 @@ def good_perms(file):
 @click.option('-k', '--access_key',   help='API token access key')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name')
 @click.option('-s', '--proxy',        type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port')
-@click.option('-f', '--format',       'outfmt', default='json', show_default=True, type=click.Choice(['csv', 'html', 'prettyhtml', 'jira', 'json', 'prettyjson', 'latex', 'md', 'rst', 'tab', 'raw', 'txt', 'url']), help='Format of data')
-@click.option('-H', '--header',       is_flag=True, default=True,  show_default=True, help="Hide the column headers")
+@click.option('-f', '--format',       default='json', show_default=True, type=click.Choice(['csv', 'html', 'prettyhtml', 'jira', 'json', 'prettyjson', 'latex', 'md', 'rst', 'tab', 'raw', 'txt', 'url']), help='Format of data')
+@click.option('-H', '--noheaders',    is_flag=True, default=False, show_default=True, help="Hide the column headers")
 @click.option('-I', '--index',        is_flag=True, default=False, show_default=True, help="Show the row indices")
-@click.option('-o', '--output',       'outfile', type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True, allow_dash=True), default='-', show_default=True, help='Output to file name')
-@click.option(      '--head',         'headtxt', default='', help="Text to prepend before the output")
-@click.option(      '--foot',         'foottxt', default='', help="Text to append after the output")
+@click.option('-o', '--filename',     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True, allow_dash=True), default='-', show_default=True, help='Output to file name')
+@click.option(      '--head',         default='', help="Text to prepend before the output")
+@click.option(      '--foot',         default='', help="Text to append after the output")
 @click.option('-v', '--verbose',      count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
 @click.option('-x', '--export',       type=click.File('w'), help='Export the query to FILENAME')
 @click.version_option(version=__version__)
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, outfmt, header, index, outfile, headtxt, foottxt, verbose, export):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, index, filename, head, foot, verbose, export):
     """Extract LogicMonitor"""
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
@@ -127,14 +127,14 @@ def cli(ctx, access_id, access_key, account_name, proxy, outfmt, header, index, 
 
     logging.info('config_file: %s', config_file)
     logging.info('account_name: %s', account_name)
-    logging.info('format: %s', outfmt)
-    logging.info('header: %s', header)
+    logging.info('format: %s', format)
+    logging.info('noheaders: %s', noheaders)
     logging.info('index: %s', index)
-    logging.info('output: %s', outfile)
-    logging.info('headtxt: %s', headtxt)
-    logging.info('foottxt: %s', foottxt)
+    logging.info('filename: %s', filename)
+    logging.info('head: %s', head)
+    logging.info('foot: %s', foot)
     logging.info('export: %s', export)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, outfmt, header, index, outfile, headtxt, foottxt, export)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export)
 
 {% for command in commands -%}
 cli.add_command({{ command.command }}.{{ command.command }}, name='{{ command.command }}')

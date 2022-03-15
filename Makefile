@@ -211,7 +211,7 @@ testbasic: ## Test basic flags
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: texttext
-testtext: testhead testindx testheadindx testheadtxt testfoottxt testheadfoot ## Test commands that alter columns, indices, header and footer
+testtext: testH testI testHI testhead testfoot testheadfoot ## Test commands that alter columns, indices, header and footer
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testhelp
@@ -223,7 +223,7 @@ testhelp: ## Test all commands with help flag
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testid
-testid: ## Test one command with an id flag              (connects to LM)
+testid: ## Test a command with an id flag                (connects to LM)
 	@echo testing: ./$(name) AdminById --id 2 ; ./$(name) AdminById --id 2 ;
 	@echo "$@ $(OK_STRING)"
 
@@ -244,7 +244,7 @@ testtotal: ## Test 'non-required' commands with total flag  (connects to LM)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testfmts
-testfmts: ## Test one command with all formats             (connects to LM)
+testfmts: ## Test a command with all formats               (connects to LM)
 	@echo testing: ./$(name) --format csv        MetricsUsage ; ./$(name) --format csv        MetricsUsage
 	@echo testing: ./$(name) --format html       MetricsUsage ; ./$(name) --format html       MetricsUsage
 	@echo testing: ./$(name) --format prettyhtml MetricsUsage ; ./$(name) --format prettyhtml MetricsUsage
@@ -260,8 +260,8 @@ testfmts: ## Test one command with all formats             (connects to LM)
 	@echo testing: ./$(name) --format url        MetricsUsage ; ./$(name) --format url        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testhead
-testhead: ## Test one command and hide headers             (connects to LM)
+.PHONY: testH
+testH: ## Test a command and hide headers               (connects to LM)
 	@echo testing: ./$(name) -H --format csv        MetricsUsage ; ./$(name) -H --format csv        MetricsUsage
 	@echo testing: ./$(name) -H --format html       MetricsUsage ; ./$(name) -H --format html       MetricsUsage
 	@echo testing: ./$(name) -H --format prettyhtml MetricsUsage ; ./$(name) -H --format prettyhtml MetricsUsage
@@ -273,8 +273,8 @@ testhead: ## Test one command and hide headers             (connects to LM)
 	@echo testing: ./$(name) -H --format txt        MetricsUsage ; ./$(name) -H --format txt        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testindx
-testindx: ## Test one command and show index               (connects to LM)
+.PHONY: testI
+testI: ## Test a command and show index                 (connects to LM)
 	@echo testing: ./$(name) -I --format csv        MetricsUsage ; ./$(name) -I --format csv        MetricsUsage
 	@echo testing: ./$(name) -I --format html       MetricsUsage ; ./$(name) -I --format html       MetricsUsage
 	@echo testing: ./$(name) -I --format prettyhtml MetricsUsage ; ./$(name) -I --format prettyhtml MetricsUsage
@@ -286,8 +286,8 @@ testindx: ## Test one command and show index               (connects to LM)
 	@echo testing: ./$(name) -I --format txt        MetricsUsage ; ./$(name) -I --format txt        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testheadindx
-testheadindx: ## Test one command, hide headers and show index (connects to LM)
+.PHONY: testHI
+testHI: ## Test a command, hide headers and show index   (connects to LM)
 	@echo testing: ./$(name) -H -I --format csv        MetricsUsage ; ./$(name) -H -I --format csv        MetricsUsage
 	@echo testing: ./$(name) -H -I --format html       MetricsUsage ; ./$(name) -H -I --format html       MetricsUsage
 	@echo testing: ./$(name) -H -I --format prettyhtml MetricsUsage ; ./$(name) -H -I --format prettyhtml MetricsUsage
@@ -299,8 +299,8 @@ testheadindx: ## Test one command, hide headers and show index (connects to LM)
 	@echo testing: ./$(name) -H -I --format txt        MetricsUsage ; ./$(name) -H -I --format txt        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testheadtxt
-testheadtxt: ## Test one command, show header text            (connects to LM)
+.PHONY: testhead
+testhead: ## Test a command, custom header text            (connects to LM)
 	@echo testing: ./$(name) --head \"this is header text\" --format jira       MetricsUsage ; ./$(name) --head "this is header text" --format jira       MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --format md         MetricsUsage ; ./$(name) --head "this is header text" --format md         MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --format rst        MetricsUsage ; ./$(name) --head "this is header text" --format rst        MetricsUsage
@@ -308,8 +308,8 @@ testheadtxt: ## Test one command, show header text            (connects to LM)
 	@echo testing: ./$(name) --head \"this is header text\" --format txt        MetricsUsage ; ./$(name) --head "this is header text" --format txt        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: testfoottxt
-testfoottxt: ## Test one command, show footer text            (connects to LM)
+.PHONY: testfoot
+testfoot: ## Test a command, custom footer text            (connects to LM)
 	@echo testing: ./$(name) --foot \"this is footer text\" --format jira       MetricsUsage ; ./$(name) --foot "this is footer text" --format jira       MetricsUsage
 	@echo testing: ./$(name) --foot \"this is footer text\" --format md         MetricsUsage ; ./$(name) --foot "this is footer text" --format md         MetricsUsage
 	@echo testing: ./$(name) --foot \"this is footer text\" --format rst        MetricsUsage ; ./$(name) --foot "this is footer text" --format rst        MetricsUsage
@@ -318,7 +318,7 @@ testfoottxt: ## Test one command, show footer text            (connects to LM)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testheadfoot
-testheadfoot: ## Test one command, show header and footer text (connects to LM)
+testheadfoot: ## Test a command, custom header and footer text (connects to LM)
 	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format jira       MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format jira       MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format md         MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format md         MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format rst        MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format rst        MetricsUsage
