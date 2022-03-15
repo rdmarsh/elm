@@ -3,7 +3,7 @@
 # Author: David Marsh <rdmarsh@gmail.com>
 # ---------------------------------------
 #
-# elm Extract LogicMonitor
+# elm - A cli interface for extracting LogicMonitor data via the api
 # Copyright (C) 2021--2022 David Marsh rdmarsh@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,12 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-"""This is the main entry point for elm Extract LogicMonitor"""
+"""This is the main entry point for elm"""
 
 __project__ = 'elm'
 __appname__ = 'elm'
 __appdesc__ = 'A cli interface for extracting LogicMonitor data via the api'
-__version__ = '0.9.8.1'
+__version__ = '0.9.8.2'
 __author__ = 'David Marsh'
 __license__ = 'GPLv3'
 __copyright__ = 'Copyright 2021--2022 David Marsh'
@@ -92,7 +92,7 @@ def good_perms(file):
 @click.version_option(version=__version__)
 @click.pass_context
 def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, index, filename, head, foot, verbose, export):
-    """Extract LogicMonitor"""
+    """A cli interface for extracting LogicMonitor data via the api"""
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
