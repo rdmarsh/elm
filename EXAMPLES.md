@@ -13,6 +13,7 @@ The following are useful examples that show you how to get started:
 * [Write data to a file](#write-data-to-a-file)
 * [Hostgroup and Collector Group don't match](#hostgroup-and-collector-group-dont-match)
 * [Add header and footer custom text](#add-header-and-footer-custom-text)
+* [Filter by customProperties, systemProperties, autoProperties etc](#filter-by-customproperties-systemproperties-autoproperties-etc)
 <!--te-->
 
 ## Get metrics
@@ -137,3 +138,15 @@ example below is in jira markup:
 ```shell
 ./elm --head "{warning}This information is automatically generated. Changes may be overwritten!{warning}" --foot "_above extracted at $(date "+%Y-%m-%d %H:%M")_" --format jira MetricsUsage
 ```
+
+## Filter by customProperties, systemProperties, autoProperties etc
+
+If you want to filter the device list by customProperties,
+systemProperties, autoProperties etc, filter by X.name and X.value like so:
+
+```shell
+./elm DeviceList -f customProperties -F customProperties.name:customer.name,customProperties.value:customerA
+```
+
+For caveats, see the comments by David Bond on this post: https://communities.logicmonitor.com/topic/1709-get-lm-devicegroup-properties-rest-api/#comment-4129
+
