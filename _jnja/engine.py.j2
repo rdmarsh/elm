@@ -266,7 +266,7 @@ def validate_filter(ctx, param, filters):
         for filter in filters.split(","):
             logging.debug('filter: %s', filter)
             try:
-                field, operator, value = re.split(r'(>\:|<\:|>|<|\:|\!~|\!|~)', filter, 1)
+                field, operator, value = re.split(r'(>\:|<\:|>|<|\:|\!~|\!\:|~)', filter, 1)
 
                 logging.debug('field: %s', field)
                 logging.debug('operator: %s', operator)
@@ -279,7 +279,7 @@ def validate_filter(ctx, param, filters):
                 filters_fmtchkd.append(field + operator + value)
                 logging.debug('filters_fmtchkd: %s', filters_fmtchkd)
             except ValueError:
-                raise click.BadParameter("format must be 'FIELD[>:,<:,>,<,!,:,~,!~]VALUE'")
+                raise click.BadParameter("format must be 'FIELD[>:,<:,>,<,!:,:,~,!~]VALUE'")
 
         return ",".join(filters_fmtchkd)
 
