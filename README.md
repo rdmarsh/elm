@@ -125,6 +125,22 @@ You can install the script in your path by running
 
 which runs `pip install --editable .`
 
+(Note the trailing ".")
+
+You may see something similar to the following error:
+
+> WARNING: The script elm is installed in `/home/user/example/path/bin` which is not on PATH.  
+> Consider adding this directory to PATH or, if you prefer to suppress this warning, use `--no-warn-script-location`
+
+then add the dir to your `$PATH` similar to this to `.bash_profile`:
+
+```
+PATH="/Library/Frameworks/Python.framework/Versions/3.9/bin:${PATH}"
+export PATH
+```
+
+and then `source ~/.bash_profile`
+
 ### Developing
 
 Any changes should be made to the `Makefile` or the templates in the
@@ -245,7 +261,7 @@ These format options are available:
 | tab        | text table                                |
 | raw        | python dict                               |
 | txt        | pandas text                               |
-| url        | just show the encoded url of the api call |
+| api        | just show the encoded url of the api call |
 
 ### General help
 
@@ -265,7 +281,7 @@ Options:
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -f, --format [csv|html|prettyhtml|jira|json|prettyjson|latex|md|rst|tab|raw|txt|url]
+  -f, --format [csv|html|prettyhtml|jira|json|prettyjson|latex|md|rst|tab|raw|txt|api]
                                   Format of data  [default: json]
   -H, --noheaders                 Hide the column headers  [default: False]
   -I, --index                     Show the row indices  [default: False]

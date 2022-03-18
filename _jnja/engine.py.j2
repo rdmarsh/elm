@@ -161,9 +161,9 @@ def engine(elm, **kwargs):
     logging.debug('isMin: %s', obj.get('isMin', None))
     logging.debug('obj: %s', obj)
 
-    if elm.format == "url":
+    if elm.format == "api":
         click.echo(response.url)
-        click.echo(auth)
+        click.echo("Authorization: " + auth)
     elif 'total' in flags:
         logging.debug('total is a flag, showing total instead')
         click.echo(obj['total'])
