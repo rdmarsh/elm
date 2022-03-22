@@ -14,6 +14,7 @@ The following are useful examples that show you how to get started:
 * [Hostgroup and Collector Group don't match](#hostgroup-and-collector-group-dont-match)
 * [Add header and footer custom text](#add-header-and-footer-custom-text)
 * [Filter by customProperties, systemProperties, autoProperties etc](#filter-by-customproperties-systemproperties-autoproperties-etc)
+* [Find all the values for a custom property](#find-all-the-values-for-a-custom-property)
 <!--te-->
 
 ## Get metrics
@@ -149,4 +150,21 @@ systemProperties, autoProperties etc, filter by X.name and X.value like so:
 ```
 
 For caveats, see the comments by David Bond on this post: https://communities.logicmonitor.com/topic/1709-get-lm-devicegroup-properties-rest-api/#comment-4129
+
+## Find all the values for a custom property
+
+If you want to find all the values where the custom property name
+matches (eg) "wmi.user". This pipes the output to jq which then selects
+only the matching name and returns it's value from the json output:
+
+On an group level:
+
+```shell
+./elm -f json DeviceGroupList -F customProperties.name:wmi.user -f customProperties | jq -r '.DeviceGroupList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
+```
+Same as above, but for all indidual devices:
+
+```shell
+./elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
+```
 
