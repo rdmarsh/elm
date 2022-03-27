@@ -50,16 +50,16 @@ def engine(elm, **kwargs):
     logging.debug('httpVerb: %s', httpVerb)
 
     #construct path based on passed attributes (path values)
-    # find everything between {} and replace in path with value
+    # find placeholders between {} and collect in attributes var for below
     attributes = re.findall('\{([A-Za-z0-9_]+?)\}',elm.path)
     logging.debug('attributes: %s', attributes)
 
-    #todo: what does this do?
+    #for every attribute in the path found above, swap in the value and construct the path for the url
     for attribute in attributes:
         logging.debug('ins "%s" value "%s" into %s', attribute, flags[attribute], elm.path)
         elm.path = elm.path.replace("{" + attribute + "}", str(flags[attribute]))
 
-        # remove the attribute from flags
+        # remove the attribute from flags cause we've handle it
         logging.debug('del "%s" from flags', attribute)
         del flags[attribute]
 
@@ -136,6 +136,7 @@ def engine(elm, **kwargs):
     # where should this go, do we need it?
     response.encoding = 'utf-8'
 
+    #for future use, currently not finished
     if elm.export:
         logging.debug('elm.export: %s', elm.export)
         logging.debug('elm.config_file: %s', elm.config_file)
@@ -147,6 +148,7 @@ def engine(elm, **kwargs):
     obj = response.json()
     #obj = response.content.decode('utf-8')
 
+    #used for queries by id, which only return one item
     if 'items' not in obj:
         logging.debug('items not in obj, setting to defaults')
         obj = {
@@ -251,6 +253,7 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
 
+#for future use, currently not finished
 def export(export, config_file, command, path, flags=""):
     '''export python query to file'''
     file_loader = FileSystemLoader('elm')
