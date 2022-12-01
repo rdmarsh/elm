@@ -168,3 +168,11 @@ Same as above, but for all indidual devices:
 ./elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
 ```
 
+## List collector build versions
+
+Show the collector build and when it was last update; sorted by build number and updated time:
+
+```shell
+./elm CollectorList -f hostname,build,updatedOnLocal -S build,updatedOnLocal
+```
+
