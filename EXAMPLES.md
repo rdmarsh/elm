@@ -95,7 +95,9 @@ STDOUT is the default option. This example shows passing the data into
 jinja:
 
 ```shell
-./elm DatasourceById --id 12345678 | jinja2 /path/datasource.jira.j2 - | pbcopy
+./elm DatasourceById --id 12345678 | \
+jinja2 /path/datasource.jira.j2 - | \
+pbcopy
 ```
 
 ## Find all hosts in a group by name
@@ -103,14 +105,18 @@ jinja:
 This will show all hosts name and display name in the group "Linux Devices":
 
 ```shell
-gid=$(./elm DeviceGroupList -f id -F name:"Linux Devices" | jq -r '.DeviceGroupList[].id')
-./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~${gid} | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
+gid=$(./elm DeviceGroupList -f id -F name:"Linux Devices" | \
+jq -r '.DeviceGroupList[].id')
+
+./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~${gid} | \
+jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
 In one line:
 
 ```shell
-./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~$(./elm DeviceGroupList -f id -F name:"Linux Devices" | jq -r '.DeviceGroupList[].id') | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
+./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~$(./elm DeviceGroupList -f id -F name:"Linux Devices" | \
+jq -r '.DeviceGroupList[].id') | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
 ## Write data to a file
@@ -160,12 +166,15 @@ only the matching name and returns it's value from the json output:
 On an group level:
 
 ```shell
-./elm -f json DeviceGroupList -F customProperties.name:wmi.user -f customProperties | jq -r '.DeviceGroupList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
+./elm -f json DeviceGroupList -F customProperties.name:wmi.user -f customProperties | \
+jq -r '.DeviceGroupList[].customProperties[] | select(.name=="wmi.user") | .value' | \
+sort -u
 ```
 Same as above, but for all indidual devices:
 
 ```shell
-./elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
+./elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | \
+jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
 ```
 
 Another similar way to do this, but also print the device `name` and
