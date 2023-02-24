@@ -184,11 +184,14 @@ Another similar way to do this, but also print the device `name` and
 The example will find all devices where displayName contains "foo"
 and has the "snmp.security" custom property key set, and then output
 the "name", "displayName" and the associated custom property value,
-outputing it as a tab seperated values.
+outputing it as a tsv seperated values. The tab values are then swapped
+for commas before passing to the unix commands `sort` and `column`.
 
 ```shell
 ./elm -f json DeviceList -F displayName~foo,customProperties.name:snmp.security -f name,displayName,customProperties -s0 | \
-jq -r --arg name "snmp.security" '.DeviceList[] | .customProperties[] as $custom | select($custom.name==$name) | [.displayName, .name, $custom.value] | @tsv'
+jq -r --arg name "snmp.security" '.DeviceList[] | .customProperties[] as $custom | select($custom.name==$name) | [$custom.value, .displayName, .name] | @tsv | gsub("\\t";",")' | \
+sort | \
+column -t -s,
 ```
 
 ## List collector build versions
