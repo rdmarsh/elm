@@ -168,9 +168,23 @@ Same as above, but for all indidual devices:
 ./elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
 ```
 
+Another similar way to do this, but also print the device `name` and
+`displayName` along with the value of a customProperty (in this case
+"snmp.security").
+
+The example will find all devices where displayName contains "foo"
+and has the "snmp.security" custom property key set, and then output
+the "name", "displayName" and the associated custom property value,
+outputing it as a tab seperated values.
+
+```shell
+./elm -f json DeviceList -F displayName~foo,customProperties.name:snmp.security -f name,displayName,customProperties -s0 | \
+jq -r --arg name "snmp.security" '.DeviceList[] | .customProperties[] as $custom | select($custom.name==$name) | [.displayName, .name, $custom.value] | @tsv'
+```
+
 ## List collector build versions
 
-Show the collector build and when it was last update; sorted by build number and updated time:
+Show the collector build version and when it was last update; sorted by build number and updated time:
 
 ```shell
 ./elm CollectorList -f hostname,build,updatedOnLocal -S build,updatedOnLocal
