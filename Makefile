@@ -7,7 +7,7 @@
 #   more info: make about
 #
 # elm Extract LogicMonitor
-# Copyright (C) 2021--2022 David Marsh rdmarsh@gmail.com
+# Copyright (C) 2021--2023 David Marsh rdmarsh@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,6 +24,11 @@
 
 # MAKE FLAGS
 #MAKEFLAGS += -j4
+
+# API VERSION
+# ---------------------------------------
+# set to '3' to use api v3, anything else will use v2
+apiversion = 3
 
 # FILE EXTENSIONS
 # ---------------------------------------
@@ -66,7 +71,11 @@ TARFLAGS += -cvf
 PIP ?= pip3
 PIPFLAGS += install --user
 
+ifeq ($(apiversion), 3) 
+lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json
+else
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
+endif
 
 # BUILD SOURCE AND TARGTS
 # ---------------------------------------
@@ -129,13 +138,13 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 #
 # cant split these long lines, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
-$(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN) | $(defdir) JQ-exists
+$(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	@echo "$@ $(OK_STRING)"
 	$(MAKE)
 
-$(defdir)/swagger.$(JSN): | $(defdir) CURL-exists
+$(defdir)/swagger.$(JSN): $(MAKEFILE_LIST) | $(defdir) CURL-exists
 	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
@@ -257,7 +266,7 @@ testfmts: ## Test a command with all formats               (connects to LM)
 	@echo testing: ./$(name) --format tab        MetricsUsage ; ./$(name) --format tab        MetricsUsage
 	@echo testing: ./$(name) --format raw        MetricsUsage ; ./$(name) --format raw        MetricsUsage
 	@echo testing: ./$(name) --format txt        MetricsUsage ; ./$(name) --format txt        MetricsUsage
-	@echo testing: ./$(name) --format url        MetricsUsage ; ./$(name) --format url        MetricsUsage
+	@echo testing: ./$(name) --format api        MetricsUsage ; ./$(name) --format api        MetricsUsage
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: testH
@@ -377,7 +386,7 @@ about: ## About this Makefile
 .PHONY: copying
 copying: ## Copyright notice
 	@echo
-	@echo 'Copyright (C) 2021--2022 David Marsh'
+	@echo 'Copyright (C) 2021--2023 David Marsh'
 	@echo 'rdmarsh@gmail.com'
 	@echo
 	@echo 'This program is free software: you can redistribute it and/or modify'
