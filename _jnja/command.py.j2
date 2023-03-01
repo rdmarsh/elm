@@ -63,8 +63,11 @@ def {{ command }}(elm, **kwargs):
     Swagger URL:
 
     \b
-    https://www.logicmonitor.com/swagger-ui-master/dist/#/{{ tag | urlencode }}/{{ opid | urlencode }}
-    https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/{{ tag | urlencode }}/{{ opid | urlencode }}
+    {% if apiversion == "3" -%}
+        https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/{{ tag | urlencode }}/{{ opid | urlencode }}
+    {%- else -%}
+        https://www.logicmonitor.com/swagger-ui-master/dist/#/{{ tag | urlencode }}/{{ opid | urlencode }}
+    {%- endif %}
     """
     elm.command = '{{ command }}'
     elm.path = '{{ path }}'

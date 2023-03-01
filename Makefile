@@ -28,7 +28,7 @@
 # API VERSION
 # ---------------------------------------
 # set to '3' to use api v3, anything else will use v2
-apiversion = 3
+apiversion ?= 3
 
 # FILE EXTENSIONS
 # ---------------------------------------
@@ -71,7 +71,11 @@ TARFLAGS += -cvf
 PIP ?= pip3
 PIPFLAGS += install --user
 
-ifeq ($(apiversion), 3) 
+ifneq ($(apiversion),3)
+apiversion = 2
+endif
+
+ifeq ($(apiversion), 3)
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json
 else
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
@@ -184,11 +188,11 @@ $(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS)
 	@echo "$@ $(OK_STRING)"
 
 engine.py: $(jnjdir)/engine.py.$(J2) $(defdir)/commands.$(JSN)
-	$(JINJA) $^ $(OUTPUT_OPTION)
+	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
 $(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN) | $(cmddir)
-	$(JINJA) $^ $(OUTPUT_OPTION)
+	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: reqs
@@ -404,8 +408,11 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make [flags] [option]\n"} /^[$$()% \.0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36mmake %-12s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo
 	@echo 'Useful make flags:'
-	@echo '  make -n  dry run'
-	@echo '  make -j  run simultaneous jobs'
-	@echo '  make -B  force make target'
+	@echo '  make -n   : dry run'
+	@echo '  make -j   : run simultaneous jobs'
+	@echo '  make -B   : force make target'
+	@echo
+	@echo 'You can override Makefile vars like so:'
+	@echo '  make apiversion=2'
 	@echo
 
