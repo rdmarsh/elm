@@ -78,7 +78,11 @@ def engine(elm, **kwargs):
     logging.debug('url: %s', url)
 
     #construct queryParams
-    queryParams = 'v=2'
+    {% if apiversion == "3" -%}
+        queryParams = 'v=3'
+    {%- else -%}
+        queryParams = 'v=2'
+    {%- endif %}
 
     #turn flags into queryParams key values
     for flag in flags:

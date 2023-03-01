@@ -186,9 +186,12 @@ Usage: make [flags] [option]
   make help          Show this help
 
 Useful make flags:
-  make -n  dry run
-  make -j  run simultaneous jobs
-  make -B  force make target
+  make -n   : dry run
+  make -j   : run simultaneous jobs
+  make -B   : force make target
+
+You can override Makefile vars like so:
+  make apiversion=2
 ```
 
 ## Configuration
