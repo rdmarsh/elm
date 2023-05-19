@@ -13,26 +13,31 @@ against the LogicMonitor API and format the data as csv, html, jira,
 json, latex, md (markdown), rst, tab (text table), raw or txt
 
 <!--ts-->
-* [Features](#features)
-* [Installing](#installing)
-  * [Quick start](#quick-start)
-  * [Pre-requisites](#pre-requisites)
-  * [Clone the repo](#clone-the-repo)
-  * [Building](#building)
-  * [Initial configuration](#initial-configuration)
-  * [Installing in path](#installing-in-path)
-  * [Developing](#developing)
-  * [Makefile help](#makefile-help)
-* [Configuration](#configuration)
-* [Usage](#usage)
-  * [Format](#format)
-  * [General help](#general-help)
-  * [AdminById help](#adminbyid-help)
-* [Examples](#examples)
-* [Errors](#errors)
-* [Contributing](#contributing)
-* [Links](#links)
-* [Licensing](#licensing)
+   * [Features](#features)
+   * [Installing](#installing)
+      * [Quick start](#quick-start)
+      * [Pre-requisites](#pre-requisites)
+      * [Clone the repo](#clone-the-repo)
+      * [Building](#building)
+      * [Initial configuration](#initial-configuration)
+      * [Installing in path](#installing-in-path)
+      * [Developing](#developing)
+      * [Makefile help](#makefile-help)
+   * [Configuration](#configuration)
+   * [Usage](#usage)
+      * [Format](#format)
+      * [General help](#general-help)
+      * [AdminById help](#adminbyid-help)
+   * [Examples](#examples)
+   * [Errors](#errors)
+   * [Contributing](#contributing)
+   * [Links](#links)
+   * [Licensing](#licensing)
+   * [meta](#meta)
+
+<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
+<!-- Added by: davidmarsh, at: Fri 19 May 2023 15:18:25 AEST -->
+
 <!--te-->
 
 ## Features
@@ -516,3 +521,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>
 
 Note: LOGICMONITOR is a trademark of LogicMonitor, Inc. and not
 affiliated with this project
+
+## meta
+
+Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header README.md`
+
