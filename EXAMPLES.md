@@ -3,18 +3,25 @@
 The following are useful examples that show you how to get started:
 
 <!--ts-->
-* [Get metrics](#get-metrics)
-* [Return just one result](#return-just-one-result)
-* [Export users by userid](#export-users-by-userid)
-* [Use a different config file](#use-a-different-config-file)
-* [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
-* [Pipe stdout to another program](#pipe-stdout-to-another-program)
-* [Find all hosts in a group by name](#find-all-hosts-in-a-group-by-name)
-* [Write data to a file](#write-data-to-a-file)
-* [Hostgroup and Collector Group don't match](#hostgroup-and-collector-group-dont-match)
-* [Add header and footer custom text](#add-header-and-footer-custom-text)
-* [Filter by customProperties, systemProperties, autoProperties etc](#filter-by-customproperties-systemproperties-autoproperties-etc)
-* [Find all the values for a custom property](#find-all-the-values-for-a-custom-property)
+   * [Get metrics](#get-metrics)
+   * [Return just one result](#return-just-one-result)
+   * [Export users by userid](#export-users-by-userid)
+   * [Use a different config file](#use-a-different-config-file)
+   * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
+   * [Pipe stdout to another program](#pipe-stdout-to-another-program)
+   * [Find all hosts in a group by name](#find-all-hosts-in-a-group-by-name)
+   * [Write data to a file](#write-data-to-a-file)
+   * [Hostgroup and Collector Group don't match](#hostgroup-and-collector-group-dont-match)
+   * [Add header and footer custom text](#add-header-and-footer-custom-text)
+   * [Filter by customProperties, systemProperties, autoProperties etc](#filter-by-customproperties-systemproperties-autoproperties-etc)
+   * [Find all the values for a custom property](#find-all-the-values-for-a-custom-property)
+   * [List collector build versions](#list-collector-build-versions)
+   * [Find long SDTs](#find-long-sdts)
+   * [meta](#meta)
+
+<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
+<!-- Added by: davidmarsh, at: Fri 19 May 2023 15:18:18 AEST -->
+
 <!--te-->
 
 ## Get metrics
@@ -201,4 +208,16 @@ Show the collector build version and when it was last update; sorted by build nu
 ```shell
 ./elm CollectorList -f hostname,build,updatedOnLocal -S build,updatedOnLocal
 ```
+
+## Find long SDTs
+
+This will find SDTs that don't end for at least one year from the current time:
+
+```shell
+./elm SDTList -F endDateTime\>$(( ( $(date +'%s') + 31536000 ) * 1000 )) -f id,deviceGroupFullPath,deviceDisplayName,endDateTimeOnLocal,duration,admin,comment -S endDateTime -s0
+```
+
+## meta
+
+Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header EXAMPLES.md`
 
