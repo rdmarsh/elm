@@ -75,7 +75,7 @@ ifneq ($(apiversion),3)
 apiversion = 2
 endif
 
-ifeq ($(apiversion), 3)
+ifeq ($(apiversion),3)
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json
 else
 lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
