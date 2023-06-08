@@ -78,11 +78,7 @@ def engine(elm, **kwargs):
     logging.debug('url: %s', url)
 
     #construct queryParams
-    {% if apiversion == "3" -%}
-        queryParams = 'v=3'
-    {%- else -%}
-        queryParams = 'v=2'
-    {%- endif %}
+    queryParams = ''
 
     #turn flags into queryParams key values
     for flag in flags:
@@ -111,7 +107,7 @@ def engine(elm, **kwargs):
     auth = 'LMv1 ' + elm.access_id + ':' + signature.decode() + ':' + epoch
     # dont show this as it has the api auth details
     #logging.info('auth: %s', auth)
-    headers = {'Content-Type':'application/json','Authorization':auth}
+    headers = {'Content-Type':'application/json','Authorization':auth,'X-Version':'{{ apiversion }}'}
     # dont show this as it has the api auth details
     #logging.info('headers: %s', headers)
 
