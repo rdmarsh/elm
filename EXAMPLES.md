@@ -15,12 +15,17 @@ The following are useful examples that show you how to get started:
    * [Add header and footer custom text](#add-header-and-footer-custom-text)
    * [Filter by customProperties, systemProperties, autoProperties etc](#filter-by-customproperties-systemproperties-autoproperties-etc)
    * [Find all the values for a custom property](#find-all-the-values-for-a-custom-property)
+   * [Find all the devices belonging to a static group](#find-all-the-devices-belonging-to-a-static-group)
+   * [Find all the devices belonging to a dynamic group](#find-all-the-devices-belonging-to-a-dynamic-group)
+   * [Find all groups that have a customProperty set](#find-all-groups-that-have-a-customproperty-set)
    * [List collector build versions](#list-collector-build-versions)
    * [Find long SDTs](#find-long-sdts)
+   * [Find non-auto balanced devices on a collector](#find-non-auto-balanced-devices-on-a-collector)
+   * [Compare devices in two groups](#compare-devices-in-two-groups)
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Fri 19 May 2023 15:18:18 AEST -->
+<!-- Added by: davidmarsh, at: Tue  5 Sep 2023 08:55:12 AEST -->
 
 <!--te-->
 
