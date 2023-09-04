@@ -10,5 +10,6 @@
 ## Reporting a Vulnerability
 
 In case of sensitive bugs like security vulnerabilities, please contact
-rdmarsh@gmail.com directly instead of using issue tracker. We value your effort
-to improve the security and privacy of this project!
+rdmarsh@gmail.com directly instead of using issue tracker. We value your
+effort to improve the security and privacy of this project!
+

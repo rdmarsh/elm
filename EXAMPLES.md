@@ -196,9 +196,33 @@ for commas before passing to the unix commands `sort` and `column`.
 
 ```shell
 ./elm -f json DeviceList -F displayName~foo,customProperties.name:snmp.security -f name,displayName,customProperties -s0 | \
-jq -r --arg name "snmp.security" '.DeviceList[] | .customProperties[] as $custom | select($custom.name==$name) | [$custom.value, .displayName, .name] | @tsv | gsub("\\t";",")' | \
+jq -r --arg name "snmp.security" '.DeviceList[] | .customProperties[] as $custom | select($custom.name==$name) | [.displayName, .name, $custom.value] | @tsv | gsub("\\t";",")' | \
 sort | \
 column -t -s,
+```
+## Find all the devices belonging to a static group
+
+Like the custom property above, this solution uses jq to filter the
+results:
+
+```shell
+./elm -f json DeviceList -F systemProperties.name:system.staticgroups,systemProperties.value\~"Root/Group/Name/" -f name,displayName,systemProperties -s0 | \
+jq -r --arg name "system.staticgroups" '.DeviceList[] | .systemProperties[] as $system | select($system.name==$name) | [.displayName, .name, $system.value] | @csv'
+```
+
+## Find all the devices belonging to a dynamic group
+
+./elm -f json DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group/Name/" -f name,displayName,systemProperties -s0 | \
+jq -r --arg name "system.groups" '.DeviceList[] | .systemProperties[] as $system | select($system.name==$name) | [.displayName, .name, $system.value] | @csv'
+
+## Find all groups that have a customProperty set
+
+Like the custom property above, this solution uses jq to filter the
+results:
+
+```shell
+elm -f json DeviceGroupList -F customProperties.name:ClientID -f name,fullPath,customProperties -s0 | \
+jq -r --arg name "ClientID" '.DeviceGroupList[] | .customProperties[] as $custom | select($custom.name==$name) | [.name, .fullPath, $custom.value] | @csv'
 ```
 
 ## List collector build versions
@@ -215,6 +239,22 @@ This will find SDTs that don't end for at least one year from the current time:
 
 ```shell
 ./elm SDTList -F endDateTime\>$(( ( $(date +'%s') + 31536000 ) * 1000 )) -f id,deviceGroupFullPath,deviceDisplayName,endDateTimeOnLocal,duration,admin,comment -S endDateTime -s0
+```
+
+## Find non-auto balanced devices on a collector
+
+```shell
+./elm DeviceList -f id,name,displayName,autoBalancedCollectorGroupId,collectorDescription -F collectorDescription\~"DESC_HERE",autoBalancedCollectorGroupId:0 -s0
+```
+
+## Compare devices in two groups
+
+Find all the devices in two groups and then compare them, showing devices that aren't in both groups:
+
+```shell
+./elm -f txt -o group_a.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_A" -f displayName -S displayName -s0
+./elm -f txt -o group_b.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_B" -f displayName -S displayName -s0
+comm -3 group_a.txt group_b.txt
 ```
 
 ## meta
