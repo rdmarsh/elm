@@ -495,9 +495,10 @@ terms. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - Project homepage: https://github.com/rdmarsh/elm
 - Repository: https://github.com/rdmarsh/elm
 - Issue tracker: https://github.com/rdmarsh/elm/issues
-    - In case of sensitive bugs like security vulnerabilities, please contact
-      rdmarsh@gmail.com directly instead of using issue tracker. We value your effort
-      to improve the security and privacy of this project!
+    - In case of sensitive bugs like security vulnerabilities, please
+      contact rdmarsh@gmail.com directly or using [githubs vulnerablity
+      reporting function] instead of using issue tracker. We value your
+      effort to improve the security and privacy of this project!
 - Related projects and pages:
     - https://www.logicmonitor.com  
     - https://www.logicmonitor.com/support/rest-api-developers-guide/v2/rest-api-v2-overview
@@ -525,4 +526,6 @@ affiliated with this project
 ## meta
 
 Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header README.md`
+
+[githubs vulnerablity reporting function]: https://github.com/rdmarsh/elm/security
 
