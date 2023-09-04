@@ -8,11 +8,9 @@ import hmac
 import logging
 import json
 from collections import defaultdict
-from jinja2 import Environment, FileSystemLoader
 from pygments import highlight, lexers, formatters
 from packaging import version
 import pandas as pd
-from pandas.io.json import json_normalize #package for flattening json in pandas df
 from tabulate import tabulate
 import click
 import htmlmin
@@ -197,6 +195,7 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
         logging.debug('format: %s', format)
         logging.debug('noheaders: %s', noheaders)
         logging.debug('index: %s', index)
+        logging.debug('dtypes: %s', df.dtypes)
 
         #set headers to an empty array, this is for passing
         #to tabulate as it doesn't understand header=False
