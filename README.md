@@ -1,10 +1,14 @@
 # elm
 
-[![Makefile CI](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
-![OSS Lifecycle](https://img.shields.io/osslifecycle/rdmarsh/elm)
 ![GitHub last commit](https://img.shields.io/github/last-commit/rdmarsh/elm)
 ![GitHub](https://img.shields.io/github/license/rdmarsh/elm)
+![OSS Lifecycle](https://img.shields.io/osslifecycle/rdmarsh/elm)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
+[![CodeQL](https://github.com/rdmarsh/elm/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/codeql-analysis.yml)
+[![CodeQL](https://github.com/rdmarsh/elm/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/github-code-scanning/codeql)
+[![Dependency Review](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml)
+[![Makefile CI](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml)
 
 > A cli interface for extracting LogicMonitor data via the api
 
