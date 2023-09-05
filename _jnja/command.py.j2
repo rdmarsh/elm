@@ -24,6 +24,7 @@ import engine
                 help="Only include the listed fields"
 {%- elif option.name == "filter" -%}, \
                 help="""Filter by operator and value. Separate multiple filters by a comma.
+                Escape commas in field searches with a backslash.
 
                 Operators:
 
@@ -36,6 +37,7 @@ import engine
                 :  - Equals
                 ~  - Includes
                 !~ - Does not include
+
                 """
 {%- elif option.name == "size" -%}, \
                 help="Quantity of results returned. [0-1000 inclusive, '0' returns all results (up to 1000)]"
