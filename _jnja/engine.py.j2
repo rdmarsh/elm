@@ -195,7 +195,7 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
         logging.debug('format: %s', format)
         logging.debug('noheaders: %s', noheaders)
         logging.debug('index: %s', index)
-        logging.debug('dtypes: %s', df.dtypes)
+        logging.debug('dtypes:\n%s', df.dtypes)
 
         #set headers to an empty array, this is for passing
         #to tabulate as it doesn't understand header=False
@@ -215,28 +215,30 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
         elif format == 'prettyhtml':
             output = highlight(df.to_html(header=noheaders, index=index, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
         elif format == 'jira':
-            output = df.to_markdown(headers=colheads, index=index, tablefmt="jira")
+            output = tabulate(df, headers=colheads, showindex=index, tablefmt="jira", floatfmt='.0f')
         elif format == 'json':
             output = json.dumps({command: items})
         elif format == 'prettyjson':
             formatted_json=json.dumps({command: items}, sort_keys=True, indent=2)
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
             output = colorful_json.rstrip("\n")
+        elif format == 'gfm':
+            output = tabulate(df, headers=colheads, showindex=index, tablefmt="github", floatfmt='.0f')
         elif format == 'latex':
             output = df.to_latex(header=noheaders, index=index)
         elif format == 'md':
-            output = df.to_markdown(headers=colheads, index=index)
+            output = tabulate(df, headers=colheads, showindex=index, tablefmt="simple", floatfmt='.0f')
+        elif format == 'pipe':
+            output = tabulate(df, headers=colheads, showindex=index, tablefmt="pipe", floatfmt='.0f')
         elif format == 'rst':
-            output = df.to_markdown(headers=colheads, index=index, tablefmt="rst")
+            output = tabulate(df, headers=colheads, showindex=index, tablefmt="rst", floatfmt='.0f')
         elif format == 'tab':
-            output = tabulate(df, headers=colheads, showindex=index)
+            output = tabulate(df, headers=colheads, showindex=index, tablefmt="simple", floatfmt='.0f')
         elif format == 'raw':
             output = items
         else:
-            # fail to txt
-            #output = df.to_string(header=header, index=index)
-            #better looking text output than above
-            output = df.to_markdown(headers=colheads, index=index, tablefmt="plain")
+            # fail to plain txt
+            output = tabulate(df, headers=colheads, showindex=index, tablefmt="plain", floatfmt='.0f')
 
         output_file = click.open_file(filename, mode='w')
 
