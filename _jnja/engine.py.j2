@@ -120,7 +120,7 @@ def engine(elm, **kwargs):
         click.secho('An error occured', fg='red', err=True)
         click.secho(elm.command, fg='red', err=True)
         click.secho(elm.path, fg='red', err=True)
-        click.secho(flags, fg='red', err=True)
+        click.secho(str(flags), fg='red', err=True)
 
     logging.info('response.url: %s', response.url)
     logging.info('response.status_code: %s', response.status_code)
