@@ -27,6 +27,7 @@ json, latex, md (markdown), rst, tab (text table), raw or txt
       * [Developing](#developing)
       * [Makefile help](#makefile-help)
    * [Configuration](#configuration)
+      * [Shell Completion](#shell-completion)
    * [Usage](#usage)
       * [Format](#format)
       * [General help](#general-help)
@@ -39,7 +40,7 @@ json, latex, md (markdown), rst, tab (text table), raw or txt
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Fri 19 May 2023 15:18:25 AEST -->
+<!-- Added by: davidmarsh, at: Fri  8 Sep 2023 16:06:53 AEST -->
 
 <!--te-->
 
@@ -240,6 +241,19 @@ chmod 700 ~/.elm
 chmod 600 ~/.elm/*
 chown $(id -u):$(id -g) ~/.elm
 ```
+### Shell Completion
+
+You can enable shell completion by doing the following:
+
+```shell
+mkdir -p ~/.elm
+cp .elm-complete.bash ~/.elm
+echo '. ~/.elm/.elm-complete.bash' >> ~/.bashrc
+```
+
+Once complete, start a new shell for the changes to be loaded.
+
+For more info see [shell-completion](https://click.palletsprojects.com/en/8.1.x/shell-completion/)
 
 ## Usage
 
