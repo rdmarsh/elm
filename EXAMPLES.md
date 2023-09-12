@@ -1,6 +1,8 @@
 # Examples
 
-The following are useful examples that show you how to get started:
+The following are useful examples that show you how to get started.
+
+For more complex use, see the scripts in [examples](examples) dir.
 
 <!--ts-->
    * [Get metrics](#get-metrics)
@@ -25,7 +27,7 @@ The following are useful examples that show you how to get started:
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Tue  5 Sep 2023 08:55:12 AEST -->
+<!-- Added by: davidmarsh, at: Tue 12 Sep 2023 18:30:09 AEST -->
 
 <!--te-->
 
@@ -217,8 +219,10 @@ jq -r --arg name "system.staticgroups" '.DeviceList[] | .systemProperties[] as $
 
 ## Find all the devices belonging to a dynamic group
 
+```shell
 ./elm -f json DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group/Name/" -f name,displayName,systemProperties -s0 | \
 jq -r --arg name "system.groups" '.DeviceList[] | .systemProperties[] as $system | select($system.name==$name) | [.displayName, .name, $system.value] | @csv'
+```
 
 ## Find all groups that have a customProperty set
 
