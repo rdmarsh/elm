@@ -92,7 +92,9 @@ def good_perms(file):
 @click.version_option(version=__version__)
 @click.pass_context
 def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, index, filename, head, foot, verbose, export):
-    """A cli interface for extracting LogicMonitor data via the api"""
+    """A cli interface for extracting LogicMonitor data via the api
+
+    See https://github.com/rdmarsh/elm for more information"""
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
