@@ -188,7 +188,8 @@ Same as above, but for all indidual devices:
 
 ```shell
 ./elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | \
-jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | sort -u
+jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | \
+sort -u
 ```
 
 Another similar way to do this, but also print the device `name` and
