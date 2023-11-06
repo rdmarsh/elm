@@ -204,7 +204,7 @@ reqs: requirements.txt | PYTHON-exists ## Install python requirements
 
 .PHONY: install
 install: reqs | PYTHON-exists ## (Re)installs the script so it's available in the path
-	$(PIP) $(PIPFLAGS) .
+	$(PIP) $(PIPFLAGS) --editable .
 
 # TESTS
 # =======================================
