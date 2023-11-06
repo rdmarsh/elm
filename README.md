@@ -132,7 +132,7 @@ You can install the script in your path by running
 
 * `make install`
 
-which runs `pip install --editable .`
+which runs `python3 -m pip install --editable .`
 
 (Note the trailing ".")
 
