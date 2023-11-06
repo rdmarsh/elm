@@ -67,9 +67,12 @@ GREPFLAGS += -l
 TAR ?= tar
 TARFLAGS += -cvf
 
+#python
+PYTHON ?= python3
+
 # pip for install
-PIP ?= pip3
-PIPFLAGS += install --user
+PIP ?= $(PYTHON) -m pip
+PIPFLAGS += install
 
 ifneq ($(apiversion),3)
 apiversion = 2
@@ -118,12 +121,11 @@ all: init cmds cfg ## Build everything except install (init, cmds, cfg)
 init: $(defdir)/commands.$(JSN) | PYTHON-exists JINJA-exists ## Check prerequisites, initialise dirs, get swagger file, create definition files
 	@echo "$@ $(OK_STRING)"
 
-.PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists PIP-exists
-PYTHON-exists: ; which python3
+.PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists
+PYTHON-exists: ; which $(PYTHON)
 CURL-exists: ; which $(CURL)
 JINJA-exists: ; which $(JINJA)
 JQ-exists: ; which $(JQ)
-PIP-exists: ; which $(PIP)
 
 $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 	mkdir -p $@
@@ -196,13 +198,13 @@ $(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN) | $(cmddir)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: reqs
-reqs: requirements.txt | PIP-exists ## Install python requirements
+reqs: requirements.txt | PYTHON-exists ## Install python requirements
 	$(PIP) $(PIPFLAGS) -r $<
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: install
-install: reqs | PIP-exists ## (Re)installs the script so it's available in the path
-	$(PIP) $(PIPFLAGS) --editable .
+install: reqs | PYTHON-exists ## (Re)installs the script so it's available in the path
+	$(PIP) $(PIPFLAGS) .
 
 # TESTS
 # =======================================
