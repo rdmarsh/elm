@@ -61,14 +61,15 @@ What you need to do to get up and running
 git clone https://github.com/rdmarsh/elm.git
 cd elm
 make
+make install
 cp ~./elm/config.example.ini ~./elm/config.ini
 vi ~./elm/config.ini
 ```
+Then restart your terminal session
 
-Optional install and tests:
+Optional tests:
 
 ```shell
-make install
 make testbasic
 make testverb
 ```
