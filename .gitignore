@@ -129,7 +129,7 @@ dmypy.json
 .pyre/
 
 # Vim swap files
-.swp
+.*.sw?
 
 # mac files
 .DS_Store
