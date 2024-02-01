@@ -1,6 +1,25 @@
 
 # Contributor Covenant Code of Conduct
 
+<!--ts-->
+   * [Our Pledge](#our-pledge)
+   * [Our Standards](#our-standards)
+   * [Enforcement Responsibilities](#enforcement-responsibilities)
+   * [Scope](#scope)
+   * [Enforcement](#enforcement)
+   * [Enforcement Guidelines](#enforcement-guidelines)
+      * [1. Correction](#1-correction)
+      * [2. Warning](#2-warning)
+      * [3. Temporary Ban](#3-temporary-ban)
+      * [4. Permanent Ban](#4-permanent-ban)
+   * [Attribution](#attribution)
+   * [meta](#meta)
+
+<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
+<!-- Added by: davidmarsh, at: Thu  1 Feb 2024 20:48:47 AEDT -->
+
+<!--te-->
+
 ## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our
@@ -131,4 +150,8 @@ For answers to common questions about this code of conduct, see the FAQ at
 [Mozilla CoC]: https://github.com/mozilla/diversity
 [FAQ]: https://www.contributor-covenant.org/faq
 [translations]: https://www.contributor-covenant.org/translations
+
+## meta
+
+Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header CODE_OF_CONDUCT.md`
 

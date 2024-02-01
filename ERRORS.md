@@ -3,9 +3,16 @@
 The following show some errors you may see and what they mean:
 
 <!--ts-->
-* [size limit is less than total records](#warning-size-limit-is-less-than-total-records)
-* [no valid headings](#warning-no-valid-headings)
-* [no data found](#warning-no-data-found)
+   * [Error: access_id, access_key or account_name not set via cli or config file](#error-access_id-access_key-or-account_name-not-set-via-cli-or-config-file)
+   * [Error: config file permissions are group or world readable](#error-config-file-permissions-are-group-or-world-readable)
+   * [Warning: size limit is less than total records](#warning-size-limit-is-less-than-total-records)
+   * [Error: no valid fields selected](#error-no-valid-fields-selected)
+   * [Warning: no data found](#warning-no-data-found)
+   * [meta](#meta)
+
+<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
+<!-- Added by: davidmarsh, at: Thu  1 Feb 2024 20:50:30 AEDT -->
+
 <!--te-->
 
 ## Error: access_id, access_key or account_name not set via cli or config file
@@ -33,3 +40,8 @@ are valid fields
 ## Warning: no data found
 
 No data has been returned by the query
+
+## meta
+
+Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header ERRORS.md`
+
