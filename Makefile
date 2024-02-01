@@ -7,7 +7,7 @@
 #   more info: make about
 #
 # elm Extract LogicMonitor
-# Copyright (C) 2021--2023 David Marsh rdmarsh@gmail.com
+# Copyright (C) 2021--2024 David Marsh rdmarsh@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -392,7 +392,7 @@ about: ## About this Makefile
 .PHONY: copying
 copying: ## Copyright notice
 	@echo
-	@echo 'Copyright (C) 2021--2023 David Marsh'
+	@echo 'Copyright (C) 2021--2024 David Marsh'
 	@echo 'rdmarsh@gmail.com'
 	@echo
 	@echo 'This program is free software: you can redistribute it and/or modify'
