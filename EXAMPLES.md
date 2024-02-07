@@ -24,10 +24,11 @@ For more complex use, see the scripts in [examples](examples) dir.
    * [Find long SDTs](#find-long-sdts)
    * [Find non-auto balanced devices on a collector](#find-non-auto-balanced-devices-on-a-collector)
    * [Compare devices in two groups](#compare-devices-in-two-groups)
+   * [Find Collector Groups that have more than 1 collector but not autobalanced](#find-collector-groups-that-have-more-than-1-collector-but-not-autobalanced)
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Thu  1 Feb 2024 20:47:03 AEDT -->
+<!-- Added by: davidmarsh, at: Wed  7 Feb 2024 23:17:54 AEDT -->
 
 <!--te-->
 
@@ -265,6 +266,12 @@ Find all the devices in two groups and then compare them, showing devices that a
 ./elm -f txt -o group_a.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_A" -f displayName -S displayName -s0
 ./elm -f txt -o group_b.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_B" -f displayName -S displayName -s0
 comm -3 group_a.txt group_b.txt
+```
+
+## Find Collector Groups that have more than 1 collector but not autobalanced
+
+```shell
+elm -f txt CollectorGroupList -F autoBalance:false,numOfCollectors\>1 -f autoBalance,name,numOfCollectors
 ```
 
 ## meta
