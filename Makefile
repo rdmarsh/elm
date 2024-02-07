@@ -363,8 +363,11 @@ back: nomac $(bakdir) ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.g
 .PHONY: clean
 clean: nomac ## Remove generated files
 	$(RM) -r __pycache__
+	$(RM) -r $(name).egg-info
 	$(RM) -r $(cmddir) $(defdir)
+ifdef CMDTARGETS
 	$(RM) $(CMDTARGETS)
+endif
 	$(RM) $(name)
 	$(RM) $(prog)
 	$(RM) engine.py

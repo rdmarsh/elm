@@ -23,8 +23,10 @@ import engine
 {%- elif option.name == "fields" -%}, \
                 help="Only include the listed fields"
 {%- elif option.name == "filter" -%}, \
-                help="""Filter by operator and value. Separate multiple filters by a comma.
-                Escape commas in field searches with a backslash.
+                help="""Filter by field, operator and value. Separate
+                multiple filters with a comma. Escape commas in field
+                searches with a backslash. Backslash and operators may
+                need escaping or quoting depending on the shell used.
 
                 Operators:
 
