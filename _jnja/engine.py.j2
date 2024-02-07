@@ -269,10 +269,11 @@ def validate_filter(ctx, param, filters):
         logging.debug('filters: %s', filters)
         logging.debug('filters_fmtchkd: %s', filters_fmtchkd)
         #split filters by commas except if they're proceeded by a backslash
-        for filter in re.split(r'[^\\],', filters):
+        for filter in re.split(r"(?<!\\),", filters):
             #now remove the backslash we used to protect the comma from split above
-            filter = filter.replace('\\,',',')
-            logging.debug('filter: %s', filter)
+            logging.debug('filter (inc \,): %s', filter)
+            filter = filter.replace('\,',',')
+            logging.debug('filter (rem \,): %s', filter)
             try:
                 field, operator, value = re.split(r'(>\:|<\:|>|<|\:|\!~|\!\:|~)', filter, 1)
 
