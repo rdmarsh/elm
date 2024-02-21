@@ -25,10 +25,12 @@ For more complex use, see the scripts in [examples](examples) dir.
    * [Find non-auto balanced devices on a collector](#find-non-auto-balanced-devices-on-a-collector)
    * [Compare devices in two groups](#compare-devices-in-two-groups)
    * [Find Collector Groups that have more than 1 collector but not autobalanced](#find-collector-groups-that-have-more-than-1-collector-but-not-autobalanced)
+   * [Dashboards](#dashboards)
+      * [Find Dashboards that match a defaultResourceGroup](#find-dashboards-that-match-a-defaultresourcegroup)
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Wed  7 Feb 2024 23:17:54 AEDT -->
+<!-- Added by: davidmarsh, at: Wed 21 Feb 2024 20:27:19 AEDT -->
 
 <!--te-->
 
@@ -72,7 +74,7 @@ A simple query to get usage metrics and show them in formatted json:
 Use the `-s` flag to limit the results returned:
 
 ```shell
-./elm DeviceList -s 1
+./elm DeviceList -s1
 ```
 
 > note: setting size to 0 will return all results (up to 1000)
@@ -123,14 +125,14 @@ This will show all hosts name and display name in the group "Linux Devices":
 gid=$(./elm DeviceGroupList -f id -F name:"Linux Devices" | \
 jq -r '.DeviceGroupList[].id')
 
-./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~${gid} | \
+./elm DeviceList -s0 -f name,displayName -F hostGroupIds~${gid} | \
 jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
 In one line:
 
 ```shell
-./elm DeviceList -s 0 -f name,displayName -F hostGroupIds~$(./elm DeviceGroupList -f id -F name:"Linux Devices" | \
+./elm DeviceList -s0 -f name,displayName -F hostGroupIds~$(./elm DeviceGroupList -f id -F name:"Linux Devices" | \
 jq -r '.DeviceGroupList[].id') | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
@@ -170,7 +172,9 @@ systemProperties, autoProperties etc, filter by X.name and X.value like so:
 ./elm DeviceList -f customProperties -F customProperties.name:customer.name,customProperties.value:customerA
 ```
 
-For caveats, see the comments by David Bond on this post: https://communities.logicmonitor.com/topic/1709-get-lm-devicegroup-properties-rest-api/#comment-4129
+For caveats, see the comments by [David Bond] on this post: [Get LM DeviceGroup Properties REST API]
+
+> "There is no way to effectively filter by effective property"
 
 ## Find all the values for a custom property
 
@@ -274,7 +278,24 @@ comm -3 group_a.txt group_b.txt
 elm -f txt CollectorGroupList -F autoBalance:false,numOfCollectors\>1 -f autoBalance,name,numOfCollectors
 ```
 
+## Dashboards
+
+### Find Dashboards that match a defaultResourceGroup
+
+This example will show dashboards that use "Root/Group" as their defaultResourceGroup:
+
+```shell
+elm -f txt DashboardList -s0 -F widgetTokens.name:defaultResourceGroup,widgetTokens.value\~Root/Group -f fullName
+```
+
 ## meta
 
-Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header EXAMPLES.md`
+Update the ToC on this page by running the following:
+
+```shell
+gh-md-toc --insert --no-backup --skip-header EXAMPLES.md
+```
+
+[David Bond]: https://community.logicmonitor.com/members/david-bond-6
+[Get LM DeviceGroup Properties REST API]: https://community.logicmonitor.com/product-discussions-22/get-lm-devicegroup-properties-rest-api-1473?postid=8985#post8985)
 
