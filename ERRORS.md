@@ -11,7 +11,7 @@ The following show some errors you may see and what they mean:
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Thu  1 Feb 2024 20:50:30 AEDT -->
+<!-- Added by: davidmarsh, at: Wed 21 Feb 2024 20:14:06 AEDT -->
 
 <!--te-->
 
@@ -43,5 +43,9 @@ No data has been returned by the query
 
 ## meta
 
-Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header ERRORS.md`
+Update the ToC on this page by running the following:
+
+```shell
+gh-md-toc --insert --no-backup --skip-header ERRORS.md
+```
 

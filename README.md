@@ -40,7 +40,7 @@ json, latex, md (markdown), rst, tab (text table), raw or txt
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Thu  1 Feb 2024 20:49:14 AEDT -->
+<!-- Added by: davidmarsh, at: Wed 21 Feb 2024 20:14:07 AEDT -->
 
 <!--te-->
 
@@ -543,7 +543,11 @@ affiliated with this project
 
 ## meta
 
-Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header README.md`
+Update the ToC on this page by running the following:
+
+```shell
+gh-md-toc --insert --no-backup --skip-header README.md
+```
 
 [githubs vulnerablity reporting function]: https://github.com/rdmarsh/elm/security
 

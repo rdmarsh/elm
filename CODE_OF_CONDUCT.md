@@ -1,4 +1,3 @@
-
 # Contributor Covenant Code of Conduct
 
 <!--ts-->
@@ -16,7 +15,7 @@
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Thu  1 Feb 2024 20:48:47 AEDT -->
+<!-- Added by: davidmarsh, at: Wed 21 Feb 2024 20:14:05 AEDT -->
 
 <!--te-->
 
@@ -153,5 +152,9 @@ For answers to common questions about this code of conduct, see the FAQ at
 
 ## meta
 
-Update the ToC on this page by running `gh-md-toc --insert --no-backup --skip-header CODE_OF_CONDUCT.md`
+Update the ToC on this page by running the following:
+
+```shell
+gh-md-toc --insert --no-backup --skip-header CODE_OF_CONDUCT.md
+```
 
