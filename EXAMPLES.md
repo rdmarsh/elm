@@ -27,10 +27,12 @@ For more complex use, see the scripts in [examples](examples) dir.
    * [Find Collector Groups that have more than 1 collector but not autobalanced](#find-collector-groups-that-have-more-than-1-collector-but-not-autobalanced)
    * [Dashboards](#dashboards)
       * [Find Dashboards that match a defaultResourceGroup](#find-dashboards-that-match-a-defaultresourcegroup)
+   * [Reports](#reports)
+      * [Find Reports that match a hostsVal](#find-reports-that-match-a-hostsval)
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Wed 21 Feb 2024 20:27:19 AEDT -->
+<!-- Added by: davidmarsh, at: Fri 23 Feb 2024 09:02:51 AEDT -->
 
 <!--te-->
 
@@ -286,6 +288,16 @@ This example will show dashboards that use "Root/Group" as their defaultResource
 
 ```shell
 elm -f txt DashboardList -s0 -F widgetTokens.name:defaultResourceGroup,widgetTokens.value\~Root/Group -f fullName
+```
+
+## Reports
+
+### Find Reports that match a hostsVal
+
+This example will show reports that use "Root/Group" as their hostsVal:
+
+```shell
+elm -f txt ReportList -s0 -F hostsVal\~Root/Group -f name
 ```
 
 ## meta
