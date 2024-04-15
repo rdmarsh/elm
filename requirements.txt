@@ -1,10 +1,11 @@
-click~=7.1.2
 click_config_file~=0.6.0
+click~=7.1.2
 htmlmin~=0.1.12
 Jinja2~=3.1.2
-pandas~=1.2.5
+packaging~=23.2
+pandas~=1.5.3
 Pygments~=2.15.0
+pyinstaller~=6.5.0
+PySocks~=1.7.1
 requests~=2.31.0
 tabulate~=0.8.10
-PySocks~=1.7.1
-packaging~=23.2
