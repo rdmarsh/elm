@@ -49,7 +49,7 @@ def engine(elm, **kwargs):
 
     #construct path based on passed attributes (path values)
     # find placeholders between {} and collect in attributes var for below
-    attributes = re.findall('\{([A-Za-z0-9_]+?)\}',elm.path)
+    attributes = re.findall(r'\{([A-Za-z0-9_]+?)\}',elm.path)
     logging.debug('attributes: %s', attributes)
 
     #for every attribute in the path found above, swap in the value and construct the path for the url
@@ -271,9 +271,9 @@ def validate_filter(ctx, param, filters):
         #split filters by commas except if they're proceeded by a backslash
         for filter in re.split(r"(?<!\\),", filters):
             #now remove the backslash we used to protect the comma from split above
-            logging.debug('filter (inc \,): %s', filter)
-            filter = filter.replace('\,',',')
-            logging.debug('filter (rem \,): %s', filter)
+            logging.debug(r'filter (inc \,): %s', filter)
+            filter = filter.replace(r'\,',',')
+            logging.debug(r'filter (rem \,): %s', filter)
             try:
                 field, operator, value = re.split(r'(>\:|<\:|>|<|\:|\!~|\!\:|~)', filter, 1)
 
