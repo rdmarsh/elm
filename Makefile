@@ -36,13 +36,14 @@ apiversion ?= 3
 
 JSN ?= json
 J2 ?= j2
+PY ?= py
 
 # SOURCE DIR and FILENAMES
 # ---------------------------------------
 # change only if needed
 
 name := elm
-prog := $(name).py
+prog := $(name).$(PY)
 
 bakdir := ../$(name)_back
 cfgdir := ~/.$(name)
@@ -70,9 +71,18 @@ TARFLAGS += -cvf
 #python
 PYTHON ?= python3
 
+# venv location
+VENV := venv
+
 # pip for install
-PIP ?= $(PYTHON) -m pip
+PIP ?= $(VENV)/bin/$(PYTHON) -m pip
 PIPFLAGS += install
+
+# for pyinstaller
+pyiworkdir := _build
+pyidistdir := _dist
+PYINST ?= $(VENV)/bin/pyinstaller 
+PYINSTFLAGS += --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm --clean
 
 ifneq ($(apiversion),3)
 apiversion = 2
@@ -89,7 +99,7 @@ endif
 # do not change
 
 CMDSOURCES := $(wildcard $(defdir)/[A-Z]*.$(JSN))
-CMDTARGETS := $(patsubst $(defdir)/%.$(JSN),$(cmddir)/%.py,$(CMDSOURCES))
+CMDTARGETS := $(patsubst $(defdir)/%.$(JSN),$(cmddir)/%.$(PY),$(CMDSOURCES))
 
 TSTTARGETS := $(patsubst $(defdir)/%.$(JSN),%,$(CMDSOURCES))
 REQSOURCES := $(patsubst $(defdir)/%.$(JSN),%,$$(shell $(GREP) $(GREPFLAGS) "\"required\":true" $(CMDSOURCES)))
@@ -116,16 +126,24 @@ all: init cmds cfg ## Build everything except install (init, cmds, cfg)
 # INIT FOR COMPILE
 # =======================================
 # do not change
-
+ 
 .PHONY: init
 init: $(defdir)/commands.$(JSN) | PYTHON-exists JINJA-exists ## Check prerequisites, initialise dirs, get swagger file, create definition files
 	@echo "$@ $(OK_STRING)"
+
+# REQ FOR COMPILE
+# =======================================
+# do not change
 
 .PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists
 PYTHON-exists: ; which $(PYTHON)
 CURL-exists: ; which $(CURL)
 JINJA-exists: ; which $(JINJA)
 JQ-exists: ; which $(JQ)
+
+# REQ DIRS
+# =======================================
+# do not change
 
 $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 	mkdir -p $@
@@ -134,9 +152,9 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 	@echo "$@ $(OK_STRING)"
 
 # The commands.json file isn't used, but it's handy to trigger when the
-# individual defs also need to be (re)built as we don't the names of the
-# individual def files at this stage and CMDSOURCES isn't populated.
-# There's probably a better way to do this, but this will do for now
+# individual defs also need to be (re)built as we don't know the names of the
+# individual def files at this stage and CMDSOURCES isn't populated.  There's
+# probably a better way to do this, but this will do for now
 #
 # First jq creates commands.json from swagger.json file
 # Second jq creates individual def json files from swagger.json file
@@ -144,6 +162,7 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 #
 # cant split these long lines, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
+
 $(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
@@ -177,34 +196,47 @@ $(cfgdir)/config.example.ini: config.example.ini | $(cfgdir)
 # do not change
 
 .PHONY: cmds
-cmds: reqs engine.py $(name) ## Make python commands from templates and install requirements
+cmds: reqs engine.$(PY) $(name) ## Make python commands from templates and install requirements
 	@echo "$@ $(OK_STRING)"
 
 $(name): $(prog)
 	ln -sf $< $@
 	@echo "$@ $(OK_STRING)"
 
-$(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS)
+$(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS) | JINJA-exists
 	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(OUTPUT_OPTION)
 	chmod 755 $@
 	@echo "$@ $(OK_STRING)"
 
-engine.py: $(jnjdir)/engine.py.$(J2) $(defdir)/commands.$(JSN)
+engine.$(PY): $(jnjdir)/engine.$(PY).$(J2) $(defdir)/commands.$(JSN) | JINJA-exists
 	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
 	@echo "$@ $(OK_STRING)"
 
-$(cmddir)/%.py: $(jnjdir)/command.py.$(J2) $(defdir)/%.$(JSN) | $(cmddir)
+$(cmddir)/%.$(PY): $(jnjdir)/command.$(PY).$(J2) $(defdir)/%.$(JSN) | $(cmddir) JINJA-exists
 	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
-	@echo "$@ $(OK_STRING)"
-
-.PHONY: reqs
-reqs: requirements.txt | PYTHON-exists ## Install python requirements
-	$(PIP) $(PIPFLAGS) --user -r $<
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: install
 install: reqs | PYTHON-exists ## (Re)installs the script so it's available in the path
 	$(PIP) $(PIPFLAGS) --editable .
+	$(PYINST) $(PYINSTFLAGS) $(prog)
+	@echo "$@ $(OK_STRING)"
+	@echo
+	@echo "now do something like:"
+	@echo "cp -r $(pyidistdir)/$(name)/* ~/bin"
+	@echo "and add ~/bin to your PATH"
+	@echo "The first run will be slower"
+	@echo
+
+#$(PIP) $(PIPFLAGS) --user -r $<
+.PHONY: reqs
+reqs: requirements.txt $(VENV) | PYTHON-exists ## Install python requirements
+	$(PIP) $(PIPFLAGS) -r $<
+	@echo "$@ $(OK_STRING)"
+
+$(VENV): | PYTHON-exists
+	$(PYTHON) -m venv $@
+	@echo "$@ $(OK_STRING)"
 
 # TESTS
 # =======================================
@@ -362,15 +394,17 @@ back: nomac $(bakdir) ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.g
 
 .PHONY: clean
 clean: nomac ## Remove generated files
+	$(RM) -r $(VENV)
 	$(RM) -r __pycache__
 	$(RM) -r $(name).egg-info
 	$(RM) -r $(cmddir) $(defdir)
+	$(RM) -r $(pyiworkdir) $(pyidistdir)
 ifdef CMDTARGETS
 	$(RM) $(CMDTARGETS)
 endif
 	$(RM) $(name)
 	$(RM) $(prog)
-	$(RM) engine.py
+	$(RM) engine.$(PY)
 	@echo "$@ $(OK_STRING)"
 
 .PHONY: nomac
