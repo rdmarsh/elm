@@ -2,6 +2,7 @@ click_config_file~=0.6.0
 click~=7.1.2
 htmlmin~=0.1.12
 Jinja2~=3.1.2
+lxml~=5.2.1
 packaging~=23.2
 pandas~=1.5.3
 Pygments~=2.15.0
