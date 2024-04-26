@@ -32,7 +32,7 @@ For more complex use, see the scripts in [examples](examples) dir.
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Fri 23 Feb 2024 09:02:51 AEDT -->
+<!-- Added by: davidmarsh, at: Fri 26 Apr 2024 15:08:36 AEST -->
 
 <!--te-->
 
@@ -191,6 +191,7 @@ On an group level:
 jq -r '.DeviceGroupList[].customProperties[] | select(.name=="wmi.user") | .value' | \
 sort -u
 ```
+
 Same as above, but for all indidual devices:
 
 ```shell
@@ -215,6 +216,13 @@ jq -r --arg name "snmp.security" '.DeviceList[] | .customProperties[] as $custom
 sort | \
 column -t -s,
 ```
+
+Same as above, but for all groups:
+
+```shell
+elm -f json DeviceGroupList -F customProperties.name:foo.bar -f name,customProperties -s0 | jq -r --arg name "foo.bar" '.DeviceGroupList[] | .customProperties[] as $custom | select($custom.name==$name) | [.displayName, .name, $custom.value] | @tsv | gsub("\\t";",")' | sort | column -t -s,
+```
+
 ## Find all the devices belonging to a static group
 
 Like the custom property above, this solution uses jq to filter the
