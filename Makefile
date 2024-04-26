@@ -58,7 +58,7 @@ jnjdir := _jnja
 CURL ?= curl
 JQ ?= jq
 AWK ?= awk
-JINJA ?= jinja2
+JINJA ?= venv/bin/jinja2
 
 # for testing non-required commands
 GREP ?= grep
@@ -128,7 +128,7 @@ all: init cmds cfg ## Build everything except install (init, cmds, cfg)
 # do not change
  
 .PHONY: init
-init: $(defdir)/commands.$(JSN) | PYTHON-exists JINJA-exists ## Check prerequisites, initialise dirs, get swagger file, create definition files
+init: $(defdir)/commands.$(JSN) | PYTHON-exists ## Check prerequisites, initialise dirs, get swagger file, create definition files
 	@echo "$@ $(OK_STRING)"
 
 # REQ FOR COMPILE
@@ -222,10 +222,22 @@ install: reqs | PYTHON-exists ## (Re)installs the script so it's available in th
 	$(PYINST) $(PYINSTFLAGS) $(prog)
 	@echo "$@ $(OK_STRING)"
 	@echo
-	@echo "now do something like:"
-	@echo "cp -r $(pyidistdir)/$(name)/* ~/bin"
-	@echo "and add ~/bin to your PATH"
-	@echo "The first run will be slower"
+	@echo "Copy the binary to a dir that you can add to PATH, for example:"
+	@echo
+	@echo "     mkdir -p ~/bin"
+	@echo "     cp -r $(pyidistdir)/$(name)/* ~/bin"
+	@echo "     vi ~/.bash_profile"
+	@echo "add: export PATH=\"\$${HOME}/bin:\$${PATH}\""
+	@echo "     source ~/.bash_profile"
+	@echo
+	@echo "It's recommended to place your API credentials in an ini file:"
+	@echo
+	@echo "     cp ~/.elm/config.example.ini ~/.elm/config.ini"
+	@echo "     vi ~/.elm/config.ini"
+	@echo
+	@echo "Now you can run 'elm' from anywhere on the cli and it should work as expected."
+	@echo
+	@echo "Note: The first run will take longer than normal."
 	@echo
 
 #$(PIP) $(PIPFLAGS) --user -r $<
