@@ -9,11 +9,11 @@
 ![OSS Lifecycle](https://img.shields.io/osslifecycle/rdmarsh/elm)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
-> A cli interface for extracting LogicMonitor data via the api
+> A cli interface for extracting LogicMonitor data via the API
 
 This tool is designed to make it simple to run basic read-only queries
-against the LogicMonitor API and format the data as csv, html, jira,
-json, latex, md (markdown), rst, tab (text table), raw or txt
+against the LogicMonitor API and format the data as cvs, html, jira,
+json, xml, latex, MD (markdown), rst, tab (text table), raw or txt
 
 <!--ts-->
    * [Features](#features)
@@ -40,14 +40,14 @@ json, latex, md (markdown), rst, tab (text table), raw or txt
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Wed 21 Feb 2024 20:14:07 AEDT -->
+<!-- Added by: davidmarsh, at: Fri 26 Apr 2024 15:12:44 AEST -->
 
 <!--te-->
 
 ## Features
 
 * Retrieve information from LogicMonitor via the LM API
-* Format data in csv, html, json, latex, or plain text
+* Format data in cvs, html, json, xml, latex, markdown, or plain text
 
 ## Installing
 
@@ -55,17 +55,37 @@ What you need to do to get up and running
 
 ### Quick start
 
-> In a hurry? Just do this:
+In a hurry? Just do this:
 
 ```shell
-git clone https://github.com/rdmarsh/elm.git
-cd elm
-make
-make install
-cp ~./elm/config.example.ini ~./elm/config.ini
-vi ~./elm/config.ini
+     git clone https://github.com/rdmarsh/elm.git
+     cd elm
+     make
+     make install
 ```
-Then restart your terminal session
+
+Then copy the binary to a dir that you can add to PATH, for example:
+
+```shell
+     mkdir -p ~/bin
+     cp -r _dist/elm/* ~/bin
+     vi ~/.bash_profile
+add: export PATH="${HOME}/bin:${PATH}"
+     source ~/.bash_profile
+```
+
+Consider placing your API credentials in an ini file:
+
+```shell
+     cp ~/.elm/config.example.ini ~/.elm/config.ini
+     vi ~/.elm/config.ini
+```
+
+*You may need to restart your terminal session*
+
+Now you can run `elm` from anywhere on the cli and it should work as expected.
+
+*Note: The first run will take longer than normal.*
 
 Optional tests:
 
@@ -85,9 +105,7 @@ check some of this for you by running `make init`
 * `awk`
 * `tar` -- to back up files during dev
 * `git` -- to initially clone the repo
-* `jinja2`
 * `python3`
-* `pip` -- to install python requirements
 
 ### Clone the repo
 
@@ -133,19 +151,27 @@ You can install the script in your path by running
 
 * `make install`
 
-which runs `python3 -m pip install --editable .`
+which runs:
+
+```shell
+venv/bin/python3 -m pip install --editable .
+venv/bin/pyinstaller  --workpath _build --distpath _dist --noconfirm --clean elm.py
+```
 
 (Note the trailing ".")
 
-You may see something similar to the following error:
+You could run the binary from `_dist/elm/elm` if you want, but it is recommended
+to copy the binary to a dir that you can add to PATH, for example:
 
-> WARNING: The script elm is installed in `/home/user/example/path/bin` which is not on PATH.  
-> Consider adding this directory to PATH or, if you prefer to suppress this warning, use `--no-warn-script-location`
+```shell
+mkdir -p ~/bin
+cp -r _dist/elm/* ~/bin
+```
 
 then add the dir to your `$PATH` similar to this to `.bash_profile`:
 
 ```
-PATH="/Library/Frameworks/Python.framework/Versions/3.9/bin:${PATH}"
+PATH="${HOME}/bin:${PATH}"
 export PATH
 ```
 
@@ -206,8 +232,8 @@ You can override Makefile vars like so:
 
 ## Configuration
 
-> In a hurry? Put your credentials in `~/.elm/config.ini` and secure
-> permissions. See `config.example.ini` for details
+In a hurry? Put your credentials in `~/.elm/config.ini` and secure permissions.
+See `config.example.ini` for details
 
 You don't need a config file, but to prevent passing API details on the
 command line (and hide them from a process list) you can create a file
@@ -281,6 +307,7 @@ These format options are available:
 | jira       | jira / confluence                         |
 | json       | json                                      |
 | prettyjson | json with human readable formatting       |
+| xml        | xml                                       |
 | latex      | latex table                               |
 | md         | markdown table                            |
 | rst        | reStructuredText table                    |
@@ -307,7 +334,7 @@ Options:
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -f, --format [csv|html|prettyhtml|jira|json|prettyjson|latex|md|rst|tab|raw|txt|api]
+  -f, --format [csv|html|prettyhtml|jira|json|prettyjson|xml|latex|md|rst|tab|raw|txt|api]
                                   Format of data  [default: json]
   -H, --noheaders                 Hide the column headers  [default: False]
   -I, --index                     Show the row indices  [default: False]
