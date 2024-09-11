@@ -223,7 +223,9 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
             output = colorful_json.rstrip("\n")
         elif format == 'xml':
-            output = df.to_xml()
+            output = df.to_xml(pretty_print=False)
+        elif format == 'prettyxml':
+            output = df.to_xml(pretty_print=True)
         elif format == 'gfm':
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="github", floatfmt='.0f')
         elif format == 'latex':

@@ -23,7 +23,7 @@
 __project__ = 'elm'
 __appname__ = 'elm'
 __appdesc__ = 'A cli interface for extracting LogicMonitor data via the api'
-__version__ = '1.2.2'
+__version__ = '1.2.3'
 __author__ = 'David Marsh'
 __license__ = 'GPLv3'
 __copyright__ = 'Copyright 2021--2024 David Marsh'
@@ -81,7 +81,7 @@ def good_perms(file):
 @click.option('-k', '--access_key',   help='API token access key')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name')
 @click.option('-s', '--proxy',        type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port')
-@click.option('-f', '--format',       default='json', show_default=True, type=click.Choice(['csv', 'html', 'prettyhtml', 'jira', 'json', 'prettyjson', 'xml', 'gfm', 'latex', 'md', 'pipe', 'rst', 'tab', 'raw', 'txt', 'api']), help='Format of data')
+@click.option('-f', '--format',       default='json', show_default=True, type=click.Choice(['csv', 'html', 'prettyhtml', 'jira', 'json', 'prettyjson', 'xml', 'prettyxml', 'gfm', 'latex', 'md', 'pipe', 'rst', 'tab', 'raw', 'txt', 'api']), help='Format of data')
 @click.option('-H', '--noheaders',    is_flag=True, default=False, show_default=True, help="Hide the column headers")
 @click.option('-I', '--index',        is_flag=True, default=False, show_default=True, help="Show the row indices")
 @click.option('-o', '--filename',     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True, allow_dash=True), default='-', show_default=True, help='Output to file name')
