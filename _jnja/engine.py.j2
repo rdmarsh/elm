@@ -215,6 +215,8 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
         elif format == 'prettyhtml':
             output = highlight(df.to_html(header=noheaders, index=index, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
         elif format == 'jira':
+            #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
+            df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="jira", floatfmt='.0f')
         elif format == 'json':
             output = json.dumps({command: items})
@@ -227,12 +229,16 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
         elif format == 'prettyxml':
             output = df.to_xml(pretty_print=True)
         elif format == 'gfm':
+            #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
+            df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="github", floatfmt='.0f')
         elif format == 'latex':
             output = df.to_latex(header=noheaders, index=index)
         elif format == 'md':
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="simple", floatfmt='.0f')
         elif format == 'pipe':
+            #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
+            df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="pipe", floatfmt='.0f')
         elif format == 'rst':
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="rst", floatfmt='.0f')
@@ -295,4 +301,3 @@ def validate_filter(ctx, param, filters):
                 raise click.BadParameter("format must be 'FIELD[>:,<:,>,<,!:,:,~,!~]VALUE'")
 
         return ",".join(filters_fmtchkd)
-
