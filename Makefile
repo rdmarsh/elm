@@ -24,6 +24,7 @@
 
 # MAKE FLAGS
 #MAKEFLAGS += -j4
+EDITABLE ?= --editable
 
 # API VERSION
 # ---------------------------------------
@@ -45,8 +46,9 @@ PY ?= py
 name := elm
 prog := $(name).$(PY)
 
+HOME := $(shell echo $$HOME)
 bakdir := ../$(name)_back
-cfgdir := ~/.$(name)
+cfgdir := $(HOME)/.$(name)
 cmddir := _cmds
 defdir := _defs
 jnjdir := _jnja
@@ -77,6 +79,7 @@ VENV := venv
 # pip for install
 PIP ?= $(VENV)/bin/$(PYTHON) -m pip
 PIPFLAGS += install
+REQUIREMENTS = requirements.txt
 
 # for pyinstaller
 pyiworkdir := _build
@@ -84,14 +87,21 @@ pyidistdir := _dist
 PYINST ?= $(VENV)/bin/pyinstaller 
 PYINSTFLAGS += --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm --clean
 
+# SWAGGER PATHS AND API VERSION
+# ---------------------------------------
+# do not change
+
+SWAGGER_V2_URL := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
+SWAGGER_V3_URL := https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json
+
 ifneq ($(apiversion),3)
 apiversion = 2
 endif
 
 ifeq ($(apiversion),3)
-lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json
+lm_swagger_url := $(SWAGGER_V3_URL)
 else
-lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
+lm_swagger_url := $(SWAGGER_V2_URL)
 endif
 
 # BUILD SOURCE AND TARGTS
@@ -111,9 +121,12 @@ NONREQTARGETS := $(filter-out ExternalApiStats,$(NONREQTARGETS))
 # ---------------------------------------
 # do not change
 
-NO_COLOR=\x1b[0m
-OK_COLOR=\x1b[32;01m
+NO_COLOR=\033[0m
+OK_COLOR=\033[0;32m
+WR_COLOR=\033[0;33m
+ER_COLOR=\033[0;31m
 OK_STRING=$(OK_COLOR)[OK]$(NO_COLOR)
+ER_STRING=$(ER_COLOR)[ERROR]$(NO_COLOR)
 
 # TARGETS
 # ---------------------------------------
@@ -121,7 +134,7 @@ OK_STRING=$(OK_COLOR)[OK]$(NO_COLOR)
 
 .PHONY: all
 all: init cmds cfg ## Build everything except install (init, cmds, cfg)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 # INIT FOR COMPILE
 # =======================================
@@ -129,17 +142,17 @@ all: init cmds cfg ## Build everything except install (init, cmds, cfg)
  
 .PHONY: init
 init: $(defdir)/commands.$(JSN) | PYTHON-exists ## Check prerequisites, initialise dirs, get swagger file, create definition files
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 # REQ FOR COMPILE
 # =======================================
 # do not change
 
 .PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists
-PYTHON-exists: ; which $(PYTHON)
-CURL-exists: ; which $(CURL)
-JINJA-exists: ; which $(JINJA)
-JQ-exists: ; which $(JQ)
+PYTHON-exists: ; @which $(PYTHON) || { echo "$(ER_STRING) $(PYTHON) not found"; exit 1; }
+CURL-exists: ; @which $(CURL) || { echo "$(ER_STRING) $(CURL) not found"; exit 1; }
+JINJA-exists: ; @which $(JINJA) || { echo "$(ER_STRING) $(JINJA) not found"; exit 1; }
+JQ-exists: ; @which $(JQ) || { echo "$(ER_STRING) $(JQ) not found"; exit 1; }
 
 # REQ DIRS
 # =======================================
@@ -149,7 +162,7 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 	mkdir -p $@
 	chown $$(id -u):$$(id -g) $@
 	chmod 700 $@
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 # The commands.json file isn't used, but it's handy to trigger when the
 # individual defs also need to be (re)built as we don't know the names of the
@@ -166,30 +179,30 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 $(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 	$(MAKE)
 
 $(defdir)/swagger.$(JSN): $(MAKEFILE_LIST) | $(defdir) CURL-exists
 	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: cfg
 cfg: $(cfgdir)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 $(cfgdir)/config.example.ini: config.example.ini | $(cfgdir)
 	cp $< $@
 	chmod 600 $(@D)/*
 	@if [ ! -s $(@D)/config.ini ] ; then \
 		echo ;\
-		echo "$(OK_COLOR)>>> now do the below and edit to taste <<<$(NO_COLOR)" ;\
+		echo "$(OK_COLOR)>>> API credentials can be placed in an ini file <<<$(NO_COLOR)" ;\
 		echo ;\
-		echo "$(OK_COLOR)cp $@ $(@D)/config.ini$(NO_COLOR)" ;\
-		echo "$(OK_COLOR)vi $(@D)/config.ini$(NO_COLOR)" ;\
+		echo "cp $(@D)/config.example.ini $(@D)/config.ini" ;\
+		echo "vi $(@D)/config.ini" ;\
 		echo ;\
 		echo ;\
 	fi
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 # BUILD AND INSTALL COMMANDS
 # =======================================
@@ -197,58 +210,63 @@ $(cfgdir)/config.example.ini: config.example.ini | $(cfgdir)
 
 .PHONY: cmds
 cmds: reqs engine.$(PY) $(name) ## Make python commands from templates and install requirements
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 $(name): $(prog)
 	ln -sf $< $@
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 $(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS) | JINJA-exists
 	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(OUTPUT_OPTION)
 	chmod 755 $@
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 engine.$(PY): $(jnjdir)/engine.$(PY).$(J2) $(defdir)/commands.$(JSN) | JINJA-exists
 	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 $(cmddir)/%.$(PY): $(jnjdir)/command.$(PY).$(J2) $(defdir)/%.$(JSN) | $(cmddir) JINJA-exists
 	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: install
 install: reqs | PYTHON-exists ## (Re)installs the script so it's available in the path
-	$(PIP) $(PIPFLAGS) --editable .
+	$(PIP) $(PIPFLAGS) $(EDITABLE) .
 	$(PYINST) $(PYINSTFLAGS) $(prog)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 	@echo
-	@echo "Copy the binary to a dir that you can add to PATH, for example:"
+	@echo "$(OK_COLOR)>>> Copy binary to a dir and add to \$$PATH (for example) <<<$(NO_COLOR)"
 	@echo
-	@echo "     mkdir -p ~/bin"
-	@echo "     cp -r $(pyidistdir)/$(name)/* ~/bin"
-	@echo "     vi ~/.bash_profile"
-	@echo "add: export PATH=\"\$${HOME}/bin:\$${PATH}\""
-	@echo "     source ~/.bash_profile"
+	@echo "mkdir -p ~/bin"
+	@echo "cp -r $(pyidistdir)/$(name)/* ~/bin"
+	@echo "vi ~/.bash_profile"
+	@echo "$(OK_COLOR)append the following line:$(NO_COLOR)"
+	@echo "export PATH=\"\$$HOME/bin:\$$PATH\""
+	@echo "source ~/.bash_profile"
 	@echo
-	@echo "It's recommended to place your API credentials in an ini file:"
+	@echo "$(OK_COLOR)>>> API credentials can be placed in an ini file <<<$(NO_COLOR)"
 	@echo
-	@echo "     cp ~/.elm/config.example.ini ~/.elm/config.ini"
-	@echo "     vi ~/.elm/config.ini"
+	@echo "  cp $(cfgdir)/config.example.ini $(cfgdir)/config.ini"
+	@echo "  vi $(cfgdir)/config.ini"
 	@echo
-	@echo "Now you can run 'elm' from anywhere on the cli and it should work as expected."
+	@echo "$(OK_COLOR)>>> Finished <<<$(NO_COLOR)"
 	@echo
-	@echo "Note: The first run will take longer than normal."
+	@echo "Now you can run '$(OK_COLOR)elm$(NO_COLOR)' from anywhere on the cli"
+	@echo "$(WR_COLOR)Note:$(NO_COLOR) The first run will take longer than normal"
 	@echo
 
-#$(PIP) $(PIPFLAGS) --user -r $<
 .PHONY: reqs
-reqs: requirements.txt $(VENV) | PYTHON-exists ## Install python requirements
+reqs: $(REQUIREMENTS) upgrade | PYTHON-exists ## Install python requirements
 	$(PIP) $(PIPFLAGS) -r $<
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
+
+.PHONY: upgrade
+upgrade: $(VENV) | PYTHON-exists ## Upgrade pip
+	$(PIP) $(PIPFLAGS) --upgrade pip
 
 $(VENV): | PYTHON-exists
 	$(PYTHON) -m venv $@
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 # TESTS
 # =======================================
@@ -256,22 +274,22 @@ $(VENV): | PYTHON-exists
 
 .PHONY: test
 test: testbasic testfmts testverb testid ## Run quick and simple tests
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
 testlong: testhelp testcount testtotal ## Tests that take a long time to complete
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testbasic
 testbasic: ## Test basic flags
 	@echo testing: ./$(name) ; ./$(name) >/dev/null
 	@echo testing: ./$(name) --help ; ./$(name) --help >/dev/null
 	@echo testing: ./$(name) --version ; ./$(name) --version >/dev/null
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: texttext
 testtext: testH testI testHI testhead testfoot testheadfoot ## Test commands that alter columns, indices, header and footer
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testhelp
 testhelp: ## Test all commands with help flag
@@ -279,12 +297,12 @@ testhelp: ## Test all commands with help flag
 		echo testing: ./$(name) $(cmd) --help ;\
 		./$(name) $(cmd) --help >/dev/null || exit ;\
 		)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testid
 testid: ## Test a command with an id flag                (connects to LM)
 	@echo testing: ./$(name) AdminById --id 2 ; ./$(name) AdminById --id 2 ;
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testcount
 testcount: ## Test 'non-required' commands with count flag  (connects to LM)
@@ -292,7 +310,7 @@ testcount: ## Test 'non-required' commands with count flag  (connects to LM)
 		echo testing: ./$(name) $(cmd) -c ;\
 		./$(name) $(cmd) -c || exit ;\
 		)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testtotal
 testtotal: ## Test 'non-required' commands with total flag  (connects to LM)
@@ -300,7 +318,7 @@ testtotal: ## Test 'non-required' commands with total flag  (connects to LM)
 		echo testing: ./$(name) $(cmd) -C ;\
 		./$(name) $(cmd) -C || exit ;\
 		)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testfmts
 testfmts: ## Test a command with all formats               (connects to LM)
@@ -317,7 +335,7 @@ testfmts: ## Test a command with all formats               (connects to LM)
 	@echo testing: ./$(name) --format raw        MetricsUsage ; ./$(name) --format raw        MetricsUsage
 	@echo testing: ./$(name) --format txt        MetricsUsage ; ./$(name) --format txt        MetricsUsage
 	@echo testing: ./$(name) --format api        MetricsUsage ; ./$(name) --format api        MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testH
 testH: ## Test a command and hide headers               (connects to LM)
@@ -330,7 +348,7 @@ testH: ## Test a command and hide headers               (connects to LM)
 	@echo testing: ./$(name) -H --format rst        MetricsUsage ; ./$(name) -H --format rst        MetricsUsage
 	@echo testing: ./$(name) -H --format tab        MetricsUsage ; ./$(name) -H --format tab        MetricsUsage
 	@echo testing: ./$(name) -H --format txt        MetricsUsage ; ./$(name) -H --format txt        MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testI
 testI: ## Test a command and show index                 (connects to LM)
@@ -343,7 +361,7 @@ testI: ## Test a command and show index                 (connects to LM)
 	@echo testing: ./$(name) -I --format rst        MetricsUsage ; ./$(name) -I --format rst        MetricsUsage
 	@echo testing: ./$(name) -I --format tab        MetricsUsage ; ./$(name) -I --format tab        MetricsUsage
 	@echo testing: ./$(name) -I --format txt        MetricsUsage ; ./$(name) -I --format txt        MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testHI
 testHI: ## Test a command, hide headers and show index   (connects to LM)
@@ -356,7 +374,7 @@ testHI: ## Test a command, hide headers and show index   (connects to LM)
 	@echo testing: ./$(name) -H -I --format rst        MetricsUsage ; ./$(name) -H -I --format rst        MetricsUsage
 	@echo testing: ./$(name) -H -I --format tab        MetricsUsage ; ./$(name) -H -I --format tab        MetricsUsage
 	@echo testing: ./$(name) -H -I --format txt        MetricsUsage ; ./$(name) -H -I --format txt        MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testhead
 testhead: ## Test a command, custom header text            (connects to LM)
@@ -365,7 +383,7 @@ testhead: ## Test a command, custom header text            (connects to LM)
 	@echo testing: ./$(name) --head \"this is header text\" --format rst        MetricsUsage ; ./$(name) --head "this is header text" --format rst        MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --format tab        MetricsUsage ; ./$(name) --head "this is header text" --format tab        MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --format txt        MetricsUsage ; ./$(name) --head "this is header text" --format txt        MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testfoot
 testfoot: ## Test a command, custom footer text            (connects to LM)
@@ -374,7 +392,7 @@ testfoot: ## Test a command, custom footer text            (connects to LM)
 	@echo testing: ./$(name) --foot \"this is footer text\" --format rst        MetricsUsage ; ./$(name) --foot "this is footer text" --format rst        MetricsUsage
 	@echo testing: ./$(name) --foot \"this is footer text\" --format tab        MetricsUsage ; ./$(name) --foot "this is footer text" --format tab        MetricsUsage
 	@echo testing: ./$(name) --foot \"this is footer text\" --format txt        MetricsUsage ; ./$(name) --foot "this is footer text" --format txt        MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testheadfoot
 testheadfoot: ## Test a command, custom header and footer text (connects to LM)
@@ -383,13 +401,13 @@ testheadfoot: ## Test a command, custom header and footer text (connects to LM)
 	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format rst        MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format rst        MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format tab        MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format tab        MetricsUsage
 	@echo testing: ./$(name) --head \"this is header text\" --foot \"this is footer text\" --format txt        MetricsUsage ; ./$(name) --head "this is header text" --foot "this is footer text" --format txt        MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testverb
 testverb: ## Test the verbose flags                        (connects to LM)
 	@echo testing: ./$(name) -v  MetricsUsage ; ./$(name) -v  MetricsUsage
 	@echo testing: ./$(name) -vv MetricsUsage ; ./$(name) -vv MetricsUsage
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: fail
 fail: ## A failing test
@@ -402,7 +420,7 @@ fail: ## A failing test
 .PHONY: back
 back: nomac $(bakdir) ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
 	$(TAR) $(TARFLAGS) $(bakdir)/$(name).$(shell date +%Y-%m-%d).tar.gz .
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: clean
 clean: nomac ## Remove generated files
@@ -417,12 +435,12 @@ endif
 	$(RM) $(name)
 	$(RM) $(prog)
 	$(RM) engine.$(PY)
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 .PHONY: nomac
 nomac: ## Remove unneeded mac files
 	$(RM) .DS_Store
-	@echo "$@ $(OK_STRING)"
+	@echo "$(OK_STRING) $@"
 
 # ABOUT COPY HELP
 # =======================================
