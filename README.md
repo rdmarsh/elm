@@ -9,28 +9,28 @@
 ![OSS Lifecycle](https://img.shields.io/osslifecycle/rdmarsh/elm)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
-> A cli interface for extracting LogicMonitor data via the API
+> A cli tool for extracting LogicMonitor data via the API
 
-This tool is designed to make it simple to run basic read-only queries
-against the LogicMonitor API and format the data as cvs, html, jira,
-json, xml, latex, MD (markdown), rst, tab (text table), raw or txt
+This tool simplifies running basic read-only queries against the
+LogicMonitor API, formatting the output in various formats, including
+CSV, HTML, JSON, XML, Markdown, and more.
 
 <!--ts-->
    * [Features](#features)
-   * [Installing](#installing)
-      * [Quick start](#quick-start)
+   * [Installation](#installation)
+      * [Quick Start](#quick-start)
       * [Pre-requisites](#pre-requisites)
-      * [Clone the repo](#clone-the-repo)
+      * [Clone the Repo](#clone-the-repo)
       * [Building](#building)
-      * [Initial configuration](#initial-configuration)
-      * [Installing in path](#installing-in-path)
-      * [Developing](#developing)
-      * [Makefile help](#makefile-help)
+      * [Initial Configuration](#initial-configuration)
+      * [Install in PATH](#install-in-path)
+      * [Development](#development)
+      * [Makefile Help](#makefile-help)
    * [Configuration](#configuration)
       * [Shell Completion](#shell-completion)
    * [Usage](#usage)
       * [Format](#format)
-      * [General help](#general-help)
+      * [General Help](#general-help)
       * [AdminById help](#adminbyid-help)
    * [Examples](#examples)
    * [Errors](#errors)
@@ -40,54 +40,55 @@ json, xml, latex, MD (markdown), rst, tab (text table), raw or txt
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Fri 26 Apr 2024 15:12:44 AEST -->
+<!-- Added by: davidmarsh, at: Thu 26 Sep 2024 23:21:00 AEST -->
 
 <!--te-->
 
 ## Features
 
-* Retrieve information from LogicMonitor via the LM API
-* Format data in cvs, html, json, xml, latex, markdown, or plain text
+* Retrieve data from LogicMonitor via the API
+* Output in multiple formats: CSV, HTML, JSON, XML, Markdown, and more
 
-## Installing
+## Installation
 
 What you need to do to get up and running
 
-### Quick start
+### Quick Start
 
 In a hurry? Just do this:
 
 ```shell
-     git clone https://github.com/rdmarsh/elm.git
-     cd elm
-     make
-     make install
+git clone https://github.com/rdmarsh/elm.git
+cd elm
+make
+make install
 ```
 
-Then copy the binary to a dir that you can add to PATH, for example:
+Next, copy the binary to a directory included in your PATH:
 
 ```shell
-     mkdir -p ~/bin
-     cp -r _dist/elm/* ~/bin
-     vi ~/.bash_profile
-add: export PATH="${HOME}/bin:${PATH}"
-     source ~/.bash_profile
+  mkdir -p ~/bin
+  cp -r _dist/elm/* ~/bin
+  vi ~/.bash_profile
+append the following line:
+  export PATH="${HOME}/bin:${PATH}"
+  source ~/.bash_profile
 ```
 
-Consider placing your API credentials in an ini file:
+API credentials can be placed in an ini file:
 
 ```shell
-     cp ~/.elm/config.example.ini ~/.elm/config.ini
-     vi ~/.elm/config.ini
+cp ~/.elm/config.example.ini ~/.elm/config.ini
+vi ~/.elm/config.ini
 ```
 
 *You may need to restart your terminal session*
 
-Now you can run `elm` from anywhere on the cli and it should work as expected.
+Now you can run 'elm' from anywhere on the cli
 
-*Note: The first run will take longer than normal.*
+*Note:* The first run will take longer than normal.
 
-Optional tests:
+You can also run tests:
 
 ```shell
 make testbasic
@@ -96,8 +97,8 @@ make testverb
 
 ### Pre-requisites
 
-You will need the following software installed. The `Makefile` will
-check some of this for you by running `make init`
+Ensure the following software is installed (you can check some of these
+are present by running `make init`)
 
 * `make`
 * `curl`
@@ -107,9 +108,9 @@ check some of this for you by running `make init`
 * `git` -- to initially clone the repo
 * `python3`
 
-### Clone the repo
+### Clone the Repo
 
-To clone the repo, run the following:
+To clone the repository, use:
 
 ```shell
 git clone https://github.com/rdmarsh/elm.git
@@ -118,7 +119,7 @@ cd elm
 
 ### Building
 
-After cloning, run the following in the `elm` dir:
+After cloning, run:
 
 ```shell
 make
@@ -134,7 +135,7 @@ This will:
 * Copy example config file
 * Install the required python packages
 
-### Initial configuration
+### Initial Configuration
 
 You will need the following items to run the program after building:
 
@@ -145,13 +146,13 @@ You will need the following items to run the program after building:
 
 See [Configuration](#configuration) below for more details
 
-### Installing in path
+### Install in PATH
 
-You can install the script in your path by running
+To make the script accessible in your PATH, run:
 
 * `make install`
 
-which runs:
+which will execute:
 
 ```shell
 venv/bin/python3 -m pip install --editable .
@@ -160,43 +161,28 @@ venv/bin/pyinstaller  --workpath _build --distpath _dist --noconfirm --clean elm
 
 (Note the trailing ".")
 
-You could run the binary from `_dist/elm/elm` if you want, but it is recommended
-to copy the binary to a dir that you can add to PATH, for example:
+You could run the binary from `_dist/elm/elm` if you want, but it is
+recommended to copy the binary to a dir that you can add to PATH. See
+steps under the "Quick Start" section above.
 
-```shell
-mkdir -p ~/bin
-cp -r _dist/elm/* ~/bin
-```
+### Development
 
-then add the dir to your `$PATH` similar to this to `.bash_profile`:
+Make any changes to the `Makefile` or templates in the `_jinja/`       .
+directory Files in `_cmds` and `_defs` may be overwritten during builds.
 
-```
-PATH="${HOME}/bin:${PATH}"
-export PATH
-```
+### Makefile Help
 
-and then `source ~/.bash_profile`
-
-### Developing
-
-Any changes should be made to the `Makefile` or the templates in the
-`_jnja/` dir. Files in the `_cmds` and `_defs` dir are in danger of
-being overwritten when `make` is (re)run
-
-### Makefile help
-
-These are options for the `Makefile`
+Use the following command to see available options for the `Makefile`:
 
 ```text
-make help
-
 Usage: make [flags] [option]
   make all           Build everything except install (init, cmds, cfg)
   make init          Check prerequisites, initialise dirs, get swagger file, create definition files
   make cfg           Create config dir, copy example file and set permissions of all config files
   make cmds          Make python commands from templates and install requirements
-  make reqs          Install python requirements
   make install       (Re)installs the script so it's available in the path
+  make reqs          Install python requirements
+  make upgrade       Upgrade pip
   make test          Run quick and simple tests
   make testlong      Tests that take a long time to complete
   make testbasic     Test basic flags
@@ -232,8 +218,8 @@ You can override Makefile vars like so:
 
 ## Configuration
 
-In a hurry? Put your credentials in `~/.elm/config.ini` and secure permissions.
-See `config.example.ini` for details
+For quick setup, place your credentials in `~/.elm/config.ini` and
+secure permissions. See `config.example.ini` for details.
 
 You don't need a config file, but to prevent passing API details on the
 command line (and hide them from a process list) you can create a file
@@ -244,8 +230,6 @@ access_id = '12345678901234567890'
 access_key = '1234567890123456789123456789012345678901'
 account_name = 'example'
 ```
-
-Change the details as needed
 
 Config files use unrepr format:
 https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode
@@ -270,7 +254,7 @@ chown $(id -u):$(id -g) ~/.elm
 ```
 ### Shell Completion
 
-You can enable shell completion by doing the following:
+To enable shell completion, do the following:
 
 ```shell
 mkdir -p ~/.elm
@@ -278,9 +262,9 @@ cp .elm-complete.bash ~/.elm
 echo '. ~/.elm/.elm-complete.bash' >> ~/.bashrc
 ```
 
-Once complete, start a new shell for the changes to be loaded.
-
-For more info see [shell-completion](https://click.palletsprojects.com/en/8.1.x/shell-completion/)
+Start a new shell to apply changes. More
+information is available in the [shell completion
+documentation](https://click.palletsprojects.com/en/8.1.x/shell-completion/)
 
 ## Usage
 
@@ -316,12 +300,12 @@ These format options are available:
 | txt        | pandas text                               |
 | api        | just show the encoded url of the api call |
 
-### General help
+### General Help
 
-To see the help, run `./elm --help`
+To view help `elm --help`
 
-You can also see specific help for each command by running `./elm
-COMMAND --help` (see [AdminById help](#adminbyid-help) below)
+Specific help for commands can be accessed using: `elm COMMAND --help`
+(see [AdminById help](#adminbyid-help) below)
 
 ```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
@@ -526,24 +510,20 @@ See [ERRORS.md](ERRORS.md)
 
 ## Contributing
 
-If you'd like to contribute, please fork the repository
-and use a feature branch. Pull requests are welcome. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for more information about how to
-contribute
+To contribute, please fork the repository and use a feature branch. Pull
+requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for more
+details.
 
-Please note that this project is released with a Contributor Code of
-Conduct. By participating in this project you agree to abide by its
-terms. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+This project adheres to the Contributor Code of Conduct.
+By participating, you agree to abide by its terms. See
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## Links
 
-- Project homepage: https://github.com/rdmarsh/elm
+- Project Homepage: https://github.com/rdmarsh/elm
 - Repository: https://github.com/rdmarsh/elm
-- Issue tracker: https://github.com/rdmarsh/elm/issues
-    - In case of sensitive bugs like security vulnerabilities, please
-      contact rdmarsh@gmail.com directly or using [githubs vulnerablity
-      reporting function] instead of using issue tracker. We value your
-      effort to improve the security and privacy of this project!
+- Issue Tracker: https://github.com/rdmarsh/elm/issues
+- Security Vulnerabilities: [SECURITY.md](SECURITY.md)
 - Related projects and pages:
     - https://www.logicmonitor.com  
     - https://www.logicmonitor.com/support/rest-api-developers-guide/v2/rest-api-v2-overview
