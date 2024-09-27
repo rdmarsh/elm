@@ -526,6 +526,7 @@ By participating, you agree to abide by its terms. See
 - Security Vulnerabilities: [SECURITY.md](SECURITY.md)
 - Related projects and pages:
     - https://www.logicmonitor.com  
+    - https://www.logicmonitor.com/support/rest-api-change-log
     - https://www.logicmonitor.com/support/rest-api-developers-guide/v2/rest-api-v2-overview
     - https://www.logicmonitor.com/support/ansible-integration
     - https://docs.ansible.com/ansible/2.9/modules/logicmonitor_module.html
