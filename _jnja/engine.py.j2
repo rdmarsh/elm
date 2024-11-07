@@ -116,11 +116,14 @@ def engine(elm, **kwargs):
         logging.debug('response.headers.X-Rate-Limit-Remaining: %s', response.headers['X-Rate-Limit-Remaining'])
         logging.debug('response.headers.X-Rate-Limit-Window: %s', response.headers['X-Rate-Limit-Window'])
         response.raise_for_status()
-    except:
-        click.secho('An error occured', fg='red', err=True)
-        click.secho(elm.command, fg='red', err=True)
-        click.secho(elm.path, fg='red', err=True)
-        click.secho(str(flags), fg='red', err=True)
+    except requests.RequestException as e:
+        click.secho('Error: request failed', fg='red', err=True)
+        click.secho(f'Command: {elm.command}', fg='red', err=True)
+        click.secho(f'Path: {elm.path}', fg='red', err=True)
+        click.secho(f'Flags: {str(flags)}', fg='red', err=True)
+
+        logging.error('request failed: %s', e)
+        sys.exit(1)  # Exit with a non-zero status code
 
     logging.info('response.url: %s', response.url)
     logging.info('response.status_code: %s', response.status_code)
