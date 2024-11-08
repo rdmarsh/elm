@@ -1,6 +1,6 @@
 click_config_file~=0.6.0
 click~=7.1.2
-htmlmin~=0.1.12
+htmlmin2~=0.1.13
 Jinja2~=3.1.2
 jinja2-cli~=0.8.2
 lxml~=5.2.1
