@@ -112,16 +112,18 @@ def engine(elm, **kwargs):
     #Make request
     try:
         response = requests.get(url, data=data, headers=headers, params=queryParams)
-        logging.debug('response.headers.X-Rate-Limit-Limit: %s', response.headers['X-Rate-Limit-Limit'])
-        logging.debug('response.headers.X-Rate-Limit-Remaining: %s', response.headers['X-Rate-Limit-Remaining'])
-        logging.debug('response.headers.X-Rate-Limit-Window: %s', response.headers['X-Rate-Limit-Window'])
+        # Safely access headers using .get() to avoid KeyError if a header is missing
+        logging.debug('response.headers.X-Rate-Limit-Limit: %s', response.headers.get('X-Rate-Limit-Limit', 'Header not found'))
+        logging.debug('response.headers.X-Rate-Limit-Remaining: %s', response.headers.get('X-Rate-Limit-Remaining', 'Header not found'))
+        logging.debug('response.headers.X-Rate-Limit-Window: %s', response.headers.get('X-Rate-Limit-Window', 'Header not found'))
+        # Check for HTTP errors
         response.raise_for_status()
     except requests.RequestException as e:
+        # Print error messages with relevant details
         click.secho('Error: request failed', fg='red', err=True)
         click.secho(f'Command: {elm.command}', fg='red', err=True)
         click.secho(f'Path: {elm.path}', fg='red', err=True)
         click.secho(f'Flags: {str(flags)}', fg='red', err=True)
-
         logging.error('request failed: %s', e)
         sys.exit(1)  # Exit with a non-zero status code
 
