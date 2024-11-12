@@ -327,6 +327,7 @@ Options:
   --foot TEXT                     Text to append after the output
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME
+  --halt-on-api-error             Halt on API response errors
   --version                       Show the version and exit.
   --help                          Show this message and exit.
 

@@ -30,6 +30,7 @@ def engine(elm, **kwargs):
     logging.info('elm.filename: %s', elm.filename)
     logging.info('elm.head: %s', elm.head)
     logging.info('elm.foot: %s', elm.foot)
+    logging.info('elm.halt_on_api_error: %s', elm.halt_on_api_error)
 
     # ben magic, throw away False and Empty flags (also zeros!)
     flags = {k: v for k, v in kwargs.items() if v}
@@ -109,35 +110,63 @@ def engine(elm, **kwargs):
     # dont show this as it has the api auth details
     #logging.info('headers: %s', headers)
 
-    #Make request
     try:
+        #Make request
         response = requests.get(url, data=data, headers=headers, params=queryParams)
-        # Safely access headers using .get() to avoid KeyError if a header is missing
-        logging.debug('response.headers.X-Rate-Limit-Limit: %s', response.headers.get('X-Rate-Limit-Limit', 'Header not found'))
-        logging.debug('response.headers.X-Rate-Limit-Remaining: %s', response.headers.get('X-Rate-Limit-Remaining', 'Header not found'))
-        logging.debug('response.headers.X-Rate-Limit-Window: %s', response.headers.get('X-Rate-Limit-Window', 'Header not found'))
+        response.encoding = 'utf-8'
+
+        # Safely access and log rate-limit headers if they exist
+        rate_limit_headers = {
+            'Limit': response.headers.get('X-Rate-Limit-Limit', 'Header not found'),
+            'Remaining': response.headers.get('X-Rate-Limit-Remaining', 'Header not found'),
+            'Window': response.headers.get('X-Rate-Limit-Window', 'Header not found')
+        }
+        logging.debug('Rate Limit Headers: %s', rate_limit_headers)
+
         # Check for HTTP errors
         response.raise_for_status()
+
+        # Log response details
+        logging.info('Response URL: %s', response.url)
+        logging.info('Status Code: %s', response.status_code)
+        logging.debug('Response Content: %s', response.content)
+
     except requests.RequestException as e:
-        # Print error messages with relevant details
         click.secho('Error: request failed', fg='red', err=True)
-        click.secho(f'Command: {elm.command}', fg='red', err=True)
-        click.secho(f'Path: {elm.path}', fg='red', err=True)
+        if elm:
+            click.secho(f'Command: {elm.command}', fg='red', err=True)
+            click.secho(f'Path: {elm.path}', fg='red', err=True)
         click.secho(f'Flags: {str(flags)}', fg='red', err=True)
-        logging.error('request failed: %s', e)
-        sys.exit(1)  # Exit with a non-zero status code
 
-    logging.info('response.url: %s', response.url)
-    logging.info('response.status_code: %s', response.status_code)
-    logging.debug('response.content: %s', response.content)
+        # Check if it's specifically an HTTPError
+        if isinstance(e, requests.exceptions.HTTPError):
+            status_code = e.response.status_code
+            click.secho(f'HTTP error occurred: {e}', fg='red', err=True)
 
-    # do I need this or is it covered by above raise for status?
-    if not response:
-        logging.warning('not 200 status code: %s', response.status_code)
-        click.secho('Warning: not 200 status code', fg='yellow', err=True)
+            # Handle specific status codes
+            if status_code == 400:
+                logging.error('Bad Request (400): The request was invalid or cannot be served.')
+            elif status_code == 401:
+                logging.error('Unauthorized (401): Authentication is required and has failed or not been provided.')
+            elif status_code == 403:
+                logging.error('Forbidden (403): You do not have permission to access this resource.')
+            elif status_code == 404:
+                logging.error('Not Found (404): The requested resource could not be found.')
+            elif status_code == 429:
+                logging.error('Too Many Requests (429): You have exceeded the rate limit.')
+            elif status_code == 500:
+                logging.error('Internal Server Error (500): The server encountered an unexpected condition.')
+            elif status_code == 503:
+                logging.error('Service Unavailable (503): The server is currently unavailable (overloaded or down).')
+            else:
+                logging.error(f'Unexpected HTTP error occurred: Status code {status_code}')
+        else:
+            # General request error handling
+            logging.error(f'Request failed: {e}')
 
-    # where should this go, do we need it?
-    response.encoding = 'utf-8'
+        # Abort if configured to halt on error
+        if elm.halt_on_api_error:
+            raise click.Abort()
 
     #for future use, currently not finished
     if elm.export:
@@ -255,7 +284,13 @@ def output(items, command, filename='-', format='json', noheaders=False, index=F
             # fail to plain txt
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="plain", floatfmt='.0f')
 
-        output_file = click.open_file(filename, mode='w')
+        try:
+            output_file = click.open_file(filename, mode='w')
+        except Exception as e:
+            # Handle any unexpected exceptions in file handling
+            click.secho(f"Error: Could not open the file '{filename}'", fg='red', err=True)
+            click.secho(f"Exception: {str(e)}", fg='red', err=True)
+            raise click.Abort()
 
         if head:
             output = head + '\n\n' + output

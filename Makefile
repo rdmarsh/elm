@@ -85,7 +85,7 @@ REQUIREMENTS = requirements.txt
 pyiworkdir := _build
 pyidistdir := _dist
 PYINST ?= $(VENV)/bin/pyinstaller 
-PYINSTFLAGS += --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm --clean
+PYINSTFLAGS += --workpath $(pyiworkdir) --distpath $(pyidistdir) --hidden-import=engine --noconfirm --clean
 
 # SWAGGER PATHS AND API VERSION
 # ---------------------------------------
