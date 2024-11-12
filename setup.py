@@ -5,7 +5,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setup(
     name='elm',
-    version='1.2.4',
+    version='1.3.0',
     description='Install elm',
     long_description=long_description,
     long_description_content_type='text/markdown',

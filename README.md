@@ -19,6 +19,7 @@ CSV, HTML, JSON, XML, Markdown, and more.
    * [Features](#features)
    * [Installation](#installation)
       * [Quick Start](#quick-start)
+      * [Quick code testing loop](#quick-code-testing-loop)
       * [Pre-requisites](#pre-requisites)
       * [Clone the Repo](#clone-the-repo)
       * [Building](#building)
@@ -40,7 +41,7 @@ CSV, HTML, JSON, XML, Markdown, and more.
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Thu 26 Sep 2024 23:21:00 AEST -->
+<!-- Added by: davidmarsh, at: Tue 12 Nov 2024 12:52:02 AEDT -->
 
 <!--te-->
 
@@ -93,6 +94,14 @@ You can also run tests:
 ```shell
 make testbasic
 make testverb
+```
+
+### Quick code testing loop
+
+While I'm testing, I often do this loop:
+
+```shell
+make clean && make && make install && cp -r _dist/elm/* ~/bin && echo done
 ```
 
 ### Pre-requisites
