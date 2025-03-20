@@ -7,7 +7,7 @@
 #   more info: make about
 #
 # elm Extract LogicMonitor
-# Copyright (C) 2021--2024 David Marsh rdmarsh@gmail.com
+# Copyright (C) 2021--2025 David Marsh rdmarsh@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -167,23 +167,34 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 	chmod 700 $@
 	@echo "$(OK_STRING) $@"
 
-# The commands.json file isn't used, but it's handy to trigger when the
-# individual defs also need to be (re)built as we don't know the names of the
-# individual def files at this stage and CMDSOURCES isn't populated.  There's
-# probably a better way to do this, but this will do for now
-#
-# First jq creates commands.json from swagger.json file
-# Second jq creates individual def json files from swagger.json file
-# MAKE called again so we don't have to call make manually after all defs have been created
-#
+# Combine the commands.*.json files into one for use by jinja later.
+# MAKE is called again so we don't have to call make manually after all
+# defs have been created after making the commands.*.json files.
+
+$(defdir)/commands.$(JSN): $(defdir)/commands.prime.$(JSN) $(defdir)/commands.undoc.$(JSN) | $(defdir) JQ-exists
+	$(JQ) -s '{commands: (.[0].commands + .[1].commands)}' $^ > $@
+	@echo "$(OK_STRING) $@"
+	$(MAKE)
+
+# The commands.*.json files are used to trigger when the individual defs
+# need to be (re)built as we don't know the names of the individual def
+# files at this stage and CMDSOURCES isn't populated. There's probably
+# a better way to do this, but this will do for now. First jq creates
+# commands.*.json from the swagger files. Second jq creates individual
+# def json files from commands.*.json files
+
 # cant split these long lines, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
 
-$(defdir)/commands.$(JSN): $(defdir)/swagger.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
+$(defdir)/commands.prime.$(JSN): $(defdir)/swagger.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
 	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	@echo "$(OK_STRING) $@"
-	$(MAKE)
+
+$(defdir)/commands.undoc.$(JSN): ./swagger.undoc.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
+	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
+	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
+	@echo "$(OK_STRING) $@"
 
 $(defdir)/swagger.$(JSN): $(MAKEFILE_LIST) | $(defdir) CURL-exists
 	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
@@ -462,7 +473,7 @@ about: ## About this Makefile
 .PHONY: copying
 copying: ## Copyright notice
 	@echo
-	@echo 'Copyright (C) 2021--2024 David Marsh'
+	@echo 'Copyright (C) 2021--2025 David Marsh'
 	@echo 'rdmarsh@gmail.com'
 	@echo
 	@echo 'This program is free software: you can redistribute it and/or modify'
