@@ -1,6 +1,5 @@
 # elm
 
-[![CodeQL](https://github.com/rdmarsh/elm/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/github-code-scanning/codeql)
 [![Dependency Review](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml)
 [![Makefile CI](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml)
 
