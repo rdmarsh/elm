@@ -1,0 +1,43 @@
+{
+  "paths": {
+    "/setting/integrations": {
+      "get": {
+        "summary": "get integration list",
+        "operationId": "getIntegrationList",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "fields",
+            "type": "string",
+            "required": false
+          },
+          {
+            "default": "50",
+            "in": "query",
+            "name": "size",
+            "format": "int32",
+            "type": "integer",
+            "required": false
+          },
+          {
+            "default": "0",
+            "in": "query",
+            "name": "offset",
+            "format": "int32",
+            "type": "integer",
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "tags": [
+          "Integrations"
+        ]
+      }
+    }
+  }
+}
