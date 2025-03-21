@@ -1,5 +1,22 @@
 {
   "paths": {
+    "/setting/companySetting": {
+      "get": {
+        "summary": "get portal info",
+        "operationId": "getPortalInfo",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "fields",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "tags": [
+          "PortalInfo"
+        ]
+      }
+    },
     "/setting/integrations": {
       "get": {
         "summary": "get integration list",
