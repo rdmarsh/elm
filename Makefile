@@ -49,6 +49,7 @@ prog := $(name).$(PY)
 HOME := $(shell echo $$HOME)
 bakdir := ../$(name)_back
 cfgdir := $(HOME)/.$(name)
+bindir := $(HOME)/bin
 cmddir := _cmds
 defdir := _defs
 jnjdir := _jnja
@@ -85,7 +86,7 @@ REQUIREMENTS = requirements.txt
 pyiworkdir := _build
 pyidistdir := _dist
 PYINST ?= $(VENV)/bin/pyinstaller 
-PYINSTFLAGS += --workpath $(pyiworkdir) --distpath $(pyidistdir) --hidden-import=engine --noconfirm --clean
+PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=pandas --collect-all=numpy --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm 
 
 # SWAGGER PATHS AND API VERSION
 # ---------------------------------------
@@ -136,7 +137,7 @@ ER_STRING=$(ER_COLOR)[ERROR]$(NO_COLOR)
 # do not change
 
 .PHONY: all
-all: init cmds cfg ## Build everything except install (init, cmds, cfg)
+all: render build ## Build everything except install (init, render, cfg, build)
 	@echo "$(OK_STRING) $@"
 
 # INIT FOR COMPILE
@@ -144,15 +145,17 @@ all: init cmds cfg ## Build everything except install (init, cmds, cfg)
 # do not change
  
 .PHONY: init
-init: $(defdir)/commands.$(JSN) | PYTHON-exists ## Check prerequisites, initialise dirs, get swagger file, create definition files
+init: $(defdir)/commands.$(JSN) upgrade ## Check prerequisites, initialise dirs, get swagger file, create definition files, install jinja2-cli
+	$(GREP) -m1 jinja2-cli $(REQUIREMENTS) | xargs -r $(PIP) $(PIPFLAGS) $(grep -m1 jinja2-cli $(REQUIREMENTS)
 	@echo "$(OK_STRING) $@"
 
 # REQ FOR COMPILE
 # =======================================
 # do not change
 
-.PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists
+.PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists PYINST-exists
 PYTHON-exists: ; @which $(PYTHON) || { echo "$(ER_STRING) $(PYTHON) not found"; exit 1; }
+PYINST-exists: ; @which $(PYINST) || { echo "$(ER_STRING) $(PYINST) not found"; exit 1; }
 CURL-exists: ; @which $(CURL) || { echo "$(ER_STRING) $(CURL) not found"; exit 1; }
 JINJA-exists: ; @which $(JINJA) || { echo "$(ER_STRING) $(JINJA) not found"; exit 1; }
 JQ-exists: ; @which $(JQ) || { echo "$(ER_STRING) $(JQ) not found"; exit 1; }
@@ -161,7 +164,7 @@ JQ-exists: ; @which $(JQ) || { echo "$(ER_STRING) $(JQ) not found"; exit 1; }
 # =======================================
 # do not change
 
-$(bakdir) $(cmddir) $(defdir) $(cfgdir):
+$(bakdir) $(cmddir) $(defdir) $(cfgdir) $(bindir):
 	mkdir -p $@
 	chown $$(id -u):$$(id -g) $@
 	chmod 700 $@
@@ -171,10 +174,11 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir):
 # MAKE is called again so we don't have to call make manually after all
 # defs have been created after making the commands.*.json files.
 
-$(defdir)/commands.$(JSN): $(defdir)/commands.prime.$(JSN) $(defdir)/commands.undoc.$(JSN) | $(defdir) JQ-exists
+$(defdir)/commands.$(JSN): $(defdir)/commands.documented.$(JSN) $(defdir)/commands.undocumented.$(JSN) | $(defdir) JQ-exists
 	$(JQ) -s '{commands: (.[0].commands + .[1].commands)}' $^ > $@
 	@echo "$(OK_STRING) $@"
 	$(MAKE)
+#todo avoid calling make twice
 
 # The commands.*.json files are used to trigger when the individual defs
 # need to be (re)built as we don't know the names of the individual def
@@ -186,13 +190,13 @@ $(defdir)/commands.$(JSN): $(defdir)/commands.prime.$(JSN) $(defdir)/commands.un
 # cant split these long lines, high level magic
 # https://stackoverflow.com/questions/56167046/jq-split-a-huge-json-of-array-and-save-into-file-named-with-a-value
 
-$(defdir)/commands.prime.$(JSN): $(defdir)/swagger.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
-	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
+$(defdir)/commands.documented.$(JSN): $(defdir)/swagger.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
+	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:(.value.parameters // []) } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	@echo "$(OK_STRING) $@"
 
-$(defdir)/commands.undoc.$(JSN): ./swagger.undoc.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
-	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:.value.parameters } ]}' $< > $@
+$(defdir)/commands.undocumented.$(JSN): ./swagger.undocumented.$(JSN) $(MAKEFILE_LIST) | $(defdir) JQ-exists
+	$(JQ) '{ "commands": [ .paths | to_entries[] | .key as $$path | .value | to_entries[] | select(.key == "get") | .value.operationId as $$opid | .value.operationId |= gsub("^(get|collect|fetch)";"") | { opid:$$opid, command:.value.operationId, path:$$path, summary:.value.summary, tag:.value.tags[0], options:(.value.parameters // []) } ]}' $< > $@
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	@echo "$(OK_STRING) $@"
 
@@ -204,8 +208,9 @@ $(defdir)/swagger.$(JSN): $(MAKEFILE_LIST) | $(defdir) CURL-exists
 cfg: $(cfgdir)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
 	@echo "$(OK_STRING) $@"
 
+.PHONY: $(cfgdir)/config.example.ini
 $(cfgdir)/config.example.ini: config.example.ini | $(cfgdir)
-	cp $< $@
+	cmp -s $< $@ || cp $< $@
 	chmod 600 $(@D)/*
 	@if [ ! -s $(@D)/config.ini ] ; then \
 		echo ;\
@@ -222,17 +227,12 @@ $(cfgdir)/config.example.ini: config.example.ini | $(cfgdir)
 # =======================================
 # do not change
 
-.PHONY: cmds
-cmds: reqs engine.$(PY) $(name) ## Make python commands from templates and install requirements
-	@echo "$(OK_STRING) $@"
-
-$(name): $(prog)
-	ln -sf $< $@
+.PHONY: render
+render: init engine.$(PY) $(prog) ## Make python commands from templates and install requirements
 	@echo "$(OK_STRING) $@"
 
 $(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS) | JINJA-exists
 	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(OUTPUT_OPTION)
-	chmod 755 $@
 	@echo "$(OK_STRING) $@"
 
 engine.$(PY): $(jnjdir)/engine.$(PY).$(J2) $(defdir)/commands.$(JSN) | JINJA-exists
@@ -243,31 +243,35 @@ $(cmddir)/%.$(PY): $(jnjdir)/command.$(PY).$(J2) $(defdir)/%.$(JSN) | $(cmddir) 
 	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
 	@echo "$(OK_STRING) $@"
 
-.PHONY: install
-install: reqs | PYTHON-exists ## (Re)installs the script so it's available in the path
+.PHONY: build
+build: render $(pyidistdir)/$(name)/$(name) ## (Re)build the script
+	@echo "$(OK_STRING) $@"
+
+$(pyidistdir)/$(name)/$(name): reqs | PYTHON-exists PYINST-exists
 	$(PIP) $(PIPFLAGS) $(EDITABLE) .
 	$(PYINST) $(PYINSTFLAGS) $(prog)
 	@echo "$(OK_STRING) $@"
+
+.PHONY: install
+install: $(bindir)/$(name) cfg ## (Re)installs the script and modifies the path
 	@echo
-	@echo "$(OK_COLOR)>>> Copy binary to a dir and add to \$$PATH (for example) <<<$(NO_COLOR)"
+	@echo "$(OK_COLOR)>>> If needed, you can add \$${HOME}/bin to your \$$PATH like this <<<$(NO_COLOR)"
 	@echo
-	@echo "mkdir -p ~/bin"
-	@echo "cp -r $(pyidistdir)/$(name)/* ~/bin"
-	@echo "vi ~/.bash_profile"
-	@echo "$(OK_COLOR)append the following line:$(NO_COLOR)"
-	@echo "export PATH=\"\$$HOME/bin:\$$PATH\""
+	@echo "echo 'export PATH=\"\$${HOME}/bin:\$${PATH}\"' >> \$${HOME}/.bash_profile"
 	@echo "source ~/.bash_profile"
-	@echo
-	@echo "$(OK_COLOR)>>> API credentials can be placed in an ini file <<<$(NO_COLOR)"
-	@echo
-	@echo "  cp $(cfgdir)/config.example.ini $(cfgdir)/config.ini"
-	@echo "  vi $(cfgdir)/config.ini"
 	@echo
 	@echo "$(OK_COLOR)>>> Finished <<<$(NO_COLOR)"
 	@echo
-	@echo "Now you can run '$(OK_COLOR)elm$(NO_COLOR)' from anywhere on the cli"
-	@echo "$(WR_COLOR)Note:$(NO_COLOR) The first run will take longer than normal"
+	@echo "You can now run '$(OK_COLOR)elm$(NO_COLOR)' from anywhere on the cli"
+	@echo "$(WR_COLOR)Note:$(NO_COLOR) The first run may take longer than usual"
 	@echo
+	@echo "$(OK_STRING) $@"
+
+$(bindir)/$(name): $(pyidistdir)/$(name)/$(name) | $(bindir)
+	$(RM) -r $(dir $@)_internal
+	cp -r $(pyidistdir)/$(name)/_internal $(dir $@)
+	install -m 755 $< $@
+	@echo "$(OK_STRING) $@"
 
 .PHONY: reqs
 reqs: $(REQUIREMENTS) upgrade | PYTHON-exists ## Install python requirements
@@ -446,9 +450,9 @@ clean: nomac ## Remove generated files
 ifdef CMDTARGETS
 	$(RM) $(CMDTARGETS)
 endif
-	$(RM) $(name)
 	$(RM) $(prog)
 	$(RM) engine.$(PY)
+	$(RM) $(name).spec
 	@echo "$(OK_STRING) $@"
 
 .PHONY: nomac

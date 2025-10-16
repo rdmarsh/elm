@@ -184,10 +184,10 @@ Use the following command to see available options for the `Makefile`:
 
 ```text
 Usage: make [flags] [option]
-  make all           Build everything except install (init, cmds, cfg)
+  make all           Build everything except install (init, render, cfg)
   make init          Check prerequisites, initialise dirs, get swagger file, create definition files
   make cfg           Create config dir, copy example file and set permissions of all config files
-  make cmds          Make python commands from templates and install requirements
+  make render        Make python commands from templates and install requirements
   make install       (Re)installs the script so it's available in the path
   make reqs          Install python requirements
   make upgrade       Upgrade pip
@@ -266,8 +266,8 @@ To enable shell completion, do the following:
 
 ```shell
 mkdir -p ~/.elm
-cp .elm-complete.bash ~/.elm
-echo '. ~/.elm/.elm-complete.bash' >> ~/.bashrc
+cp elm-completion.bash ~/.elm/elm-completion.bash
+grep -qxF '. ~/.elm/elm-completion.bash' ~/.bashrc || echo '. ~/.elm/elm-completion.bash' >> ~/.bashrc
 ```
 
 Start a new shell to apply changes. More
