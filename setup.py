@@ -25,7 +25,7 @@ setup(
         'jinja2-cli~=0.8.2',
         'lxml~=5.2.1',
         'packaging~=23.2',
-        'pandas~=2.2.2',
+        'pandas~=2.3',
         'Pygments~=2.15.0',
         'PySocks~=1.7.1',
         'requests~=2.32.0',
