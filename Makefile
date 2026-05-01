@@ -48,7 +48,7 @@ prog := $(name).$(PY)
 
 HOME := $(shell echo $$HOME)
 bakdir := ../$(name)_back
-cfgdir := $(HOME)/.$(name)
+cfgdir := $(HOME)/.config/logicmonitor/credentials
 bindir := $(HOME)/bin
 cmddir := _cmds
 defdir := _defs
