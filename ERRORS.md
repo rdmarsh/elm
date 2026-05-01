@@ -26,7 +26,7 @@ See `config.example.ini`
 Permissions for the config file are either group or world readable. This
 is enforced as these files can store api access ids or keys
 
-To correct: `chmod 600 ~/.elm/config.ini`
+To correct: `chmod 600 ~/.config/logicmonitor/credentials/config.ini`
 
 ## Error: no valid fields selected
 

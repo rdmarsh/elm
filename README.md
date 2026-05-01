@@ -78,8 +78,8 @@ append the following line:
 API credentials can be placed in an ini file:
 
 ```shell
-cp ~/.elm/config.example.ini ~/.elm/config.ini
-vi ~/.elm/config.ini
+cp ~/.config/logicmonitor/credentials/config.example.ini ~/.config/logicmonitor/credentials/config.ini
+vi ~/.config/logicmonitor/credentials/config.ini
 ```
 
 *You may need to restart your terminal session*
@@ -148,7 +148,7 @@ This will:
 You will need the following items to run the program after building:
 
 * A LogicMonitor API id and key associated with your account
-* (optional) a config file with the API info (default to `~/.elm/config.ini`)
+* (optional) a config file with the API info (default to `~/.config/logicmonitor/credentials/config.ini`)
   * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
 
@@ -226,12 +226,12 @@ You can override Makefile vars like so:
 
 ## Configuration
 
-For quick setup, place your credentials in `~/.elm/config.ini` and
+For quick setup, place your credentials in `~/.config/logicmonitor/credentials/config.ini` and
 secure permissions. See `config.example.ini` for details.
 
 You don't need a config file, but to prevent passing API details on the
 command line (and hide them from a process list) you can create a file
-in (by default) `~/.elm/config.ini` with the following contents:
+in (by default) `~/.config/logicmonitor/credentials/config.ini` with the following contents:
 
 ```ini
 access_id = '12345678901234567890'
@@ -248,17 +248,17 @@ three most useful
 The `Makefile` should have created this dir and placed an example config
 file in it for you:
 
-`~./elm/config.example.ini`
+`~/.config/logicmonitor/credentials/config.example.ini`
 
 Ensure the permissions for the dir and file are readable only by your
 account. Again the `Makefile` should have done this for you. You can
 force it to re-run with `make -B cfg`
 
 ```shell
-mkdir -p ~/.elm
-chmod 700 ~/.elm
-chmod 600 ~/.elm/*
-chown $(id -u):$(id -g) ~/.elm
+mkdir -p ~/.config/logicmonitor/credentials
+chmod 700 ~/.config/logicmonitor/credentials
+chmod 600 ~/.config/logicmonitor/credentials/*
+chown $(id -u):$(id -g) ~/.config/logicmonitor/credentials
 ```
 ### Shell Completion
 
@@ -477,7 +477,7 @@ Commands:
   WidgetList                      Get widget list
   WidgetListByDashboardId         Get widget list by dashboardid
 
-  default config file: /home/user/.elm/config.ini
+  default config file: /home/user/.config/logicmonitor/credentials/config.ini
 ```
 
 ### AdminById help

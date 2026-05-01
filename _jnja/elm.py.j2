@@ -50,7 +50,7 @@ from _cmds import {{ command.command }}
 logger = logging.getLogger()
 FORMAT = "%(levelname)07s %(asctime)s %(filename)s:%(lineno)s %(funcName)s %(message)s"
 logging.basicConfig(format=FORMAT)
-config_file = os.path.join(click.get_app_dir(__project__, force_posix=True), 'config.ini')
+config_file = os.path.join(os.path.expanduser('~'), '.config', 'logicmonitor', 'credentials', 'config.ini')
 
 
 class ELM(object):
