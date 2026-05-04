@@ -4,8 +4,9 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 1.7.0   | :white_check_mark: |
 | 1.6.0   | :white_check_mark: |
-| 1.5.0   | :white_check_mark: |
+| 1.5.0   | :x:                |
 | 1.4.0   | :x:                |
 | 1.3.0   | :x:                |
 | 1.2.4   | :x:                |
@@ -24,25 +25,8 @@
 
 ## Security History
 
-Known dependency vulnerabilities fixed, by version. Versions prior to 1.2.1
-were not tracked.
-
-### 1.6.0
-
-- **lxml 5.2.1 → 6.1** — XXE (XML External Entity) injection vulnerability
-  (HIGH). Affected any code parsing untrusted XML; here the API responses
-  are from LogicMonitor directly, but upgrading removes the exposure.
-- **Pygments 2.15.0 → 2.20** — ReDoS (Regular Expression Denial of Service)
-  vulnerability (LOW). Could cause slow response when formatting output
-  containing certain patterns.
-- **requests 2.32.0 → 2.33** — Insecure temporary file reuse (MEDIUM).
-
-### 1.2.1
-
-- **requests 2.31.0 → 2.32.0** —
-  [CVE-2024-35195](https://nvd.nist.gov/vuln/detail/CVE-2024-35195): proxy
-  credentials leaked via HTTP redirect when using a SOCKS5 proxy (MEDIUM).
-  elm's `--proxy` flag uses SOCKS5, so this was directly applicable.
+Security-related changes are documented under the `Security` heading for each
+version in [CHANGELOG.md](CHANGELOG.md).
 
 ## Reporting a Vulnerability
 
