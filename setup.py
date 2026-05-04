@@ -30,6 +30,7 @@ setup(
         'PySocks~=1.7.1',
         'requests~=2.33',
         'tabulate~=0.8.10',
+        'truststore~=0.10',
     ],
     entry_points={
         'console_scripts': [

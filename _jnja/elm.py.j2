@@ -43,6 +43,8 @@ import socks
 #import requests
 import click
 import click_config_file
+import truststore
+truststore.inject_into_ssl()
 
 {% for command in commands -%}
 from _cmds import {{ command.command }}
@@ -55,7 +57,7 @@ config_file = os.path.join(os.path.expanduser('~'), '.config', 'logicmonitor', '
 
 class ELM(object):
     """Load confing and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export, halt_on_api_error):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export, halt_on_api_error, cacert):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
@@ -68,6 +70,7 @@ class ELM(object):
         self.foot = foot
         self.export = export
         self.halt_on_api_error = halt_on_api_error
+        self.cacert = cacert
 
 def good_perms(file):
     filemode = os.stat(file).st_mode
@@ -92,9 +95,10 @@ def good_perms(file):
 @click.option('-v', '--verbose',      count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
 @click.option('-x', '--export',       type=click.File('w'), help='Export the query to FILENAME')
 @click.option('--halt-on-api-error',  is_flag=True, default=False, help="Halt on API response errors")
+@click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(version=__version__)
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, index, filename, head, foot, verbose, export, halt_on_api_error):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, index, filename, head, foot, verbose, export, halt_on_api_error, cacert):
     """A cli interface for extracting LogicMonitor data via the api
 
     See https://github.com/rdmarsh/elm for more information"""
@@ -158,7 +162,8 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, inde
     logging.info('foot: %s', foot)
     logging.info('export: %s', export)
     logging.info('halt_on_api_error: %s', halt_on_api_error)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export, halt_on_api_error)
+    logging.info('cacert: %s', cacert)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export, halt_on_api_error, cacert)
 
 {% for command in commands -%}
 cli.add_command({{ command.command }}.{{ command.command }}, name='{{ command.command }}')

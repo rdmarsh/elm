@@ -40,7 +40,7 @@ CSV, HTML, JSON, XML, Markdown, and more.
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Mon  4 May 2026 13:34:02 AEST -->
+<!-- Added by: davidmarsh, at: Mon  4 May 2026 15:36:29 AEST -->
 
 <!--te-->
 
@@ -187,6 +187,18 @@ table of contents when `README.md` is staged for a commit.
 Make any changes to the `Makefile` or templates in the `_jnja/` directory.
 Files in `_cmds` and `_defs` may be overwritten during builds.
 
+After changing any CLI options in `_jnja/elm.py.j2`, run the full build
+cycle followed by `make docs` to keep the `elm --help` output in this
+README in sync:
+
+```shell
+make clean && make && make install && make docs
+```
+
+`make docs` injects the live `elm --help` output into the README between
+the `<!-- elm-help-start -->` and `<!-- elm-help-end -->` marker comments,
+replacing the home directory path so no personal paths appear in the repo.
+
 ### Makefile Help
 
 Use the following command to see available options for the `Makefile`:
@@ -217,6 +229,7 @@ Usage: make [flags] [option]
   make testheadfoot  Test a command, custom header and footer text (connects to LM)
   make testverb      Test the verbose flags                        (connects to LM)
   make fail          A failing test
+  make docs          Update elm --help output in README.md
   make back          TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
   make clean         Remove generated files
   make nomac         Remove unneeded mac files
@@ -287,7 +300,7 @@ documentation](https://click.palletsprojects.com/en/8.1.x/shell-completion/)
 
 `Usage: elm [OPTIONS] COMMAND [ARGS]...`
 
-* OPTIONS: Options that set access id, key account name, proxy, format and output file
+* OPTIONS: Options that set access id, key account name, proxy, format, output file, and SSL verification
 * COMMAND: Command relates to the LogicMonitor operation
 * ARGS: Args set flags that relate to the command data, such as
   setting filters, sorting, choosing fields etc
@@ -327,6 +340,7 @@ To view help `elm --help`
 Specific help for commands can be accessed using: `elm COMMAND --help`
 (see [AdminById help](#adminbyid-help) below)
 
+<!-- elm-help-start -->
 ```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
 
@@ -350,6 +364,9 @@ Options:
   -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
   -x, --export FILENAME           Export the query to FILENAME
   --halt-on-api-error             Halt on API response errors
+  --cacert FILE                   Path to CA certificate bundle for SSL
+                                  verification
+
   --version                       Show the version and exit.
   --help                          Show this message and exit.
 
@@ -568,8 +585,10 @@ Commands:
   WidgetList                      Get widget list
   WidgetListByDashboardId         Get widget list by dashboardid
 
-  default config file: /home/user/.config/logicmonitor/credentials/config.ini
+  default config file:
+  /home/user/.config/logicmonitor/credentials/config.ini
 ```
+<!-- elm-help-end -->
 
 ### AdminById help
 
