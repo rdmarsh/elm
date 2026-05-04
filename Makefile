@@ -65,11 +65,11 @@ JINJA ?= venv/bin/jinja2
 
 # for testing non-required commands
 GREP ?= grep
-GREPFLAGS += -l
+GREPFLAGS = -l
 
 # for backup
 TAR ?= tar
-TARFLAGS += -cvf
+TARFLAGS = -cvf
 
 #python
 PYTHON ?= python3
@@ -79,15 +79,15 @@ VENV := venv
 
 # pip for install
 PIP ?= $(VENV)/bin/$(PYTHON) -m pip
-PIPFLAGS += install
+PIPFLAGS = install
 REQUIREMENTS = requirements.txt
 
 # for pyinstaller
 pyiworkdir := _build
 pyidistdir := _dist
 testbin := $(pyidistdir)/$(name)/$(name)
-PYINST ?= $(VENV)/bin/pyinstaller 
-PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=pandas --collect-all=numpy --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm 
+PYINST ?= $(VENV)/bin/pyinstaller
+PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=pandas --collect-all=numpy --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm
 
 # SWAGGER PATHS AND API VERSION
 # ---------------------------------------
@@ -106,7 +106,7 @@ else
 lm_swagger_url := $(SWAGGER_V2_URL)
 endif
 
-# BUILD SOURCE AND TARGTS
+# BUILD VARIABLES
 # ---------------------------------------
 # do not change
 
