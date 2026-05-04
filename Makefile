@@ -46,7 +46,7 @@ PY ?= py
 name := elm
 prog := $(name).$(PY)
 
-HOME := $(shell echo $$HOME)
+
 bakdir := ../$(name)_back
 cfgdir := $(HOME)/.config/logicmonitor/credentials
 bindir := $(HOME)/bin
