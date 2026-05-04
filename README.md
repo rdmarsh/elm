@@ -175,8 +175,8 @@ steps under the "Quick Start" section above.
 
 ### Development
 
-Make any changes to the `Makefile` or templates in the `_jinja/`       .
-directory Files in `_cmds` and `_defs` may be overwritten during builds.
+Make any changes to the `Makefile` or templates in the `_jnja/` directory.
+Files in `_cmds` and `_defs` may be overwritten during builds.
 
 ### Makefile Help
 
@@ -300,8 +300,11 @@ These format options are available:
 | json       | json                                      |
 | prettyjson | json with human readable formatting       |
 | xml        | xml                                       |
+| prettyxml  | xml with human readable formatting        |
+| gfm        | GitHub Flavored Markdown table            |
 | latex      | latex table                               |
 | md         | markdown table                            |
+| pipe       | pipe-delimited Markdown table             |
 | rst        | reStructuredText table                    |
 | tab        | text table                                |
 | raw        | python dict                               |
@@ -318,7 +321,9 @@ Specific help for commands can be accessed using: `elm COMMAND --help`
 ```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
 
-  Extract LogicMonitor
+  A cli interface for extracting LogicMonitor data via the api
+
+  See https://github.com/rdmarsh/elm for more information
 
 Options:
   --config FILE                   Read configuration from FILE.
@@ -326,7 +331,7 @@ Options:
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -f, --format [csv|html|prettyhtml|jira|json|prettyjson|xml|latex|md|rst|tab|raw|txt|api]
+  -f, --format [csv|html|prettyhtml|jira|json|prettyjson|xml|prettyxml|gfm|latex|md|pipe|rst|tab|raw|txt|api]
                                   Format of data  [default: json]
   -H, --noheaders                 Hide the column headers  [default: False]
   -I, --index                     Show the row indices  [default: False]
@@ -340,6 +345,8 @@ Options:
   --help                          Show this message and exit.
 
 Commands:
+  AccessGroupById                 Get access group by id
+  AccessGroupList                 Get access group list
   AdminById                       Get user
   AdminList                       Get user list
   AlertById                       Get alert
@@ -348,25 +355,38 @@ Commands:
   AlertListByDeviceId             Get alerts
   AlertRuleById                   Get alert rule by id
   AlertRuleList                   Get alert rule list
+  AllLogPartitions                Retrieve a list of all log partitions
   AllSDTListByDeviceId            Get sdts for a device
   AllSDTListByWebsiteGroupId      Get a list of sdts for a website group
+                                  (response may contain extra fields depending
+                                  upon the type of sdt)
+
   ApiTokenList                    Get a list of api tokens across users
   ApiTokenListByAdminId           Get api tokens for a user
-  AppliesToFunctionById           Get applies to function
+  AppliesToFunctionById           Get applies to function by id
   AppliesToFunctionList           Get applies to function list
   AssociatedDeviceListByDataSourceId
                                   Get devices associated with a datasource
   AuditLogById                    Get audit log by id
   AuditLogList                    Get audit logs
+  AwsAccountId                    Get aws account id
   AwsExternalId                   Get aws external id
+  CollectorAgentLogLevelByComponent
+                                  Get collector agent log level by component
+  CollectorAgentLogLevels         Get collector agent log levels
   CollectorById                   Get collector
+  CollectorEvents                 Get collector events
   CollectorGroupById              Get collector group
   CollectorGroupList              Get collector group list
   CollectorInstaller              Get collector installer
   CollectorList                   Get collector list
+  CollectorStatusCheck            Get collector status check
   CollectorVersionList            Get collector version list
+  ConfigSourceById                Get config source by id
+  ConfigSourceList                Get config source list
+  ContractInfoByCompany           Get contract info by company
   DashboardById                   Get dashboard
-  DashboardGroupById              Get dashboard group
+  DashboardGroupById              Get dashboard group by id
   DashboardGroupList              Get dashboard group list
   DashboardList                   Get dashboard list
   DataSourceOverviewGraphById     Get datasource overview graph by id
@@ -374,8 +394,11 @@ Commands:
   DatasourceById                  Get datasource by id
   DatasourceList                  Get datasource list
   DebugCommandResult              Get the result of a collector debug command
+                                  using sessionid
+
+  DeltaDevices                    Get delta devices using deltaid
+  DeltaIdWithDevices              Get filter matched devices with new deltaid
   DeviceById                      Get device by id
-  DeviceConfigSourceConfig        Collect a config for a device
   DeviceConfigSourceConfigById    Get a config for a device
   DeviceConfigSourceConfigList    Get detailed config information for the
                                   instance
@@ -406,6 +429,7 @@ Commands:
   DeviceDatasourceInstanceSDTHistory
                                   Get device instance sdt history
   DeviceDatasourceList            Get device datasource list
+  DeviceEventsourceList           Get device eventsource list
   DeviceGroupById                 Get device group
   DeviceGroupClusterAlertConfById
                                   Get cluster alert configuration by id
@@ -427,41 +451,94 @@ Commands:
   DeviceList                      Get device list
   DevicePropertyByName            Get device property by name
   DevicePropertyList              Get device properties
+  DiagnosticSourcesById           Get diagnostics sources by id
+  DiagnosticSourcesList           Get diagnostics sources list
   EscalationChainById             Get escalation chain by id
   EscalationChainList             Get escalation chain list
-  EventSourceList                 Get eventsource list
+  EventSourceById                 Get event source by id
+  EventSourceList                 Get event source list
   ExternalApiStats                Get external api stats info
   ImmediateDeviceListByDeviceGroupId
                                   Get immediate devices under group
   ImmediateWebsiteListByWebsiteGroupId
-                                  Get a list of websites for a group
+                                  Get a list of websites for a group (response
+                                  may contain extra fields depending upon the
+                                  type of check { pingcheck | webcheck} being
+                                  added)
+
+  IntegrationAuditLogs            Get integration audit logs list
+  IntegrationList                 Get integration list
+  JobMonitorById                  Get jobmonitor by id
+  JobMonitorList                  Get jobmonitor list
+  LogAlertGroupById               Retrieve a logalertgroup by id
+  LogAlertGroupsList              Retrieve all logalertgroups
+  LogAlerts                       Retrieve all logalerts
+  LogAlertsById                   Retrieve a logalerts by id
+  LogQueriesByGroupId             Get log queries by group id
+  LogQueryGroupById               Get log query group by id
+  LogQueryGroupList               Get log query group list
+  LogQueryGroupListByGroupType    Get log query groups by grouptype
+  LogSourceById                   Get log source
+  LogSourceList                   Get log source list
+  MetricsSummary                  Get metrics usage with company settings
+                                  summary
+
   MetricsUsage                    Get metrics usage
-  NetflowEndpointList             Get netflow endpoint list
-  NetflowFlowList                 Get netflow flow list
-  NetflowPortList                 Get netflow port list
+  NetflowEndpointList             Get netflow endpoints
+  NetflowFlowList                 Get netflow flows
+  NetflowPortList                 Get netflow ports
   NetscanById                     Get netscan by id
   NetscanList                     Get netscan list
+  OIDList                         Get oids list
+  OidById                         Get oid by id
   OpsNoteById                     Get opsnote by id
   OpsNoteList                     Get opsnote list
+  PartitionById                   Retrieve details of a specific log partition
+  PortalInfo                      Get portal info
+  PropertyRulesById               Get property rules by id
+  PropertyRulesList               Get property rules list
   RecipientGroupById              Get recipient group by id
   RecipientGroupList              Get recipient group list
+  RecommendationById              Get recommendation by id
+  RecommendationCategoriesList    Get recommendation category list
+  RecommendationsList             Get recommendation list
+  RemediationSourcesById          Get remediation sources by id
+  RemediationSourcesList          Get remediation sources list
   ReportById                      Get report by id
   ReportGroupById                 Get report group by id
   ReportGroupList                 Get report group list
   ReportList                      Get report list
+  ReportUsingTaskId               Get report for task id
+  RetentionList                   Retrieve the list of log retentions
   RoleById                        Get role by id
   RoleList                        Get role list
-  SDTById                         Get sdt by id
   SDTHistoryByDeviceDataSourceId  Get sdt history for the device datasource
   SDTHistoryByDeviceGroupId       Get sdt history for the group
   SDTHistoryByDeviceId            Get sdt history for the device
   SDTHistoryByWebsiteGroupId      Get sdt history for the website group
-  SDTHistoryByWebsiteId           Get sdt history for the website
+                                  (response may contain extra fields depending
+                                  upon the type of sdt)
+
+  SDTHistoryByWebsiteId           Get sdt history for the website (response
+                                  may contain extra fields depending upon the
+                                  type of sdt)
+
   SDTList                         Get sdt list
+  SdtById                         Get sdt by id (response may contain extra
+                                  fields depending upon the type of sdt of
+                                  given id)
+
   SiteMonitorCheckPointList       Get website checkpoint list
   TopTalkersGraph                 Get top talkers graph
+  TopologySourceById              Get topologysource by id
+  TopologySourceList              Get topologysource list
+  TrackedQueryGroupById           Get tracked query group by id
+  TrackedQueryGroupList           Get tracked query group list
   UnmonitoredDeviceList           Get unmonitored device list
+  UpdateReasonListByConfigSourceId
+                                  Get update history for a configsource
   UpdateReasonListByDataSourceId  Get update history for a datasource
+  V4Metadata                      Get metadata
   WebsiteAlertListByWebsiteId     Get alerts for a website
   WebsiteById                     Get website by id
   WebsiteCheckpointDataById       Get data for a website checkpoint
@@ -473,7 +550,12 @@ Commands:
   WebsitePropertyListByWebsiteId  Get a list of properties for a website
   WebsiteSDTListByWebsiteId       Get a list of sdts for a website
   WidgetById                      Get widget by id
-  WidgetDataById                  Get widget data
+  WidgetDataById                  Get widget data (based upon widget type the
+                                  response may contain additional attributes.
+                                  please refer models corresponding to
+                                  specific widget type at the bottom of this
+                                  page to check the attributes)
+
   WidgetList                      Get widget list
   WidgetListByDashboardId         Get widget list by dashboardid
 
@@ -498,7 +580,7 @@ Usage: elm AdminById [OPTIONS]
 
   Swagger URL:
 
-  https://www.logicmonitor.com/swagger-ui-master/dist/#/Users/getAdminById
+  https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/Users/getAdminById
 
 Options:
   --id INTEGER               [required]
