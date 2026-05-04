@@ -116,8 +116,8 @@ CMDTARGETS := $(patsubst $(defdir)/%.$(JSN),$(cmddir)/%.$(PY),$(CMDSOURCES))
 TSTTARGETS := $(patsubst $(defdir)/%.$(JSN),%,$(CMDSOURCES))
 REQSOURCES = $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"required\":true" $(CMDSOURCES)))
 
-NONREQTARGETS := $(filter-out $(REQSOURCES),$(TSTTARGETS))
-NONREQTARGETS := $(filter-out ExternalApiStats,$(NONREQTARGETS))
+NONREQTARGETS = $(filter-out $(REQSOURCES),$(TSTTARGETS))
+NONREQTARGETS = $(filter-out ExternalApiStats,$(NONREQTARGETS))
 
 # COLOUR OUTPUT
 # ---------------------------------------
