@@ -164,9 +164,10 @@ def engine(elm, **kwargs):
             # General request error handling
             logging.error(f'Request failed: {e}')
 
-        # Abort if configured to halt on error
+        # Abort if configured to halt on error, otherwise return cleanly
         if elm.halt_on_api_error:
             raise click.Abort()
+        return
 
     #for future use, currently not finished
     if elm.export:
