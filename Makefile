@@ -116,8 +116,14 @@ CMDTARGETS := $(patsubst $(defdir)/%.$(JSN),$(cmddir)/%.$(PY),$(CMDSOURCES))
 TSTTARGETS := $(patsubst $(defdir)/%.$(JSN),%,$(CMDSOURCES))
 REQSOURCES = $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"required\":true" $(CMDSOURCES)))
 
-NONREQTARGETS = $(filter-out $(REQSOURCES),$(TSTTARGETS))
-NONREQTARGETS = $(filter-out ExternalApiStats,$(NONREQTARGETS))
+NONREQTARGETS = $(filter-out ExternalApiStats $(REQSOURCES),$(TSTTARGETS))
+
+# All output formats supported by elm
+FORMATS_ALL = csv html prettyhtml jira json prettyjson latex md rst tab raw txt api
+# Formats that support -H (hide headers) and -I (show index) flags (excludes json, prettyjson, raw, api)
+FORMATS_HDR = csv html prettyhtml jira latex md rst tab txt
+# Formats that support --head and --foot custom text (text-based table formats only)
+FORMATS_TXT = jira md rst tab txt
 
 # COLOUR OUTPUT
 # ---------------------------------------
@@ -320,7 +326,7 @@ testbasic: ## Test basic flags
 	@echo testing: $(testbin) --version ; $(testbin) --version >/dev/null
 	@echo "$(OK_STRING) $@"
 
-.PHONY: texttext
+.PHONY: testtext
 testtext: testH testI testHI testhead testfoot testheadfoot ## Test commands that alter columns, indices, header and footer
 	@echo "$(OK_STRING) $@"
 
@@ -355,85 +361,58 @@ testtotal: ## Test 'non-required' commands with total flag  (connects to LM)
 
 .PHONY: testfmts
 testfmts: ## Test a command with all formats               (connects to LM)
-	@echo testing: $(testbin) --format csv        MetricsUsage ; $(testbin) --format csv        MetricsUsage
-	@echo testing: $(testbin) --format html       MetricsUsage ; $(testbin) --format html       MetricsUsage
-	@echo testing: $(testbin) --format prettyhtml MetricsUsage ; $(testbin) --format prettyhtml MetricsUsage
-	@echo testing: $(testbin) --format jira       MetricsUsage ; $(testbin) --format jira       MetricsUsage
-	@echo testing: $(testbin) --format json       MetricsUsage ; $(testbin) --format json       MetricsUsage
-	@echo testing: $(testbin) --format prettyjson MetricsUsage ; $(testbin) --format prettyjson MetricsUsage
-	@echo testing: $(testbin) --format latex      MetricsUsage ; $(testbin) --format latex      MetricsUsage
-	@echo testing: $(testbin) --format md         MetricsUsage ; $(testbin) --format md         MetricsUsage
-	@echo testing: $(testbin) --format rst        MetricsUsage ; $(testbin) --format rst        MetricsUsage
-	@echo testing: $(testbin) --format tab        MetricsUsage ; $(testbin) --format tab        MetricsUsage
-	@echo testing: $(testbin) --format raw        MetricsUsage ; $(testbin) --format raw        MetricsUsage
-	@echo testing: $(testbin) --format txt        MetricsUsage ; $(testbin) --format txt        MetricsUsage
-	@echo testing: $(testbin) --format api        MetricsUsage ; $(testbin) --format api        MetricsUsage
+	@$(foreach fmt,$(FORMATS_ALL), \
+		echo testing: $(testbin) --format $(fmt) MetricsUsage ; \
+		$(testbin) --format $(fmt) MetricsUsage || exit 1 ; \
+	)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testH
 testH: ## Test a command and hide headers               (connects to LM)
-	@echo testing: $(testbin) -H --format csv        MetricsUsage ; $(testbin) -H --format csv        MetricsUsage
-	@echo testing: $(testbin) -H --format html       MetricsUsage ; $(testbin) -H --format html       MetricsUsage
-	@echo testing: $(testbin) -H --format prettyhtml MetricsUsage ; $(testbin) -H --format prettyhtml MetricsUsage
-	@echo testing: $(testbin) -H --format jira       MetricsUsage ; $(testbin) -H --format jira       MetricsUsage
-	@echo testing: $(testbin) -H --format latex      MetricsUsage ; $(testbin) -H --format latex      MetricsUsage
-	@echo testing: $(testbin) -H --format md         MetricsUsage ; $(testbin) -H --format md         MetricsUsage
-	@echo testing: $(testbin) -H --format rst        MetricsUsage ; $(testbin) -H --format rst        MetricsUsage
-	@echo testing: $(testbin) -H --format tab        MetricsUsage ; $(testbin) -H --format tab        MetricsUsage
-	@echo testing: $(testbin) -H --format txt        MetricsUsage ; $(testbin) -H --format txt        MetricsUsage
+	@$(foreach fmt,$(FORMATS_HDR), \
+		echo testing: $(testbin) -H --format $(fmt) MetricsUsage ; \
+		$(testbin) -H --format $(fmt) MetricsUsage || exit 1 ; \
+	)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testI
 testI: ## Test a command and show index                 (connects to LM)
-	@echo testing: $(testbin) -I --format csv        MetricsUsage ; $(testbin) -I --format csv        MetricsUsage
-	@echo testing: $(testbin) -I --format html       MetricsUsage ; $(testbin) -I --format html       MetricsUsage
-	@echo testing: $(testbin) -I --format prettyhtml MetricsUsage ; $(testbin) -I --format prettyhtml MetricsUsage
-	@echo testing: $(testbin) -I --format jira       MetricsUsage ; $(testbin) -I --format jira       MetricsUsage
-	@echo testing: $(testbin) -I --format latex      MetricsUsage ; $(testbin) -I --format latex      MetricsUsage
-	@echo testing: $(testbin) -I --format md         MetricsUsage ; $(testbin) -I --format md         MetricsUsage
-	@echo testing: $(testbin) -I --format rst        MetricsUsage ; $(testbin) -I --format rst        MetricsUsage
-	@echo testing: $(testbin) -I --format tab        MetricsUsage ; $(testbin) -I --format tab        MetricsUsage
-	@echo testing: $(testbin) -I --format txt        MetricsUsage ; $(testbin) -I --format txt        MetricsUsage
+	@$(foreach fmt,$(FORMATS_HDR), \
+		echo testing: $(testbin) -I --format $(fmt) MetricsUsage ; \
+		$(testbin) -I --format $(fmt) MetricsUsage || exit 1 ; \
+	)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testHI
 testHI: ## Test a command, hide headers and show index   (connects to LM)
-	@echo testing: $(testbin) -H -I --format csv        MetricsUsage ; $(testbin) -H -I --format csv        MetricsUsage
-	@echo testing: $(testbin) -H -I --format html       MetricsUsage ; $(testbin) -H -I --format html       MetricsUsage
-	@echo testing: $(testbin) -H -I --format prettyhtml MetricsUsage ; $(testbin) -H -I --format prettyhtml MetricsUsage
-	@echo testing: $(testbin) -H -I --format jira       MetricsUsage ; $(testbin) -H -I --format jira       MetricsUsage
-	@echo testing: $(testbin) -H -I --format latex      MetricsUsage ; $(testbin) -H -I --format latex      MetricsUsage
-	@echo testing: $(testbin) -H -I --format md         MetricsUsage ; $(testbin) -H -I --format md         MetricsUsage
-	@echo testing: $(testbin) -H -I --format rst        MetricsUsage ; $(testbin) -H -I --format rst        MetricsUsage
-	@echo testing: $(testbin) -H -I --format tab        MetricsUsage ; $(testbin) -H -I --format tab        MetricsUsage
-	@echo testing: $(testbin) -H -I --format txt        MetricsUsage ; $(testbin) -H -I --format txt        MetricsUsage
+	@$(foreach fmt,$(FORMATS_HDR), \
+		echo testing: $(testbin) -H -I --format $(fmt) MetricsUsage ; \
+		$(testbin) -H -I --format $(fmt) MetricsUsage || exit 1 ; \
+	)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testhead
 testhead: ## Test a command, custom header text            (connects to LM)
-	@echo testing: $(testbin) --head \"this is header text\" --format jira       MetricsUsage ; $(testbin) --head "this is header text" --format jira       MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --format md         MetricsUsage ; $(testbin) --head "this is header text" --format md         MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --format rst        MetricsUsage ; $(testbin) --head "this is header text" --format rst        MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --format tab        MetricsUsage ; $(testbin) --head "this is header text" --format tab        MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --format txt        MetricsUsage ; $(testbin) --head "this is header text" --format txt        MetricsUsage
+	@$(foreach fmt,$(FORMATS_TXT), \
+		echo testing: $(testbin) --head \"this is header text\" --format $(fmt) MetricsUsage ; \
+		$(testbin) --head "this is header text" --format $(fmt) MetricsUsage || exit 1 ; \
+	)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testfoot
 testfoot: ## Test a command, custom footer text            (connects to LM)
-	@echo testing: $(testbin) --foot \"this is footer text\" --format jira       MetricsUsage ; $(testbin) --foot "this is footer text" --format jira       MetricsUsage
-	@echo testing: $(testbin) --foot \"this is footer text\" --format md         MetricsUsage ; $(testbin) --foot "this is footer text" --format md         MetricsUsage
-	@echo testing: $(testbin) --foot \"this is footer text\" --format rst        MetricsUsage ; $(testbin) --foot "this is footer text" --format rst        MetricsUsage
-	@echo testing: $(testbin) --foot \"this is footer text\" --format tab        MetricsUsage ; $(testbin) --foot "this is footer text" --format tab        MetricsUsage
-	@echo testing: $(testbin) --foot \"this is footer text\" --format txt        MetricsUsage ; $(testbin) --foot "this is footer text" --format txt        MetricsUsage
+	@$(foreach fmt,$(FORMATS_TXT), \
+		echo testing: $(testbin) --foot \"this is footer text\" --format $(fmt) MetricsUsage ; \
+		$(testbin) --foot "this is footer text" --format $(fmt) MetricsUsage || exit 1 ; \
+	)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testheadfoot
 testheadfoot: ## Test a command, custom header and footer text (connects to LM)
-	@echo testing: $(testbin) --head \"this is header text\" --foot \"this is footer text\" --format jira       MetricsUsage ; $(testbin) --head "this is header text" --foot "this is footer text" --format jira       MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --foot \"this is footer text\" --format md         MetricsUsage ; $(testbin) --head "this is header text" --foot "this is footer text" --format md         MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --foot \"this is footer text\" --format rst        MetricsUsage ; $(testbin) --head "this is header text" --foot "this is footer text" --format rst        MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --foot \"this is footer text\" --format tab        MetricsUsage ; $(testbin) --head "this is header text" --foot "this is footer text" --format tab        MetricsUsage
-	@echo testing: $(testbin) --head \"this is header text\" --foot \"this is footer text\" --format txt        MetricsUsage ; $(testbin) --head "this is header text" --foot "this is footer text" --format txt        MetricsUsage
+	@$(foreach fmt,$(FORMATS_TXT), \
+		echo testing: $(testbin) --head \"this is header text\" --foot \"this is footer text\" --format $(fmt) MetricsUsage ; \
+		$(testbin) --head "this is header text" --foot "this is footer text" --format $(fmt) MetricsUsage || exit 1 ; \
+	)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testverb
