@@ -85,6 +85,11 @@ See requirements.txt for pinned versions.
 
 ## Known confusion points for AI tools
 
+- engine.py and elm.py are both generated files, rendered from
+  _jnja/engine.py.j2 and _jnja/elm.py.j2 respectively. Neither is
+  committed to the repo. Fix bugs in the _jnja/ templates, not in the
+  generated files directly.
+
 - _cmds/*.py files look like source but are generated artefacts.
   Linters and type checkers will flag issues in them that should be
   fixed in _jnja/ templates, not in the files themselves.

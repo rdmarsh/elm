@@ -80,7 +80,10 @@ def engine(elm, **kwargs):
     queryParams = ''
 
     #turn flags into queryParams key values
+    _output_only = {'count', 'total'}
     for flag in flags:
+        if flag in _output_only:
+            continue
         logging.debug('flag: %s', flag)
         logging.debug('flags[flag]: %s', flags[flag])
         queryParams += '&' + flag + '=' + str(flags[flag])

@@ -351,6 +351,13 @@ testcount: ## Test 'non-required' commands with count flag  (connects to LM)
 		)
 	@echo "$(OK_STRING) $@"
 
+.PHONY: testcountdebug
+testcountdebug: ## Test count flag with verbose debug output (connects to LM)
+	@$(foreach cmd,$(NONREQTARGETS), \
+		echo testing: $(testbin) -vv $(cmd) -c ;\
+		$(testbin) -vv $(cmd) -c || exit 1 ;\
+		)
+
 .PHONY: testtotal
 testtotal: ## Test 'non-required' commands with total flag  (connects to LM)
 	@$(foreach cmd,$(NONREQTARGETS), \
