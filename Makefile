@@ -147,7 +147,7 @@ all: render build ## Build everything except install (init, render, cfg, build)
  
 .PHONY: init
 init: $(defdir)/commands.$(JSN) upgrade ## Check prerequisites, initialise dirs, get swagger file, create definition files, install jinja2-cli
-	$(GREP) -m1 jinja2-cli $(REQUIREMENTS) | xargs -r $(PIP) $(PIPFLAGS) $(grep -m1 jinja2-cli $(REQUIREMENTS)
+	$(GREP) -m1 jinja2-cli $(REQUIREMENTS) | xargs -r $(PIP) $(PIPFLAGS)
 	@echo "$(OK_STRING) $@"
 
 # REQ FOR COMPILE
