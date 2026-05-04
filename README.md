@@ -40,7 +40,7 @@ CSV, HTML, JSON, XML, Markdown, and more.
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Mon  4 May 2026 13:16:37 AEST -->
+<!-- Added by: davidmarsh, at: Mon  4 May 2026 13:34:02 AEST -->
 
 <!--te-->
 
@@ -174,6 +174,15 @@ recommended to copy the binary to a dir that you can add to PATH. See
 steps under the "Quick Start" section above.
 
 ### Development
+
+After cloning, install the git hooks:
+
+```shell
+make hooks
+```
+
+This sets up a pre-commit hook that automatically regenerates the README
+table of contents when `README.md` is staged for a commit.
 
 Make any changes to the `Makefile` or templates in the `_jnja/` directory.
 Files in `_cmds` and `_defs` may be overwritten during builds.
