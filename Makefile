@@ -316,7 +316,7 @@ test: testbasic testfmts testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
-testlong: testhelp testcount testtotal ## Tests that take a long time to complete
+testlong: testhelp testcount testtotal testtext ## Tests that take a long time to complete
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testbasic
@@ -334,7 +334,7 @@ testtext: testH testI testHI testhead testfoot testheadfoot ## Test commands tha
 testhelp: ## Test all commands with help flag
 	@$(foreach cmd,$(TSTTARGETS), \
 		echo testing: $(testbin) $(cmd) --help ;\
-		$(testbin) $(cmd) --help >/dev/null || exit ;\
+		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\
 		)
 	@echo "$(OK_STRING) $@"
 
@@ -347,7 +347,7 @@ testid: ## Test a command with an id flag                (connects to LM)
 testcount: ## Test 'non-required' commands with count flag  (connects to LM)
 	@$(foreach cmd,$(NONREQTARGETS), \
 		echo testing: $(testbin) $(cmd) -c ;\
-		$(testbin) $(cmd) -c || exit ;\
+		$(testbin) $(cmd) -c || exit 1 ;\
 		)
 	@echo "$(OK_STRING) $@"
 
@@ -355,7 +355,7 @@ testcount: ## Test 'non-required' commands with count flag  (connects to LM)
 testtotal: ## Test 'non-required' commands with total flag  (connects to LM)
 	@$(foreach cmd,$(NONREQTARGETS), \
 		echo testing: $(testbin) $(cmd) -C ;\
-		$(testbin) $(cmd) -C || exit ;\
+		$(testbin) $(cmd) -C || exit 1 ;\
 		)
 	@echo "$(OK_STRING) $@"
 
@@ -441,9 +441,6 @@ clean: nomac ## Remove generated files
 	$(RM) -r $(name).egg-info
 	$(RM) -r $(cmddir) $(defdir)
 	$(RM) -r $(pyiworkdir) $(pyidistdir)
-ifdef CMDTARGETS
-	$(RM) $(CMDTARGETS)
-endif
 	$(RM) $(prog)
 	$(RM) engine.$(PY)
 	$(RM) $(name).spec
@@ -463,7 +460,7 @@ about: ## About this Makefile
 	@echo
 	@echo 'This Makefile is used to generate files for $(name)'
 	@echo
-	@echo 'Run "make help" to for how to run'
+	@echo 'Run "make help" for how to run'
 	@echo
 	@echo 'See https://github.com/rdmarsh/$(name)'
 	@echo
