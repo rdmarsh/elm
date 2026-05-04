@@ -112,7 +112,7 @@ def engine(elm, **kwargs):
 
     try:
         #Make request
-        response = requests.get(url, data=data, headers=headers, params=queryParams)
+        response = requests.get(url, data=data, headers=headers, params=queryParams, verify=elm.cacert if elm.cacert else True)
         response.encoding = 'utf-8'
 
         # Safely access and log rate-limit headers if they exist

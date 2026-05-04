@@ -11,3 +11,4 @@ pyinstaller~=6.15
 PySocks~=1.7.1
 requests~=2.33
 tabulate~=0.8.10
+truststore~=0.10
