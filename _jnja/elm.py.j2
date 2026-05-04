@@ -56,7 +56,7 @@ config_file = os.path.join(os.path.expanduser('~'), '.config', 'logicmonitor', '
 
 
 class ELM(object):
-    """Load confing and hold the state for cli tool"""
+    """Load config and hold the state for cli tool"""
     def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, export, halt_on_api_error, cacert):
         self.config_file = config_file
         self.access_id = access_id
