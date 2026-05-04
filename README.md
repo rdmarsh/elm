@@ -25,12 +25,6 @@ CSV, HTML, JSON, XML, Markdown, and more.
       * [Initial Configuration](#initial-configuration)
       * [Install in PATH](#install-in-path)
       * [Development](#development)
-      * [Makefile Help](#makefile-help)
-   * [Configuration](#configuration)
-      * [Shell Completion](#shell-completion)
-   * [Usage](#usage)
-      * [Format](#format)
-      * [General Help](#general-help)
       * [AdminById help](#adminbyid-help)
    * [Examples](#examples)
    * [Errors](#errors)
@@ -40,7 +34,7 @@ CSV, HTML, JSON, XML, Markdown, and more.
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Mon  4 May 2026 15:36:29 AEST -->
+<!-- Added by: davidmarsh, at: Mon  4 May 2026 18:28:11 AEST -->
 
 <!--te-->
 
@@ -197,150 +191,6 @@ make clean && make && make install && make docs
 
 `make docs` injects the live `elm --help` output into the README between
 the `<!-- elm-help-start -->` and `<!-- elm-help-end -->` marker comments,
-replacing the home directory path so no personal paths appear in the repo.
-
-### Makefile Help
-
-Use the following command to see available options for the `Makefile`:
-
-```text
-Usage: make [flags] [option]
-  make all           Build everything except install (init, render, cfg)
-  make init          Check prerequisites, initialise dirs, get swagger file, create definition files
-  make cfg           Create config dir, copy example file and set permissions of all config files
-  make render        Make python commands from templates and install requirements
-  make install       (Re)installs the script so it's available in the path
-  make reqs          Install python requirements
-  make upgrade       Upgrade pip
-  make test          Run quick and simple tests
-  make testlong      Tests that take a long time to complete
-  make testbasic     Test basic flags
-  make testtext      Test commands that alter columns, indices, header and footer
-  make testhelp      Test all commands with help flag
-  make testid        Test a command with an id flag                (connects to LM)
-  make testcount     Test 'non-required' commands with count flag  (connects to LM)
-  make testtotal     Test 'non-required' commands with total flag  (connects to LM)
-  make testfmts      Test a command with all formats               (connects to LM)
-  make testH         Test a command and hide headers               (connects to LM)
-  make testI         Test a command and show index                 (connects to LM)
-  make testHI        Test a command, hide headers and show index   (connects to LM)
-  make testhead      Test a command, custom header text            (connects to LM)
-  make testfoot      Test a command, custom footer text            (connects to LM)
-  make testheadfoot  Test a command, custom header and footer text (connects to LM)
-  make testverb      Test the verbose flags                        (connects to LM)
-  make fail          A failing test
-  make docs          Update elm --help output in README.md
-  make back          TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
-  make clean         Remove generated files
-  make nomac         Remove unneeded mac files
-  make about         About this Makefile
-  make copying       Copyright notice
-  make help          Show this help
-
-Useful make flags:
-  make -n   : dry run
-  make -j   : run simultaneous jobs
-  make -B   : force make target
-
-You can override Makefile vars like so:
-  make apiversion=2
-```
-
-## Configuration
-
-For quick setup, place your credentials in `~/.config/logicmonitor/credentials/config.ini` and
-secure permissions. See `config.example.ini` for details.
-
-You don't need a config file, but to prevent passing API details on the
-command line (and hide them from a process list) you can create a file
-in (by default) `~/.config/logicmonitor/credentials/config.ini` with the following contents:
-
-```ini
-access_id = '12345678901234567890'
-access_key = '1234567890123456789123456789012345678901'
-account_name = 'example'
-```
-
-Config files use unrepr format:
-https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode
-
-You can set any cli option in the config file, but the above are the
-three most useful
-
-The `Makefile` should have created this dir and placed an example config
-file in it for you:
-
-`~/.config/logicmonitor/credentials/config.example.ini`
-
-Ensure the permissions for the dir and file are readable only by your
-account. Again the `Makefile` should have done this for you. You can
-force it to re-run with `make -B cfg`
-
-```shell
-mkdir -p ~/.config/logicmonitor/credentials
-chmod 700 ~/.config/logicmonitor/credentials
-chmod 600 ~/.config/logicmonitor/credentials/*
-chown $(id -u):$(id -g) ~/.config/logicmonitor/credentials
-```
-### Shell Completion
-
-To enable shell completion, do the following:
-
-```shell
-mkdir -p ~/.elm
-cp elm-completion.bash ~/.elm/elm-completion.bash
-grep -qxF '. ~/.elm/elm-completion.bash' ~/.bashrc || echo '. ~/.elm/elm-completion.bash' >> ~/.bashrc
-```
-
-Start a new shell to apply changes. More
-information is available in the [shell completion
-documentation](https://click.palletsprojects.com/en/8.1.x/shell-completion/)
-
-## Usage
-
-`Usage: elm [OPTIONS] COMMAND [ARGS]...`
-
-* OPTIONS: Options that set access id, key account name, proxy, format, output file, and SSL verification
-* COMMAND: Command relates to the LogicMonitor operation
-* ARGS: Args set flags that relate to the command data, such as
-  setting filters, sorting, choosing fields etc
-
-Quickest way to understand how to run is to look at
-[EXAMPLES.md](EXAMPLES.md). Common errors are show in
-[ERRORS.md](ERRORS.md)
-
-### Format
-
-These format options are available:
-
-| format     | result                                    |
-| ---        | ---                                       |
-| csv        | comma-separated values                    |
-| html       | html table                                |
-| prettyhtml | html table with human readable formatting |
-| jira       | jira / confluence                         |
-| json       | json                                      |
-| prettyjson | json with human readable formatting       |
-| xml        | xml                                       |
-| prettyxml  | xml with human readable formatting        |
-| gfm        | GitHub Flavored Markdown table            |
-| latex      | latex table                               |
-| md         | markdown table                            |
-| pipe       | pipe-delimited Markdown table             |
-| rst        | reStructuredText table                    |
-| tab        | text table                                |
-| raw        | python dict                               |
-| txt        | pandas text                               |
-| api        | just show the encoded url of the api call |
-
-### General Help
-
-To view help `elm --help`
-
-Specific help for commands can be accessed using: `elm COMMAND --help`
-(see [AdminById help](#adminbyid-help) below)
-
-<!-- elm-help-start -->
 ```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
 
@@ -356,7 +206,7 @@ Options:
   -s, --proxy <HOST PORT>         Socks5 proxy address and port
   -f, --format [csv|html|prettyhtml|jira|json|prettyjson|xml|prettyxml|gfm|latex|md|pipe|rst|tab|raw|txt|api]
                                   Format of data  [default: json]
-  -H, --noheaders                 Hide the column headers  [default: False]
+  -H, --noheader                  Hide the column headers  [default: False]
   -I, --index                     Show the row indices  [default: False]
   -o, --filename FILE             Output to file name  [default: -]
   --head TEXT                     Text to prepend before the output
@@ -587,6 +437,9 @@ Commands:
 
   default config file:
   /home/user/.config/logicmonitor/credentials/config.ini
+```
+<!-- elm-help-start -->
+```text
 ```
 <!-- elm-help-end -->
 

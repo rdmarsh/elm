@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-05-04
+
+### Fixed
+- `-H` / `--noheader` flag (renamed from `--noheaders`) now correctly hides
+  column headers in `csv`, `html`, `prettyhtml`, and `latex` formats. The
+  pandas `header=` parameter has opposite polarity to the flag, so the value
+  was being passed inverted — headers showed when `-H` was given and were
+  hidden when it was not. Fixed by passing `not noheader`. Tabulate-based
+  formats (`txt`, `jira`, `gfm`, `md`, `pipe`, `rst`, `tab`) were unaffected.
+
 ## [1.7.0] - 2026-05-04
 
 ### Added

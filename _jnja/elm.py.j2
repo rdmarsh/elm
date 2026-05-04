@@ -57,13 +57,13 @@ config_file = os.path.join(os.path.expanduser('~'), '.config', 'logicmonitor', '
 
 class ELM(object):
     """Load confing and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export, halt_on_api_error, cacert):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, export, halt_on_api_error, cacert):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
         self.account_name = account_name
         self.format = format
-        self.noheaders = noheaders
+        self.noheader = noheader
         self.index = index
         self.filename = filename
         self.head = head
@@ -87,7 +87,7 @@ def good_perms(file):
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name')
 @click.option('-s', '--proxy',        type=(str, int), default=(None, 1080), metavar='<HOST PORT>', help='Socks5 proxy address and port')
 @click.option('-f', '--format',       default='json', show_default=True, type=click.Choice(['csv', 'html', 'prettyhtml', 'jira', 'json', 'prettyjson', 'xml', 'prettyxml', 'gfm', 'latex', 'md', 'pipe', 'rst', 'tab', 'raw', 'txt', 'api']), help='Format of data')
-@click.option('-H', '--noheaders',    is_flag=True, default=False, show_default=True, help="Hide the column headers")
+@click.option('-H', '--noheader',     is_flag=True, default=False, show_default=True, help="Hide the column headers")
 @click.option('-I', '--index',        is_flag=True, default=False, show_default=True, help="Show the row indices")
 @click.option('-o', '--filename',     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True, allow_dash=True), default='-', show_default=True, help='Output to file name')
 @click.option(      '--head',         default='', help="Text to prepend before the output")
@@ -98,7 +98,7 @@ def good_perms(file):
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(version=__version__)
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, index, filename, head, foot, verbose, export, halt_on_api_error, cacert):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, export, halt_on_api_error, cacert):
     """A cli interface for extracting LogicMonitor data via the api
 
     See https://github.com/rdmarsh/elm for more information"""
@@ -155,7 +155,7 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, inde
     logging.debug('*********************************************************')
     logging.debug('')
     logging.info('format: %s', format)
-    logging.info('noheaders: %s', noheaders)
+    logging.info('noheader: %s', noheader)
     logging.info('index: %s', index)
     logging.info('filename: %s', filename)
     logging.info('head: %s', head)
@@ -163,7 +163,7 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheaders, inde
     logging.info('export: %s', export)
     logging.info('halt_on_api_error: %s', halt_on_api_error)
     logging.info('cacert: %s', cacert)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheaders, index, filename, head, foot, export, halt_on_api_error, cacert)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, export, halt_on_api_error, cacert)
 
 {% for command in commands -%}
 cli.add_command({{ command.command }}.{{ command.command }}, name='{{ command.command }}')
