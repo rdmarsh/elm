@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-05-05
+
+### Security
+- Config directory and file permissions are now enforced on every run.
+  elm will warn and auto-fix if the credentials directory is not `700`
+  or the config file is not `600`. If the fix fails, elm aborts.
+  Closes [#20](https://github.com/rdmarsh/elm/issues/20).
+
 ## [1.7.1] - 2026-05-04
 
 ### Fixed

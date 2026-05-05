@@ -34,7 +34,6 @@ CSV, HTML, JSON, XML, Markdown, and more.
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Mon  4 May 2026 18:28:11 AEST -->
 
 <!--te-->
 
@@ -75,6 +74,11 @@ API credentials can be placed in an ini file:
 cp ~/.config/logicmonitor/credentials/config.example.ini ~/.config/logicmonitor/credentials/config.ini
 vi ~/.config/logicmonitor/credentials/config.ini
 ```
+
+elm enforces secure permissions on the credentials directory (`700`) and
+config file (`600`) on every run. If the permissions are too open, elm
+will warn and fix them automatically. If it cannot fix them, it will
+abort.
 
 *You may need to restart your terminal session*
 
