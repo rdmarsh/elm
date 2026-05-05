@@ -276,7 +276,7 @@ install: $(bindir)/$(name) cfg ## (Re)installs the script and modifies the path
 
 .PHONY: hooks
 hooks: ## Install git hooks (run once after cloning)
-	@printf '#!/bin/bash\n# Regenerate README ToC when README.md is being committed\nif git diff --cached --name-only | grep -q "^README\\.md$$"; then\n\tif command -v gh-md-toc >/dev/null 2>&1; then\n\t\tgh-md-toc --insert --no-backup --skip-header README.md\n\t\tgit add README.md\n\tfi\nfi\n' > .git/hooks/pre-commit
+	@printf '#!/bin/bash\n# Regenerate README ToC when README.md is being committed\nif git diff --cached --name-only | grep -q "^README\\.md$$"; then\n\tif command -v gh-md-toc >/dev/null 2>&1; then\n\t\tgh-md-toc --insert --no-backup --skip-header README.md\n\t\tsed -i "" "/^<!-- Added by:/d" README.md\n\t\tgit add README.md\n\tfi\nfi\n' > .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
 	@echo "$(OK_STRING) $@"
 
