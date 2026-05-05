@@ -32,7 +32,6 @@ For more complex use, see the scripts in [examples](examples) dir.
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Fri 26 Apr 2024 15:08:36 AEST -->
 
 <!--te-->
 
@@ -41,7 +40,7 @@ For more complex use, see the scripts in [examples](examples) dir.
 A simple query to get usage metrics and show them in formatted json:
 
 ```shell
-./elm -f prettyjson MetricsUsage
+elm -f prettyjson MetricsUsage
 ```
 
 ```json
@@ -76,7 +75,7 @@ A simple query to get usage metrics and show them in formatted json:
 Use the `-s` flag to limit the results returned:
 
 ```shell
-./elm DeviceList -s1
+elm DeviceList -s1
 ```
 
 > note: setting size to 0 will return all results (up to 1000)
@@ -87,7 +86,7 @@ Show the id and username for users with id between 2 and 5, sort by
 reverse username, and put in csv format:
 
 ```shell
-./elm -f csv AdminList -f id,username -S -username -F id\>:2,id\<:5
+elm -f csv AdminList -f id,username -S -username -F id\>:2,id\<:5
 ```
 
 ## Use a different config file
@@ -96,7 +95,7 @@ You can have more than one config file. This is handy if you have
 multiple API keys or accounts and want to switch between them:
 
 ```shell
-./elm --config ~/.elm/dev.ini MetricsUsage
+elm --config ~/.config/logicmonitor/credentials/dev.ini MetricsUsage
 ```
 
 ## Use a filter with a space in the VALUE
@@ -104,7 +103,7 @@ multiple API keys or accounts and want to switch between them:
 To use space in the VALUE of a filter, you will have to quote the VALUE:
 
 ```shell
-./elm DeviceGroupList -f id,name,description -F name:"group with space"
+elm DeviceGroupList -f id,name,description -F name:"group with space"
 ```
 
 ## Pipe stdout to another program
@@ -114,7 +113,7 @@ STDOUT is the default option. This example shows passing the data into
 jinja:
 
 ```shell
-./elm DatasourceById --id 12345678 | \
+elm DatasourceById --id 12345678 | \
 jinja2 /path/datasource.jira.j2 - | \
 pbcopy
 ```
@@ -124,24 +123,24 @@ pbcopy
 This will show all hosts name and display name in the group "Linux Devices":
 
 ```shell
-gid=$(./elm DeviceGroupList -f id -F name:"Linux Devices" | \
+gid=$(elm DeviceGroupList -f id -F name:"Linux Devices" | \
 jq -r '.DeviceGroupList[].id')
 
-./elm DeviceList -s0 -f name,displayName -F hostGroupIds~${gid} | \
+elm DeviceList -s0 -f name,displayName -F hostGroupIds~${gid} | \
 jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
 In one line:
 
 ```shell
-./elm DeviceList -s0 -f name,displayName -F hostGroupIds~$(./elm DeviceGroupList -f id -F name:"Linux Devices" | \
+elm DeviceList -s0 -f name,displayName -F hostGroupIds~$(elm DeviceGroupList -f id -F name:"Linux Devices" | \
 jq -r '.DeviceGroupList[].id') | jq -r '.DeviceList[] | [.name, .displayName] | @csv'
 ```
 
 ## Write data to a file
 
 ```shell
-./elm -o filename MetricsUsage
+elm -o filename MetricsUsage
 ```
 
 ## Hostgroup and Collector Group don't match
@@ -149,10 +148,10 @@ jq -r '.DeviceGroupList[].id') | jq -r '.DeviceList[] | [.name, .displayName] | 
 Useful for matching hosts to collector groups. Assumes you use a similar
 naming pattern for both hosts and collector groups (eg foo)
 
-Note: the "!" has to be escaped to stop bash interperating it
+Note: the "!" has to be escaped to stop bash interpreting it
 
 ```shell
-./elm DeviceList -f name,displayName,preferredCollectorGroupName -F displayName~foo,preferredCollectorGroupName\!~foo
+elm DeviceList -f name,displayName,preferredCollectorGroupName -F displayName~foo,preferredCollectorGroupName\!~foo
 ```
 
 ## Add header and footer custom text
@@ -162,7 +161,7 @@ automatically generated, and adding a datestamp to the footer. The
 example below is in jira markup:
 
 ```shell
-./elm --head "{warning}This information is automatically generated. Changes may be overwritten!{warning}" --foot "_above extracted at $(date "+%Y-%m-%d %H:%M")_" --format jira MetricsUsage
+elm --head "{warning}This information is automatically generated. Changes may be overwritten!{warning}" --foot "_above extracted at $(date "+%Y-%m-%d %H:%M")_" --format jira MetricsUsage
 ```
 
 ## Filter by customProperties, systemProperties, autoProperties etc
@@ -171,7 +170,7 @@ If you want to filter the device list by customProperties,
 systemProperties, autoProperties etc, filter by X.name and X.value like so:
 
 ```shell
-./elm DeviceList -f customProperties -F customProperties.name:customer.name,customProperties.value:customerA
+elm DeviceList -f customProperties -F customProperties.name:customer.name,customProperties.value:customerA
 ```
 
 For caveats, see the comments by [David Bond] on this post: [Get LM DeviceGroup Properties REST API]
@@ -187,15 +186,15 @@ only the matching name and returns it's value from the json output:
 On an group level:
 
 ```shell
-./elm -f json DeviceGroupList -F customProperties.name:wmi.user -f customProperties | \
+elm -f json DeviceGroupList -F customProperties.name:wmi.user -f customProperties | \
 jq -r '.DeviceGroupList[].customProperties[] | select(.name=="wmi.user") | .value' | \
 sort -u
 ```
 
-Same as above, but for all indidual devices:
+Same as above, but for all individual devices:
 
 ```shell
-./elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | \
+elm -f json DeviceList -F customProperties.name:wmi.user -f customProperties | \
 jq -r '.DeviceList[].customProperties[] | select(.name=="wmi.user") | .value' | \
 sort -u
 ```
@@ -211,7 +210,7 @@ outputing it as a tsv seperated values. The tab values are then swapped
 for commas before passing to the unix commands `sort` and `column`.
 
 ```shell
-./elm -f json DeviceList -F displayName~foo,customProperties.name:snmp.security -f name,displayName,customProperties -s0 | \
+elm -f json DeviceList -F displayName~foo,customProperties.name:snmp.security -f name,displayName,customProperties -s0 | \
 jq -r --arg name "snmp.security" '.DeviceList[] | .customProperties[] as $custom | select($custom.name==$name) | [.displayName, .name, $custom.value] | @tsv | gsub("\\t";",")' | \
 sort | \
 column -t -s,
@@ -229,14 +228,14 @@ Like the custom property above, this solution uses jq to filter the
 results:
 
 ```shell
-./elm -f json DeviceList -F systemProperties.name:system.staticgroups,systemProperties.value\~"Root/Group/Name/" -f name,displayName,systemProperties -s0 | \
+elm -f json DeviceList -F systemProperties.name:system.staticgroups,systemProperties.value\~"Root/Group/Name/" -f name,displayName,systemProperties -s0 | \
 jq -r --arg name "system.staticgroups" '.DeviceList[] | .systemProperties[] as $system | select($system.name==$name) | [.displayName, .name, $system.value] | @csv'
 ```
 
 ## Find all the devices belonging to a dynamic group
 
 ```shell
-./elm -f json DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group/Name/" -f name,displayName,systemProperties -s0 | \
+elm -f json DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group/Name/" -f name,displayName,systemProperties -s0 | \
 jq -r --arg name "system.groups" '.DeviceList[] | .systemProperties[] as $system | select($system.name==$name) | [.displayName, .name, $system.value] | @csv'
 ```
 
@@ -255,7 +254,7 @@ jq -r --arg name "ClientID" '.DeviceGroupList[] | .customProperties[] as $custom
 Show the collector build version and when it was last update; sorted by build number and updated time:
 
 ```shell
-./elm CollectorList -f hostname,build,updatedOnLocal -S build,updatedOnLocal
+elm CollectorList -f hostname,build,updatedOnLocal -S build,updatedOnLocal
 ```
 
 ## Find long SDTs
@@ -263,13 +262,13 @@ Show the collector build version and when it was last update; sorted by build nu
 This will find SDTs that don't end for at least one year from the current time:
 
 ```shell
-./elm SDTList -F endDateTime\>$(( ( $(date +'%s') + 31536000 ) * 1000 )) -f id,deviceGroupFullPath,deviceDisplayName,endDateTimeOnLocal,duration,admin,comment -S endDateTime -s0
+elm SDTList -F endDateTime\>$(( ( $(date +'%s') + 31536000 ) * 1000 )) -f id,deviceGroupFullPath,deviceDisplayName,endDateTimeOnLocal,duration,admin,comment -S endDateTime -s0
 ```
 
 ## Find non-auto balanced devices on a collector
 
 ```shell
-./elm DeviceList -f id,name,displayName,autoBalancedCollectorGroupId,collectorDescription -F collectorDescription\~"DESC_HERE",autoBalancedCollectorGroupId:0 -s0
+elm DeviceList -f id,name,displayName,autoBalancedCollectorGroupId,collectorDescription -F collectorDescription\~"DESC_HERE",autoBalancedCollectorGroupId:0 -s0
 ```
 
 ## Compare devices in two groups
@@ -277,8 +276,8 @@ This will find SDTs that don't end for at least one year from the current time:
 Find all the devices in two groups and then compare them, showing devices that aren't in both groups:
 
 ```shell
-./elm -f txt -o group_a.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_A" -f displayName -S displayName -s0
-./elm -f txt -o group_b.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_B" -f displayName -S displayName -s0
+elm -f txt -o group_a.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_A" -f displayName -S displayName -s0
+elm -f txt -o group_b.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_B" -f displayName -S displayName -s0
 comm -3 group_a.txt group_b.txt
 ```
 
