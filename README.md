@@ -98,7 +98,7 @@ make testverb
 While I'm testing, I often do this loop:
 
 ```shell
-make clean && make && make install && cp -r _dist/elm/* ~/bin && echo done
+make clean && make && make install && echo done
 ```
 
 ### Pre-requisites
