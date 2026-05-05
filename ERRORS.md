@@ -4,7 +4,7 @@ The following show some errors you may see and what they mean:
 
 <!--ts-->
    * [Error: access_id, access_key or account_name not set via cli or config file](#error-access_id-access_key-or-account_name-not-set-via-cli-or-config-file)
-   * [Error: config file permissions are group or world readable](#error-config-file-permissions-are-group-or-world-readable)
+   * [Warning: config file permissions are too open](#warning-config-file-permissions-are-too-open)
    * [Error: no valid fields selected](#error-no-valid-fields-selected)
    * [Warning: size limit is less than total records](#warning-size-limit-is-less-than-total-records)
    * [Warning: no data found](#warning-no-data-found)
@@ -12,7 +12,6 @@ The following show some errors you may see and what they mean:
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Thu 14 Mar 2024 10:48:18 AEDT -->
 
 <!--te-->
 
@@ -21,12 +20,14 @@ The following show some errors you may see and what they mean:
 Missing the values needed to access the API from the cli or config file.
 See `config.example.ini`
 
-## Error: config file permissions are group or world readable
+## Warning: config file permissions are too open
 
-Permissions for the config file are either group or world readable. This
-is enforced as these files can store api access ids or keys
+On startup, elm checks that the credentials directory has permissions `700`
+and all `.ini` files in it have permissions `600`. If any are too open, elm
+will warn and fix them automatically. If elm cannot fix them, it will abort.
 
-To correct: `chmod 600 ~/.config/logicmonitor/credentials/config.ini`
+To fix manually:
+`chmod 700 ~/.config/logicmonitor/credentials && chmod 600 ~/.config/logicmonitor/credentials/*.ini`
 
 ## Error: no valid fields selected
 

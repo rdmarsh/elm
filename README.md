@@ -452,7 +452,7 @@ Commands:
 This is only one example, but other help messages are similar. The URL
 will take you directly to the swagger document relating to that command
 
-`./elm AdminById --help`
+`elm AdminById --help`
 
 ```text
 Usage: elm AdminById [OPTIONS]
