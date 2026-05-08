@@ -9,6 +9,7 @@ Queries relating to user accounts, API tokens, roles, and offboarding.
 <!--ts-->
    * [Export users by userid](#export-users-by-userid)
    * [Find a user account and check its status](#find-a-user-account-and-check-its-status)
+   * [Audit all active API tokens](#audit-all-active-api-tokens)
    * [Offboarding checks — collectors, devices, and API tokens](#offboarding-checks--collectors-devices-and-api-tokens)
    * [meta](#meta)
 
@@ -41,6 +42,19 @@ Compare against a known-active account to confirm which fields indicate suspensi
 ```shell
 elm AdminList -s0 -f id,username,firstName,lastName,status,twoFAEnabled | \
   jq '.AdminList[] | select(.username == "active.user@acme.com" or .username == "departed.user@acme.com")'
+```
+
+## Audit all active API tokens
+
+Find every user who has an active API token — useful as a periodic security
+check, especially after staff turnover.
+
+`apiTokens.status` filters natively: `2` = active, `1` = disabled.
+This covers both LMv1 keys and bearer tokens — the `type` field distinguishes
+them, not the status:
+
+```shell
+elm -f csv AdminList -s0 -f username,firstName,lastName -F apiTokens.status:2
 ```
 
 ## Offboarding checks — collectors, devices, and API tokens
