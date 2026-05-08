@@ -14,6 +14,12 @@ This tool simplifies running basic read-only queries against the
 LogicMonitor API, formatting the output in various formats, including
 CSV, HTML, JSON, XML, Markdown, and more.
 
+**elm is intentionally read-only.** It only performs GET requests —
+it cannot create, modify, or delete anything in your LogicMonitor
+account. This makes it safe to hand to anyone: the worst outcome is a
+slow query or confusing output, never an accidental change to your
+platform.
+
 <!--ts-->
    * [Features](#features)
    * [Installation](#installation)
@@ -41,6 +47,7 @@ CSV, HTML, JSON, XML, Markdown, and more.
 
 * Retrieve data from LogicMonitor via the API
 * Output in multiple formats: CSV, HTML, JSON, XML, Markdown, and more
+* Read-only — GET requests only, no risk of accidental changes
 
 ## Installation
 
