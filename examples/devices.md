@@ -21,6 +21,7 @@ Includes filtering by OS type, custom/system properties, and group membership.
    * [Compare devices in two groups](#compare-devices-in-two-groups)
    * [Find dead devices](#find-dead-devices)
    * [Find orphaned device groups](#find-orphaned-device-groups)
+   * [Find devices with a specific property value](#find-devices-with-a-specific-property-value)
    * [Scripts](#scripts)
    * [meta](#meta)
 
@@ -178,6 +179,24 @@ Groups with no devices — candidates for cleanup:
 
 ```shell
 elm DeviceGroupList -s0 -f name,fullPath -F numOfHosts:0
+```
+
+## Find devices with a specific property value
+
+Useful for tracking down where a credential, token, or config value is
+configured across your estate — for example during a security audit or
+after a credential rotation:
+
+```shell
+elm DeviceList -s0 -f displayName,customProperties -F customProperties.value:YOUR_VALUE_HERE
+```
+
+If you're not sure which property type it's stored under, check all three:
+
+```shell
+elm DeviceList -s0 -f displayName,customProperties  -F customProperties.value:YOUR_VALUE_HERE
+elm DeviceList -s0 -f displayName,systemProperties  -F systemProperties.value:YOUR_VALUE_HERE
+elm DeviceList -s0 -f displayName,autoProperties    -F autoProperties.value:YOUR_VALUE_HERE
 ```
 
 ## Scripts
