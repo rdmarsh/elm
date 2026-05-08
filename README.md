@@ -478,7 +478,16 @@ Options:
 
 ## Examples
 
-See [EXAMPLES.md](EXAMPLES.md)
+See [EXAMPLES.md](EXAMPLES.md) for the full index, or jump directly to a topic:
+
+- [General usage](examples/general.md) — flags, output formats, piping, writing to file
+- [Devices](examples/devices.md) — OS filtering, custom/system properties, group membership
+- [Collectors](examples/collectors.md) — build versions, auto-balance, group mismatches
+- [Alerts and SDTs](examples/alerts.md) — long SDTs, oldest alerts, time-related alerts
+- [Datasources](examples/datasources.md) — finding devices without a datasource applied
+- [Users](examples/users.md) — export by id, status checks, offboarding
+- [Websites](examples/websites.md) — group hierarchy queries, missing required properties
+- [Dashboards and reports](examples/dashboards-reports.md) — filtering by resource group or hostsVal
 
 ## Errors
 
