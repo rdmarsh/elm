@@ -14,6 +14,9 @@ These apply across all commands and resource types.
    * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
    * [Pipe stdout to another program](#pipe-stdout-to-another-program)
    * [Write data to a file](#write-data-to-a-file)
+   * [Count results matching a filter](#count-results-matching-a-filter)
+   * [Use --format api to debug the API call](#use---format-api-to-debug-the-api-call)
+   * [Output formats for tables and documents](#output-formats-for-tables-and-documents)
    * [Add header and footer custom text](#add-header-and-footer-custom-text)
    * [meta](#meta)
 
@@ -100,6 +103,62 @@ pbcopy
 ```shell
 elm -o filename MetricsUsage
 ```
+
+## Count results matching a filter
+
+Use `-c` to return the count of items in the current query (affected by the `-s` size limit),
+or `-C` to return the API's total count of all matching records regardless of size limit:
+
+```shell
+# How many results does this filter match?
+elm DeviceList -F displayName~foo -C
+
+# How many items came back in this page?
+elm DeviceList -F displayName~foo -s50 -c
+```
+
+`-C` is usually what you want — it queries the API's `total` field, which reflects all
+matching records. `-c` counts only what was returned in the current request.
+
+## Use --format api to debug the API call
+
+`-f api` makes the request and then prints the URL and Authorization header
+instead of the response data. Useful for seeing exactly what call elm made,
+or for reproducing it with curl.
+
+> **Warning:** the Authorization header contains your access_id and a signed
+> token. Do not share this output or commit it to version control.
+
+```shell
+elm -f api DeviceList -s1 -F displayName~foo
+```
+
+Example output (values are illustrative — yours will contain real credentials):
+
+```
+https://acme.logicmonitor.com/santaba/rest/device/devices?&size=1&filter=displayName%7Efoo
+Authorization: LMv1 abcd1234:<hmac-signature>:<epoch-ms>
+```
+
+The signature is time-stamped and expires within minutes — run curl immediately
+after elm if you want to replay the request.
+
+## Output formats for tables and documents
+
+In addition to `json`/`csv`, elm supports several table and markup formats:
+
+```shell
+elm -f gfm      DeviceList -s5 -f id,displayName   # GitHub Flavored Markdown table
+elm -f pipe     DeviceList -s5 -f id,displayName   # Markdown pipe table (right-aligns numbers)
+elm -f prettyhtml DeviceList -s5 -f id,displayName # Syntax-highlighted HTML (terminal display)
+elm -f prettyxml  DeviceList -s5 -f id,displayName # Indented XML
+elm -f rst      DeviceList -s5 -f id,displayName   # reStructuredText grid table
+elm -f latex    DeviceList -s5 -f id,displayName   # LaTeX tabular environment
+```
+
+Note: `md` and `tab` both use tabulate `simple` format internally and currently produce
+identical output — verify with `-H` (noheader) if you need to rely on that. Use `gfm` or
+`pipe` for Markdown you intend to paste into GitHub or a wiki.
 
 ## Add header and footer custom text
 

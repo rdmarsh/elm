@@ -87,14 +87,13 @@ _formats:
     note: "Output is a Python list of dicts e.g. [{'id': 1, 'name': 'foo'}] — not valid JSON"
 
   api:
-    description: Prints the encoded API URL and Authorization header — no request made
+    description: Makes the request, then prints the URL and Authorization header instead of the response data
     pipeable: false
-    note: "Authorization header contains the HMAC signature — sensitive, do not share output.
-      The header is time-stamped (epoch ms in the third colon-separated field) and expires
-      in minutes — run curl immediately after elm -f api, you cannot save and reuse it.
-      Exact TTL unconfirmed, believed to be a few minutes."
-    use_for: "Get the pre-signed URL and Authorization header to use directly with curl or wget,
-      or to debug what query elm would run without executing it"
+    note: "Authorization header contains the HMAC signature — sensitive, do not share output
+      or commit it to version control. The header is time-stamped (epoch ms in the third
+      colon-separated field) and expires within minutes — run curl immediately after elm -f api.
+      The request IS made; response.url is used for the URL output."
+    use_for: "Debug exactly what API call elm made, or replay it with curl"
     example: |
       curl -H "Authorization: LMv1 ..." "https://acme.logicmonitor.com/santaba/rest/..."
 
