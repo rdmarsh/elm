@@ -1,0 +1,136 @@
+# elm-notes.yaml
+# Hand-curated notes on elm command behaviour, response fields, and filter patterns.
+# Supplements the swagger — focuses on what the swagger doesn't tell you:
+# real response structure, what filters actually work, and gotchas.
+#
+# WARNING: This file is partially AI-assisted and may contain inaccuracies.
+# Entries should be verified against the live API before being relied upon.
+# Correct errors in place and remove this warning from individual entries once verified.
+
+# ---
+# Global notes (apply to all commands)
+# ---
+_global:
+  gotchas:
+    - "Never use 2>&1 when piping elm output to jq — elm warnings go to stderr and
+      will corrupt the JSON stream causing jq parse errors"
+    - "API filter does not support OR across multiple values for the same field —
+      use jq client-side for that"
+    - "Array fields cannot be filtered for emptiness server-side (no 'is empty'
+      operator) — use jq: select(.field | length == 0)"
+    - "-s0 means return all records (up to 1000), not zero records"
+    - "validate_filter() wraps values in double quotes automatically — do not
+      double-quote values in shell, it causes doubling"
+
+# ---
+# Websites
+# ---
+WebsiteList:
+  path: /website/websites
+  key_fields:
+    id:       integer
+    name:     string
+    domain:   string # hostname or IP being monitored
+    groupId:  integer # immediate parent group only — no subgroup traversal server-side
+    type:     string # "webcheck" or "pingcheck"
+    properties:
+      type: array
+      items: {name: string, value: string}
+      note: "API filter works for specific name/value pairs; empty check must be client-side"
+    status:   string
+    sdtStatus: string
+  filter_patterns:
+    - "properties.name:foo,properties.value:bar  # sites with a specific property set"
+    - "groupId:<id>  # sites in an exact group (not subgroups)"
+  gotchas:
+    - "groupId is exact match only — to query a hierarchy, collect all child group
+      IDs first via WebsiteGroupList then filter client-side"
+    - "properties being empty vs missing a specific key are different problems:
+      empty uses jq select(.properties | length == 0);
+      missing key uses jq array subtraction ($required - $present)"
+
+WebsiteGroupList:
+  path: /website/groups
+  key_fields:
+    id:                  integer
+    name:                string
+    fullPath:            string # full slash-separated path e.g. acme/customer/acme
+    parentId:            integer
+    numOfDirectSubGroups: integer
+    numOfDirectWebsites:  integer
+    numOfWebsites:        integer # includes all descendant websites
+    properties:
+      type: array
+      items: {name: string, value: string}
+  filter_patterns:
+    - 'fullPath~"acme/"  # all groups whose path contains acme/ (catches all depths)'
+  gotchas:
+    - "fullPath~ with a trailing slash scopes to children of that group;
+      without the slash it also matches the group itself"
+
+# ---
+# Devices
+# ---
+DeviceList:
+  path: /device/devices
+  key_fields:
+    id:           integer
+    name:         string # hostname or IP
+    displayName:  string # friendly name shown in UI
+    hostGroupIds: string # comma-separated list of group IDs — use ~ not : to filter
+    systemProperties:
+      type: array
+      items: {name: string, value: string}
+    customProperties:
+      type: array
+      items: {name: string, value: string}
+    autoProperties:
+      type: array
+      items: {name: string, value: string}
+    preferredCollectorGroupName: string
+    autoBalancedCollectorGroupId: integer # 0 means not auto-balanced
+  filter_patterns:
+    - "customProperties.name:foo,customProperties.value:bar"
+    - "systemProperties.name:system.groups,systemProperties.value~Root/Group/"
+    - "hostGroupIds~<id>  # tilde because hostGroupIds is a comma-separated string"
+    - "displayName~foo,preferredCollectorGroupName\\!~foo  # ! must be escaped in bash"
+  gotchas:
+    - "hostGroupIds is a comma-separated string, not an array — use ~ not : to match"
+    - "There is no way to effectively filter by effective property (per LM community)"
+
+DeviceGroupList:
+  path: /device/groups
+  key_fields:
+    id:       integer
+    name:     string
+    fullPath: string
+    parentId: integer
+    customProperties:
+      type: array
+      items: {name: string, value: string}
+
+# ---
+# Datasources
+# ---
+DatasourceList:
+  path: /setting/datasources
+  key_fields:
+    id:          integer
+    name:        string
+    displayName: string
+    appliesTo:   string # AppliesTo expression — defines which devices get this datasource
+    group:       string # datasource group/category
+    collectMethod: string
+    technology:  string
+  # TODO: verify which fields are reliably filterable
+
+AssociatedDeviceListByDataSourceId:
+  path: /setting/datasources/{id}/devices
+  required_params:
+    id: integer # datasource ID
+  note: "Returns all devices that have this datasource applied — useful for inverting
+    (devices that do NOT have a datasource) by comparing against DeviceList"
+  key_fields:
+    id:          integer
+    name:        string
+    displayName: string
