@@ -19,6 +19,8 @@ Includes filtering by OS type, custom/system properties, and group membership.
    * [Find all the devices belonging to a dynamic group](#find-all-the-devices-belonging-to-a-dynamic-group)
    * [Find all groups that have a customProperty set](#find-all-groups-that-have-a-customproperty-set)
    * [Compare devices in two groups](#compare-devices-in-two-groups)
+   * [Find dead devices](#find-dead-devices)
+   * [Find orphaned device groups](#find-orphaned-device-groups)
    * [Scripts](#scripts)
    * [meta](#meta)
 
@@ -159,6 +161,23 @@ Find all the devices in two groups and then compare them, showing devices that a
 elm -f txt -o group_a.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_A" -f displayName -S displayName -s0
 elm -f txt -o group_b.txt DeviceList -F systemProperties.name:system.groups,systemProperties.value\~"Root/Group_B" -f displayName -S displayName -s0
 comm -3 group_a.txt group_b.txt
+```
+
+## Find dead devices
+
+Find devices that LM considers dead (no data received from the collector).
+Useful for identifying stale resources to investigate or remove:
+
+```shell
+elm -f csv DeviceList -s0 -f displayName,hostStatus,collectorDescription -F hostStatus:dead
+```
+
+## Find orphaned device groups
+
+Groups with no devices — candidates for cleanup:
+
+```shell
+elm DeviceGroupList -s0 -f name,fullPath -F numOfHosts:0
 ```
 
 ## Scripts
