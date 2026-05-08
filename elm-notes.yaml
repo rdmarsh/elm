@@ -180,14 +180,23 @@ DeviceList:
       items: {name: string, value: string}
     preferredCollectorGroupName: string
     autoBalancedCollectorGroupId: integer # 0 means not auto-balanced
+  os_identification:
+    system.sysinfo:
+      note: "Full uname string e.g. 'Linux hostname 3.10.0-... x86_64' — reliable for OS type"
+      linux_filter: "systemProperties.name:system.sysinfo,systemProperties.value~Linux"
+    auto.endpoint.model:
+      note: "Auto-discovered device model — also useful for OS/device type identification"
   filter_patterns:
     - "customProperties.name:foo,customProperties.value:bar"
+    - "systemProperties.name:system.sysinfo,systemProperties.value~Linux  # Linux devices"
     - "systemProperties.name:system.groups,systemProperties.value~Root/Group/"
     - "hostGroupIds~<id>  # tilde because hostGroupIds is a comma-separated string"
     - "displayName~foo,preferredCollectorGroupName\\!~foo  # ! must be escaped in bash"
   gotchas:
     - "hostGroupIds is a comma-separated string, not an array — use ~ not : to match"
     - "There is no way to effectively filter by effective property (per LM community)"
+    - "Device groups (e.g. 'Linux Servers') may contain non-Linux devices — prefer
+      system.sysinfo filter over group membership for OS-based queries"
 
 DeviceGroupList:
   path: /device/groups
@@ -215,6 +224,11 @@ DatasourceList:
     technology:  string
   # TODO: verify which fields are reliably filterable
 
+DatasourceList:
+  filter_patterns:
+    - "name:NTPv4  # exact name match — use : not ~ when you know the exact name;
+      avoids retrieving all 1000+ datasources"
+
 AssociatedDeviceListByDataSourceId:
   path: /setting/datasources/{id}/devices
   required_params:
@@ -225,3 +239,14 @@ AssociatedDeviceListByDataSourceId:
     id:          integer
     name:        string
     displayName: string
+  pattern_devices_without_datasource: |
+    # Step 1: find datasource ID
+    elm DatasourceList -s0 -f id -F name:NTPv4
+
+    # Step 2: get IDs of devices that DO have it
+    ntp_ids=$(elm AssociatedDeviceListByDataSourceId --id <id> -f id | jq '[.AssociatedDeviceListByDataSourceId[].id]')
+
+    # Step 3: get all target devices and exclude the ones that have it
+    elm DeviceList -s0 -f id,displayName -F systemProperties.name:system.sysinfo,systemProperties.value~Linux | \
+      jq -r --argjson ntp_ids "$ntp_ids" \
+        '.DeviceList[] | select(.id as $id | $ntp_ids | contains([$id]) | not) | .displayName' | sort

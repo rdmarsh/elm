@@ -29,6 +29,8 @@ For more complex use, see the scripts in [examples](examples) dir.
       * [Find Dashboards that match a defaultResourceGroup](#find-dashboards-that-match-a-defaultresourcegroup)
    * [Reports](#reports)
       * [Find Reports that match a hostsVal](#find-reports-that-match-a-hostsval)
+   * [Datasources](#datasources)
+      * [Find devices that don't have a datasource applied](#find-devices-that-dont-have-a-datasource-applied)
    * [Websites](#websites)
       * [Find websites with no properties in a group hierarchy](#find-websites-with-no-properties-in-a-group-hierarchy)
       * [Find websites missing required properties](#find-websites-missing-required-properties)
@@ -309,6 +311,36 @@ This example will show reports that use "Root/Group" as their hostsVal:
 ```shell
 elm -f txt ReportList -s0 -F hostsVal\~Root/Group -f name
 ```
+
+## Datasources
+
+### Find devices that don't have a datasource applied
+
+Use `AssociatedDeviceListByDataSourceId` to get devices that DO have the
+datasource, then compare client-side against your target device set to find
+those that don't.
+
+Use an exact name filter (`name:`) on `DatasourceList` to avoid retrieving
+all datasources — there are typically more than 1000.
+
+```shell
+# Step 1: get the datasource ID
+ds_id=$(elm DatasourceList -s0 -f id -F name:NTPv4 | jq -r '.DatasourceList[].id')
+
+# Step 2: get IDs of devices that have it
+ntp_ids=$(elm AssociatedDeviceListByDataSourceId --id $ds_id -f id | \
+  jq '[.AssociatedDeviceListByDataSourceId[].id]')
+
+# Step 3: find Linux devices that don't have it
+elm DeviceList -s0 -f id,displayName \
+  -F systemProperties.name:system.sysinfo,systemProperties.value~Linux | \
+  jq -r --argjson ntp_ids "$ntp_ids" \
+    '.DeviceList[] | select(.id as $id | $ntp_ids | contains([$id]) | not) | .displayName' | sort
+```
+
+The device filter in step 3 can be swapped for any group or property filter —
+`system.sysinfo~Linux` is the reliable way to scope to Linux devices rather
+than relying on group membership, which may include non-Linux devices.
 
 ## Websites
 
