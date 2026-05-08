@@ -8,6 +8,97 @@
 # Correct errors in place and remove this warning from individual entries once verified.
 
 # ---
+# Output formats
+# ---
+# Global flag: elm -f <format> <command>
+# Verified against: elm -f <fmt> DeviceGroupList -s2 -f id,name
+_formats:
+  csv:
+    description: Comma-separated values with header row
+    pipeable: true
+    example: "id,name\n1,foo\n2,bar"
+
+  json:
+    description: Compact JSON wrapped in command name key
+    pipeable: true  # pipe to jq
+    example: '{"DeviceGroupList": [{"id": 1, "name": "foo"}]}'
+
+  prettyjson:
+    description: Indented colour-highlighted JSON (uses pygments) — same structure as json
+    pipeable: true  # colours may interfere; use json for clean piping
+    example: "indented + syntax highlighted"
+
+  tab:
+    description: Tabulate 'simple' format — headers + separator line + aligned columns
+    pipeable: false
+    note: "Identical output to md"
+
+  md:
+    description: Tabulate 'simple' format — same as tab
+    pipeable: false
+    note: "Identical output to tab — may be a bug or historical alias"
+
+  txt:
+    description: Plain text — headers + aligned columns, no separator line under headers
+    pipeable: false
+
+  gfm:
+    description: GitHub Flavored Markdown table — pipe-delimited with header separator
+    pipeable: false
+    example: "| id | name |\n|---|---|\n| 1 | foo |"
+
+  pipe:
+    description: Markdown pipe table — like gfm but with right-aligned numbers and left-aligned strings
+    pipeable: false
+
+  jira:
+    description: Jira wiki markup table
+    pipeable: false
+    example: "|| id || name ||\n| 1 | foo |"
+
+  html:
+    description: Minified HTML table
+    pipeable: false
+
+  prettyhtml:
+    description: Syntax-highlighted HTML (uses pygments) — for terminal display only
+    pipeable: false
+
+  xml:
+    description: Compact XML — includes a row index field
+    pipeable: false
+    note: "Adds an <index> element per row that is not in the source data"
+
+  prettyxml:
+    description: Indented XML — same structure as xml
+    pipeable: false
+
+  latex:
+    description: LaTeX tabular environment
+    pipeable: false
+
+  rst:
+    description: reStructuredText grid table
+    pipeable: false
+
+  raw:
+    description: Python dict repr — NOT JSON, cannot pipe to jq
+    pipeable: false
+    note: "Output is a Python list of dicts e.g. [{'id': 1, 'name': 'foo'}] — not valid JSON"
+
+  api:
+    description: Prints the encoded API URL and Authorization header — no request made
+    pipeable: false
+    note: "Authorization header contains the HMAC signature — sensitive, do not share output.
+      The header is time-stamped (epoch ms in the third colon-separated field) and expires
+      in minutes — run curl immediately after elm -f api, you cannot save and reuse it.
+      Exact TTL unconfirmed, believed to be a few minutes."
+    use_for: "Get the pre-signed URL and Authorization header to use directly with curl or wget,
+      or to debug what query elm would run without executing it"
+    example: |
+      curl -H "Authorization: LMv1 ..." "https://acme.logicmonitor.com/santaba/rest/..."
+
+# ---
 # Global notes (apply to all commands)
 # ---
 _global:
