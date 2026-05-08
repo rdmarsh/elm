@@ -166,4 +166,4 @@ API support, and the initial release.
 [1.2.0]: https://github.com/rdmarsh/elm/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/rdmarsh/elm/compare/v1.0.6...v1.1.0
 [1.0.6]: https://github.com/rdmarsh/elm/compare/v1.0.5...v1.0.6
-[1.0.5]: https://github.com/rdmarsh/elm/compare/v1.0.4...v1.0.5
+[1.0.5]: https://github.com/rdmarsh/elm/releases/tag/v1.0.5

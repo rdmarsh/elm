@@ -40,5 +40,3 @@ Update the ToC on this page by running the following:
 gh-md-toc --insert --no-backup --skip-header EXAMPLES.md
 ```
 
-[David Bond]: https://community.logicmonitor.com/members/david-bond-6
-[Get LM DeviceGroup Properties REST API]: https://community.logicmonitor.com/product-discussions-22/get-lm-devicegroup-properties-rest-api-1473?postid=8985#post8985)

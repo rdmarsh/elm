@@ -1,0 +1,12 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https://www\\.logicmonitor\\.com",
+      "comment": "logicmonitor.com returns 403 to automated checkers but links are valid"
+    },
+    {
+      "pattern": "^https://www\\.gnu\\.org",
+      "comment": "gnu.org intermittently times out in CI but links are valid"
+    }
+  ]
+}
