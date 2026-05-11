@@ -144,7 +144,8 @@ ER_STRING=$(ER_COLOR)[ERROR]$(NO_COLOR)
 # do not change
 
 .PHONY: all
-all: render build ## Build everything except install (init, render, cfg, build)
+all: init ## Build everything except install (init, render, cfg, build)
+	$(MAKE) _render _build
 	@echo "$(OK_STRING) $@"
 
 # INIT FOR COMPILE
@@ -178,14 +179,12 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir) $(bindir):
 	@echo "$(OK_STRING) $@"
 
 # Combine the commands.*.json files into one for use by jinja later.
-# MAKE is called again so we don't have to call make manually after all
-# defs have been created after making the commands.*.json files.
+# The top-level all target calls make again after init so CMDTARGETS is
+# populated from the freshly-created per-command definition files.
 
 $(defdir)/commands.$(JSN): $(defdir)/commands.documented.$(JSN) $(defdir)/commands.undocumented.$(JSN) | $(defdir) JQ-exists
 	$(JQ) -s '{commands: (.[0].commands + .[1].commands)}' $^ > $@
 	@echo "$(OK_STRING) $@"
-	$(MAKE)
-#todo avoid calling make twice
 
 # The commands.*.json files are used to trigger when the individual defs
 # need to be (re)built as we don't know the names of the individual def
@@ -234,9 +233,12 @@ $(cfgdir)/config.example.ini: config.example.ini | $(cfgdir)
 # =======================================
 # do not change
 
-.PHONY: render
-render: init engine.$(PY) $(prog) ## Make python commands from templates and install requirements
+.PHONY: render _render
+render: init ## Make python commands from templates and install requirements
+	$(MAKE) _render
 	@echo "$(OK_STRING) $@"
+
+_render: engine.$(PY) $(prog)
 
 $(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS) | JINJA-exists
 	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(OUTPUT_OPTION)
@@ -250,9 +252,12 @@ $(cmddir)/%.$(PY): $(jnjdir)/command.$(PY).$(J2) $(defdir)/%.$(JSN) | $(cmddir) 
 	$(JINJA) -D apiversion=$(apiversion) $^ $(OUTPUT_OPTION)
 	@echo "$(OK_STRING) $@"
 
-.PHONY: build
-build: render $(pyidistdir)/$(name)/$(name) ## (Re)build the script
+.PHONY: build _build
+build: init ## (Re)build the script
+	$(MAKE) _render _build
 	@echo "$(OK_STRING) $@"
+
+_build: $(pyidistdir)/$(name)/$(name)
 
 $(pyidistdir)/$(name)/$(name): reqs | PYTHON-exists PYINST-exists
 	$(PIP) $(PIPFLAGS) $(EDITABLE) .
@@ -500,4 +505,3 @@ help: ## Show this help
 	@echo 'You can override Makefile vars like so:'
 	@echo '  make apiversion=2'
 	@echo
-
