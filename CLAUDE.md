@@ -111,28 +111,62 @@ made to migrate from pip + requirements.txt to Poetry, but the
 migration was incomplete and left the project in a broken state.
 
 Current situation:
-- There may be partial Poetry files (pyproject.toml, poetry.lock)
-  present that conflict with the original requirements.txt and setup.py
-- The venv/ may be in an inconsistent state
-- The original pip-based workflow in the Makefile may not have been
-  updated to match any Poetry changes
+- At the start of investigation on 2026-05-11, pyproject.toml,
+  poetry.lock, venv/, _defs/, _cmds/, elm.py, and engine.py were not
+  present in the working tree.
+- The git worktree was clean before investigation.
+- The repo currently appears to be back on the original pip + venv
+  workflow.
+- Default python3 on this machine is Python 3.14.4; python3.12 and
+  python3.13 are also available.
+
+Investigation notes from 2026-05-11:
+- `make -n` recurses indefinitely because the
+  `_defs/commands.json` recipe calls `$(MAKE)` after generating the
+  combined commands file. In dry-run mode the target is never actually
+  written, so make repeatedly re-enters the same target.
+- A real `make` with network access succeeds on this machine using
+  Python 3.14.4, but the recursive `$(MAKE)` still causes duplicated
+  work: the nested make performs a full build, then the outer make
+  resumes and runs the build path again.
+- The real `make` generated venv/, _defs/, _cmds/, elm.py, engine.py,
+  _build/, _dist/, and elm.spec. These are generated/ignored artefacts;
+  git status only showed CLAUDE.md modified afterward.
+- The generated binary and generated `elm.py` both return `--version`
+  and `--help`, but startup is slow because `elm.py` imports every
+  generated `_cmds` module before Click handles simple flags.
+- `setup.py` uses `packages=find_packages()` but the generated entry
+  point is a top-level `elm.py` module; packaging likely needs
+  `py_modules` or a package restructure.
+- `_jnja/engine.py.j2` has a broken `--export` path: it references
+  `elm.flags` and uses Jinja `FileSystemLoader` / `Environment`
+  without importing them.
+- `_jnja/engine.py.j2` manually concatenates query parameters instead
+  of passing structured params to requests, which risks bad URL
+  encoding for filters and other values.
+- `_jnja/elm.py.j2` captures a custom config path but still stores and
+  logs the default config path in several places.
 
 Recommended approach:
-1. Decide: finish the Poetry migration properly, or revert cleanly to
-   pip + venv. Do not try to support both at once.
-2. If reverting to pip: remove pyproject.toml and poetry.lock if
-   present, restore requirements.txt to a working state, ensure the
-   Makefile venv targets still work.
-3. If completing Poetry migration: update the Makefile to use poetry
-   run instead of venv/bin/python, replace requirements.txt installs
-   with poetry install, ensure pyinstaller is handled (Poetry does not
-   manage PyInstaller builds natively).
-4. Pin all dependency versions once working to prevent this happening
-   again.
-
-Do not attempt to run make until the package manager situation is
-resolved -- it will likely fail mid-build and leave things in a
-worse state.
+1. Keep the pip + venv workflow for now. The partial Poetry migration
+   appears to have been removed, so do not reintroduce Poetry unless
+   doing a deliberate packaging migration.
+2. Fix the Makefile recursion to remove duplicate work and make
+   `make -n` useful again. The real build succeeds, so this is not the
+   first functional blocker. Recommended fix: replace the recursive
+   `$(MAKE)` in the `_defs/commands.json` recipe with an explicit
+   restart target or two-phase workflow. For example, `make init`
+   should create `_defs/commands.json` and per-command defs, and a
+   subsequent `make render` should render from the now-known defs. If
+   keeping self-reentry, guard it so it is skipped when `MAKEFLAGS`
+   contains `n` and so the outer build does not repeat `build`.
+3. Build using a conservative Python version first, preferably
+   `make PYTHON=python3.12`, because Python 3.14 is very new and may
+   expose dependency compatibility issues unrelated to elm.
+4. Fix packaging metadata in setup.py so the generated top-level
+   modules are installed correctly.
+5. Fix template bugs in _jnja/, regenerate, then run `make testbasic`
+   before any API-backed tests.
 
 
 ## Do not
