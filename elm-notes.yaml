@@ -124,7 +124,7 @@ _global:
 _standard_list_options:
   note: "All *List commands support these unless noted otherwise"
   size:   "-s/--size INTEGER — results to return [0-1000]; 0 means all up to 1000 [default: 50]"
-  offset: "--offset INTEGER — skip N records; combine with --size for pagination [default: 0]"
+  offset: "-o/--offset INTEGER — skip N records; combine with --size for pagination [default: 0]"
   fields: "-f/--fields FIELD,... — server-side field projection (comma-separated)"
   filter: "-F/--filter FIELD[op]VALUE,... — server-side filter; see operators in --help"
   sort:   "-S/--sort [+,-]FIELD,... — server-side sort; + ascending, - descending"
