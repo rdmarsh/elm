@@ -675,6 +675,35 @@ RecommendationsList:
   path: /cost-optimization/recommendations
   note: "Standard list; returns no data on this account (no cost-optimization recommendations configured)."
 
+# ---
+# Dashboards
+# ---
+DashboardList:
+  path: /dashboard/dashboards
+  note: "Standard list; verified working."
+  key_fields:
+    id:      integer
+    name:    string
+    groupId: integer
+
+DashboardGroupList:
+  path: /dashboard/groups
+  note: "Standard list; verified working."
+  key_fields:
+    id:       integer
+    name:     string
+    parentId: integer  # 0 for root group
+
+# ---
+# Reports
+# ---
+ReportGroupList:
+  path: /report/groups
+  note: "Standard list; verified working."
+  key_fields:
+    id:       integer
+    name:     string
+
 ReportList:
   path: /report/reports
   unique_options:
@@ -723,6 +752,14 @@ DataSourceOverviewGraphList:
   path: /setting/datasources/{dsId}/overviewgraphs
   required_params:
     dsId: integer # datasource ID
+  note: "Returns no data for some datasources (e.g. dsId=514 NetSNMPCPUwithCores has none); verified data for dsId=28 (NetSNMPdiskIO-), id=4."
+
+DataSourceOverviewGraphById:
+  path: /setting/datasources/{dsId}/overviewgraphs/{id}
+  required_params:
+    dsId: integer  # datasource ID
+    id:   integer  # graph ID from DataSourceOverviewGraphList
+  note: "Verified working: --dsId 28 --id 4 returns graph definition with dataPoints, lines, etc."
 
 # =============================================================
 # Non-List commands
@@ -789,6 +826,35 @@ _byid_pattern:
     WebsiteGroupById:     /website/groups/{id}
     WidgetById:           /dashboard/widgets/{id}
     WidgetListByDashboardId: /dashboard/dashboards/{id}/widgets
+
+AlertList:
+  path: /alert/alerts
+  note: "Standard list; verified working. Alert IDs are strings (e.g. 'DS395142385')."
+  key_fields:
+    id:              string   # string ID, e.g. "DS395142385"
+    type:            string   # "dataSourceAlert", "websiteAlert", etc.
+    severity:        integer  # 2=critical, 4=error, 8=warning
+    startEpoch:      integer  # epoch seconds
+    endEpoch:        integer  # epoch seconds; 0 if still active
+    cleared:         boolean
+    acked:           boolean
+    ackedBy:         string
+    ackedEpoch:      integer
+    sdted:           boolean
+    monitorObjectId: integer  # device/website ID
+    monitorObjectName: string
+    monitorObjectType: string
+    instanceId:      integer
+    instanceName:    string
+    dataPointName:   string
+    alertValue:      string
+    threshold:       string
+    rule:            string
+    chainId:         integer
+    ruleId:          integer
+    resourceId:      integer
+    suppressDesc:    string
+    tenant:          string
 
 # ---
 # Alert commands
@@ -1270,36 +1336,40 @@ DeviceInstanceGraphDataOnlyByInstanceId:
   required_params:
     instanceId: integer
     graphId:    integer
-  note: "Shortcut — doesn't require deviceId/hdsId, just the instance ID directly"
+  note: "Shortcut — doesn't require deviceId/hdsId, just the instance ID directly. Verified: --instanceId 423232578 --graphId 1 returns full graph data."
   unique_options: "start, end, format — see _data_endpoint_options"
 
 WebsiteCheckpointDataById:
   path: /website/websites/{srvId}/checkpoints/{checkId}/data
   required_params:
     srvId:   integer  # website ID
-    checkId: integer  # checkpoint ID (from SiteMonitorCheckPointList)
+    checkId: integer  # checkpoint ID; get from WebsiteById response (.checkpoints[].id)
   unique_options: "start, end, period, datapoints, format, aggregate — see _data_endpoint_options"
+  note: "Verified working: --srvId 2 --checkId 354175036. Checkpoint IDs are in WebsiteById response (.checkpoints[].id), not from SiteMonitorCheckPointList. dataPoints includes overallStatus, totalSmCount, failSmCount, sslDaysUntilExpiration, etc. time is epoch ms."
 
 WebsiteDataByGraphName:
   path: /website/websites/{id}/graphs/{graphName}/data
   required_params:
     id:        integer
-    graphName: string  # graph name; values unverified
+    graphName: string  # graph name; tested 'response' → 400; valid values unknown
   unique_options: "start, end, format — see _data_endpoint_options"
+  note: "Returns 400 Bad Request for graphName='response' on website 2 — valid graphName values are not documented and may be website-type-specific."
 
 WebsiteGraphData:
   path: /website/websites/{websiteId}/checkpoints/{checkpointId}/graphs/{graphName}/data
   required_params:
     websiteId:    integer
     checkpointId: integer
-    graphName:    string
+    graphName:    string  # tested 'response', 'availability' → both 400; valid values unknown
   unique_options: "start, end, format — see _data_endpoint_options"
+  note: "Returns 400 Bad Request for all graphName values tested — valid values unknown."
 
 WidgetDataById:
   path: /dashboard/widgets/{id}/data
   required_params:
     id: integer
   unique_options: "start, end, format — see _data_endpoint_options"
+  note: "Verified working — returns widget-specific data structure (varies by widget type)."
 
 TopTalkersGraph:
   path: /device/devices/{id}/topTalkersGraph
@@ -1318,17 +1388,19 @@ TopTalkersGraph:
 # ---
 DeltaIdWithDevices:
   path: /device/devices/delta
-  note: "No -s/--size option (verified). Returns full device snapshot. The deltaId is in the response metadata (not in the items array) — elm exposes it only indirectly. Use -f api to inspect the raw response."
+  note: "No -s/--size option (verified). Returns full device snapshot. The deltaId is in the response root (not per-item) — elm surfaces only the items array, so deltaId is not accessible via elm. Use direct API call to retrieve it."
   unique_options:
     deltaId: "--deltaId TEXT — if provided, returns changes since that deltaId; if omitted, returns full snapshot with new deltaId"
   gotchas:
     - "No -s option — returns all devices; can be large"
-    - "deltaId is in the response root (not per-item) — elm's items-only output may not expose it directly"
+    - "deltaId is in response root, not per-item — not accessible via elm; need direct API call"
+    - "API returns 400 'number of active delta requests have already reached the max allowed limit' if concurrent delta sessions are open — one session at a time"
 
 DeltaDevices:
   path: /device/devices/delta/{deltaId}
   required_params:
     deltaId: string  # from a previous DeltaIdWithDevices call
+  note: "Untested — requires a valid deltaId from DeltaIdWithDevices, which elm doesn't surface. Use direct API access to get the deltaId first."
 
 # ---
 # Config source / update history
