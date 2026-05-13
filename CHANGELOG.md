@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `elm-completion.bash` used `_ELM_COMPLETE=bash_complete` (Click 8 style);
+  Click 7.x requires `_ELM_COMPLETE=complete`. Completion was silently broken.
+- Click 7.1.2 template bug generated `_elm_completionetup` instead of
+  `_elm_completion_setup`. Corrected in the checked-in file.
+- No Makefile target installed the completion file anywhere. Added
+  `make completion` which installs to
+  `$XDG_DATA_HOME/bash-completion/completions/elm`
+  (default `~/.local/share/bash-completion/completions/elm`).
+  `make install` now depends on `make completion`.
+
 ## [1.7.7] - 2026-05-14
 
 ### Added
