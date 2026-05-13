@@ -111,12 +111,33 @@ _global:
     - "-s0 means return all records (up to 1000), not zero records"
     - "validate_filter() wraps values in double quotes automatically — do not
       double-quote values in shell, it causes doubling"
+    - "--format TEXT on some commands (AuditLogList, ConfigSourceList, DatasourceList,
+      EventSourceList, JobMonitorList, LogSourceList, PropertyRulesList) is an LM API-level
+      parameter, NOT elm's output format flag. It instructs the LM API to return data in that
+      format directly, bypassing elm's output pipeline. Use elm's global --format flag before
+      the subcommand for output formatting instead. Known issue: AuditLogList --format csv
+      causes a JSONDecodeError because the API returns raw CSV that elm cannot parse."
+
+# ---
+# Standard options shared by almost all List commands
+# ---
+_standard_list_options:
+  note: "All *List commands support these unless noted otherwise"
+  size:   "-s/--size INTEGER — results to return [0-1000]; 0 means all up to 1000 [default: 50]"
+  offset: "--offset INTEGER — skip N records; combine with --size for pagination [default: 0]"
+  fields: "-f/--fields FIELD,... — server-side field projection (comma-separated)"
+  filter: "-F/--filter FIELD[op]VALUE,... — server-side filter; see operators in --help"
+  sort:   "-S/--sort [+,-]FIELD,... — server-side sort; + ascending, - descending"
+  count:  "-c/--count — return count of matching records only (respects -F filter)"
+  total:  "-C/--total — return count of ALL records regardless of filter"
 
 # ---
 # Websites
 # ---
 WebsiteList:
   path: /website/websites
+  unique_options:
+    collectorIds: "--collectorIds TEXT — purpose unverified; presumably filter websites by collector ID(s); LM swagger has no description"
   key_fields:
     id:       integer
     name:     string
@@ -163,6 +184,13 @@ WebsiteGroupList:
 # ---
 DeviceList:
   path: /device/devices
+  unique_options:
+    includeDeletedResources: "--includeDeletedResources / --dont-includeDeletedResources — include soft-deleted devices; deletedTimeInMs > 0 on deleted records; default excludes them"
+    start:        "--start INTEGER (int64) — purpose unverified; co-occurs with netflowFilter on all netflow-capable endpoints; no visible effect on DeviceList in testing"
+    end:          "--end INTEGER (int64) — same caveat as start"
+    netflowFilter: "--netflowFilter TEXT — co-occurs with start/end on netflow endpoints; no visible effect on DeviceList in testing; LM swagger has no description"
+  gotchas:
+    - "-f/--fields may be ignored for some device types (e.g. deviceType:18 synthetic checks return full schema regardless of -f)"
   key_fields:
     id:           integer
     name:         string # hostname or IP
@@ -213,6 +241,8 @@ DeviceGroupList:
 # ---
 DatasourceList:
   path: /setting/datasources
+  options:
+    format: "--format TEXT — LM API format param; do NOT use (see _global gotcha); use elm's global --format flag instead"
   key_fields:
     id:          integer
     name:        string
@@ -221,9 +251,6 @@ DatasourceList:
     group:       string # datasource group/category
     collectMethod: string
     technology:  string
-  # TODO: verify which fields are reliably filterable
-
-DatasourceList:
   filter_patterns:
     - "name:NTPv4  # exact name match — use : not ~ when you know the exact name;
       avoids retrieving all 1000+ datasources"
@@ -249,3 +276,221 @@ AssociatedDeviceListByDataSourceId:
     elm DeviceList -s0 -f id,displayName -F systemProperties.name:system.sysinfo,systemProperties.value~Linux | \
       jq -r --argjson ntp_ids "$ntp_ids" \
         '.DeviceList[] | select(.id as $id | $ntp_ids | contains([$id]) | not) | .displayName' | sort
+
+# ---
+# Users / Roles / Tokens
+# ---
+AdminList:
+  path: /setting/admins
+  unique_options:
+    type:              "--type TEXT — user type; values unverified; likely LOCAL, SAML, RADIUS"
+    permission:        "--permission TEXT — permission level filter; values unverified"
+    filterGroupString: "--filterGroupString TEXT — purpose unverified; likely filter by device group access"
+
+ApiTokenList:
+  path: /setting/admins/apitokens
+  unique_options:
+    type:       "--type TEXT — token type; based on status field: 1=LMv1, 2=bearer (unverified)"
+    permission: "--permission TEXT — permission level filter; values unverified"
+  key_fields:
+    adminId:    integer # owning user ID
+    adminName:  string  # owning username
+    id:         integer # token ID
+    status:     integer # 1=disabled, 2=active (verified via testing)
+    note:       string
+    createdOn:  integer # epoch seconds
+    lastUsedOn: integer # epoch seconds
+
+RoleList:
+  path: /setting/roles
+  unique_options:
+    excludeAdmin: "--excludeAdmin / --dont-excludeAdmin — exclude the built-in Administrator role from results"
+
+# ---
+# Audit / Logs
+# ---
+AuditLogList:
+  path: /setting/accesslogs
+  unique_options:
+    format: "--format TEXT — LM API format param; DO NOT USE — causes JSONDecodeError when set to csv (API returns raw CSV that elm cannot parse); use elm's global --format flag instead"
+  key_fields:
+    id:             integer
+    username:       string
+    ip:             string
+    description:    string
+    happenedOn:     integer # epoch seconds
+    happenedOnLocal: string # human-readable local time string
+
+# ---
+# Device-scoped commands (require --deviceId or similar)
+# ---
+DeviceDatasourceList:
+  path: /device/devices/{deviceId}/devicedatasources
+  required_params:
+    deviceId: integer # device ID
+  key_fields:
+    id:          integer # device-datasource ID (hdsId for sub-commands)
+    dataSourceId: integer
+    dataSourceName: string
+    instanceNumber: integer
+    alertStatus: string # "none", "warn", "error", "critical"
+
+DeviceDatasourceInstanceList:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances
+  required_params:
+    deviceId: integer
+    hdsId:    integer # device-datasource ID (id from DeviceDatasourceList)
+  key_fields:
+    id:           integer
+    name:         string
+    displayName:  string
+    alertStatus:  string
+    stopMonitoring: boolean
+    lastCollectedTime: integer # epoch seconds; unreliable for some collection types — do NOT use as proxy for "not collecting"
+
+DeviceDatasourceInstanceGroupList:
+  path: /device/devices/{deviceId}/devicedatasources/{deviceDsId}/instancegroups
+  required_params:
+    deviceId:   integer
+  optional_params:
+    deviceDsId: "--deviceDsId INTEGER — device-datasource ID; scopes to a specific datasource's instance groups"
+
+DeviceEventsourceList:
+  path: /device/devices/{deviceId}/deviceeventsources
+  required_params:
+    deviceId: integer
+
+DevicePropertyList:
+  path: /device/devices/{deviceId}/properties
+  required_params:
+    deviceId: integer
+  key_fields:
+    name:   string
+    value:  string
+    type:   string # "system", "auto", "custom", "inherited"
+
+DeviceInstanceList:
+  path: /device/devices/{id}/instances
+  required_params:
+    id: integer # device ID
+  unique_options:
+    start:        "--start INTEGER (int64) — netflow time range start; purpose same as DeviceList start"
+    end:          "--end INTEGER (int64) — netflow time range end"
+    netflowFilter: "--netflowFilter TEXT — netflow filter; same caveat as DeviceList"
+
+DeviceConfigSourceConfigList:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{instanceId}/config
+  required_params:
+    deviceId:   integer
+    hdsId:      integer # device-datasource ID
+    instanceId: integer # instance ID
+
+# ---
+# Device group-scoped commands
+# ---
+DeviceGroupPropertyList:
+  path: /device/groups/{gid}/properties
+  required_params:
+    gid: integer # group ID
+
+DeviceGroupSDTList:
+  path: /device/groups/{id}/sdts
+  required_params:
+    id: integer # group ID
+
+DeviceGroupClusterAlertConfList:
+  path: /device/groups/{deviceGroupId}/clusterAlertConf
+  required_params:
+    deviceGroupId: integer
+
+DeviceGroupDatasourceList:
+  path: /device/groups/{deviceGroupId}/datasources
+  required_params:
+    deviceGroupId: integer
+  unique_options:
+    includeDisabledDataSourceWithoutInstance: "--includeDisabledDataSourceWithoutInstance / --dont-... — include datasources that are disabled and have no instances"
+
+# ---
+# Netflow commands (start/end/netflowFilter are meaningful here)
+# ---
+NetflowFlowList:
+  path: /device/devices/{id}/flows
+  required_params:
+    id: integer # device ID
+  unique_options:
+    start:        "--start INTEGER (int64 epoch ms) — time range start for flow data"
+    end:          "--end INTEGER (int64 epoch ms) — time range end for flow data"
+    netflowFilter: "--netflowFilter TEXT — filter for flow data"
+  note: "This is the endpoint where start/end/netflowFilter are actually meaningful"
+
+NetflowEndpointList:
+  path: /device/devices/{id}/endpoints
+  required_params:
+    id: integer # device ID
+  unique_options:
+    start:        "--start INTEGER (int64 epoch ms) — time range start"
+    end:          "--end INTEGER (int64 epoch ms) — time range end"
+    netflowFilter: "--netflowFilter TEXT — netflow filter"
+    port:         "--port TEXT — filter by port; values unverified"
+
+NetflowPortList:
+  path: /device/devices/{id}/ports
+  required_params:
+    id: integer # device ID
+  unique_options:
+    start:        "--start INTEGER (int64 epoch ms) — time range start"
+    end:          "--end INTEGER (int64 epoch ms) — time range end"
+    netflowFilter: "--netflowFilter TEXT — netflow filter"
+    ip:           "--ip TEXT — filter by IP address; values unverified"
+
+# ---
+# Reports
+# ---
+ReportList:
+  path: /report/reports
+  unique_options:
+    showNextGenReports: "--showNextGenReports / --dont-showNextGenReports — include Next Gen reports (newer LM report engine); default unverified"
+
+# ---
+# Datasource types with LM API --format param (see _global gotcha)
+# ---
+ConfigSourceList:
+  path: /setting/configsources
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList; use elm's global --format instead"
+
+EventSourceList:
+  path: /setting/eventsources
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+
+LogSourceList:
+  path: /setting/logsources
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+
+JobMonitorList:
+  path: /setting/batchjobs
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+
+PropertyRulesList:
+  path: /setting/propertyrules
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+
+# ---
+# Websites / Monitors
+# ---
+SiteMonitorCheckPointList:
+  path: /website/smcheckpoints
+  unique_options:
+    type: "--type TEXT — type of checkpoint to filter; if omitted returns legacy checkpoints only (per LM help text)"
+
+# ---
+# Datasource graphs
+# ---
+DataSourceOverviewGraphList:
+  path: /setting/datasources/{dsId}/overviewgraphs
+  required_params:
+    dsId: integer # datasource ID
