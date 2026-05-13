@@ -9,13 +9,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - `elm-completion.bash` used `_ELM_COMPLETE=bash_complete` (Click 8 style);
   Click 7.x requires `_ELM_COMPLETE=complete`. Completion was silently broken.
+- Click 7's completion lowercased all command names (`devicelist`) but elm
+  commands are CamelCase (`DeviceList`) — the completed names didn't work.
+  Fixed with a hybrid completion: static CamelCase list for command name
+  position, dynamic Click completion for flags and values.
 - Click 7.1.2 template bug generated `_elm_completionetup` instead of
-  `_elm_completion_setup`. Corrected in the checked-in file.
+  `_elm_completion_setup`. Corrected in the template.
 - No Makefile target installed the completion file anywhere. Added
   `make completion` which installs to
   `$XDG_DATA_HOME/bash-completion/completions/elm`
   (default `~/.local/share/bash-completion/completions/elm`).
   `make install` now depends on `make completion`.
+
+### Changed
+- `elm-completion.bash` is now a generated file rendered from
+  `_jnja/elm-completion.bash.j2` by `make render`. Removed from git
+  tracking; added to `.gitignore`.
 
 ## [1.7.7] - 2026-05-14
 

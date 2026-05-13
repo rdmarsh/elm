@@ -244,7 +244,11 @@ render: init ## Make python commands from templates and install requirements
 	$(MAKE) _render
 	@echo "$(OK_STRING) $@"
 
-_render: engine.$(PY) $(prog)
+_render: engine.$(PY) $(prog) elm-completion.bash
+
+elm-completion.bash: $(jnjdir)/elm-completion.bash.$(J2) $(defdir)/commands.$(JSN) | JINJA-exists
+	$(JINJA) $^ $(OUTPUT_OPTION)
+	@echo "$(OK_STRING) $@"
 
 $(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS) | JINJA-exists
 	$(JINJA) $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(OUTPUT_OPTION)

@@ -60,7 +60,11 @@ Dev loop: make clean && make && make install && cp -r _dist/elm/* ~/bin
 - Uses a Python venv at venv/ (created by make)
 - Config file: ~/.config/logicmonitor/credentials/config.ini (unrepr format, see configobj docs)
 - Required config keys: access_id, access_key, account_name
-- Shell completion: elm-completion.bash installed to $XDG_DATA_HOME/bash-completion/completions/elm (default ~/.local/share/bash-completion/completions/elm) by make completion. bash-completion 2.x sources it automatically.
+- Shell completion: elm-completion.bash is a generated file (rendered from
+  _jnja/elm-completion.bash.j2 by make render). It is not committed to the
+  repo. make completion installs it to $XDG_DATA_HOME/bash-completion/completions/elm
+  (default ~/.local/share/bash-completion/completions/elm). bash-completion
+  2.x sources it automatically.
 
 
 ## LM API
@@ -73,8 +77,9 @@ Dev loop: make clean && make && make install && cp -r _dist/elm/* ~/bin
 
 ## Output formats
 
-csv, html, prettyhtml, jira, json, prettyjson, xml, latex, md, rst,
-tab, raw, txt, api (api just prints the encoded API URL, no request made)
+csv, tsv, html, prettyhtml, jira, json, jsonl, prettyjson, xml, prettyxml,
+latex, md, rst, gfm, pipe, tab, raw, txt, api
+(api makes the request then prints the URL and Authorization header — header contains HMAC signature, do not share)
 
 
 ## Dependencies
@@ -85,10 +90,10 @@ See requirements.txt for pinned versions.
 
 ## Known confusion points for AI tools
 
-- engine.py and elm.py are both generated files, rendered from
-  _jnja/engine.py.j2 and _jnja/elm.py.j2 respectively. Neither is
-  committed to the repo. Fix bugs in the _jnja/ templates, not in the
-  generated files directly.
+- engine.py, elm.py, and elm-completion.bash are all generated files,
+  rendered from _jnja/engine.py.j2, _jnja/elm.py.j2, and
+  _jnja/elm-completion.bash.j2 respectively. None are committed to the
+  repo. Fix bugs in the _jnja/ templates, not in the generated files directly.
 
 - _cmds/*.py files look like source but are generated artefacts.
   Linters and type checkers will flag issues in them that should be
@@ -174,5 +179,6 @@ Recommended approach:
 - Edit files in _cmds/ directly
 - Edit files in _defs/ directly
 - Edit files in _build/ or _dist/
+- Edit elm-completion.bash directly — it is generated from _jnja/elm-completion.bash.j2
 - Regenerate _cmds/ and commit without also committing the template
   change in _jnja/ that produced them

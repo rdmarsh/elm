@@ -138,6 +138,7 @@ dmypy.json
 elm
 elm.py
 engine.py
+elm-completion.bash
 _cmds/
 _defs/
 
