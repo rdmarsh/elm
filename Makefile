@@ -50,6 +50,8 @@ prog := $(name).$(PY)
 bakdir := ../$(name)_back
 cfgdir := $(HOME)/.config/logicmonitor/credentials
 bindir := $(HOME)/bin
+XDG_DATA_HOME ?= $(HOME)/.local/share
+compdir := $(XDG_DATA_HOME)/bash-completion/completions
 cmddir := _cmds
 defdir := _defs
 jnjdir := _jnja
@@ -178,6 +180,10 @@ $(bakdir) $(cmddir) $(defdir) $(cfgdir) $(bindir):
 	chmod 700 $@
 	@echo "$(OK_STRING) $@"
 
+$(compdir):
+	mkdir -p $@
+	@echo "$(OK_STRING) $@"
+
 # Combine the commands.*.json files into one for use by jinja later.
 # The top-level all target calls make again after init so CMDTARGETS is
 # populated from the freshly-created per-command definition files.
@@ -264,13 +270,24 @@ $(pyidistdir)/$(name)/$(name): reqs | PYTHON-exists PYINST-exists
 	$(PYINST) $(PYINSTFLAGS) $(prog)
 	@echo "$(OK_STRING) $@"
 
+.PHONY: completion
+completion: $(compdir)/$(name) ## Install bash completion to XDG data dir
+
+$(compdir)/$(name): elm-completion.bash | $(compdir)
+	cp elm-completion.bash $(compdir)/$(name)
+	@echo "$(OK_STRING) bash completion installed to $(compdir)/$(name)"
+
 .PHONY: install
-install: $(bindir)/$(name) cfg ## (Re)installs the script and modifies the path
+install: $(bindir)/$(name) cfg completion ## (Re)installs the script and modifies the path
 	@echo
 	@echo "$(OK_COLOR)>>> If needed, you can add \$${HOME}/bin to your \$$PATH like this <<<$(NO_COLOR)"
 	@echo
 	@echo "echo 'export PATH=\"\$${HOME}/bin:\$${PATH}\"' >> \$${HOME}/.bash_profile"
 	@echo "source ~/.bash_profile"
+	@echo
+	@echo "$(OK_COLOR)>>> Bash completion installed to $(compdir)/$(name) <<<$(NO_COLOR)"
+	@echo "bash-completion 2.x sources this automatically. If not working, add to ~/.bash_profile:"
+	@echo "source $(compdir)/$(name)"
 	@echo
 	@echo "$(OK_COLOR)>>> Finished <<<$(NO_COLOR)"
 	@echo

@@ -60,7 +60,7 @@ Dev loop: make clean && make && make install && cp -r _dist/elm/* ~/bin
 - Uses a Python venv at venv/ (created by make)
 - Config file: ~/.config/logicmonitor/credentials/config.ini (unrepr format, see configobj docs)
 - Required config keys: access_id, access_key, account_name
-- Shell completion: elm-completion.bash sourced from ~/.elm/
+- Shell completion: elm-completion.bash installed to $XDG_DATA_HOME/bash-completion/completions/elm (default ~/.local/share/bash-completion/completions/elm) by make completion. bash-completion 2.x sources it automatically.
 
 
 ## LM API
