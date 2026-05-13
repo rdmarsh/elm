@@ -6,6 +6,25 @@
 # WARNING: This file is partially AI-assisted and may contain inaccuracies.
 # Entries should be verified against the live API before being relied upon.
 # Correct errors in place and remove this warning from individual entries once verified.
+#
+# HOW FLAGS ARE GENERATED (important for understanding missing/present options):
+#
+# The LM swagger incompletely documents query parameters. elm compensates in two ways:
+#
+# 1. Template injection (_jnja/command.py.j2): --sort/-S and --fields/-f are injected
+#    on EVERY command that doesn't already have them declared in the swagger. This means
+#    all commands have -f and -S regardless of what the swagger says.
+#
+# 2. swagger.undocumented.json: overrides _defs/ entries for specific endpoints where
+#    the official swagger omits pagination params. Currently covers:
+#    - 11 list endpoints missing size/offset/filter (see GitHub issue #47)
+#    - IntegrationList (fields/size/offset/filter all missing from official swagger)
+#    - PortalInfo (/setting/companySetting — not in official swagger at all)
+#    Run `make init` to merge official swagger + undocumented into _defs/.
+#
+# "Standard list" in a note means -s/-o/-F/-f/-S/-c/-C all work.
+# Remaining "no -s" notes are for genuinely non-paginated endpoints
+# (single-object responses, sub-path resources, etc.).
 
 # ---
 # Output formats
@@ -408,7 +427,7 @@ UnmonitoredDeviceList:
 
 LogAlertGroupsList:
   path: /logpipelines
-  note: "No -s/--size option (verified). Returns log alert pipeline definitions. id is a string."
+  note: "Standard list (-s/-o/-F/-f all work). Returns log alert pipeline definitions. id is a string."
   key_fields:
     id:          string   # string ID (e.g. "1", "2") — not integer
     name:        string
@@ -416,11 +435,10 @@ LogAlertGroupsList:
     description: string
   gotchas:
     - "id is a string, not integer — note when using with LogAlertGroupById (--pipelineId)"
-    - "LogAlertGroupById has no -f option"
 
 LogQueryGroupList:
   path: /log/logquerygroups
-  note: "No -s/--size option (verified). Returns log query group definitions."
+  note: "Standard list (-s/-o/-F/-f all work). Returns log query group definitions."
   key_fields:
     id:           integer
     name:         string
@@ -435,7 +453,7 @@ LogQueryGroupList:
 
 TrackedQueryGroupList:
   path: /trackedquerygroups
-  note: "No -s/--size and no -f/--fields options (verified). Returns tracked query group definitions."
+  note: "Standard list (-s/-o/-F/-f all work). Returns tracked query group definitions."
   key_fields:
     id:           integer
     name:         string   # e.g. "Ungrouped"
@@ -446,7 +464,7 @@ TrackedQueryGroupList:
 
 TopologySourceList:
   path: /setting/topologysources
-  note: "No -s/--size option (verified). Returns topology source definitions."
+  note: "Standard list (-s/-o/-F/-f all work). Returns topology source definitions."
   key_fields:
     id:               integer
     name:             string
@@ -458,15 +476,15 @@ TopologySourceList:
 
 DiagnosticSourcesList:
   path: /setting/diagnosticsources
-  note: "No -s/--size option (verified). Returns no data on this account (none configured)."
+  note: "Standard list (-s/-o/-F/-f all work). Returns no data on this account (none configured)."
 
 RemediationSourcesList:
   path: /setting/remediationsources
-  note: "No -s/--size option (verified). Returns no data on this account (none configured)."
+  note: "Standard list (-s/-o/-F/-f all work). Returns no data on this account (none configured)."
 
 OIDList:
   path: /setting/oids
-  note: "No -s/--size option (verified). Returns SNMP OID category definitions."
+  note: "Standard list (-s/-o/-F/-f all work). Returns SNMP OID category definitions."
   key_fields:
     id:         integer
     oid:        string     # regex pattern e.g. "\\.1\\.3\\.6\\.1\\.4\\.1\\.8072"
@@ -527,7 +545,7 @@ DeviceEventsourceList:
   path: /device/devices/{deviceId}/deviceeventsources
   required_params:
     deviceId: integer
-  note: "No -s/--size option (verified). Returns event sources applied to a device."
+  note: "Standard list (-s/-o/-F/-f all work). Returns event sources applied to a device."
 
 DevicePropertyList:
   path: /device/devices/{deviceId}/properties
@@ -780,7 +798,7 @@ _no_param_commands:
     MetricsSummary:        "/metrics/summary — richer than MetricsUsage: includes hostGroupsInfo (dynamic/static group counts + property counts), kubernetes breakdown, numOfSavedMaps; no -s option (verified)"
     MetricsUsage:          /metrics/usage
     PortalInfo:            /setting/companySetting  # same path as CompanySetting; returns portal/account info
-    RetentionList:         "/setting/loganalytics/retentions — no -s option; returns data retention options: {default, value (days), label, isDefault} (verified)"
+    RetentionList:         "/setting/loganalytics/retentions — standard list (-s/-o/-F/-f all work); returns data retention options: {default, value (days), label, isDefault} (verified)"
     V4Metadata:            "/setting/logicmodules/metadata — no -s option; returns nested [[...]] array — CSV output broken (numeric headers); use prettyjson (verified)"
     IntegrationAuditLogs:  "/setting/integrations/auditlogs — unique: --format TEXT (LM API param — see gotcha)"
 
@@ -806,8 +824,8 @@ _byid_pattern:
     ImmediateDeviceListByDeviceGroupId:  /device/groups/{id}/devices
     ImmediateWebsiteListByWebsiteGroupId: /website/groups/{id}/websites
     JobMonitorById:       /setting/batchjobs/{id}            # unique: --format TEXT (LM API)
-    LogAlertGroupById:    /logpipelines/{pipelineId}         # param is --pipelineId; no -f option; id is string (verified)
-    LogAlertsById:        /logpipelines/processors/{processorId}  # param is --processorId; no -f option (verified)
+    LogAlertGroupById:    /logpipelines/{pipelineId}         # param is --pipelineId; id is string (verified)
+    LogAlertsById:        /logpipelines/processors/{processorId}  # param is --processorId
     LogQueryGroupById:    /log/logquerygroups/{id}
     NetscanById:          /setting/netscans/{id}
     OidById:              /setting/oids/{id}
@@ -822,7 +840,7 @@ _byid_pattern:
     SdtById:              /sdt/sdts/{id}                     # id is string, not integer
     TopologySourceById:   /setting/topologysources/{id}      # unique: --format TEXT (LM API)
     TrackedQueryGroupById: /trackedquerygroups/{id}
-    WebsiteById:          /website/websites/{id}             # unique: --format TEXT (LM API); no -f option (verified)
+    WebsiteById:          /website/websites/{id}             # unique: --format TEXT (LM API)
     WebsiteGroupById:     /website/groups/{id}
     WidgetById:           /dashboard/widgets/{id}
     WidgetListByDashboardId: /dashboard/dashboards/{id}/widgets
@@ -1200,7 +1218,7 @@ DeviceDatasourceInstanceAlertSettingListOfDevice:
     start:         "--start INTEGER (int64) — same caveat as DeviceList"
     end:           "--end INTEGER (int64)"
     netflowFilter: "--netflowFilter TEXT"
-  note: "No -f/--fields option (verified). Returns all datapoint alert settings for all datasources on a device."
+  note: "Returns all datapoint alert settings for all datasources on a device."
 
 DeviceDatasourceInstanceSDTHistory:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}/historysdts
