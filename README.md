@@ -210,30 +210,30 @@ Usage: elm [OPTIONS] COMMAND [ARGS]...
   See https://github.com/rdmarsh/elm for more information
 
 Options:
-  --config FILE                   Read configuration from FILE.
-  -p, --profile NAME              Credentials profile name — shorthand for
-                                  --config /home/user/.config/logicmoni
-                                  tor/credentials/<NAME>.ini
+  --config FILE            Read configuration from FILE.
+  -p, --profile NAME       Credentials profile name — shorthand for --config /
+                           Users/davidmarsh/.config/logicmonitor/credentials/<
+                           NAME>.ini
 
-  -i, --access_id TEXT            API token access id
-  -k, --access_key TEXT           API token access key
-  -a, --account_name TEXT         LogicMonitor account (company) name
-  -s, --proxy <HOST PORT>         Socks5 proxy address and port
-  -f, --format [csv|html|prettyhtml|jira|json|prettyjson|xml|prettyxml|gfm|latex|md|pipe|rst|tab|raw|txt|api]
-                                  Format of data  [default: json]
-  -H, --noheader                  Hide the column headers  [default: False]
-  -I, --index                     Show the row indices  [default: False]
-  -o, --filename FILE             Output to file name  [default: -]
-  --head TEXT                     Text to prepend before the output
-  --foot TEXT                     Text to append after the output
-  -v, --verbose                   Be more verbose, -v is INFO, -vv is DEBUG
-  -x, --export FILENAME           Export the query to FILENAME
-  --halt-on-api-error             Halt on API response errors
-  --cacert FILE                   Path to CA certificate bundle for SSL
-                                  verification
+  -i, --access_id TEXT     API token access id
+  -k, --access_key TEXT    API token access key
+  -a, --account_name TEXT  LogicMonitor account (company) name
+  -s, --proxy <HOST PORT>  Socks5 proxy address and port
+  -f, --format FORMAT      Output format: csv, tsv, json, jsonl, prettyjson,
+                           xml, prettyxml, html, prettyhtml, gfm, pipe, jira,
+                           latex, md, rst, tab, raw, txt, api  [default: json]
 
-  --version                       Show the version and exit.
-  --help                          Show this message and exit.
+  -H, --noheader           Hide the column headers  [default: False]
+  -I, --index              Show the row indices  [default: False]
+  -o, --filename FILE      Output to file name  [default: -]
+  --head TEXT              Text to prepend before the output
+  --foot TEXT              Text to append after the output
+  -v, --verbose            Be more verbose, -v is INFO, -vv is DEBUG
+  -x, --export FILENAME    Export the query to FILENAME
+  --halt-on-api-error      Halt on API response errors
+  --cacert FILE            Path to CA certificate bundle for SSL verification
+  --version                Show the version and exit.
+  --help                   Show this message and exit.
 
 Commands:
   AccessGroupById                 Get access group by id

@@ -119,9 +119,9 @@ REQSOURCES = $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"req
 NONREQTARGETS = $(filter-out ExternalApiStats $(REQSOURCES),$(TSTTARGETS))
 
 # All output formats supported by elm
-FORMATS_ALL = csv html prettyhtml jira json prettyjson xml prettyxml gfm latex md pipe rst tab raw txt api
-# Formats that support -H (hide headers) and -I (show index) flags (excludes json, prettyjson, xml, prettyxml, raw, api)
-FORMATS_HDR = csv html prettyhtml jira gfm latex md pipe rst tab txt
+FORMATS_ALL = csv html prettyhtml jira json jsonl prettyjson xml prettyxml gfm latex md pipe rst tab tsv raw txt api
+# Formats that support -H (hide headers) and -I (show index) flags (excludes json, jsonl, prettyjson, xml, prettyxml, raw, api)
+FORMATS_HDR = csv html prettyhtml jira gfm latex md pipe rst tab tsv txt
 # Formats that support --head and --foot custom text (text-based table formats only)
 FORMATS_TXT = jira gfm md pipe rst tab txt
 

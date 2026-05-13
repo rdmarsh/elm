@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.7] - 2026-05-14
+
+### Added
+- `tsv` output format: true tab-separated values (`\t` delimiter). Distinct
+  from `tab`, which is tabulate's human-readable aligned table format.
+  Supports `-H` (hide headers) and `-I` (show index) like `csv`.
+- `jsonl` output format: JSON Lines — one JSON object per line, no
+  command-name wrapper. Directly readable by DuckDB, jq, and most
+  analytics tools without preprocessing.
+
+### Changed
+- `--format` help text now uses `metavar='FORMAT'` with a readable list
+  instead of the full `[csv|html|...]` choice string, which was overflowing
+  the terminal line width.
+
 ## [1.7.6] - 2026-05-13
 
 ### Added

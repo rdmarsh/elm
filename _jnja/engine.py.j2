@@ -248,6 +248,9 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             output = df.to_csv(header=not noheader, index=index)
             #to_csv adds a blank line to the end, this is to remove it
             output = output[:-1]
+        elif format == 'tsv':
+            output = df.to_csv(sep='\t', header=not noheader, index=index)
+            output = output[:-1]
         elif format == 'html':
             output = htmlmin.minify(df.to_html(header=not noheader, index=index, render_links=True, escape=False), remove_empty_space=True)
         elif format == 'prettyhtml':
@@ -258,6 +261,8 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="jira", floatfmt='.0f')
         elif format == 'json':
             output = json.dumps({command: items})
+        elif format == 'jsonl':
+            output = df.to_json(orient='records', lines=True)
         elif format == 'prettyjson':
             formatted_json=json.dumps({command: items}, sort_keys=True, indent=2)
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
