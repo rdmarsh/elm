@@ -321,6 +321,14 @@ AccessGroupList:
   path: /setting/accessgroup
   note: "Returns 400 Bad Request (verified). Endpoint may require additional params or may not be available on this account type."
 
+AppliesToFunctionList:
+  path: /setting/functions
+  note: "Standard list; verified working. Returns AppliesTo function definitions."
+  key_fields:
+    id:         integer
+    name:       string   # e.g. "isMisc", "isNetwork", "isStorage", "isLinux"
+    appliesTo:  string   # the function body (AppliesTo expression)
+
 AlertRuleList:
   path: /setting/alert/rules
   note: "Standard list; verified working."
@@ -397,6 +405,44 @@ OpsNoteList:
 UnmonitoredDeviceList:
   path: /device/unmonitoreddevices
   note: "Returns 403 Forbidden with read-only token (verified). May require admin token."
+
+LogAlertGroupsList:
+  path: /logpipelines
+  note: "No -s/--size option (verified). Returns log alert pipeline definitions. id is a string."
+  key_fields:
+    id:          string   # string ID (e.g. "1", "2") — not integer
+    name:        string
+    query:       string   # LM log pipeline query expression
+    description: string
+  gotchas:
+    - "id is a string, not integer — note when using with LogAlertGroupById (--pipelineId)"
+    - "LogAlertGroupById has no -f option"
+
+LogQueryGroupList:
+  path: /log/logquerygroups
+  note: "No -s/--size option (verified). Returns log query group definitions."
+  key_fields:
+    id:           integer
+    name:         string
+    description:  string
+    groupType:    string   # "PRIVATE" or "PUBLIC"
+    ownerId:      integer  # 0 for system-owned
+    parentId:     integer
+    logQueries:   array    # list of log queries in this group (may be empty list in list view, null in ById)
+    userPermission: string # "WRITE", "READ", etc.
+  gotchas:
+    - "logQueries is empty list in LogQueryGroupList but null in LogQueryGroupById (inconsistent)"
+
+TrackedQueryGroupList:
+  path: /trackedquerygroups
+  note: "No -s/--size and no -f/--fields options (verified). Returns tracked query group definitions."
+  key_fields:
+    id:           integer
+    name:         string   # e.g. "Ungrouped"
+    description:  string
+    ownerId:      integer
+    parentId:     integer
+    trackedQuery: object   # null if no tracked query associated
 
 TopologySourceList:
   path: /setting/topologysources
@@ -481,6 +527,7 @@ DeviceEventsourceList:
   path: /device/devices/{deviceId}/deviceeventsources
   required_params:
     deviceId: integer
+  note: "No -s/--size option (verified). Returns event sources applied to a device."
 
 DevicePropertyList:
   path: /device/devices/{deviceId}/properties
@@ -554,11 +601,13 @@ DeviceGroupSDTList:
   path: /device/groups/{id}/sdts
   required_params:
     id: integer # group ID
+  note: "Returns no data for group 1 (root) and group 19 (Linux Servers) — groups may simply have no SDTs."
 
 DeviceGroupClusterAlertConfList:
   path: /device/groups/{deviceGroupId}/clusterAlertConf
   required_params:
     deviceGroupId: integer
+  note: "Returns no data for group 19 (Linux Servers) — may require a cluster-type group."
 
 DeviceGroupDatasourceList:
   path: /device/groups/{deviceGroupId}/datasources
@@ -578,7 +627,7 @@ NetflowFlowList:
     start:        "--start INTEGER (int64 epoch ms) — time range start for flow data"
     end:          "--end INTEGER (int64 epoch ms) — time range end for flow data"
     netflowFilter: "--netflowFilter TEXT — filter for flow data"
-  note: "This is the endpoint where start/end/netflowFilter are actually meaningful"
+  note: "This is the endpoint where start/end/netflowFilter are actually meaningful. Returns 400 Bad Request if netflow not configured on device (verified: device 8810 is not netflow-enabled)."
 
 NetflowEndpointList:
   path: /device/devices/{id}/endpoints
@@ -589,6 +638,7 @@ NetflowEndpointList:
     end:          "--end INTEGER (int64 epoch ms) — time range end"
     netflowFilter: "--netflowFilter TEXT — netflow filter"
     port:         "--port TEXT — filter by port; values unverified"
+  note: "Returns 400 Bad Request if netflow not configured on device (verified: device 8810 is not netflow-enabled)."
 
 NetflowPortList:
   path: /device/devices/{id}/ports
@@ -603,6 +653,28 @@ NetflowPortList:
 # ---
 # Reports
 # ---
+WidgetList:
+  path: /dashboard/widgets
+  note: "Standard list; verified working. Returns all widgets across all dashboards."
+  key_fields:
+    id:          integer
+    name:        string
+    type:        string   # e.g. "pieChart", "html", "alert", "text", "gauge", "table", "graph"
+    dashboardId: integer
+
+RecommendationCategoriesList:
+  path: /cost-optimization/recommendations/categories
+  note: "Standard list; verified working. No id field — keyed by name."
+  key_fields:
+    name:        string   # e.g. "EC2_IDLE", "EC2_UNDERUTILIZED", "EBS_UNATTACHED"
+    description: string   # human-readable description
+  gotchas:
+    - "No id field — cannot look up by id; use name as key"
+
+RecommendationsList:
+  path: /cost-optimization/recommendations
+  note: "Standard list; returns no data on this account (no cost-optimization recommendations configured)."
+
 ReportList:
   path: /report/reports
   unique_options:
@@ -665,7 +737,7 @@ _no_param_commands:
     AllLogPartitions:      "/log/partitions — no -s option; returns log partitions with tenant/contract info (verified)"
     AwsAccountId:          "/aws/accountId — returns {accountId: string} (AWS account number) (verified)"
     AwsExternalId:         "/aws/externalId — 403 Forbidden with read-only token (verified)"
-    ContractInfoByCompany: /usage/contractInfo
+    ContractInfoByCompany: "/usage/contractInfo — CSV output broken: column headers are numeric (0,1,2,...) instead of field names; use prettyjson (verified)"
     ExternalApiStats:      "/apiStats/externalApis — returns per-endpoint request stats: totalRequests, totNanoTime, maxNanoTime, api path, tags, summary (verified)"
     LogAlerts:             /logpipelines/processors
     MetricsSummary:        "/metrics/summary — richer than MetricsUsage: includes hostGroupsInfo (dynamic/static group counts + property counts), kubernetes breakdown, numOfSavedMaps; no -s option (verified)"
@@ -685,7 +757,7 @@ _byid_pattern:
     AccessGroupById:      /setting/accessgroup/{id}
     AdminById:            /setting/admins/{id}
     AlertRuleById:        /setting/alert/rules/{id}
-    AppliesToFunctionById: /setting/functions/{id}
+    AppliesToFunctionById: /setting/functions/{id}       # verified working
     CollectorGroupById:   /setting/collector/groups/{id}
     CollectorById:        /setting/collector/collectors/{id}
     DashboardById:        /dashboard/dashboards/{id}         # unique: --template BOOL, --format TEXT (LM API)
@@ -697,8 +769,8 @@ _byid_pattern:
     ImmediateDeviceListByDeviceGroupId:  /device/groups/{id}/devices
     ImmediateWebsiteListByWebsiteGroupId: /website/groups/{id}/websites
     JobMonitorById:       /setting/batchjobs/{id}            # unique: --format TEXT (LM API)
-    LogAlertGroupById:    /logpipelines/{pipelineId}         # note: param is --pipelineId not --id
-    LogAlertsById:        /logpipelines/processors/{processorId}  # note: param is --processorId not --id
+    LogAlertGroupById:    /logpipelines/{pipelineId}         # param is --pipelineId; no -f option; id is string (verified)
+    LogAlertsById:        /logpipelines/processors/{processorId}  # param is --processorId; no -f option (verified)
     LogQueryGroupById:    /log/logquerygroups/{id}
     NetscanById:          /setting/netscans/{id}
     OidById:              /setting/oids/{id}
@@ -713,7 +785,7 @@ _byid_pattern:
     SdtById:              /sdt/sdts/{id}                     # id is string, not integer
     TopologySourceById:   /setting/topologysources/{id}      # unique: --format TEXT (LM API)
     TrackedQueryGroupById: /trackedquerygroups/{id}
-    WebsiteById:          /website/websites/{id}             # unique: --format TEXT (LM API)
+    WebsiteById:          /website/websites/{id}             # unique: --format TEXT (LM API); no -f option (verified)
     WebsiteGroupById:     /website/groups/{id}
     WidgetById:           /dashboard/widgets/{id}
     WidgetListByDashboardId: /dashboard/dashboards/{id}/widgets
@@ -773,6 +845,7 @@ AllSDTListByWebsiteGroupId:
   path: /website/groups/{id}/sdts
   required_params:
     id: integer
+  note: "Returns no data for group 1 (root) — no website group SDTs in this environment (verified)."
 
 SDTHistoryByDeviceId:
   path: /device/devices/{id}/historysdts
@@ -782,6 +855,21 @@ SDTHistoryByDeviceId:
     start:         "--start INTEGER (int64) — netflow time range; same caveat as DeviceList"
     end:           "--end INTEGER (int64)"
     netflowFilter: "--netflowFilter TEXT"
+
+SDTList:
+  path: /sdt/sdts
+  note: "Standard list; verified working. id is a string (e.g. 'H_161'), not integer."
+  key_fields:
+    id:          string   # format: H_<number> for historical, or other prefixes
+    admin:       string   # username of SDT creator
+    sdtType:     string   # "oneTime", "weekly", "monthly", "daily"
+    type:        string   # SDT scope type
+    startDateTime: integer  # epoch seconds
+    endDateTime:   integer  # epoch seconds
+    deviceId:    integer
+    comment:     string
+  gotchas:
+    - "id is a string (e.g. 'H_161'), not integer — cannot filter numerically"
 
 SDTHistoryByDeviceDataSourceId:
   path: /device/devices/{deviceId}/devicedatasources/{id}/historysdts
@@ -798,6 +886,7 @@ SDTHistoryByWebsiteId:
   path: /website/websites/{id}/historysdts
   required_params:
     id: integer
+  note: "Returns no data for website 2 (verified) — no SDT history for that website."
 
 SDTHistoryByWebsiteGroupId:
   path: /website/groups/{id}/historysdts
@@ -810,7 +899,8 @@ SDTHistoryByWebsiteGroupId:
 AuditLogById:
   path: /setting/accesslogs/{id}
   required_params:
-    id: string  # audit log ID is a string
+    id: string  # audit log ID is a string (e.g. "B30tDTKcQkyREF5Rg2nTRg")
+  note: "Verified working. Returns same fields as AuditLogList plus full description text."
 
 # ---
 # Collector commands
@@ -1044,6 +1134,7 @@ DeviceDatasourceInstanceAlertSettingListOfDevice:
     start:         "--start INTEGER (int64) — same caveat as DeviceList"
     end:           "--end INTEGER (int64)"
     netflowFilter: "--netflowFilter TEXT"
+  note: "No -f/--fields option (verified). Returns all datapoint alert settings for all datasources on a device."
 
 DeviceDatasourceInstanceSDTHistory:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}/historysdts
@@ -1062,13 +1153,15 @@ DeviceGroupDatasourceAlertSetting:
   path: /device/groups/{deviceGroupId}/datasources/{dsId}/alertsettings
   required_params:
     deviceGroupId: integer
-    dsId:          integer
+    dsId:          integer  # dataSourceId (same as id in DeviceGroupDatasourceById)
+  note: "No -s/--size option (verified). dsId = dataSourceId from DeviceGroupDatasourceList."
 
 DeviceGroupDatasourceById:
   path: /device/groups/{deviceGroupId}/datasources/{id}
   required_params:
     deviceGroupId: integer
-    id:            integer
+    id:            integer  # use dataSourceId from DeviceGroupDatasourceList (no separate id field there)
+  note: "Verified: --deviceGroupId 19 --id 21883980 works where 21883980 is dataSourceId from DeviceGroupDatasourceList."
 
 DeviceGroupPropertyByName:
   path: /device/groups/{gid}/properties/{name}
@@ -1225,9 +1318,12 @@ TopTalkersGraph:
 # ---
 DeltaIdWithDevices:
   path: /device/devices/delta
-  note: "Returns a deltaId plus current device snapshot; subsequent calls use DeltaDevices with that deltaId to get only changes"
+  note: "No -s/--size option (verified). Returns full device snapshot. The deltaId is in the response metadata (not in the items array) — elm exposes it only indirectly. Use -f api to inspect the raw response."
   unique_options:
     deltaId: "--deltaId TEXT — if provided, returns changes since that deltaId; if omitted, returns full snapshot with new deltaId"
+  gotchas:
+    - "No -s option — returns all devices; can be large"
+    - "deltaId is in the response root (not per-item) — elm's items-only output may not expose it directly"
 
 DeltaDevices:
   path: /device/devices/delta/{deltaId}
@@ -1253,6 +1349,7 @@ UpdateReasonListByConfigSourceId:
   path: /setting/configsources/{id}/updatereasons
   required_params:
     id: integer  # configsource ID
+  note: "No -s/--size option (verified). Verified working with id=50968587."
 
 DatasourceById:
   path: /setting/datasources/{id}
@@ -1268,6 +1365,7 @@ LogQueriesByGroupId:
   path: /log/logquerygroups/{id}/logqueries
   required_params:
     id: integer  # log query group ID
+  note: "No -s/--size option (verified). Returns no data for group 1 (Ungrouped) — no queries in that group."
 
 LogQueryGroupListByGroupType:
   path: /log/logquerygroups/grouptype/{groupType}
