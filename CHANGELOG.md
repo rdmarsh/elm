@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.8] - 2026-05-14
+
 ### Fixed
 - `elm-completion.bash` used `_ELM_COMPLETE=bash_complete` (Click 8 style);
   Click 7.x requires `_ELM_COMPLETE=complete`. Completion was silently broken.
