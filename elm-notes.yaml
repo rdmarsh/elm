@@ -297,21 +297,136 @@ AdminList:
 ApiTokenList:
   path: /setting/admins/apitokens
   unique_options:
-    type:       "--type TEXT — silently ignored; no 'type' field exists in ApiTokenList response (verified); use -F status:2 to filter active tokens"
-    permission: "--permission TEXT — no visible effect observed"
+    type:       "--type TEXT — values unverified; 'lmv1' and 'bearer' both return no results (verified); field may not exist in response"
+    permission: "--permission TEXT — 'readonly' and 'readwrite' both return the same results (verified); does not appear to filter"
   key_fields:
     adminId:    integer # owning user ID
     adminName:  string  # owning username
     id:         integer # token ID
+    accessId:   string
     status:     integer # 1=disabled, 2=active (verified via testing)
     note:       string
+    roles:      array   # list of role names the token owner has
     createdOn:  integer # epoch seconds
+    createdBy:  string
     lastUsedOn: integer # epoch seconds
+    lastAuthIp: string
 
 RoleList:
   path: /setting/roles
   unique_options:
     excludeAdmin: "--excludeAdmin / --dont-excludeAdmin — removes 1 built-in admin role from results (43 → 42 verified); default (no flag) includes it"
+
+AccessGroupList:
+  path: /setting/accessgroup
+  note: "Returns 400 Bad Request (verified). Endpoint may require additional params or may not be available on this account type."
+
+AlertRuleList:
+  path: /setting/alert/rules
+  note: "Standard list; verified working."
+  key_fields:
+    id:                integer
+    name:              string
+    priority:          integer
+    levelStr:          string   # e.g. "All"
+    devices:           array
+    deviceGroups:      array
+    datasource:        string
+    instance:          string
+    datapoint:         string
+    escalationInterval: integer
+    escalatingChainId: integer
+    escalatingChain:   object
+    suppressAlertClear: boolean
+    suppressAlertAckSdt: boolean
+    resourceProperties: array
+    sendAnomalySuppressedAlert: boolean
+
+EscalationChainList:
+  path: /setting/alert/chains
+  note: "Standard list; verified working."
+  key_fields:
+    id:                integer
+    name:              string
+    description:       string
+    enableThrottling:  boolean
+    throttlingPeriod:  integer
+    throttlingAlerts:  integer
+    inAlerting:        boolean
+    destinations:      array   # list of escalation stages
+    ccDestinations:    array
+
+RecipientGroupList:
+  path: /setting/recipientgroups
+  note: "Standard list; verified working. Name field is groupName not name."
+  key_fields:
+    id:          integer
+    groupName:   string   # NOTE: field is groupName not name — -f name will return empty
+    description: string
+    recipients:  array
+  gotchas:
+    - "Name field is 'groupName', not 'name' — use -f id,groupName not -f id,name"
+
+IntegrationList:
+  path: /setting/integrations
+  note: "Standard list; verified working. Very wide response — use -f to limit fields."
+  key_fields:
+    id:     integer
+    name:   string
+    type:   string   # e.g. "servicenow", "http"
+
+NetscanList:
+  path: /setting/netscans
+  note: "Standard list; verified working."
+  key_fields:
+    id:          integer
+    name:        string
+    collectorId: integer
+
+OpsNoteList:
+  path: /setting/opsnotes
+  note: "Standard list; verified working. id is a string not integer."
+  key_fields:
+    id:           string   # string ID (e.g. "JuyolHMaTxKxnrkNYl9o1Q"), not integer
+    note:         string
+    happenOnInSec: integer  # epoch seconds
+    createdBy:    string
+    scopes:       array    # list of {type, deviceId, deviceName, groupId, fullPath}
+    tags:         array
+
+UnmonitoredDeviceList:
+  path: /device/unmonitoreddevices
+  note: "Returns 403 Forbidden with read-only token (verified). May require admin token."
+
+TopologySourceList:
+  path: /setting/topologysources
+  note: "No -s/--size option (verified). Returns topology source definitions."
+  key_fields:
+    id:               integer
+    name:             string
+    group:            string
+    appliesTo:        string
+    collectInterval:  integer
+    collectionMethod: string
+    checksum:         string
+
+DiagnosticSourcesList:
+  path: /setting/diagnosticsources
+  note: "No -s/--size option (verified). Returns no data on this account (none configured)."
+
+RemediationSourcesList:
+  path: /setting/remediationsources
+  note: "No -s/--size option (verified). Returns no data on this account (none configured)."
+
+OIDList:
+  path: /setting/oids
+  note: "No -s/--size option (verified). Returns SNMP OID category definitions."
+  key_fields:
+    id:         integer
+    oid:        string     # regex pattern e.g. "\\.1\\.3\\.6\\.1\\.4\\.1\\.8072"
+    categories: string     # comma-separated category names e.g. "Netsnmp, snmp, snmpHR"
+    checksum:   string
+    lineageId:  string
 
 # ---
 # Audit / Logs
@@ -372,18 +487,41 @@ DevicePropertyList:
   required_params:
     deviceId: integer
   key_fields:
-    name:   string
-    value:  string
-    type:   string # "system", "auto", "custom", "inherited"
+    name:        string
+    value:       string
+    type:        string  # "system", "auto", "custom", "inherited"
+    inheritList: array   # empty for non-inherited; list of sources for inherited properties
+  note: "Verified against deviceId=8810. Returns all property types mixed together — filter by type if needed."
+
+DevicePropertyByName:
+  path: /device/devices/{deviceId}/properties/{name}
+  required_params:
+    deviceId: integer
+    name:     string
+  note: "Returns single property by exact name. 404 if property does not exist. Verified: --name system.hostname, --name system.ips."
 
 DeviceInstanceList:
   path: /device/devices/{id}/instances
   required_params:
-    id: integer # device ID
+    id: integer # device ID — uses --id not --deviceId (verified)
   unique_options:
-    start:        "--start INTEGER (int64) — netflow time range start; purpose same as DeviceList start"
+    start:        "--start INTEGER (int64) — netflow time range start; same caveat as DeviceList"
     end:          "--end INTEGER (int64) — netflow time range end"
     netflowFilter: "--netflowFilter TEXT — netflow filter; same caveat as DeviceList"
+  key_fields:
+    id:                  integer
+    name:                string   # datasource-instance name e.g. "SNMP_Filesystem_Status-/"
+    displayName:         string   # human label e.g. "/"
+    dataSourceId:        integer
+    deviceDataSourceId:  integer  # hdsId
+    groupId:             integer
+    deviceId:            integer
+    alertStatus:         string
+    stopMonitoring:      boolean
+    lastCollectedTime:   integer  # epoch seconds; unreliable for some collection types
+  gotchas:
+    - "Uses --id not --deviceId (unlike most device-scoped commands)"
+    - "dataSourceName not returned — join to DeviceDatasourceList on deviceDataSourceId if needed"
 
 DeviceConfigSourceConfigList:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{instanceId}/config
@@ -398,7 +536,19 @@ DeviceConfigSourceConfigList:
 DeviceGroupPropertyList:
   path: /device/groups/{gid}/properties
   required_params:
-    gid: integer # group ID
+    gid: integer # group ID — uses --gid not --deviceGrpId (verified)
+  key_fields:
+    name:   string
+    value:  string  # masked as "********" for credential-style properties
+    type:   string  # "custom", "system", etc.
+  note: "Verified against gid=1. Credential-type properties have value masked."
+
+DeviceGroupPropertyByName:
+  path: /device/groups/{gid}/properties/{name}
+  required_params:
+    gid:  integer
+    name: string
+  note: "404 if property does not exist. Verified: --gid 1 --name topo.namespace returns value."
 
 DeviceGroupSDTList:
   path: /device/groups/{id}/sdts
@@ -512,17 +662,18 @@ DataSourceOverviewGraphList:
 _no_param_commands:
   note: "These work with no required params — just call them directly"
   commands:
-    AllLogPartitions:      /log/partitions
-    AwsAccountId:          /aws/accountId
-    AwsExternalId:         /aws/externalId
+    AllLogPartitions:      "/log/partitions — no -s option; returns log partitions with tenant/contract info (verified)"
+    AwsAccountId:          "/aws/accountId — returns {accountId: string} (AWS account number) (verified)"
+    AwsExternalId:         "/aws/externalId — 403 Forbidden with read-only token (verified)"
     ContractInfoByCompany: /usage/contractInfo
-    ExternalApiStats:      /apiStats/externalApis
+    ExternalApiStats:      "/apiStats/externalApis — returns per-endpoint request stats: totalRequests, totNanoTime, maxNanoTime, api path, tags, summary (verified)"
     LogAlerts:             /logpipelines/processors
-    MetricsSummary:        /metrics/summary
+    MetricsSummary:        "/metrics/summary — richer than MetricsUsage: includes hostGroupsInfo (dynamic/static group counts + property counts), kubernetes breakdown, numOfSavedMaps; no -s option (verified)"
     MetricsUsage:          /metrics/usage
     PortalInfo:            /setting/companySetting  # same path as CompanySetting; returns portal/account info
-    V4Metadata:            /setting/logicmodules/metadata
-    IntegrationAuditLogs:  /setting/integrations/auditlogs  # unique: --format TEXT (LM API param — see gotcha)
+    RetentionList:         "/setting/loganalytics/retentions — no -s option; returns data retention options: {default, value (days), label, isDefault} (verified)"
+    V4Metadata:            "/setting/logicmodules/metadata — no -s option; returns nested [[...]] array — CSV output broken (numeric headers); use prettyjson (verified)"
+    IntegrationAuditLogs:  "/setting/integrations/auditlogs — unique: --format TEXT (LM API param — see gotcha)"
 
 # ---
 # Simple ById lookups (--id INTEGER only)
