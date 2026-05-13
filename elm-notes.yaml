@@ -723,7 +723,22 @@ CollectorGroupById:
 
 CollectorGroupList:
   path: /setting/collector/groups
-  note: "Standard list; no unique options."
+  note: "Standard list; no unique options. Verified via live test — 21 groups total."
+  key_fields:
+    id:                integer
+    name:              string
+    description:       string
+    platform:          string   # "linux", "windows", or "n/a"
+    numOfCollectors:   integer
+    numOfHosts:        integer  # always 0 in list response (bug/limitation — CollectorGroupById returns correct count)
+    numOfInstances:    integer
+    autoBalance:       boolean
+    autoBalanceStrategy: string
+    customProperties:  array
+    highestPriorityCollectorStatus: object  # {acked, inSDT, isDown, status}
+    userPermission:    string
+  gotchas:
+    - "numOfHosts is always 0 in list response even when the group has hosts — use CollectorGroupById for accurate count"
 
 CollectorEvents:
   path: /setting/collector/collectors/{collectorId}/events
