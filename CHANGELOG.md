@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.6] - 2026-05-13
+
+### Added
+- `--fields` / `-f` injected universally on all subcommands (was missing from
+  the LM swagger but accepted by the API). Mirrors the existing `--sort` injection.
+- `--size` / `-s`, `--offset` / `-o`, and `--filter` / `-F` added to 11 list
+  subcommands where the LM swagger omits them: `DeviceEventsourceList`,
+  `DiagnosticSourcesList`, `JobMonitorList`, `LogAlertGroupsList`,
+  `LogQueryGroupList`, `LogSourceList`, `OIDList`, `RemediationSourcesList`,
+  `RetentionList`, `TopologySourceList`, `TrackedQueryGroupList`. Also adds
+  `fields`/`size`/`offset`/`filter` to `IntegrationList`. Tracked as upstream
+  swagger gaps in [#47](https://github.com/rdmarsh/elm/issues/47).
+
+### Fixed
+- `--sort` injection in `_jnja/command.py.j2` was always active (comparing a
+  string against a list of dicts is always `False`). Fixed to use `opt_names`,
+  a proper list of option name strings.
+
 ## [1.7.5] - 2026-05-13
 
 ### Added

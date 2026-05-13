@@ -2,6 +2,7 @@ import logging
 import click
 import engine
 
+{%- set opt_names = options | map(attribute='name') | list %}
 @click.command(short_help='{{ summary | capitalize | replace("'", "") }}')
 {%- for option in options %}
 @click.option("--{{ option.name }}{%- if option.type == "boolean" -%}/--dont-{{ option.name }}{%- endif -%}" , "{{ option.name }}"
@@ -49,10 +50,14 @@ import engine
 {%- endif -%}
 )
 {%- endfor -%}
-{# sort is missing in the swagger definitions, added below #}
-{%- if "sort" not in options %}
+{# sort and fields are not declared in the swagger — inject them for all commands #}
+{%- if "sort" not in opt_names %}
 @click.option("--sort", "sort", "-S", type=str, metavar="[+,-]FIELD,...", \
                help="Sort by field; inc (+), dec (-)")
+{%- endif %}
+{%- if "fields" not in opt_names %}
+@click.option("--fields", "fields", "-f", type=str, nargs=1, metavar="FIELD,...", \
+               help="Only include the listed fields")
 {%- endif %}
 @click.option("--count", "-c", "count", is_flag=True, help="Return qty of query objects instead of query data")
 @click.option("--total", "-C", "total", is_flag=True, help="Return qty of ALL objects instead of query data")

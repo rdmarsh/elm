@@ -55,6 +55,386 @@
           "Integrations"
         ]
       }
+    },
+    "/device/devices/{deviceId}/deviceeventsources": {
+      "get": {
+        "operationId": "getDeviceEventsourceList",
+        "summary": "Get device eventsource list",
+        "tags": [
+          "Devices"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deviceId",
+            "format": "int32",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/setting/diagnosticsources": {
+      "get": {
+        "operationId": "getDiagnosticSourcesList",
+        "summary": "Get diagnostics sources list",
+        "tags": [
+          "DiagnosticSources"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/setting/batchjobs": {
+      "get": {
+        "operationId": "getJobMonitorList",
+        "summary": "Get JobMonitor List",
+        "tags": [
+          "JobMonitor"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/logpipelines": {
+      "get": {
+        "operationId": "getLogAlertGroupsList",
+        "summary": "Retrieve all LogAlertGroups",
+        "tags": [
+          "LogAlertGroups"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/log/logquerygroups": {
+      "get": {
+        "operationId": "getLogQueryGroupList",
+        "summary": "Get log query group list",
+        "tags": [
+          "LogQueryGroups"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/setting/logsources": {
+      "get": {
+        "operationId": "getLogSourceList",
+        "summary": "Get log source list",
+        "tags": [
+          "LogSources"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/setting/oids": {
+      "get": {
+        "operationId": "getOIDList",
+        "summary": "Get OID's list",
+        "tags": [
+          "OID"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/setting/remediationsources": {
+      "get": {
+        "operationId": "getRemediationSourcesList",
+        "summary": "Get remediation sources list",
+        "tags": [
+          "Beta API"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/log/partitions/retentions": {
+      "get": {
+        "operationId": "getRetentionList",
+        "summary": "Retrieve the list of log retentions",
+        "tags": [
+          "LogPartitions"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/setting/topologysources": {
+      "get": {
+        "operationId": "getTopologySourceList",
+        "summary": "Get TopologySource List",
+        "tags": [
+          "TopologySource"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/trackedquerygroups": {
+      "get": {
+        "operationId": "getTrackedQueryGroupList",
+        "summary": "Get tracked query group list",
+        "tags": [
+          "TrackQueryGroup"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
     }
   }
 }
