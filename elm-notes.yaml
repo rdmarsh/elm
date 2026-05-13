@@ -664,26 +664,137 @@ AuditLogById:
 # ---
 # Collector commands
 # ---
+CollectorList:
+  path: /setting/collector/collectors
+  note: "Standard list command; no unique options. Key fields verified via live test."
+  key_fields:
+    id:                 integer
+    description:        string   # human label e.g. "luna"
+    hostname:           string
+    platform:           string   # "linux" or "windows"
+    arch:               string   # "Linux64", "Win64"
+    build:              string   # e.g. "38001"
+    status:             integer  # 1=up
+    collectorSize:      string   # nano/small/medium/large/extra_large/double_extra_large
+    collectorGroupId:   integer
+    collectorGroupName: string
+    collectorDeviceId:  integer  # device ID of the collector host
+    numberOfHosts:      integer
+    numberOfInstances:  integer
+    isDown:             boolean
+    inSDT:              boolean
+    upTime:             integer  # seconds
+
+CollectorById:
+  path: /setting/collector/collectors/{id}
+  required_params:
+    id: integer
+  note: "Returns same fields as CollectorList plus predefinedConfig (size profiles) and full conf fields. predefinedConfig is large — use -f to exclude if not needed."
+  key_fields:
+    id:                 integer
+    description:        string
+    build:              string
+    collectorGroupId:   integer   # luna=64 (z_david_marsh_collector_group)
+    collectorGroupName: string
+    collectorDeviceId:  integer   # luna=8810
+    hostname:           string    # luna="luna"
+    platform:           string
+    collectorSize:      string
+    numberOfHosts:      integer
+    numberOfInstances:  integer
+    isDown:             boolean
+    upTime:             integer
+    predefinedConfig:   object    # size profiles (nano..double_extra_large) with agent.conf keys
+
+CollectorGroupById:
+  path: /setting/collector/groups/{id}
+  required_params:
+    id: integer
+  note: "luna's collector group is id=64 (z_david_marsh_collector_group)"
+  key_fields:
+    id:                integer
+    name:              string
+    description:       string
+    numOfCollectors:   integer
+    numOfHosts:        integer
+    numOfInstances:    integer
+    autoBalance:       boolean
+    platform:          string
+
+CollectorGroupList:
+  path: /setting/collector/groups
+  note: "Standard list; no unique options."
+
 CollectorEvents:
   path: /setting/collector/collectors/{collectorId}/events
   required_params:
     collectorId: integer
+  note: "Returns recent collector lifecycle events. Verified against collectorId=281."
+  key_fields:
+    id:                  string   # string ID not integer (e.g. "iMTtrKBDShiGEUeszXRfhg")
+    collectorId:         integer
+    collectorDescription: string
+    collectorBuild:      string
+    collectorPlatform:   string
+    eCode:               integer  # 4=restart, 8=info/lifecycle event
+    eventMsg:            string   # e.g. "Agent successfully restarted.", "Credential is rotated. Agent will restart."
+    reportedOn:          integer  # epoch seconds
+    reportDateOnLocal:   string
+  gotchas:
+    - "id is a string, not an integer — can't filter numerically"
+    - "eCode 4 = agent restart; eCode 8 = sbproxy/health/lifecycle info"
 
 CollectorStatusCheck:
   path: /setting/collector/collectors/{collectorId}/services/getStatusCheck
   required_params:
     collectorId: integer
+  note: "Returns 403 Forbidden with read-only API token (verified against collectorId=281). May require admin token."
 
 CollectorAgentLogLevels:
   path: /setting/collector/collectors/{id}/agentloglevels
   required_params:
     id: integer
+  note: "Returns list of {component, logLevel} for all log components. Verified against id=281."
+  key_fields:
+    component: string  # e.g. "collector.snmp", "eventcollector.syslog"
+    logLevel:  string  # "info" or "debug"
+  gotchas:
+    - "~50 components returned; all 'info' by default except eventcollector.syslog which was 'debug' on luna"
+    - "Use this to discover valid component names for CollectorAgentLogLevelByComponent"
 
 CollectorAgentLogLevelByComponent:
   path: /setting/collector/collectors/{id}/agentloglevels/{component}
   required_params:
     id:        integer
-    component: string  # log component name; values unverified
+    component: string
+  note: "Returns {component, logLevel} for a single component. Verified --component collector.snmp against id=281."
+  valid_component_values: |
+    default, alerter, autoprops, controller, discover, monitor, reporter, sbproxy,
+    scanner, watchdog, collector.agent, collector.cim, collector.datapump, collector.dns,
+    collector.esx, collector.externalwebpage, collector.ipmi, collector.jdbc, collector.jmx,
+    collector.memcached, collector.netapp, collector.openmetrics, collector.perfmon,
+    collector.ping, collector.script, collector.snmp, collector.s3, collector.tcp,
+    collector.udp, collector.webpage, collector.wmi, collector.xen, collector.batchscript,
+    collector.publisher, eventcollector.httpevent, eventcollector.logfile,
+    eventcollector.snmptrap, eventcollector.syslog, eventcollector.wineventlog,
+    eventcollector.scriptevent, logsource.kubernetes, logsource.collectoringestapi,
+    webservice, scriptproperty, propsdetection, collector.syntheticsselenium,
+    remotesession, netflowSources, netflowAcceptor, netflowRequestProcessor
+
+CollectorVersionList:
+  path: /setting/collector/collectors/versions
+  note: "Lists available collector versions. No id field — versions are identified by majorVersion+minorVersion. Verified field list via live test."
+  key_fields:
+    majorVersion:   integer
+    minorVersion:   integer
+    has32bitLinux:  boolean
+    has32bitWindows: boolean
+    mandatory:      boolean
+    releaseEpoch:   integer  # epoch seconds; 0 if not set
+    stable:         boolean
+  gotchas:
+    - "No 'id' field — cannot filter by id. Filter by majorVersion or minorVersion."
+    - "No isGD/isEA fields in actual response despite swagger suggestions"
 
 CollectorInstaller:
   path: /setting/collector/collectors/{collectorId}/installers/{osAndArch}
@@ -694,8 +805,9 @@ CollectorInstaller:
     collectorVersion: "--collectorVersion INTEGER — specific version to download; omit for latest"
     token:            "--token TEXT — purpose unverified"
     monitorOthers:    "--monitorOthers BOOL — purpose unverified"
-    collectorSize:    "--collectorSize TEXT — e.g. small, medium, large; values unverified"
-    useEA:            "--useEA BOOL — use Early Access build; values unverified"
+    collectorSize:    "--collectorSize TEXT — e.g. small, medium, large"
+    useEA:            "--useEA BOOL — use Early Access build"
+  note: "Downloads binary installer; untested (would write binary to stdout)."
 
 DebugCommandResult:
   path: /debug/{id}
@@ -703,6 +815,7 @@ DebugCommandResult:
     id: string  # session ID from a debug command
   unique_options:
     collectorId: "--collectorId INTEGER — collector to query for the debug result"
+  note: "Requires a debug session ID obtained from a prior debug command invocation; untested."
 
 # ---
 # Device ById and scoped commands
