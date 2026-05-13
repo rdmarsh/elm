@@ -2,28 +2,13 @@
 
 ## Supported Versions
 
+Only the latest release is supported. There is no backport policy — if you
+hit a bug or vulnerability, pull the latest source and recompile.
+
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.7.2   | :white_check_mark: |
-| 1.7.1   | :white_check_mark: |
-| 1.7.0   | :white_check_mark: |
-| 1.6.0   | :white_check_mark: |
-| 1.5.0   | :x:                |
-| 1.4.0   | :x:                |
-| 1.3.0   | :x:                |
-| 1.2.4   | :x:                |
-| 1.2.3   | :x:                |
-| 1.2.2   | :x:                |
-| 1.2.1   | :x:                |
-| 1.2.0   | :x:                |
-| 1.1.0   | :x:                |
-| 1.0.6   | :x:                |
-| 1.0.5   | :x:                |
-| 1.0.4   | :x:                |
-| 1.0.3   | :x:                |
-| 1.0.2   | :x:                |
-| 1.0.1   | :x:                |
-| < 1.0   | :x:                |
+| 1.7.3   | :white_check_mark: |
+| < 1.7.3 | :x:                |
 
 ## Security History
 

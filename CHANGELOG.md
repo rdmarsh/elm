@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-05-13
+
+### Added
+- `-p` / `--profile NAME` global option: shorthand for `--config ~/.config/logicmonitor/credentials/<NAME>.ini`.
+  Resolves the profile name to the credentials directory, strips a trailing `.ini` if supplied,
+  and errors clearly if the file does not exist or a full path is passed (use `--config` for that).
+  `--config` still overrides `--profile` if both are given, with a warning.
+  Closes [#44](https://github.com/rdmarsh/elm/issues/44).
+
+### Fixed
+- `--profile foo.ini` no longer produces a double-extension path (`foo.ini.ini`);
+  any `.ini` suffix on the profile name is stripped before resolving.
+
 ## [1.7.2] - 2026-05-05
 
 ### Security

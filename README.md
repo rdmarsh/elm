@@ -211,6 +211,10 @@ Usage: elm [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --config FILE                   Read configuration from FILE.
+  -p, --profile NAME              Credentials profile name — shorthand for
+                                  --config /home/user/.config/logicmoni
+                                  tor/credentials/<NAME>.ini
+
   -i, --access_id TEXT            API token access id
   -k, --access_key TEXT           API token access key
   -a, --account_name TEXT         LogicMonitor account (company) name

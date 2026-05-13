@@ -54,6 +54,25 @@ FORMAT = "%(levelname)07s %(asctime)s %(filename)s:%(lineno)s %(funcName)s %(mes
 logging.basicConfig(format=FORMAT)
 config_file = os.path.join(os.path.expanduser('~'), '.config', 'logicmonitor', 'credentials', 'config.ini')
 _resolved_config_file = config_file
+_creds_dir = os.path.dirname(config_file)
+
+# Resolve --profile/-p before Click processes options so configuration_option
+# reads credentials from the correct profile file.
+def _profile_to_path(name):
+    """Resolve a profile name to a full .ini path, stripping any .ini suffix the user may have included."""
+    base = name[:-4] if name.endswith('.ini') else name
+    return os.path.join(_creds_dir, base + '.ini')
+
+_argv = sys.argv[1:]
+for _i, _arg in enumerate(_argv):
+    if _arg in ('-p', '--profile') and _i + 1 < len(_argv):
+        config_file = _profile_to_path(_argv[_i + 1])
+        _resolved_config_file = config_file
+        break
+    elif _arg.startswith('--profile='):
+        config_file = _profile_to_path(_arg.split('=', 1)[1])
+        _resolved_config_file = config_file
+        break
 
 def _capture_config_path(ctx, param, value):
     global _resolved_config_file
@@ -112,6 +131,7 @@ enforce_config_perms(config_file)
 
 @click.group(epilog='default config file: ' + click.format_filename(config_file))
 @click_config_file.configuration_option(config_file_name=config_file, callback=_capture_config_path)
+@click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name — shorthand for --config ' + _creds_dir + '/<NAME>.ini')
 @click.option('-i', '--access_id',    help='API token access id')
 @click.option('-k', '--access_key',   help='API token access key')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name')
@@ -128,7 +148,7 @@ enforce_config_perms(config_file)
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(version=__version__)
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, export, halt_on_api_error, cacert):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, export, halt_on_api_error, cacert, profile):
     """A cli interface for extracting LogicMonitor data via the api
 
     See https://github.com/rdmarsh/elm for more information"""
@@ -151,6 +171,19 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
             click.secho(f"Error: The directory '{directory}' does not exist", fg='red', err=True)
             raise click.Abort()
 
+    if profile:
+        if os.sep in profile:
+            click.secho(f"Error: --profile takes a name, not a path — use --config for full paths", fg='red', err=True)
+            sys.exit(1)
+        _profile_path = _profile_to_path(profile)
+        if _resolved_config_file != _profile_path:
+            # --config was given explicitly and overrides --profile; skip existence check
+            click.secho(f"Warning: --config overrides --profile '{profile}'", fg='yellow', err=True)
+        elif not os.path.exists(_profile_path):
+            click.secho(f"Error: profile '{profile}' not found: {_profile_path}", fg='red', err=True)
+            sys.exit(1)
+        logging.info('profile: %s -> %s', profile, _profile_path)
+
     #make sure we've got the bare minimun access needs
     if not access_id or not access_key or not account_name:
         click.secho('Error: access_id, access_key or account_name not set via cli or config file', fg='red', err=True)
@@ -167,6 +200,7 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
         logging.info('proxy: %s:%s', proxy[0], proxy[1])
 
     logging.info('config_file: %s', config_file)
+    logging.info('profile: %s', profile)
     logging.debug('')
     logging.debug('*********************************************************')
     logging.debug('***')
