@@ -494,3 +494,519 @@ DataSourceOverviewGraphList:
   path: /setting/datasources/{dsId}/overviewgraphs
   required_params:
     dsId: integer # datasource ID
+
+# =============================================================
+# Non-List commands
+# =============================================================
+
+# ---
+# Commands requiring no arguments
+# ---
+_no_param_commands:
+  note: "These work with no required params — just call them directly"
+  commands:
+    AllLogPartitions:      /log/partitions
+    AwsAccountId:          /aws/accountId
+    AwsExternalId:         /aws/externalId
+    ContractInfoByCompany: /usage/contractInfo
+    ExternalApiStats:      /apiStats/externalApis
+    LogAlerts:             /logpipelines/processors
+    MetricsSummary:        /metrics/summary
+    MetricsUsage:          /metrics/usage
+    PortalInfo:            /setting/companySetting  # same path as CompanySetting; returns portal/account info
+    V4Metadata:            /setting/logicmodules/metadata
+    IntegrationAuditLogs:  /setting/integrations/auditlogs  # unique: --format TEXT (LM API param — see gotcha)
+
+# ---
+# Simple ById lookups (--id INTEGER only)
+# Pattern: elm <Command> --id <ID>
+# ---
+_byid_pattern:
+  note: "All take a single --id and return one record. IDs come from the corresponding *List command."
+  commands:
+    AccessGroupById:      /setting/accessgroup/{id}
+    AdminById:            /setting/admins/{id}
+    AlertRuleById:        /setting/alert/rules/{id}
+    AppliesToFunctionById: /setting/functions/{id}
+    CollectorGroupById:   /setting/collector/groups/{id}
+    CollectorById:        /setting/collector/collectors/{id}
+    DashboardById:        /dashboard/dashboards/{id}         # unique: --template BOOL, --format TEXT (LM API)
+    DashboardGroupById:   /dashboard/groups/{id}             # unique: --template BOOL, --format TEXT (LM API)
+    DiagnosticSourcesById: /setting/diagnosticsources/{id}  # unique: --format TEXT (LM API)
+    EscalationChainById:  /setting/alert/chains/{id}
+    EventSourceById:      /setting/eventsources/{id}        # unique: --format TEXT (LM API)
+    DeviceGroupById:      /device/groups/{id}
+    ImmediateDeviceListByDeviceGroupId:  /device/groups/{id}/devices
+    ImmediateWebsiteListByWebsiteGroupId: /website/groups/{id}/websites
+    JobMonitorById:       /setting/batchjobs/{id}            # unique: --format TEXT (LM API)
+    LogAlertGroupById:    /logpipelines/{pipelineId}         # note: param is --pipelineId not --id
+    LogAlertsById:        /logpipelines/processors/{processorId}  # note: param is --processorId not --id
+    LogQueryGroupById:    /log/logquerygroups/{id}
+    NetscanById:          /setting/netscans/{id}
+    OidById:              /setting/oids/{id}
+    OpsNoteById:          /setting/opsnotes/{id}             # id is string, not integer
+    PartitionById:        /log/partitions/{id}
+    PropertyRulesById:    /setting/propertyrules/{id}        # unique: --format TEXT (LM API)
+    RecipientGroupById:   /setting/recipientgroups/{id}
+    RemediationSourcesById: /setting/remediationsources/{id} # unique: --format TEXT (LM API)
+    ReportById:           /report/reports/{id}
+    ReportGroupById:      /report/groups/{id}
+    RoleById:             /setting/roles/{id}
+    SdtById:              /sdt/sdts/{id}                     # id is string, not integer
+    TopologySourceById:   /setting/topologysources/{id}      # unique: --format TEXT (LM API)
+    TrackedQueryGroupById: /trackedquerygroups/{id}
+    WebsiteById:          /website/websites/{id}             # unique: --format TEXT (LM API)
+    WebsiteGroupById:     /website/groups/{id}
+    WidgetById:           /dashboard/widgets/{id}
+    WidgetListByDashboardId: /dashboard/dashboards/{id}/widgets
+
+# ---
+# Alert commands
+# ---
+AlertById:
+  path: /alert/alerts/{id}
+  required_params:
+    id: string  # alert ID is a string (e.g. "DS395389016"), not integer
+  unique_options:
+    needMessage:   "--needMessage — adds detailMessage and sessionId fields to response (verified)"
+    customColumns: "--customColumns TEXT — comma-separated device property names; returned as a customColumns dict per alert e.g. {location: '...', description: '...'} (verified)"
+
+AlertListByDeviceId:
+  path: /device/devices/{id}/alerts
+  required_params:
+    id: integer  # device ID
+  unique_options:
+    needMessage:   "--needMessage — adds detailMessage and sessionId fields to response (verified)"
+    customColumns: "--customColumns TEXT — comma-separated device property names; adds customColumns dict per alert (verified)"
+    bound:         "--bound TEXT — purpose unverified; tested 'active' and 'cleared', both returned no results; may require specific API-level value"
+    start:         "--start INTEGER (int64) — netflow time range; same caveat as DeviceList"
+    end:           "--end INTEGER (int64) — same caveat as DeviceList"
+    netflowFilter: "--netflowFilter TEXT — same caveat as DeviceList"
+
+AlertListByDeviceGroupId:
+  path: /device/groups/{id}/alerts
+  required_params:
+    id: integer  # device group ID
+  unique_options:
+    needMessage:   "--needMessage — adds detailMessage and sessionId fields (verified on DeviceId variant)"
+    customColumns: "--customColumns TEXT — comma-separated device property names (verified on DeviceId variant)"
+
+WebsiteAlertListByWebsiteId:
+  path: /website/websites/{id}/alerts
+  required_params:
+    id: integer  # website ID
+  unique_options:
+    needMessage:   "--needMessage — adds detailMessage and sessionId fields"
+    customColumns: "--customColumns TEXT — comma-separated property names"
+
+# ---
+# SDT / SDT History
+# ---
+AllSDTListByDeviceId:
+  path: /device/devices/{id}/sdts
+  required_params:
+    id: integer
+  unique_options:
+    start:         "--start INTEGER (int64) — netflow time range; same caveat as DeviceList"
+    end:           "--end INTEGER (int64)"
+    netflowFilter: "--netflowFilter TEXT"
+
+AllSDTListByWebsiteGroupId:
+  path: /website/groups/{id}/sdts
+  required_params:
+    id: integer
+
+SDTHistoryByDeviceId:
+  path: /device/devices/{id}/historysdts
+  required_params:
+    id: integer
+  unique_options:
+    start:         "--start INTEGER (int64) — netflow time range; same caveat as DeviceList"
+    end:           "--end INTEGER (int64)"
+    netflowFilter: "--netflowFilter TEXT"
+
+SDTHistoryByDeviceDataSourceId:
+  path: /device/devices/{deviceId}/devicedatasources/{id}/historysdts
+  required_params:
+    deviceId: integer
+    id:       integer  # device-datasource ID
+
+SDTHistoryByDeviceGroupId:
+  path: /device/groups/{id}/historysdts
+  required_params:
+    id: integer
+
+SDTHistoryByWebsiteId:
+  path: /website/websites/{id}/historysdts
+  required_params:
+    id: integer
+
+SDTHistoryByWebsiteGroupId:
+  path: /website/groups/{id}/historysdts
+  required_params:
+    id: integer
+
+# ---
+# Audit / Logs
+# ---
+AuditLogById:
+  path: /setting/accesslogs/{id}
+  required_params:
+    id: string  # audit log ID is a string
+
+# ---
+# Collector commands
+# ---
+CollectorEvents:
+  path: /setting/collector/collectors/{collectorId}/events
+  required_params:
+    collectorId: integer
+
+CollectorStatusCheck:
+  path: /setting/collector/collectors/{collectorId}/services/getStatusCheck
+  required_params:
+    collectorId: integer
+
+CollectorAgentLogLevels:
+  path: /setting/collector/collectors/{id}/agentloglevels
+  required_params:
+    id: integer
+
+CollectorAgentLogLevelByComponent:
+  path: /setting/collector/collectors/{id}/agentloglevels/{component}
+  required_params:
+    id:        integer
+    component: string  # log component name; values unverified
+
+CollectorInstaller:
+  path: /setting/collector/collectors/{collectorId}/installers/{osAndArch}
+  required_params:
+    collectorId: integer
+    osAndArch:   string  # e.g. "Linux64", "Win64" — values unverified
+  unique_options:
+    collectorVersion: "--collectorVersion INTEGER — specific version to download; omit for latest"
+    token:            "--token TEXT — purpose unverified"
+    monitorOthers:    "--monitorOthers BOOL — purpose unverified"
+    collectorSize:    "--collectorSize TEXT — e.g. small, medium, large; values unverified"
+    useEA:            "--useEA BOOL — use Early Access build; values unverified"
+
+DebugCommandResult:
+  path: /debug/{id}
+  required_params:
+    id: string  # session ID from a debug command
+  unique_options:
+    collectorId: "--collectorId INTEGER — collector to query for the debug result"
+
+# ---
+# Device ById and scoped commands
+# ---
+DeviceById:
+  path: /device/devices/{id}
+  required_params:
+    id: integer
+  unique_options:
+    needStcGrpAndSortedCP: "--needStcGrpAndSortedCP — no visible field difference observed on device 8810 (luna); may only apply to certain device types"
+    start:         "--start INTEGER (int64) — same caveat as DeviceList"
+    end:           "--end INTEGER (int64)"
+    netflowFilter: "--netflowFilter TEXT"
+
+DeviceDatasourceById:
+  path: /device/devices/{deviceId}/devicedatasources/{id}
+  required_params:
+    deviceId: integer
+    id:       integer  # device-datasource ID
+
+DeviceDatasourceInstanceById:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}
+  required_params:
+    deviceId: integer
+    hdsId:    integer  # device-datasource ID
+    id:       integer  # instance ID
+
+DeviceDatasourceInstanceGroupById:
+  path: /device/devices/{deviceId}/devicedatasources/{deviceDsId}/groups/{id}
+  required_params:
+    deviceId:  integer
+    deviceDsId: integer
+    id:        integer
+
+DeviceDatasourceInstanceAlertSettingById:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{instanceId}/alertsettings/{id}
+  required_params:
+    deviceId:   integer
+    hdsId:      integer
+    instanceId: integer
+    id:         integer
+
+DeviceDatasourceInstanceAlertSettingListOfDSI:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{instanceId}/alertsettings
+  required_params:
+    deviceId:   integer
+    hdsId:      integer
+    instanceId: integer
+
+DeviceDatasourceInstanceAlertSettingListOfDevice:
+  path: /device/devices/{deviceId}/alertsettings
+  required_params:
+    deviceId: integer
+  unique_options:
+    start:         "--start INTEGER (int64) — same caveat as DeviceList"
+    end:           "--end INTEGER (int64)"
+    netflowFilter: "--netflowFilter TEXT"
+
+DeviceDatasourceInstanceSDTHistory:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}/historysdts
+  required_params:
+    deviceId: integer
+    hdsId:    integer
+    id:       integer  # instance ID
+
+DeviceGroupClusterAlertConfById:
+  path: /device/groups/{deviceGroupId}/clusterAlertConf/{id}
+  required_params:
+    deviceGroupId: integer
+    id:            integer
+
+DeviceGroupDatasourceAlertSetting:
+  path: /device/groups/{deviceGroupId}/datasources/{dsId}/alertsettings
+  required_params:
+    deviceGroupId: integer
+    dsId:          integer
+
+DeviceGroupDatasourceById:
+  path: /device/groups/{deviceGroupId}/datasources/{id}
+  required_params:
+    deviceGroupId: integer
+    id:            integer
+
+DeviceGroupPropertyByName:
+  path: /device/groups/{gid}/properties/{name}
+  required_params:
+    gid:  integer
+    name: string
+
+DevicePropertyByName:
+  path: /device/devices/{deviceId}/properties/{name}
+  required_params:
+    deviceId: integer
+    name:     string
+
+DeviceConfigSourceConfigById:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{instanceId}/config/{id}
+  required_params:
+    deviceId:   integer
+    hdsId:      integer
+    instanceId: integer
+    id:         string  # config ID is a string
+  unique_options:
+    format:     "--format TEXT — LM API format param; same gotcha as AuditLogList"
+    startEpoch: "--startEpoch INTEGER (int64) — purpose unverified; possibly return config as of this timestamp"
+
+# ---
+# Time-series data endpoints
+# Pattern: require device/datasource/instance IDs + optional time range
+# ---
+_data_endpoint_options:
+  note: "Shared options across data/graph endpoints"
+  start:      "--start INTEGER (int64 epoch seconds) — time range start; defaults to recent window"
+  end:        "--end INTEGER (int64 epoch seconds) — time range end"
+  period:     "--period FLOAT — time window in hours; e.g. 1.0 returns ~30 points, 24.0 returns ~500 points (verified on DeviceDatasourceInstanceData)"
+  datapoints: "--datapoints TEXT — comma-separated datapoint names; filters response to only those datapoints (verified)"
+  aggregate:  "--aggregate TEXT — aggregation method; values unverified (min, max, avg likely)"
+  format:     "--format TEXT — LM API format param; same gotcha as AuditLogList"
+  time_note:  "time values in responses are epoch MILLISECONDS, not seconds — divide by 1000 for epoch seconds (verified)"
+
+DeviceDatasourceDataById:
+  path: /device/devices/{deviceId}/devicedatasources/{id}/data
+  required_params:
+    deviceId: integer
+    id:       integer  # device-datasource ID
+  unique_options: "start, end, period, datapoints, format, aggregate — see _data_endpoint_options"
+
+DeviceDatasourceInstanceData:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}/data
+  required_params:
+    deviceId: integer
+    hdsId:    integer
+    id:       integer  # instance ID
+  unique_options: "start, end, period, datapoints, format — see _data_endpoint_options"
+  response_structure:
+    dataSourceName: string
+    dataPoints:     "list of datapoint name strings (column headers)"
+    values:         "list of arrays — each array is one time interval, values in same order as dataPoints; 'No Data' string used for missing values"
+    time:           "list of epoch MILLISECONDS (not seconds) — newest first"
+    nextPageParams: "pagination cursor; empty string when no more pages"
+  notes:
+    - "--datapoints InMbps,OutMbps filters to just those datapoints — values array shrinks to match (verified)"
+    - "--period 1.0 returns ~30 points (1 hour window); --period 24.0 returns ~500 points (24 hours) — period is hours (verified)"
+    - "time values are epoch ms — divide by 1000 for epoch seconds"
+
+DeviceDatasourceInstanceGraphData:
+  path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}/graphs/{graphId}/data
+  required_params:
+    deviceId: integer
+    hdsId:    integer
+    id:       integer  # instance ID
+    graphId:  integer
+  unique_options: "start, end, format — see _data_endpoint_options"
+
+DeviceDatasourceInstanceGroupOverviewGraphData:
+  path: /device/devices/{deviceId}/devicedatasources/{deviceDsId}/groups/{dsigId}/graphs/{ographId}/data
+  required_params:
+    deviceId:  integer
+    deviceDsId: integer
+    dsigId:    integer
+    ographId:  integer
+  unique_options: "start, end, format — see _data_endpoint_options"
+
+DeviceInstanceGraphDataOnlyByInstanceId:
+  path: /device/devicedatasourceinstances/{instanceId}/graphs/{graphId}/data
+  required_params:
+    instanceId: integer
+    graphId:    integer
+  note: "Shortcut — doesn't require deviceId/hdsId, just the instance ID directly"
+  unique_options: "start, end, format — see _data_endpoint_options"
+
+WebsiteCheckpointDataById:
+  path: /website/websites/{srvId}/checkpoints/{checkId}/data
+  required_params:
+    srvId:   integer  # website ID
+    checkId: integer  # checkpoint ID (from SiteMonitorCheckPointList)
+  unique_options: "start, end, period, datapoints, format, aggregate — see _data_endpoint_options"
+
+WebsiteDataByGraphName:
+  path: /website/websites/{id}/graphs/{graphName}/data
+  required_params:
+    id:        integer
+    graphName: string  # graph name; values unverified
+  unique_options: "start, end, format — see _data_endpoint_options"
+
+WebsiteGraphData:
+  path: /website/websites/{websiteId}/checkpoints/{checkpointId}/graphs/{graphName}/data
+  required_params:
+    websiteId:    integer
+    checkpointId: integer
+    graphName:    string
+  unique_options: "start, end, format — see _data_endpoint_options"
+
+WidgetDataById:
+  path: /dashboard/widgets/{id}/data
+  required_params:
+    id: integer
+  unique_options: "start, end, format — see _data_endpoint_options"
+
+TopTalkersGraph:
+  path: /device/devices/{id}/topTalkersGraph
+  required_params:
+    id: integer  # device ID
+  unique_options:
+    start:         "--start INTEGER (int64) — time range start (netflow)"
+    end:           "--end INTEGER (int64) — time range end (netflow)"
+    netflowFilter: "--netflowFilter TEXT — netflow filter"
+    format:        "--format TEXT — LM API format param; same gotcha as AuditLogList"
+    keyword:       "--keyword TEXT — purpose unverified; possibly filter for top talker search"
+  note: "Netflow-specific — requires netflow to be enabled and configured on the device"
+
+# ---
+# Delta devices (incremental sync)
+# ---
+DeltaIdWithDevices:
+  path: /device/devices/delta
+  note: "Returns a deltaId plus current device snapshot; subsequent calls use DeltaDevices with that deltaId to get only changes"
+  unique_options:
+    deltaId: "--deltaId TEXT — if provided, returns changes since that deltaId; if omitted, returns full snapshot with new deltaId"
+
+DeltaDevices:
+  path: /device/devices/delta/{deltaId}
+  required_params:
+    deltaId: string  # from a previous DeltaIdWithDevices call
+
+# ---
+# Config source / update history
+# ---
+ConfigSourceById:
+  path: /setting/configsources/{id}
+  required_params:
+    id: integer
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+
+UpdateReasonListByDataSourceId:
+  path: /setting/datasources/{id}/updatereasons
+  required_params:
+    id: integer  # datasource ID
+
+UpdateReasonListByConfigSourceId:
+  path: /setting/configsources/{id}/updatereasons
+  required_params:
+    id: integer  # configsource ID
+
+DatasourceById:
+  path: /setting/datasources/{id}
+  required_params:
+    id: integer
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+
+# ---
+# Log / log pipeline
+# ---
+LogQueriesByGroupId:
+  path: /log/logquerygroups/{id}/logqueries
+  required_params:
+    id: integer  # log query group ID
+
+LogQueryGroupListByGroupType:
+  path: /log/logquerygroups/grouptype/{groupType}
+  required_params:
+    groupType: string  # group type value; values unverified
+  unique_options:
+    allGroups: "--allGroups BOOL — purpose unverified; possibly include all groups regardless of type"
+
+# ---
+# Reports
+# ---
+ReportUsingTaskId:
+  path: /report/reports/{id}/tasks/{taskId}
+  required_params:
+    id:     integer  # report ID
+    taskId: string   # task ID is a string
+
+# ---
+# API tokens scoped to a user
+# ---
+ApiTokenListByAdminId:
+  path: /setting/admins/{adminId}/apitokens
+  required_params:
+    adminId: integer
+  unique_options:
+    type:       "--type TEXT — token type filter; values unverified"
+    permission: "--permission TEXT — permission level filter; values unverified"
+
+# ---
+# Website properties / SDTs (already covered above for SDTs)
+# ---
+WebsitePropertyListByWebsiteId:
+  path: /website/websites/{id}/properties
+  required_params:
+    id: integer
+
+WebsiteSDTListByWebsiteId:
+  path: /website/websites/{id}/sdts
+  required_params:
+    id: integer
+
+# ---
+# Misc
+# ---
+LogSourceById:
+  path: /setting/logsources/{id}
+  required_params:
+    id: string  # log source ID is a string
+  unique_options:
+    format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+
+RecommendationById:
+  path: /cost-optimization/recommendations/{id}
+  required_params:
+    id: string  # recommendation ID is a string
