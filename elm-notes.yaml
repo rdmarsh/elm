@@ -730,15 +730,16 @@ CollectorGroupList:
     description:       string
     platform:          string   # "linux", "windows", or "n/a"
     numOfCollectors:   integer
-    numOfHosts:        integer  # always 0 in list response (bug/limitation — CollectorGroupById returns correct count)
-    numOfInstances:    integer
+    numOfHosts:        integer  # always 0 in list response — CollectorGroupById returns correct count
+    numOfInstances:    integer  # always 0 in list response — CollectorGroupById returns correct count
     autoBalance:       boolean
     autoBalanceStrategy: string
     customProperties:  array
-    highestPriorityCollectorStatus: object  # {acked, inSDT, isDown, status}
+    highestPriorityCollectorStatus: object  # {acked, inSDT, isDown, status} — status value differs from CollectorGroupById (verified)
     userPermission:    string
   gotchas:
-    - "numOfHosts is always 0 in list response even when the group has hosts — use CollectorGroupById for accurate count"
+    - "numOfHosts and numOfInstances are always 0 in list response even when the group has hosts/instances — use CollectorGroupById for accurate counts (verified: id=64 shows 0/0 in list, 6/1227 via ById)"
+    - "highestPriorityCollectorStatus.status value differs between list and ById responses for the same group (verified: 1 vs 0 for id=64) — treat list value as unreliable"
 
 CollectorEvents:
   path: /setting/collector/collectors/{collectorId}/events
