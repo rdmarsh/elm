@@ -137,7 +137,7 @@ _standard_list_options:
 WebsiteList:
   path: /website/websites
   unique_options:
-    collectorIds: "--collectorIds TEXT — purpose unverified; presumably filter websites by collector ID(s); LM swagger has no description"
+    collectorIds: "--collectorIds TEXT — filters websites by collector ID; comma-separated; synthetic collector IDs are negative (e.g. -7); tested --collectorIds -7 returned 0 (no websites on that collector); website response has a 'collectors' array not a single collectorId field (verified)"
   key_fields:
     id:       integer
     name:     string
@@ -283,15 +283,22 @@ AssociatedDeviceListByDataSourceId:
 AdminList:
   path: /setting/admins
   unique_options:
-    type:              "--type TEXT — user type; values unverified; likely LOCAL, SAML, RADIUS"
-    permission:        "--permission TEXT — permission level filter; values unverified"
-    filterGroupString: "--filterGroupString TEXT — purpose unverified; likely filter by device group access"
+    type:              "--type TEXT — silently ignored by LM API; field in response is userType with values 'Local', 'SAML', 'API only' (verified); use -F filter instead: -F userType:SAML"
+    permission:        "--permission TEXT — no visible effect observed; values unverified"
+    filterGroupString: "--filterGroupString TEXT — filters by adminGroupId; e.g. --filterGroupString 1 returns users in group 1 (verified)"
+  key_fields:
+    id:           integer
+    username:     string
+    userType:     string  # "Local", "SAML", "API only" (verified)
+    twoFAEnabled: boolean
+    adminGroupIds: array   # list of group IDs the user belongs to
+    roles:        array    # list of role objects with id, name, privileges
 
 ApiTokenList:
   path: /setting/admins/apitokens
   unique_options:
-    type:       "--type TEXT — token type; based on status field: 1=LMv1, 2=bearer (unverified)"
-    permission: "--permission TEXT — permission level filter; values unverified"
+    type:       "--type TEXT — silently ignored; no 'type' field exists in ApiTokenList response (verified); use -F status:2 to filter active tokens"
+    permission: "--permission TEXT — no visible effect observed"
   key_fields:
     adminId:    integer # owning user ID
     adminName:  string  # owning username
@@ -304,7 +311,7 @@ ApiTokenList:
 RoleList:
   path: /setting/roles
   unique_options:
-    excludeAdmin: "--excludeAdmin / --dont-excludeAdmin — exclude the built-in Administrator role from results"
+    excludeAdmin: "--excludeAdmin / --dont-excludeAdmin — removes 1 built-in admin role from results (43 → 42 verified); default (no flag) includes it"
 
 # ---
 # Audit / Logs
@@ -449,7 +456,7 @@ NetflowPortList:
 ReportList:
   path: /report/reports
   unique_options:
-    showNextGenReports: "--showNextGenReports / --dont-showNextGenReports — include Next Gen reports (newer LM report engine); default unverified"
+    showNextGenReports: "--showNextGenReports / --dont-showNextGenReports — no visible effect on count or results in testing (75 either way); may be account-specific or the account may not have Next Gen reports"
 
 # ---
 # Datasource types with LM API --format param (see _global gotcha)
@@ -485,7 +492,7 @@ PropertyRulesList:
 SiteMonitorCheckPointList:
   path: /website/smcheckpoints
   unique_options:
-    type: "--type TEXT — type of checkpoint to filter; if omitted returns legacy checkpoints only (per LM help text)"
+    type: "--type TEXT — tried 'public' and 'private', both returned same results as no flag; may require specific internal values; without flag returns legacy checkpoints (per LM help text); response has no 'type' field (verified: fields are id, name, geoInfo, description, displayPrio, isEnabledInRoot)"
 
 # ---
 # Datasource graphs
@@ -812,7 +819,14 @@ _data_endpoint_options:
   end:        "--end INTEGER (int64 epoch seconds) — time range end"
   period:     "--period FLOAT — time window in hours; e.g. 1.0 returns ~30 points, 24.0 returns ~500 points (verified on DeviceDatasourceInstanceData)"
   datapoints: "--datapoints TEXT — comma-separated datapoint names; filters response to only those datapoints (verified)"
-  aggregate:  "--aggregate TEXT — aggregation method; values unverified (min, max, avg likely)"
+  aggregate:  |
+    --aggregate TEXT — verified valid values (on DeviceDatasourceDataById):
+      none     = full time series (~30 points, same as omitting the flag)
+      first    = single oldest point in the window
+      last     = single most recent point
+      average  = single mean of all points in the window
+      sum      = single sum of all points in the window
+    Invalid (API error or empty): avg, mean, median, count, min, max
   format:     "--format TEXT — LM API format param; same gotcha as AuditLogList"
   time_note:  "time values in responses are epoch MILLISECONDS, not seconds — divide by 1000 for epoch seconds (verified)"
 
@@ -820,8 +834,14 @@ DeviceDatasourceDataById:
   path: /device/devices/{deviceId}/devicedatasources/{id}/data
   required_params:
     deviceId: integer
-    id:       integer  # device-datasource ID
+    id:       integer  # device-datasource ID (hdsId from DeviceDatasourceList)
   unique_options: "start, end, period, datapoints, format, aggregate — see _data_endpoint_options"
+  note: "Returns data for ALL instances of a datasource (unlike DeviceDatasourceInstanceData which is one instance). Instances are keyed by name under 'instances' dict."
+  response_structure:
+    dataSourceName: string
+    dataPoints:     "list of datapoint name strings"
+    instances:      "dict keyed by instance name (e.g. 'DS-enp3s0f0 [ID:2]') → {values: [[...]], time: [epoch_ms]}"
+    nextPageParams: "pagination cursor"
 
 DeviceDatasourceInstanceData:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}/data
@@ -847,8 +867,17 @@ DeviceDatasourceInstanceGraphData:
     deviceId: integer
     hdsId:    integer
     id:       integer  # instance ID
-    graphId:  integer
+    graphId:  integer  # use 1 to get first graph; get graph IDs via DataSourceOverviewGraphList --dsId
   unique_options: "start, end, format — see _data_endpoint_options"
+  note: "Returns rendered graph data (not raw values). graphId=1 returns the first graph for the instance."
+  response_structure:
+    type, id, name, title: "graph metadata"
+    lines:       "array of line objects; each has legend, color, data (array of values or 'No Data'), min, max, avg, std"
+    timestamps:  "array of epoch ms (24h window by default, ~700 points)"
+    startTime, endTime: "epoch ms — window bounds"
+    timeZone, timeZoneId: "e.g. AEDT / Australia/Sydney"
+    exportFileName: "suggested filename if exporting"
+    scopes:      "array of {type, id} — devices this graph covers"
 
 DeviceDatasourceInstanceGroupOverviewGraphData:
   path: /device/devices/{deviceId}/devicedatasources/{deviceDsId}/groups/{dsigId}/graphs/{ographId}/data
@@ -959,7 +988,7 @@ LogQueriesByGroupId:
 LogQueryGroupListByGroupType:
   path: /log/logquerygroups/grouptype/{groupType}
   required_params:
-    groupType: string  # group type value; values unverified
+    groupType: string  # case-insensitive; verified values: PRIVATE (returns results), PUBLIC (returns 0 in test env); likely mirrors LM log query group types
   unique_options:
     allGroups: "--allGroups BOOL — purpose unverified; possibly include all groups regardless of type"
 
