@@ -569,7 +569,7 @@ DevicePropertyList:
     value:       string
     type:        string  # "system", "auto", "custom", "inherited"
     inheritList: array   # empty for non-inherited; list of sources for inherited properties
-  note: "Verified against deviceId=8810. Returns all property types mixed together — filter by type if needed."
+  note: "Returns all property types mixed together — filter by type if needed."
 
 DevicePropertyByName:
   path: /device/devices/{deviceId}/properties/{name}
@@ -658,7 +658,7 @@ NetflowFlowList:
     start:        "--start INTEGER (int64 epoch ms) — time range start for flow data"
     end:          "--end INTEGER (int64 epoch ms) — time range end for flow data"
     netflowFilter: "--netflowFilter TEXT — filter for flow data"
-  note: "This is the endpoint where start/end/netflowFilter are actually meaningful. Returns 400 Bad Request if netflow not configured on device (verified: device 8810 is not netflow-enabled)."
+  note: "This is the endpoint where start/end/netflowFilter are actually meaningful. Returns 400 Bad Request if netflow not configured on the device."
 
 NetflowEndpointList:
   path: /device/devices/{id}/endpoints
@@ -669,7 +669,7 @@ NetflowEndpointList:
     end:          "--end INTEGER (int64 epoch ms) — time range end"
     netflowFilter: "--netflowFilter TEXT — netflow filter"
     port:         "--port TEXT — filter by port; values unverified"
-  note: "Returns 400 Bad Request if netflow not configured on device (verified: device 8810 is not netflow-enabled)."
+  note: "Returns 400 Bad Request if netflow not configured on the device."
 
 NetflowPortList:
   path: /device/devices/{id}/ports
@@ -1007,7 +1007,7 @@ CollectorList:
   note: "Standard list command; no unique options. Key fields verified via live test."
   key_fields:
     id:                 integer
-    description:        string   # human label e.g. "luna"
+    description:        string   # human label e.g. "myhost"
     hostname:           string
     platform:           string   # "linux" or "windows"
     arch:               string   # "Linux64", "Win64"
@@ -1032,10 +1032,10 @@ CollectorById:
     id:                 integer
     description:        string
     build:              string
-    collectorGroupId:   integer   # luna=64 (z_david_marsh_collector_group)
+    collectorGroupId:   integer   # myhost=<id> (myhost_collector_group)
     collectorGroupName: string
-    collectorDeviceId:  integer   # luna=8810
-    hostname:           string    # luna="luna"
+    collectorDeviceId:  integer   # myhost=<id>
+    hostname:           string    # myhost="myhost"
     platform:           string
     collectorSize:      string
     numberOfHosts:      integer
@@ -1048,7 +1048,7 @@ CollectorGroupById:
   path: /setting/collector/groups/{id}
   required_params:
     id: integer
-  note: "luna's collector group is id=64 (z_david_marsh_collector_group)"
+  note: "collector group for a specific host; get id from CollectorList.collectorGroupId"
   key_fields:
     id:                integer
     name:              string
@@ -1087,7 +1087,7 @@ CollectorEvents:
   path: /setting/collector/collectors/{collectorId}/events
   required_params:
     collectorId: integer
-  note: "Returns recent collector lifecycle events. Verified against collectorId=281."
+  note: "Returns recent collector lifecycle events."
   key_fields:
     id:                  string   # string ID not integer (e.g. "iMTtrKBDShiGEUeszXRfhg")
     collectorId:         integer
@@ -1106,18 +1106,18 @@ CollectorStatusCheck:
   path: /setting/collector/collectors/{collectorId}/services/getStatusCheck
   required_params:
     collectorId: integer
-  note: "Returns 403 Forbidden with read-only API token (verified against collectorId=281). May require admin token."
+  note: "Returns 403 Forbidden with read-only API token. May require admin token."
 
 CollectorAgentLogLevels:
   path: /setting/collector/collectors/{id}/agentloglevels
   required_params:
     id: integer
-  note: "Returns list of {component, logLevel} for all log components. Verified against id=281."
+  note: "Returns list of {component, logLevel} for all log components."
   key_fields:
     component: string  # e.g. "collector.snmp", "eventcollector.syslog"
     logLevel:  string  # "info" or "debug"
   gotchas:
-    - "~50 components returned; all 'info' by default except eventcollector.syslog which was 'debug' on luna"
+    - "~50 components returned; all 'info' by default except eventcollector.syslog which may be 'debug'"
     - "Use this to discover valid component names for CollectorAgentLogLevelByComponent"
 
 CollectorAgentLogLevelByComponent:
@@ -1125,7 +1125,7 @@ CollectorAgentLogLevelByComponent:
   required_params:
     id:        integer
     component: string
-  note: "Returns {component, logLevel} for a single component. Verified --component collector.snmp against id=281."
+  note: "Returns {component, logLevel} for a single component. collector.snmp is a valid example component name."
   valid_component_values: |
     default, alerter, autoprops, controller, discover, monitor, reporter, sbproxy,
     scanner, watchdog, collector.agent, collector.cim, collector.datapump, collector.dns,
@@ -1183,7 +1183,7 @@ DeviceById:
   required_params:
     id: integer
   unique_options:
-    needStcGrpAndSortedCP: "--needStcGrpAndSortedCP — no visible field difference observed on device 8810 (luna); may only apply to certain device types"
+    needStcGrpAndSortedCP: "--needStcGrpAndSortedCP — no visible field difference observed in testing; may only apply to certain device types"
     start:         "--start INTEGER (int64) — same caveat as DeviceList"
     end:           "--end INTEGER (int64)"
     netflowFilter: "--netflowFilter TEXT"
