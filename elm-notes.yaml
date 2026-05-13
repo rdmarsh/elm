@@ -37,10 +37,23 @@ _formats:
     pipeable: true
     example: "id,name\n1,foo\n2,bar"
 
+  tsv:
+    description: True tab-separated values (tab delimiter, no alignment padding)
+    pipeable: true
+    note: "Distinct from 'tab' which is tabulate's human-readable aligned table. Supports -H and -I flags."
+    example: "id\tname\n1\tfoo\n2\tbar"
+
   json:
     description: Compact JSON wrapped in command name key
     pipeable: true  # pipe to jq
     example: '{"DeviceGroupList": [{"id": 1, "name": "foo"}]}'
+
+  jsonl:
+    description: JSON Lines — one JSON object per line, no command-name wrapper
+    pipeable: true
+    note: "No {CommandName: [...]} wrapper unlike 'json'. Each line is a complete JSON object. Directly readable by DuckDB and jq without preprocessing."
+    example: '{"id": 1, "name": "foo"}\n{"id": 2, "name": "bar"}'
+    use_for: "Cache files for DuckDB queries; streaming pipelines; tools that expect newline-delimited JSON"
 
   prettyjson:
     description: Indented colour-highlighted JSON (uses pygments) — same structure as json
