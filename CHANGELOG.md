@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-05-13
+
+### Added
+- `-o` short form for `--offset` on all subcommands. Mirrors `-s` for `--size`.
+
 ## [1.7.4] - 2026-05-13
 
 ### Changed

@@ -8,6 +8,7 @@ import engine
 {%- if option.name == "fields" -%}, "-f"{% endif -%}
 {%- if option.name == "filter" -%}, "-F"{% endif -%}
 {%- if option.name == "size" -%}, "-s"{%- endif -%}
+{%- if option.name == "offset" -%}, "-o"{%- endif -%}
 {%- if option.type == "boolean" -%}, type=bool, nargs=1{%- endif -%}
 {%- if option.type == "integer" and option.name == "size" -%}, type=click.IntRange(0, 1000), metavar="INTEGER"
 {%- elif option.type == "integer" -%}, type=int{%- endif -%}
