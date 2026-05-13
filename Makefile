@@ -330,10 +330,7 @@ testbasic: ## Test basic flags
 	@echo testing: $(testbin) --help ; $(testbin) --help >/dev/null
 	@echo testing: $(testbin) --version ; $(testbin) --version >/dev/null
 	@echo testing: $(testbin) --help includes --profile ; $(testbin) --help | grep -q -- '--profile'
-	@echo testing: --profile nonexistent gives not found error ; $(testbin) --profile __elm_test__ DeviceList 2>&1 | grep -q 'not found'
-	@echo testing: --profile foo.ini strips .ini extension ; $(testbin) --profile __elm_test__.ini DeviceList 2>&1 | grep -qE '__elm_test__\.ini$$'
-	@echo testing: --profile full path rejected with use --config message ; $(testbin) --profile /tmp/__elm_test__.ini DeviceList 2>&1 | grep -q 'use --config'
-	@echo testing: --profile and --config together shows override warning ; $(testbin) --profile __elm_test__ --config /tmp/__elm_override__.ini DeviceList 2>&1 | grep -q 'overrides --profile'
+	@echo testing: --profile foo.ini strips .ini extension ; $(testbin) --profile __elm_test__.ini DeviceList 2>&1 | grep -qE 'Config file:.*__elm_test__\.ini$$'
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testtext

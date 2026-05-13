@@ -6,13 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-05-13
+
+### Changed
+- `--profile` simplified to a pure path resolver: resolves `NAME` to
+  `~/.config/logicmonitor/credentials/<NAME>.ini` and delegates everything
+  else to the existing `--config` logic. No separate existence check or
+  override warning — behaviour is now fully consistent with `--config`.
+- Credentials error message changed from "Default config file:" to "Config file:"
+  and now shows the actual file in use (`_resolved_config_file`) rather than
+  the compiled-in default.
+
 ## [1.7.3] - 2026-05-13
 
 ### Added
 - `-p` / `--profile NAME` global option: shorthand for `--config ~/.config/logicmonitor/credentials/<NAME>.ini`.
-  Resolves the profile name to the credentials directory, strips a trailing `.ini` if supplied,
-  and errors clearly if the file does not exist or a full path is passed (use `--config` for that).
-  `--config` still overrides `--profile` if both are given, with a warning.
+  Strips a trailing `.ini` if supplied. `--config` overrides `--profile` if both are given.
   Closes [#44](https://github.com/rdmarsh/elm/issues/44).
 
 ### Fixed
