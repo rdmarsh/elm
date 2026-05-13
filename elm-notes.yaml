@@ -730,8 +730,8 @@ CollectorGroupList:
     description:       string
     platform:          string   # "linux"/"windows" when autoBalance is on; "n/a" when off (verified)
     numOfCollectors:   integer
-    numOfHosts:        integer  # always 0 in list response regardless of autoBalance — CollectorGroupById returns correct count
-    numOfInstances:    integer  # reflects autoBalance load: non-zero only when autoBalance is on (verified: 1227 with autoBalance on, 0 with it off)
+    numOfHosts:        integer  # always 0 in list — CollectorGroupById returns correct count
+    numOfInstances:    integer  # always 0 in list — CollectorGroupById returns correct count (when autoBalance on); 0 in ById when autoBalance off
     autoBalance:       boolean
     autoBalanceStrategy: string
     autoBalanceInstanceCountThreshold: integer  # 0 when autoBalance is off
@@ -740,8 +740,8 @@ CollectorGroupList:
     highestPriorityCollectorStatus: object  # {acked, inSDT, isDown, status} — status value unreliable in list (verified: 1 in list vs 0 in ById for same group)
     userPermission:    string
   gotchas:
-    - "numOfHosts is always 0 in list response even when the group has hosts — use CollectorGroupById for accurate count (verified: id=64 shows 0 in list, 6 via ById; confirmed not related to autoBalance setting)"
-    - "numOfInstances reflects autoBalance load distribution, not actual instance count — 0 when autoBalance is off, populated when on"
+    - "numOfHosts and numOfInstances are always 0 in list response — use CollectorGroupById for accurate counts (verified with autoBalance both on and off: list always 0, ById shows real values when autoBalance is on)"
+    - "numOfInstances in ById is only populated when autoBalance is on — 0 when off (it tracks load-balanced instance distribution)"
     - "platform shows 'n/a' when autoBalance is off, actual platform string when on"
     - "highestPriorityCollectorStatus.status is unreliable in list response — consistently disagrees with ById for same group (1 vs 0 for id=64)"
 
