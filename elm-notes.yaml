@@ -151,8 +151,11 @@ _global:
       once per install. Not worth optimising; steady-state is what matters."
     - "Steady-state API call time is mostly network/LM latency. elm adds ~0.5-1s overhead
       (Python + pandas + JSON + output). Confirmed by timing curl directly against the API:
-      personal network ~1.4s curl / ~2s elm; corporate SSL-inspection proxy ~4.8s curl / ~5-6s elm.
-      To isolate: elm -f api COMMAND -s1 > /tmp/t.txt && curl with URL+auth from that file."
+      all three machines (macOS personal, macOS corporate, Linux) hit the same portal in
+      ~0.7s. Earlier slow times on the corporate Mac were against a different portal with
+      a less favourable network path from that location -- not a proxy/SSL inspection issue.
+      To isolate elm overhead: elm --profile NAME -f api COMMAND -s1 > /tmp/t.txt && curl
+      with URL+auth from that file (auth expires in seconds, run steps together)."
   gotchas:
     - "Never use 2>&1 when piping elm output to jq — elm warnings go to stderr and
       will corrupt the JSON stream causing jq parse errors"
