@@ -6,7 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.10] - 2026-05-14
+
 ### Fixed
+- Multiple `-F`/`--filter` flags now all apply correctly. Previously, passing
+  `-F field1:val1 -F field2:val2` silently dropped all but the last filter —
+  only the last one was sent to the LM API, with no error or warning. Fixed by
+  adding `multiple=True` to the filter option and handling the resulting tuple
+  in `validate_filter`. Comma-separated filters in a single `-F` continue to
+  work unchanged. Closes [#49](https://github.com/rdmarsh/elm/issues/49).
+
+### Documentation
 - Documented `-i`/`--access_id` and `-k`/`--access_key` global flags in
   `elm-notes.yaml`. These override the config file values; LM logs the
   supplied `access_id` verbatim as the `username` field in `AuditLogList`.

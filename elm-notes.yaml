@@ -145,6 +145,9 @@ _global:
   gotchas:
     - "Never use 2>&1 when piping elm output to jq — elm warnings go to stderr and
       will corrupt the JSON stream causing jq parse errors"
+    - "Multiple -F flags AND together (fixed in v1.7.10; previously only the last
+      -F was sent). Comma-separated in a single -F also works and is equivalent:
+        -F 'field1:val1' -F 'field2:val2'  ==  -F 'field1:val1,field2:val2'"
     - "API filter does not support OR across multiple values for the same field —
       use jq client-side for that"
     - "Array fields cannot be filtered for emptiness server-side (no 'is empty'

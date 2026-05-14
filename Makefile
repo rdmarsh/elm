@@ -357,6 +357,7 @@ testbasic: ## Test basic flags
 	@echo testing: $(testbin) -l ; $(testbin) -l >/dev/null
 	@echo testing: --list marks default profile active ; $(testbin) --list | grep -q '^\* config'
 	@echo testing: --help includes --list ; $(testbin) --help | grep -q -- '--list'
+	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testtext

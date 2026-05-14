@@ -324,6 +324,9 @@ def export(export, config_file, command, path, flags=""):
 
 def validate_filter(ctx, param, filters):
     if filters:
+        # multiple=True means Click passes a tuple; flatten to a single comma-joined string
+        if isinstance(filters, tuple):
+            filters = ','.join(f for f in filters if f)
         filters_fmtchkd=[]
         logging.debug('filters: %s', filters)
         logging.debug('filters_fmtchkd: %s', filters_fmtchkd)

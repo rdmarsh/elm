@@ -46,7 +46,11 @@ For endpoints returning more than 1000 records, pagination via `--offset` is req
 | `>` | Greater than |
 | `<` | Less than |
 
-Multiple filters separated by comma (AND logic). Escape commas in values with backslash.
+Multiple filters can be combined two ways (both produce identical AND logic):
+- Comma-separated in one flag: `-F 'field1:val1,field2:val2'`
+- Multiple flags: `-F 'field1:val1' -F 'field2:val2'`
+
+Escape literal commas in filter values with a backslash.
 
 ### Output formats
 
