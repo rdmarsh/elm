@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Documented LM API behaviour: `AuditLogList` entries with `username: "(update)"`
+  are not redacted or substituted — LM logs the raw `access_id` as the username
+  field. The string `(update)` is the literal credential value configured in the
+  integration making those calls. Confirmed by live test. Documented in
+  `CLAUDE.md`, `elm-knowledge.md`, and `elm-notes.yaml`.
 - Documented LM API bug: `!:` (not-equals) and `!~` (not-contains) filter
   operators are silently ignored or misapplied on several endpoints
   (`AuditLogList username`, `AlertList cleared`). elm sends the correct

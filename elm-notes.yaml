@@ -520,6 +520,11 @@ AuditLogList:
   unique_options:
     format: "--format TEXT — LM API format param; DO NOT USE — causes JSONDecodeError when set to csv (API returns raw CSV that elm cannot parse); use elm's global --format flag instead"
   gotchas:
+    - "username field contains the raw access_id string from the calling integration.
+      If you see username: \"(update)\", that is literally the access_id someone configured
+      — LM does not substitute or redact deleted tokens. Use the ip field and description
+      to identify the source:
+        elm AuditLogList -F 'username:(update)' -s0"
     - "NOT operators (!: and !~) are silently broken on this endpoint — elm constructs
       and sends the correct URL but the API returns results from an unexpected time window
       rather than applying the exclusion. Use positive operators (: and ~) and filter
