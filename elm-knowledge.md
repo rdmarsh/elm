@@ -22,7 +22,9 @@ elm DeviceList -f csv -s0    # -f csv is a field selector here, not format
 ### Key global flags
 
 - `-f FORMAT` / `--format FORMAT` — output format (csv, json, md, tab, html, etc.) — goes BEFORE subcommand
-- `--config PATH` — path to credentials .ini file
+- `-l` / `--list` — list available credential profiles and exit; active profile marked with `*`; works without valid credentials
+- `-p NAME` / `--profile NAME` — use a named credentials profile (`~/.config/logicmonitor/credentials/<NAME>.ini`)
+- `--config PATH` — full path to any .ini credentials file (any directory)
 - `-a` / `--account_name` — LM company/account name directly on CLI (already taken — don't reuse for other flags)
 
 ### Size flag
