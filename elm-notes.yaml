@@ -147,8 +147,11 @@ _global:
       Command modules (_cmds/) are loaded lazily -- only the invoked command is imported.
       Heavy libraries (pandas, requests, tabulate, pygments) load inside engine()/output()
       so they are only paid when an API call is made."
-    - "First run after compilation: macOS verifies new binaries via Gatekeeper -- expect
-      30+ seconds on the very first call. Subsequent calls settle to ~2s (mostly network)."
+    - "First run after compilation: macOS Gatekeeper verifies new binaries - expect 10-30s
+      once per install. Not worth optimising; steady-state is what matters."
+    - "Steady-state API call time is mostly network latency to LM (~2s on personal network,
+      ~5-6s through corporate proxy/security stack). To isolate network from elm overhead,
+      run: time curl -s -o /dev/null -w 'HTTP %{http_code} %{time_total}s\n' https://acme.logicmonitor.com/"
   gotchas:
     - "Never use 2>&1 when piping elm output to jq — elm warnings go to stderr and
       will corrupt the JSON stream causing jq parse errors"

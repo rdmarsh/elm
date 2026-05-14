@@ -276,7 +276,6 @@ _build: $(pyidistdir)/$(name)/$(name)
 $(pyidistdir)/$(name)/$(name): reqs | PYTHON-exists PYINST-exists
 	$(PIP) $(PIPFLAGS) $(EDITABLE) .
 	$(PYINST) $(PYINSTFLAGS) $(prog)
-	uname -s | grep -q Darwin && codesign --force --deep --sign - $(pyidistdir)/$(name) || true
 	@echo "$(OK_STRING) $@"
 
 .PHONY: completion
@@ -301,7 +300,7 @@ install: $(bindir)/$(name) cfg completion ## (Re)installs the script and modifie
 	@echo "$(OK_COLOR)>>> Finished <<<$(NO_COLOR)"
 	@echo
 	@echo "You can now run '$(OK_COLOR)elm$(NO_COLOR)' from anywhere on the cli"
-	@uname -s | grep -q Darwin && echo "$(WR_COLOR)Note:$(NO_COLOR) macOS may take up to 30 seconds on first run while verifying the binary - only happens once per install" || true
+	@uname -s | grep -q Darwin && echo "$(WR_COLOR)Note:$(NO_COLOR) macOS Gatekeeper verifies new binaries on first run - expect 10-30 seconds once per install, then normal speed" || true
 	@echo
 	@echo "$(OK_STRING) $@"
 
