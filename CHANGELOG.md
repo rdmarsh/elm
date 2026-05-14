@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-05-15
+
 ### Added
 - `elm-speedtest.sh` — times LM API response per credential profile across
   configurable endpoints. Runs each endpoint N times and reports averages.
@@ -14,6 +16,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   hostname at top for easy sharing. Column widths adapt to endpoint name
   length. Usage: `./elm-speedtest.sh` (defaults: AdminList, DeviceList,
   AuditLogList) or `./elm-speedtest.sh ReportList DeviceGroupList WebsiteList`.
+
+### Fixed
+- `-C`/`--total` now shows `>N` with a warning when the LM API returns a
+  negative sentinel instead of an exact count. Previously printed the raw
+  negative number (e.g. `-51`). Affected endpoints: `AlertList`,
+  `AuditLogList`. All other list endpoints return a real total and are
+  unchanged. Use `-c -s0` as a workaround to count all fetched records
+  (accurate when total ≤ 1000).
+- Size-limit warning ("there is data you are not seeing") now fires correctly
+  for endpoints that return the LM negative total sentinel. Previously the
+  `obj['total'] > flags['size']` check was always `False` for negative totals,
+  silently suppressing the warning.
 
 ## [1.8.0] - 2026-05-14
 

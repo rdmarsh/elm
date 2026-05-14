@@ -199,7 +199,13 @@ def engine(elm, **kwargs):
         click.echo("Authorization: " + auth)
     elif 'total' in flags:
         logging.debug('total is a flag, showing total instead')
-        click.echo(obj['total'])
+        if obj['total'] < 0:
+            # LM returns -(n_returned + 1) when it cannot compute an exact total
+            click.secho('Warning: total records unknown, there is data you are not seeing.',
+                        fg='yellow', err=True)
+            click.echo('>{}'.format(abs(obj['total']) - 1))
+        else:
+            click.echo(obj['total'])
     elif 'count' in flags:
         logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
@@ -207,7 +213,7 @@ def engine(elm, **kwargs):
         output(obj['items'], elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
 
         #give a warning if there are more records not shown
-        if 'size' in flags and obj['total'] > flags['size']:
+        if 'size' in flags and (obj['total'] > flags['size'] or obj['total'] < 0):
             click.secho('Warning: size limit is less than total records,'
                         ' there is data you are not seeing.',
                         fg='yellow', err=True)

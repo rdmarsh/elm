@@ -186,8 +186,8 @@ _standard_list_options:
   fields: "-f/--fields FIELD,... — server-side field projection (comma-separated)"
   filter: "-F/--filter FIELD[op]VALUE,... — server-side filter; see operators in --help"
   sort:   "-S/--sort [+,-]FIELD,... — server-side sort; + ascending, - descending"
-  count:  "-c/--count — return count of matching records only (respects -F filter)"
-  total:  "-C/--total — return count of ALL records regardless of filter"
+  count:  "-c/--count — return count of records in the current page (respects -F filter)"
+  total:  "-C/--total — return count of ALL records from LM API. Most list endpoints return an exact total. AlertList and AuditLogList return LM's negative sentinel (elm shows '>N' with a warning). Workaround for real count when total ≤ 1000: use '-c -s0' instead."
 
 # ---
 # Websites
@@ -367,8 +367,11 @@ ApiTokenList:
     roles:      array   # list of role names the token owner has
     createdOn:  integer # epoch seconds
     createdBy:  string
-    lastUsedOn: integer # epoch seconds
+    lastUsedOn: integer # epoch seconds (0 = never used)
     lastAuthIp: string
+  patterns:
+    never_used:    "elm ApiTokenList -s0 -F lastUsedOn:0 -f id,adminName,note,createdOn,status   # tokens created but never used"
+    active_tokens: "elm ApiTokenList -s0 -F status:2 -f id,adminName,note,lastUsedOn             # all active tokens"
 
 RoleList:
   path: /setting/roles
@@ -849,7 +852,7 @@ _no_param_commands:
     LogAlerts:             /logpipelines/processors
     MetricsSummary:        "/metrics/summary — richer than MetricsUsage: includes hostGroupsInfo (dynamic/static group counts + property counts), kubernetes breakdown, numOfSavedMaps; no -s option (verified)"
     MetricsUsage:          /metrics/usage
-    PortalInfo:            /setting/companySetting  # same path as CompanySetting; returns portal/account info
+    PortalInfo:            "/setting/companySetting — same path as CompanySetting; returns portal/account info. Quick health snapshot: elm PortalInfo -f companyDisplayName,numberOfDevices,numberOfOpenAlerts,numberOfApiUsers,numberOfSessionUsers,numOfAWSDevices,numOfAzureDevices. Note: numberOfUsers and numberOfHosts do NOT exist — use numberOfApiUsers+numberOfSessionUsers and numberOfDevices (verified)"
     RetentionList:         "/setting/loganalytics/retentions — standard list (-s/-o/-F/-f all work); returns data retention options: {default, value (days), label, isDefault} (verified)"
     V4Metadata:            "/setting/logicmodules/metadata — no -s option; returns nested [[...]] array — CSV output broken (numeric headers); use prettyjson (verified)"
     IntegrationAuditLogs:  "/setting/integrations/auditlogs — unique: --format TEXT (LM API param — see gotcha)"
@@ -903,7 +906,7 @@ AlertList:
   key_fields:
     id:              string   # string ID, e.g. "DS395142385"
     type:            string   # "dataSourceAlert", "websiteAlert", etc.
-    severity:        integer  # 2=critical, 4=error, 8=warning
+    severity:        integer  # 2=critical, 3=error, 4=warning (verified live — lower number = more severe)
     startEpoch:      integer  # epoch seconds
     endEpoch:        integer  # epoch seconds; 0 if still active
     cleared:         boolean
@@ -925,6 +928,12 @@ AlertList:
     resourceId:      integer
     suppressDesc:    string
     tenant:          string
+  gotchas:
+    - "-C does not return an exact total — LM API returns a negative sentinel; elm shows '>N' with a warning. Use '-c -s0' to count all active alerts (accurate when total ≤ 1000)"
+    - "alertDisableStatus field on DeviceList (not AlertList): value 1 = alerting disabled on that device"
+  patterns:
+    active_by_severity: "elm AlertList -s0 -F cleared:false -f id,severity | jq '[.AlertList[].severity] | group_by(.) | map({severity:.[0], count:length})'"
+    count_all: "elm AlertList -c -s0 -F cleared:false   # real count when ≤ 1000"
 
 # ---
 # Alert commands
@@ -999,13 +1008,19 @@ SDTList:
     id:          string   # format: H_<number> for historical, or other prefixes
     admin:       string   # username of SDT creator
     sdtType:     string   # "oneTime", "weekly", "monthly", "daily"
-    type:        string   # SDT scope type
-    startDateTime: integer  # epoch seconds
-    endDateTime:   integer  # epoch seconds
+    type:        string   # SDT scope type; "ResourceSDT", "ResourceGroupSDT", etc.
+    startDateTime: integer  # epoch ms
+    endDateTime:   integer  # epoch ms
+    deviceDisplayName: string
     deviceId:    integer
     comment:     string
+    isEffective: boolean  # true = SDT is currently active
   gotchas:
     - "id is a string (e.g. 'H_161'), not integer — cannot filter numerically"
+    - "startDateTime and endDateTime are epoch milliseconds, not seconds"
+  patterns:
+    currently_active: "elm SDTList -s0 -F isEffective:true -f type,deviceDisplayName,startDateTime,endDateTime,comment"
+    long_sdts: "elm SDTList -s0 -f id,deviceDisplayName,endDateTime,comment | jq '.SDTList[] | select(.endDateTime > <far_future_epoch_ms>)'"
 
 SDTHistoryByDeviceDataSourceId:
   path: /device/devices/{deviceId}/devicedatasources/{id}/historysdts

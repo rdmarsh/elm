@@ -352,18 +352,20 @@ These datasources are typically expected on all real Linux servers. The `Acme_` 
 `PortalInfo` returns a snapshot of the account. Useful for onboarding or a quick health check:
 
 ```shell
-elm -f prettyjson PortalInfo
+elm PortalInfo -f companyDisplayName,numberOfDevices,numberOfOpenAlerts,numberOfApiUsers,numberOfSessionUsers,numOfAWSDevices,numOfAzureDevices
 ```
 
-Key fields:
+Key fields (verified — `numberOfUsers` and `numberOfHosts` do **not** exist):
 
 - `companyDisplayName` — the portal's display name
 - `numberOfDevices` — total monitored device count
 - `numberOfOpenAlerts` — active alert count
+- `numberOfApiUsers` — count of users with API tokens
+- `numberOfSessionUsers` — count of interactive (web/SSO) users
+- `numOfAWSDevices`, `numOfAzureDevices`, `numOfGcpDevices` — cloud device counts
 - `numberOfDatasourceInstances` — total instances being collected
 - `numberOfDashboards`, `numberOfWidgets` — dashboard inventory
 - `hostGroupsInfo` — breakdown of dynamic vs static device groups and their property counts
-- `numberOfApiUsers` — users with API tokens
 - `alertTotalIncludeInAck`, `alertTotalIncludeInSdt` — whether acknowledged/SDT'd alerts count toward totals
 
 The `contacts` array contains names, email addresses, and phone numbers of portal contacts — do not share `PortalInfo` output publicly or commit it to version control.
@@ -432,6 +434,54 @@ elm AuditLogList -s0 -F description~"Failed API request" -f username,ip,descript
 ```
 
 AuditLogList max: 1000 records. Fields: `id`, `username`, `ip`, `description`, `happenedOn`, `happenedOnLocal`.
+
+Use the precise filter `description~"Failed API request"` — not just `description~Failed`, which matches datasource names containing the word "Failed".
+
+---
+
+## Environment health checks
+
+Quick one-liners for spotting common operational issues.
+
+### Active SDTs right now
+
+```shell
+elm SDTList -s0 -F isEffective:true -f type,deviceDisplayName,startDateTime,endDateTime,comment
+```
+
+Watch for entries with `endDateTime` years in the future — these are "park it and forget it" SDTs that silently suppress alerting.
+
+### API tokens never used
+
+```shell
+elm ApiTokenList -s0 -F lastUsedOn:0 -f id,adminName,note,createdOn,status
+```
+
+`lastUsedOn: 0` means the token was created but has never authenticated. Old never-used tokens with no `note` are good candidates for revocation.
+
+### Active alert count by severity
+
+```shell
+elm AlertList -c -s0 -F cleared:false   # total uncleared alerts (accurate when ≤ 1000)
+elm AlertList -s0 -F cleared:false -f id,severity | \
+  jq '[.AlertList[].severity] | group_by(.) | map({severity:.[0], count:length})'
+```
+
+`-C` does not give an exact count for AlertList (LM API limitation) — use `-c -s0` instead.
+
+### Devices with alerting disabled
+
+```shell
+elm DeviceList -s0 -F alertDisableStatus:1 -f id,name,alertDisableStatus
+```
+
+### Failed API requests in audit log
+
+```shell
+elm AuditLogList -s0 -F "description~Failed API request" -f username,ip,description,happenedOn
+```
+
+A token appearing repeatedly at a regular interval (e.g. every hour) from the same IP is a scheduled job with a broken or deleted credential. The `username` field is the `access_id` value verbatim — cross-reference with `ApiTokenList` to check if it still exists.
 
 ---
 

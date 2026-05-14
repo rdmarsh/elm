@@ -512,6 +512,13 @@ Options:
   --help                     Show this message and exit.
 ```
 
+**Counting records:** `-c` counts records returned in the current page;
+`-C` asks the LM API for the total. Most list endpoints return an exact count
+with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
+exact total and elm shows a lower bound like `>50` with a warning. Use
+`-c -s0` to fetch all records and count them — accurate when the total is
+under 1000.
+
 ## Examples
 
 See [EXAMPLES.md](EXAMPLES.md) for the full index, or jump directly to a topic:
