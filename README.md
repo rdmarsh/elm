@@ -211,6 +211,7 @@ Usage: elm [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --config FILE            Read configuration from FILE.
+  -l, --list               List available credential profiles and exit
   -p, --profile NAME       Credentials profile name — shorthand for --config /
                            Users/davidmarsh/.config/logicmonitor/credentials/<
                            NAME>.ini
@@ -232,7 +233,7 @@ Options:
   -x, --export FILENAME    Export the query to FILENAME
   --halt-on-api-error      Halt on API response errors
   --cacert FILE            Path to CA certificate bundle for SSL verification
-  --version                Show the version and exit.
+  -V, --version            Show the version and exit.
   --help                   Show this message and exit.
 
 Commands:

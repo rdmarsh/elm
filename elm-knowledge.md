@@ -21,6 +21,7 @@ elm DeviceList -f csv -s0    # -f csv is a field selector here, not format
 
 ### Key global flags
 
+- `-V` / `--version` — show version and exit
 - `-f FORMAT` / `--format FORMAT` — output format (csv, json, md, tab, html, etc.) — goes BEFORE subcommand
 - `-l` / `--list` — list available credential profiles and exit; active profile marked with `*`; works without valid credentials
 - `-p NAME` / `--profile NAME` — use a named credentials profile (`~/.config/logicmonitor/credentials/<NAME>.ini`)

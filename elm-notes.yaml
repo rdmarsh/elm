@@ -134,6 +134,7 @@ _formats:
 # ---
 _global:
   flags:
+    version: "-V/--version — show version and exit"
     list:    "-l/--list — list available credential profiles and exit; active marked with '* '; no credentials required; config.example.ini excluded"
     profile: "-p/--profile NAME — resolve ~/.config/logicmonitor/credentials/<NAME>.ini; strips .ini suffix if included; pre-scanned from sys.argv so --list reflects it correctly"
     config:  "--config PATH — full path to any .ini file; handled by click_config_file; use for credentials outside the default directory"
