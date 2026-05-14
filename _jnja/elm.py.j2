@@ -164,7 +164,7 @@ enforce_config_perms(config_file)
 @click.option('-x', '--export',       type=click.File('w'), help='Export the query to FILENAME')
 @click.option('--halt-on-api-error',  is_flag=True, default=False, help="Halt on API response errors")
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
-@click.version_option(version=__version__)
+@click.version_option(__version__, '-V', '--version')
 @click.pass_context
 def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, export, halt_on_api_error, cacert, profile):
     """A cli interface for extracting LogicMonitor data via the api

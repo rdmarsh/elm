@@ -9,11 +9,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.7.9] - 2026-05-14
 
 ### Added
+- `-V` short form for `--version`.
 - `elm --list` / `elm -l` lists available credential profiles from the
-  credentials directory and exits. The active profile is marked with `*`.
-  Works without valid credentials (eager flag, exits before auth check).
-  Correctly reflects `--profile NAME` when combined: `elm --profile preprod --list`
-  marks `preprod *`. `config.example.ini` is excluded from the listing.
+  credentials directory and exits. The active profile is marked with `* `
+  on the left; inactive profiles are indented to align. Works without valid
+  credentials (eager flag, exits before auth check). Correctly reflects
+  `--profile NAME` when combined: `elm --profile preprod --list` marks
+  `preprod`. `config.example.ini` is excluded from the listing.
+- `elm-knowledge.md` — team-facing reference covering CLI patterns, common
+  gotchas, alert patterns, portal overview, and time-series data access.
+  Sanitized for public repo use.
+
+### Changed
+- Credential profile convention documented: `config.ini` is the safe
+  default (sandbox/test); non-default environments use explicit names
+  (`preprod.ini`, `prod.ini`) and require `--profile`.
+- `elm-notes.yaml` gains a `_global.flags` block documenting the five key
+  global options (`--list`, `--profile`, `--config`, `--format`, `--size`).
+- `CLAUDE.md` updated with credential profile workflow using `elm --list`.
 
 ## [1.7.8] - 2026-05-14
 

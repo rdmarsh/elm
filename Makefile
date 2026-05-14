@@ -350,6 +350,7 @@ testbasic: ## Test basic flags
 	@echo testing: $(testbin) ; $(testbin) >/dev/null
 	@echo testing: $(testbin) --help ; $(testbin) --help >/dev/null
 	@echo testing: $(testbin) --version ; $(testbin) --version >/dev/null
+	@echo testing: $(testbin) -V ; $(testbin) -V >/dev/null
 	@echo testing: $(testbin) --help includes --profile ; $(testbin) --help | grep -q -- '--profile'
 	@echo testing: --profile foo.ini strips .ini extension ; $(testbin) --profile __elm_test__.ini DeviceList 2>&1 | grep -qE 'Config file:.*__elm_test__\.ini$$'
 	@echo testing: $(testbin) --list ; $(testbin) --list >/dev/null
