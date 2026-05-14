@@ -41,16 +41,24 @@ fi
 
 printf "host: %s\n\n" "$(hostname -s)"
 
+# compute column widths: max of endpoint name length and minimum width of 8
+declare -a WIDTHS=()
+for ep in "${ENDPOINTS[@]}"; do
+    w=${#ep}
+    [ $w -lt 8 ] && w=8
+    WIDTHS+=($w)
+done
+
 # header
 printf "%-20s" "profile"
-for ep in "${ENDPOINTS[@]}"; do
-    printf "  %-13s" "$ep"
+for i in "${!ENDPOINTS[@]}"; do
+    printf "  %-${WIDTHS[$i]}s" "${ENDPOINTS[$i]}"
 done
 printf "\n"
 
 printf "%-20s" "-------"
-for ep in "${ENDPOINTS[@]}"; do
-    printf "  %-13s" "-------------"
+for i in "${!ENDPOINTS[@]}"; do
+    printf "  %-${WIDTHS[$i]}s" "$(printf '%*s' "${WIDTHS[$i]}" | tr ' ' '-')"
 done
 printf "\n"
 
@@ -59,10 +67,11 @@ while IFS= read -r line; do
     [ "$profile" = "config" ] && [ "$skip_config" = "true" ] && continue
     printf "%-20s" "$profile"
 
-    for ep in "${ENDPOINTS[@]}"; do
+    for i in "${!ENDPOINTS[@]}"; do
+        ep="${ENDPOINTS[$i]}"
         output=$(elm --profile "$profile" -f api "$ep" -s1 -f id 2>/dev/null)
         if [ $? -ne 0 ] || [ -z "$output" ]; then
-            printf "  %-13s" "error"
+            printf "  %-${WIDTHS[$i]}s" "error"
             continue
         fi
 
@@ -81,7 +90,7 @@ while IFS= read -r line; do
         unset AUTH
 
         avg=$(printf "%.3fs" "$(echo "scale=3; $total / $RUNS" | bc)")
-        printf "  %-13s" "$avg"
+        printf "  %-${WIDTHS[$i]}s" "$avg"
     done
     printf "\n"
 
