@@ -98,6 +98,21 @@ elm -f json AuditLogList -s0 | jq '.AuditLogList[] | select(.username != "foo")'
 
 For AlertList use the positive form where possible — `cleared:false` works, `cleared!:true` does not.
 
+### AuditLogList username "(update)" means a literal credential, not a deleted token
+
+If audit log entries show `username: "(update)"`, that is the actual `access_id`
+string configured in whatever integration is making those calls. LM logs the
+`access_id` as the username — it does not substitute anything for deleted or
+revoked tokens. Confirmed by test: `elm -i "(update)" -k "..." DeviceList`
+immediately produced a log entry with `username: "(update)"`.
+
+To investigate: the `ip` field shows the source host; `description` shows
+which API path it hit:
+
+```shell
+elm AuditLogList -F 'username:(update)' -s0
+```
+
 ### `--format TEXT` on some commands is an LM API parameter, not elm's format flag
 
 Several commands (AuditLogList, ConfigSourceList, DatasourceList, EventSourceList, JobMonitorList, LogSourceList, PropertyRulesList) accept a `--format TEXT` option that is passed directly to the LM API — it is not elm's output format selector. Setting it to `csv` causes a JSONDecodeError because the API returns raw CSV that elm cannot parse. Always use elm's global `-f`/`--format` flag (before the subcommand name) for output formatting.

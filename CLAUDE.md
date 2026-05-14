@@ -107,6 +107,30 @@ At the start of any session involving live API calls:
 - Swagger spec: fetched fresh by make init, snapshot in swagger.undocumented.json
 
 
+## LM API quirks
+
+### AuditLogList: username "(update)" is a literal credential value
+
+If you see audit log entries where `username` is the literal string
+`(update)`, that is the actual `access_id` value configured in
+whatever tool or integration is making those requests. LM logs the
+`access_id` as the username — it does not substitute or redact
+deleted tokens.
+
+Confirmed by test: running `elm -i "(update)" -k "..." DeviceList`
+produced an audit log entry with `username: "(update)"` immediately.
+
+This means: somewhere in the target portal, a script or integration has
+`access_id = (update)` (likely a misconfigured or placeholder
+credential). Track down the source by looking at the IP field in the
+audit log entry and the access path in the description:
+
+    elm AuditLogList -F 'username:(update)' -s0
+
+The `ip` field will show the originating host; the `description` will
+show which API path it is hitting.
+
+
 ## Output formats
 
 csv, tsv, html, prettyhtml, jira, json, jsonl, prettyjson, xml, prettyxml,
