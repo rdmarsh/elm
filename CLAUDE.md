@@ -18,7 +18,11 @@ The build pipeline is:
    per-endpoint definition files in _defs/
 2. make render -- runs Jinja2 templates from _jnja/ against those
    definitions to generate Python source files in _cmds/
-3. elm.py imports the generated _cmds/ modules at runtime
+3. make render also generates _cmds/__init__.py (via touch) so PyInstaller
+   can treat _cmds/ as a proper package and collect it with --collect-all
+4. elm.py uses LazyGroup to defer _cmds/ module imports until a subcommand
+   is actually invoked -- --version, --help, and --list load without
+   importing any _cmds/ module or heavy library (pandas, requests, etc.)
 
 The source of truth for command logic is _jnja/ (templates) and
 _defs/ (per-endpoint JSON definitions). If you fix a bug in a _cmds/
@@ -155,8 +159,10 @@ See requirements.txt for pinned versions.
   Linters and type checkers will flag issues in them that should be
   fixed in _jnja/ templates, not in the files themselves.
 
-- elm.py dynamically imports _cmds/ modules; static analysis will
-  show import errors that are not real errors.
+- elm.py uses LazyGroup to dynamically import _cmds/ modules via
+  importlib.import_module() at dispatch time. Static analysis will show
+  import errors that are not real errors. PyInstaller requires
+  --collect-all=_cmds and _cmds/__init__.py to bundle them correctly.
 
 - The Makefile does a lot of heavy lifting. Read it before assuming
   something is missing from the Python code.
@@ -194,8 +200,8 @@ Investigation notes from 2026-05-11:
   _build/, _dist/, and elm.spec. These are generated/ignored artefacts;
   git status only showed CLAUDE.md modified afterward.
 - The generated binary and generated `elm.py` both return `--version`
-  and `--help`, but startup is slow because `elm.py` imports every
-  generated `_cmds` module before Click handles simple flags.
+  and `--help`. Startup was slow (fixed in v1.8.0 via LazyGroup and
+  deferred heavy imports -- --version now loads in ~0.2s).
 - `setup.py` uses `packages=find_packages()` but the generated entry
   point is a top-level `elm.py` module; packaging likely needs
   `py_modules` or a package restructure.

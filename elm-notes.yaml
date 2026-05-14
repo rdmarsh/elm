@@ -142,6 +142,13 @@ _global:
     size:    "-s/--size INTEGER — results to return [0-1000]; 0 = all up to 1000 [default: 50]"
     access_id:  "-i/--access_id TEXT — override access_id from config file; LM logs this value verbatim as the username field in AuditLogList"
     access_key: "-k/--access_key TEXT — override access_key from config file"
+  performance:
+    - "Startup (v1.8.0+): --version, --help, --list, and tab-completion load in ~0.2s.
+      Command modules (_cmds/) are loaded lazily -- only the invoked command is imported.
+      Heavy libraries (pandas, requests, tabulate, pygments) load inside engine()/output()
+      so they are only paid when an API call is made."
+    - "First run after compilation: macOS verifies new binaries via Gatekeeper -- expect
+      30+ seconds on the very first call. Subsequent calls settle to ~2s (mostly network)."
   gotchas:
     - "Never use 2>&1 when piping elm output to jq — elm warnings go to stderr and
       will corrupt the JSON stream causing jq parse errors"

@@ -8,18 +8,13 @@ import hmac
 import logging
 import json
 from collections import defaultdict
-from pygments import highlight, lexers, formatters
-from packaging import version
-import pandas as pd
-from tabulate import tabulate
 import click
-import htmlmin
-import requests
 
 log = logging.getLogger(__name__)
 
 def engine(elm, **kwargs):
     """This is common engine for all commands"""
+    import requests
 
     logging.debug('passed kwargs: %s', kwargs)
     logging.info('elm.command: %s', elm.command)
@@ -218,6 +213,11 @@ def engine(elm, **kwargs):
                         fg='yellow', err=True)
 
 def output(items, command, filename='-', format='json', noheader=False, index=False, head='', foot=''):
+    import pandas as pd
+    from tabulate import tabulate
+    import htmlmin
+    from pygments import highlight, lexers, formatters
+
     df = pd.DataFrame(items)
     logging.debug('df: %s', df)
 

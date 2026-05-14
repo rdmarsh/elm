@@ -207,14 +207,17 @@ Usage: elm [OPTIONS] COMMAND [ARGS]...
 
   A cli interface for extracting LogicMonitor data via the api
 
+  Default config: ~/.config/logicmonitor/credentials/config.ini
+
+  Use -l/--list to show available credential profiles.
+
   See https://github.com/rdmarsh/elm for more information
 
 Options:
   --config FILE            Read configuration from FILE.
   -l, --list               List available credential profiles and exit
-  -p, --profile NAME       Credentials profile name — shorthand for --config /
-                           Users/davidmarsh/.config/logicmonitor/credentials/<
-                           NAME>.ini
+  -p, --profile NAME       Credentials profile name — shorthand for --config
+                           ~/.config/logicmonitor/credentials/<NAME>.ini
 
   -i, --access_id TEXT     API token access id
   -k, --access_key TEXT    API token access key
@@ -450,9 +453,6 @@ Commands:
 
   WidgetList                      Get widget list
   WidgetListByDashboardId         Get widget list by dashboardid
-
-  default config file:
-  /home/user/.config/logicmonitor/credentials/config.ini
 ```
 <!-- elm-help-start -->
 ```text

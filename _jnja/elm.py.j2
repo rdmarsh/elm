@@ -46,9 +46,23 @@ import click_config_file
 import truststore
 truststore.inject_into_ssl()
 
-{% for command in commands -%}
-from _cmds import {{ command.command }}
-{% endfor %}
+import importlib
+
+class LazyGroup(click.Group):
+    """Click Group that defers command module imports until the command is invoked."""
+    def __init__(self, *args, lazy_subcommands=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lazy_subcommands = lazy_subcommands or {}
+
+    def list_commands(self, ctx):
+        return sorted(self.lazy_subcommands.keys())
+
+    def get_command(self, ctx, cmd_name):
+        if cmd_name in self.lazy_subcommands:
+            module = importlib.import_module(self.lazy_subcommands[cmd_name])
+            return getattr(module, cmd_name)
+        return super().get_command(ctx, cmd_name)
+
 logger = logging.getLogger()
 FORMAT = "%(levelname)07s %(asctime)s %(filename)s:%(lineno)s %(funcName)s %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -146,10 +160,18 @@ def enforce_config_perms(config_path):
 
 enforce_config_perms(config_file)
 
-@click.group(epilog='default config file: ' + click.format_filename(config_file))
+@click.group(
+    cls=LazyGroup,
+    lazy_subcommands={
+        {% for command in commands -%}
+        '{{ command.command }}': '_cmds.{{ command.command }}',
+        {% endfor %}
+    },
+)
+
 @click_config_file.configuration_option(config_file_name=config_file, callback=_capture_config_path)
 @click.option('-l', '--list',         is_flag=True, is_eager=True, expose_value=False, callback=_list_profiles_callback, help='List available credential profiles and exit')
-@click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name — shorthand for --config ' + _creds_dir + '/<NAME>.ini')
+@click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name — shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini')
 @click.option('-i', '--access_id',    help='API token access id')
 @click.option('-k', '--access_key',   help='API token access key')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name')
@@ -168,6 +190,10 @@ enforce_config_perms(config_file)
 @click.pass_context
 def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, export, halt_on_api_error, cacert, profile):
     """A cli interface for extracting LogicMonitor data via the api
+
+    Default config: ~/.config/logicmonitor/credentials/config.ini
+
+    Use -l/--list to show available credential profiles.
 
     See https://github.com/rdmarsh/elm for more information"""
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
@@ -230,8 +256,5 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     logging.info('cacert: %s', cacert)
     ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, export, halt_on_api_error, cacert)
 
-{% for command in commands -%}
-cli.add_command({{ command.command }}.{{ command.command }}, name='{{ command.command }}')
-{% endfor %}
 if __name__ == '__main__':
     cli()

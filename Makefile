@@ -89,7 +89,7 @@ pyiworkdir := _build
 pyidistdir := _dist
 testbin := $(pyidistdir)/$(name)/$(name)
 PYINST ?= $(VENV)/bin/pyinstaller
-PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=pandas --collect-all=numpy --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm
+PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=_cmds --collect-all=pandas --collect-all=numpy --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm
 
 # SWAGGER PATHS AND API VERSION
 # ---------------------------------------
@@ -244,7 +244,11 @@ render: init ## Make python commands from templates and install requirements
 	$(MAKE) _render
 	@echo "$(OK_STRING) $@"
 
-_render: engine.$(PY) $(prog) elm-completion.bash
+_render: engine.$(PY) $(prog) elm-completion.bash $(cmddir)/__init__.$(PY)
+
+$(cmddir)/__init__.$(PY): | $(cmddir)
+	touch $@
+	@echo "$(OK_STRING) $@"
 
 elm-completion.bash: $(jnjdir)/elm-completion.bash.$(J2) $(defdir)/commands.$(JSN) | JINJA-exists
 	$(JINJA) $^ $(OUTPUT_OPTION)
@@ -272,6 +276,7 @@ _build: $(pyidistdir)/$(name)/$(name)
 $(pyidistdir)/$(name)/$(name): reqs | PYTHON-exists PYINST-exists
 	$(PIP) $(PIPFLAGS) $(EDITABLE) .
 	$(PYINST) $(PYINSTFLAGS) $(prog)
+	uname -s | grep -q Darwin && codesign --force --deep --sign - $(pyidistdir)/$(name) || true
 	@echo "$(OK_STRING) $@"
 
 .PHONY: completion
@@ -296,7 +301,7 @@ install: $(bindir)/$(name) cfg completion ## (Re)installs the script and modifie
 	@echo "$(OK_COLOR)>>> Finished <<<$(NO_COLOR)"
 	@echo
 	@echo "You can now run '$(OK_COLOR)elm$(NO_COLOR)' from anywhere on the cli"
-	@echo "$(WR_COLOR)Note:$(NO_COLOR) The first run may take longer than usual"
+	@uname -s | grep -q Darwin && echo "$(WR_COLOR)Note:$(NO_COLOR) macOS may take 10-15 seconds on first run while loading the binary into cache - only happens once per install" || true
 	@echo
 	@echo "$(OK_STRING) $@"
 
@@ -358,6 +363,10 @@ testbasic: ## Test basic flags
 	@echo testing: --list marks default profile active ; $(testbin) --list | grep -q '^\* config'
 	@echo testing: --help includes --list ; $(testbin) --help | grep -q -- '--list'
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
+	@$(foreach cmd,$(TSTTARGETS), \
+		echo testing: $(testbin) $(cmd) --help ;\
+		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\
+		)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testtext

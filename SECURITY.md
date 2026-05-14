@@ -7,8 +7,8 @@ hit a bug or vulnerability, pull the latest source and recompile.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.7.10  | :white_check_mark: |
-| < 1.7.10 | :x:               |
+| 1.8.0   | :white_check_mark: |
+| < 1.8.0 | :x:               |
 
 ## Security History
 
