@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Documented `-i`/`--access_id` and `-k`/`--access_key` global flags in
+  `elm-notes.yaml`. These override the config file values; LM logs the
+  supplied `access_id` verbatim as the `username` field in `AuditLogList`.
+  Confirmed by live test.
 - Documented LM API behaviour: `AuditLogList` entries with `username: "(update)"`
   are not redacted or substituted — LM logs the raw `access_id` as the username
   field. The string `(update)` is the literal credential value configured in the
