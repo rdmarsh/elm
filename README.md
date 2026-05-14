@@ -31,6 +31,7 @@ platform.
       * [Initial Configuration](#initial-configuration)
       * [Install in PATH](#install-in-path)
       * [Development](#development)
+      * [API speed test](#api-speed-test)
       * [AdminById help](#adminbyid-help)
    * [Examples](#examples)
    * [Errors](#errors)
@@ -458,6 +459,29 @@ Commands:
 ```text
 ```
 <!-- elm-help-end -->
+
+### API speed test
+
+`elm-speedtest.sh` times the LM API response for each credential profile
+across a set of endpoints. Useful for comparing latency across portals or
+networks. Credentials are kept in memory only — never written to disk. If
+any profile has identical credentials to `config`, `config` is skipped
+automatically to avoid duplicate results.
+
+```shell
+# default endpoints (AdminList, DeviceList, AuditLogList)
+./elm-speedtest.sh
+
+# custom endpoints
+./elm-speedtest.sh ReportList DeviceGroupList WebsiteList
+```
+
+Available list endpoints:
+`AdminList` `AlertRuleList` `ApiTokenList` `CollectorGroupList` `CollectorList`
+`ConfigSourceList` `DashboardGroupList` `DatasourceList` `DeviceGroupList`
+`DeviceList` `EscalationChainList` `EventSourceList` `IntegrationList`
+`NetscanList` `RecipientGroupList` `ReportGroupList` `ReportList` `RoleList`
+`SDTList` `WebsiteGroupList` `WebsiteList`
 
 ### AdminById help
 
