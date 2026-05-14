@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Documented LM API bug: `!:` (not-equals) and `!~` (not-contains) filter
+  operators are silently ignored or misapplied on several endpoints
+  (`AuditLogList username`, `AlertList cleared`). elm sends the correct
+  URL-encoded filter — the bug is upstream. Workaround: use positive
+  operators and filter client-side with jq. Tracked as upstream bug
+  [#48](https://github.com/rdmarsh/elm/issues/48).
+
 ## [1.7.9] - 2026-05-14
 
 ### Added
