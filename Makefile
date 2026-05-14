@@ -301,7 +301,7 @@ install: $(bindir)/$(name) cfg completion ## (Re)installs the script and modifie
 	@echo "$(OK_COLOR)>>> Finished <<<$(NO_COLOR)"
 	@echo
 	@echo "You can now run '$(OK_COLOR)elm$(NO_COLOR)' from anywhere on the cli"
-	@uname -s | grep -q Darwin && echo "$(WR_COLOR)Note:$(NO_COLOR) macOS may take 10-15 seconds on first run while loading the binary into cache - only happens once per install" || true
+	@uname -s | grep -q Darwin && echo "$(WR_COLOR)Note:$(NO_COLOR) macOS may take up to 30 seconds on first run while verifying the binary - only happens once per install" || true
 	@echo
 	@echo "$(OK_STRING) $@"
 
