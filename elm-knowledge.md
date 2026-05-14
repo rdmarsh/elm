@@ -85,6 +85,19 @@ There is no server-side "is empty" operator for array fields. Use jq:
 elm WebsiteList -s0 | jq '.WebsiteList[] | select(.properties | length == 0) | .name'
 ```
 
+### NOT filter operators are broken on some endpoints
+
+`!:` (not-equals) and `!~` (not-contains) are silently ignored or produce wrong results on several endpoints including AuditLogList and AlertList. elm constructs and sends the correct URL — the bug is in the LM API. Positive operators (`:`, `~`) work reliably everywhere.
+
+Workaround: fetch with a positive filter (or no filter) and exclude client-side with jq:
+
+```shell
+# Instead of: elm AuditLogList -F username!:foo
+elm -f json AuditLogList -s0 | jq '.AuditLogList[] | select(.username != "foo")'
+```
+
+For AlertList use the positive form where possible — `cleared:false` works, `cleared!:true` does not.
+
 ### `--format TEXT` on some commands is an LM API parameter, not elm's format flag
 
 Several commands (AuditLogList, ConfigSourceList, DatasourceList, EventSourceList, JobMonitorList, LogSourceList, PropertyRulesList) accept a `--format TEXT` option that is passed directly to the LM API — it is not elm's output format selector. Setting it to `csv` causes a JSONDecodeError because the API returns raw CSV that elm cannot parse. Always use elm's global `-f`/`--format` flag (before the subcommand name) for output formatting.

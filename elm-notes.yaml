@@ -519,6 +519,14 @@ AuditLogList:
   path: /setting/accesslogs
   unique_options:
     format: "--format TEXT — LM API format param; DO NOT USE — causes JSONDecodeError when set to csv (API returns raw CSV that elm cannot parse); use elm's global --format flag instead"
+  gotchas:
+    - "NOT operators (!: and !~) are silently broken on this endpoint — elm constructs
+      and sends the correct URL but the API returns results from an unexpected time window
+      rather than applying the exclusion. Use positive operators (: and ~) and filter
+      client-side with jq for exclusions:
+        elm -f json AuditLogList -s0 | jq '.AuditLogList[] | select(.username != \"foo\")'"
+    - "Max 1000 records. Without a filter you get the 1000 most recent; with a positive
+      filter (~, :) you get up to 1000 matching records from the full history."
   key_fields:
     id:             integer
     username:       string
