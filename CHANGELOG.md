@@ -10,9 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `elm-speedtest.sh` — times LM API response per credential profile across
   configurable endpoints. Runs each endpoint N times and reports averages.
   Credentials kept in memory only (never written to disk). Automatically
-  skips `config` if any other profile has identical credentials. Usage:
-  `./elm-speedtest.sh` (defaults: AdminList, DeviceList, AuditLogList) or
-  `./elm-speedtest.sh ReportList DeviceGroupList WebsiteList`.
+  skips `config` if any other profile has identical credentials. Shows short
+  hostname at top for easy sharing. Column widths adapt to endpoint name
+  length. Usage: `./elm-speedtest.sh` (defaults: AdminList, DeviceList,
+  AuditLogList) or `./elm-speedtest.sh ReportList DeviceGroupList WebsiteList`.
 
 ## [1.8.0] - 2026-05-14
 
