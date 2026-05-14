@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.9] - 2026-05-14
+
+### Added
+- `elm --list` / `elm -l` lists available credential profiles from the
+  credentials directory and exits. The active profile is marked with `*`.
+  Works without valid credentials (eager flag, exits before auth check).
+  Correctly reflects `--profile NAME` when combined: `elm --profile preprod --list`
+  marks `preprod *`. `config.example.ini` is excluded from the listing.
+
 ## [1.7.8] - 2026-05-14
 
 ### Fixed

@@ -67,6 +67,38 @@ Dev loop: make clean && make && make install && cp -r _dist/elm/* ~/bin
   2.x sources it automatically.
 
 
+## Credential profiles
+
+elm supports multiple credential profiles:
+
+- `--profile NAME` resolves to `~/.config/logicmonitor/credentials/<NAME>.ini`
+- `--config PATH` accepts a full path to any .ini file in any directory
+- `elm --list` (or `elm -l`) lists all available profiles and exits, marking
+  the active one with `*`. Use this instead of reading the credentials directory.
+
+Profile naming convention:
+- `config.ini` is always the default and should always point to the safest
+  environment (sandbox/test). Do not put production credentials here.
+- Non-default environments get explicit names (e.g. `preprod.ini`, `prod.ini`)
+  and must be selected deliberately with `--profile`.
+- `config.example.ini` is not a real profile — it is skipped by `elm --list`.
+
+At the start of any session involving live API calls:
+
+1. Run `elm --list` to see what profiles are available and which is active.
+
+2. For testing, development, and learning: always use the default `config`
+   profile (i.e. no --profile flag).
+
+3. For audits or cross-platform work: run `elm --list`, then ask "Which
+   platform do you want to check?" and pass `--profile NAME` for each
+   non-default environment. Example:
+       elm --profile preprod AuditLogList -s0 ...
+
+4. Never read the contents of .ini files — they contain credentials. Only
+   `elm --list` to discover what profiles are available.
+
+
 ## LM API
 
 - REST API v2 (v1 also supported via apiversion=1 make variable)

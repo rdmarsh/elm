@@ -80,6 +80,23 @@ def _capture_config_path(ctx, param, value):
         _resolved_config_file = value
     return value
 
+def _list_profiles_callback(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    try:
+        names = sorted(
+            f[:-4] for f in os.listdir(_creds_dir)
+            if f.endswith('.ini') and f != 'config.example.ini'
+        )
+    except OSError as e:
+        click.echo(f'Cannot read credentials directory: {e}', err=True)
+        ctx.exit(1)
+    active = os.path.splitext(os.path.basename(_resolved_config_file))[0]
+    for name in names:
+        prefix = '* ' if name == active else '  '
+        click.echo(prefix + name)
+    ctx.exit()
+
 
 class ELM(object):
     """Load config and hold the state for cli tool"""
@@ -131,6 +148,7 @@ enforce_config_perms(config_file)
 
 @click.group(epilog='default config file: ' + click.format_filename(config_file))
 @click_config_file.configuration_option(config_file_name=config_file, callback=_capture_config_path)
+@click.option('-l', '--list',         is_flag=True, is_eager=True, expose_value=False, callback=_list_profiles_callback, help='List available credential profiles and exit')
 @click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name — shorthand for --config ' + _creds_dir + '/<NAME>.ini')
 @click.option('-i', '--access_id',    help='API token access id')
 @click.option('-k', '--access_key',   help='API token access key')
