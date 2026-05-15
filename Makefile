@@ -313,7 +313,7 @@ hooks: ## Install git hooks (run once after cloning)
 .PHONY: docs
 docs: $(testbin) ## Inject elm --help output into README.md between marker comments
 	$(testbin) --help | sed 's|$(HOME)|/home/user|g' > /tmp/elm_help.txt
-	$(AWK) '/<!-- elm-help-start -->/{print; print "```text"; while ((getline line < "/tmp/elm_help.txt") > 0) print line; print "```"; skip=1; next} /<!-- elm-help-end -->/{skip=0} !skip{print}' README.md > /tmp/README_tmp.md
+	$(AWK) '/^<!-- elm-help-start -->$$/{print; print "```text"; while ((getline line < "/tmp/elm_help.txt") > 0) print line; print "```"; skip=1; next} /^<!-- elm-help-end -->$$/{skip=0} !skip{print}' README.md > /tmp/README_tmp.md
 	mv /tmp/README_tmp.md README.md
 	rm /tmp/elm_help.txt
 	@echo "$(OK_STRING) $@"
