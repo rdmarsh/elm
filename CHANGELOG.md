@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-05-15
+
+### Added
+- Verbose mode (`-v`) now shows `Elapsed time: Xs` for each API request,
+  using `response.elapsed` (server + transfer time only, excludes elm
+  processing overhead).
+
+### Fixed
+- Verbose log message capitalisation: `Status code`, `Elapsed time`,
+  `Total records` now use consistent sentence case.
+
 ## [1.8.1] - 2026-05-15
 
 ### Added

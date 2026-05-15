@@ -126,7 +126,8 @@ def engine(elm, **kwargs):
 
         # Log response details
         logging.info('Response URL: %s', response.url)
-        logging.info('Status Code: %s', response.status_code)
+        logging.info('Status code: %s', response.status_code)
+        logging.info('Elapsed time: %.3fs', response.elapsed.total_seconds())
         logging.debug('Response Content: %s', response.content)
 
     except requests.RequestException as e:
@@ -189,7 +190,7 @@ def engine(elm, **kwargs):
             "isMin": False
         }
 
-    logging.info('total records: %s', obj.get('total', None))
+    logging.info('Total records: %s', obj.get('total', None))
     logging.debug('searchId: %s', obj.get('searchId', None))
     logging.debug('isMin: %s', obj.get('isMin', None))
     logging.debug('obj: %s', obj)
