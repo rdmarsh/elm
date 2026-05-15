@@ -226,7 +226,8 @@ Options:
   -s, --proxy <HOST PORT>  Socks5 proxy address and port
   -f, --format FORMAT      Output format: csv, tsv, json, jsonl, prettyjson,
                            xml, prettyxml, html, prettyhtml, gfm, pipe, jira,
-                           latex, md, rst, tab, raw, txt, api  [default: json]
+                           latex, md, rst, tab, raw, txt, api, curl, wget
+                           [default: json]
 
   -H, --noheader           Hide the column headers  [default: False]
   -I, --index              Show the row indices  [default: False]

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-05-15
+
+### Added
+- `curl` output format — prints a ready-to-run `curl -H "Authorization: ..."` command
+  for copy-paste use. Makes the API request but outputs the command instead of data.
+- `wget` output format — prints a ready-to-run `wget -O - --header="Authorization: ..."`
+  command for copy-paste use. `-O -` sends output to stdout. Same caveats as `curl`
+  and `api` formats: HMAC signature is time-limited and contains credentials.
+
 ## [1.8.2] - 2026-05-15
 
 ### Added

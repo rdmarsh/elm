@@ -121,7 +121,7 @@ REQSOURCES = $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"req
 NONREQTARGETS = $(filter-out ExternalApiStats $(REQSOURCES),$(TSTTARGETS))
 
 # All output formats supported by elm
-FORMATS_ALL = csv html prettyhtml jira json jsonl prettyjson xml prettyxml gfm latex md pipe rst tab tsv raw txt api
+FORMATS_ALL = csv html prettyhtml jira json jsonl prettyjson xml prettyxml gfm latex md pipe rst tab tsv raw txt api curl wget
 # Formats that support -H (hide headers) and -I (show index) flags (excludes json, jsonl, prettyjson, xml, prettyxml, raw, api)
 FORMATS_HDR = csv html prettyhtml jira gfm latex md pipe rst tab tsv txt
 # Formats that support --head and --foot custom text (text-based table formats only)
@@ -362,6 +362,8 @@ testbasic: ## Test basic flags
 	@echo testing: --list marks default profile active ; $(testbin) --list | grep -q '^\* config'
 	@echo testing: --help includes --list ; $(testbin) --help | grep -q -- '--list'
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
+	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
+	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
 	@$(foreach cmd,$(TSTTARGETS), \
 		echo testing: $(testbin) $(cmd) --help ;\
 		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\

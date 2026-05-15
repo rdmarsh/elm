@@ -198,6 +198,10 @@ def engine(elm, **kwargs):
     if elm.format == "api":
         click.echo(response.url)
         click.echo("Authorization: " + auth)
+    elif elm.format == "curl":
+        click.echo('curl -H "Authorization: ' + auth + '" "' + response.url + '"')
+    elif elm.format == "wget":
+        click.echo('wget -O - --header="Authorization: ' + auth + '" "' + response.url + '"')
     elif 'total' in flags:
         logging.debug('total is a flag, showing total instead')
         if obj['total'] < 0:
