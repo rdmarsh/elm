@@ -161,6 +161,7 @@ def enforce_config_perms(config_path):
 enforce_config_perms(config_file)
 
 @click.group(
+    context_settings=dict(help_option_names=['-h', '--help']),
     cls=LazyGroup,
     lazy_subcommands={
         {% for command in commands -%}

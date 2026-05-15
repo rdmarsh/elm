@@ -175,8 +175,6 @@ venv/bin/python3 -m pip install --editable .
 venv/bin/pyinstaller  --workpath _build --distpath _dist --noconfirm --clean elm.py
 ```
 
-(Note the trailing ".")
-
 You could run the binary from `_dist/elm/elm` if you want, but it is
 recommended to copy the binary to a dir that you can add to PATH. See
 steps under the "Quick Start" section above.
@@ -495,7 +493,7 @@ Options:
   --halt-on-api-error      Halt on API response errors
   --cacert FILE            Path to CA certificate bundle for SSL verification
   -V, --version            Show the version and exit.
-  --help                   Show this message and exit.
+  -h, --help               Show this message and exit.
 
 Commands:
   AccessGroupById                 Get access group by id

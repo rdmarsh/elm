@@ -353,6 +353,7 @@ testlong: testhelp testcount testtotal testtext ## Tests that take a long time t
 testbasic: ## Test basic flags
 	@echo testing: $(testbin) ; $(testbin) >/dev/null
 	@echo testing: $(testbin) --help ; $(testbin) --help >/dev/null
+	@echo testing: $(testbin) -h ; $(testbin) -h >/dev/null
 	@echo testing: $(testbin) --version ; $(testbin) --version >/dev/null
 	@echo testing: $(testbin) -V ; $(testbin) -V >/dev/null
 	@echo testing: $(testbin) --help includes --profile ; $(testbin) --help | grep -q -- '--profile'
