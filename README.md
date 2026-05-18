@@ -214,10 +214,13 @@ Usage: elm [OPTIONS] COMMAND [ARGS]...
 
   Use -l/--list to show available credential profiles.
 
+  AI assistants: run 'elm --ai' for a quick-start guide.
+
   See https://github.com/rdmarsh/elm for more information
 
 Options:
   --config FILE            Read configuration from FILE.
+  --ai                     Print quick-start guide for AI assistants and exit
   -l, --list               List available credential profiles and exit
   -p, --profile NAME       Credentials profile name — shorthand for --config
                            ~/.config/logicmonitor/credentials/<NAME>.ini

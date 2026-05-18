@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.5] - 2026-05-18
+
+### Added
+- `--ai` flag — prints a quick-start guide for AI assistants and exits. Covers
+  command structure, key flags, filter operators, output formats, and response
+  wrapping; points to `elm-notes.yaml`, `elm-knowledge.md`, and `examples/` in
+  the repo for deeper reference. Loads without credentials, same as `--version`
+  and `--list`.
+- `elm --help` description now includes "AI assistants: run 'elm --ai' for a
+  quick-start guide" so a cold-start AI running `--help` finds it immediately.
+
 ## [1.8.4] - 2026-05-15
 
 ### Added

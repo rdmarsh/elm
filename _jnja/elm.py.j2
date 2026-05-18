@@ -111,6 +111,68 @@ def _list_profiles_callback(ctx, param, value):
         click.echo(prefix + name)
     ctx.exit()
 
+def _ai_guide_callback(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo("""\
+elm -- quick-start guide for AI assistants
+===========================================
+
+elm is a READ-ONLY CLI for extracting data from LogicMonitor via the REST API.
+Source, docs, and examples: https://github.com/rdmarsh/elm
+
+CRITICAL: global flags must come BEFORE the subcommand name.
+  elm -f csv DeviceList -s0    # correct
+  elm DeviceList -f csv -s0    # wrong: -f here is --fields, not --format
+
+KEY GLOBAL FLAGS
+  -l, --list          List available credential profiles and exit
+  -p, --profile NAME  Select a credentials profile
+  -f, --format FORMAT Output format (default: json)
+  -V, --version       Show version and exit
+  -h, --help          Show help and exit
+
+KEY SUBCOMMAND FLAGS (most commands support these)
+  -s, --size N     Results per page; 0 = all up to 1000 (default: 50)
+  -o, --offset N   Pagination offset
+  -f, --fields F   Comma-separated field names to return
+  -F, --filter F   Filter expression; multiple -F flags are AND'd
+  -S, --sort F     Sort field (+field asc, -field desc)
+  -c, --count      Count matching results (respects -F)
+  -C, --total      Count ALL objects (ignores -s and -F)
+
+OUTPUT FORMAT
+  Responses are wrapped: {"CommandName": [{...}, ...]}
+  Default size is 50 -- pass -s0 to get all results (up to 1000).
+
+FILTER OPERATORS
+  :    equals         ~    contains (substring)
+  !:   not equals     !~   does not contain
+  >:   >=             <:   <=
+  >    greater than   <    less than
+  Multiple -F flags are AND'd. No OR support.
+  WARNING: !: and !~ are silently ignored on some LM API endpoints (upstream bug).
+  Workaround: use positive filter + client-side jq exclusion.
+
+OUTPUT FORMATS
+  json  prettyjson  jsonl  csv  tsv  xml  prettyxml  html  prettyhtml
+  gfm   pipe        md     rst  latex  jira  tab  raw  txt  api  curl  wget
+
+PROFILES
+  Run: elm --list    to see available credential profiles.
+  The default profile (config) points to a safe sandbox/test environment.
+  Use --profile NAME to select a non-default profile.
+
+FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
+  elm-notes.yaml      per-command notes, required params, filter gotchas
+  elm-knowledge.md    LM API patterns, field reference, datasource methods
+  examples/           topic files with working command patterns
+  README.md           full usage, output format reference, install notes
+
+  Read elm-notes.yaml before running unfamiliar commands.\
+""")
+    ctx.exit()
+
 
 class ELM(object):
     """Load config and hold the state for cli tool"""
@@ -171,6 +233,7 @@ enforce_config_perms(config_file)
 )
 
 @click_config_file.configuration_option(config_file_name=config_file, callback=_capture_config_path)
+@click.option('--ai',                 is_flag=True, is_eager=True, expose_value=False, callback=_ai_guide_callback,    help='Print quick-start guide for AI assistants and exit')
 @click.option('-l', '--list',         is_flag=True, is_eager=True, expose_value=False, callback=_list_profiles_callback, help='List available credential profiles and exit')
 @click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name — shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini')
 @click.option('-i', '--access_id',    help='API token access id')
@@ -195,6 +258,8 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     Default config: ~/.config/logicmonitor/credentials/config.ini
 
     Use -l/--list to show available credential profiles.
+
+    AI assistants: run 'elm --ai' for a quick-start guide.
 
     See https://github.com/rdmarsh/elm for more information"""
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called

@@ -362,6 +362,9 @@ testbasic: ## Test basic flags
 	@echo testing: $(testbin) -l ; $(testbin) -l >/dev/null
 	@echo testing: --list marks default profile active ; $(testbin) --list | grep -q '^\* config'
 	@echo testing: --help includes --list ; $(testbin) --help | grep -q -- '--list'
+	@echo testing: $(testbin) --ai ; $(testbin) --ai >/dev/null
+	@echo testing: --ai output includes elm-notes.yaml ; $(testbin) --ai | grep -q 'elm-notes.yaml'
+	@echo testing: --help includes --ai ; $(testbin) --help | grep -q -- '--ai'
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
