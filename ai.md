@@ -153,6 +153,20 @@ The goal is improving the system that produced them.
 
 ---
 
+### 10. Prefer simple, readable code
+
+Write the simplest code that correctly solves the problem.
+
+- Readable and explicit beats clever and compact.
+- A future reader — or the same person at 3am — should understand the code without reverse-engineering it.
+- If a solution surprised you when you wrote it, it will surprise the next reader too.
+- Three clear lines beat one clever expression.
+- Avoid unnecessary abstraction, indirection, and generality.
+
+AI tools tend toward impressive-looking solutions. Push back on complexity that is not earned by the problem.
+
+---
+
 # Recommended AI Behaviour Rules
 
 ## General behaviour
@@ -189,6 +203,7 @@ Preserve intentional diagnostics and documentation.
 - If a comment, log line, or debug statement should be removed, say so and let the author decide.
 - Avoid speculative refactors unrelated to the task.
 - Prefer minimal, reviewable diffs.
+- Write the simplest code that solves the problem. Avoid clever solutions when a straightforward one exists.
 
 Before making architectural changes:
 - explain the reasoning

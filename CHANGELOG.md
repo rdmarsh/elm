@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- `ai.md`: added principle #10 — prefer simple, readable code over clever solutions; added matching bullet to "Working with code" behaviour rules.
+
 ## [1.8.5] - 2026-05-18
 
 ### Added
