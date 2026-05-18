@@ -642,6 +642,20 @@ DeviceInstanceList:
   gotchas:
     - "Uses --id not --deviceId (unlike most device-scoped commands)"
     - "dataSourceName not returned — join to DeviceDatasourceList on deviceDataSourceId if needed"
+    - "-C gives instance count, NOT datapoint count — an instance (e.g. SNMP_Filesystem_Status-/var) has multiple datapoints (SpaceUsed, SpaceUsedPercent, ...)"
+  patterns:
+    count_instances: "elm DeviceInstanceList --id <deviceId> -C"
+    count_datapoints: |
+      # Total datapoints across all instances on a device (instances x datapoints per datasource).
+      # Note: counts all configured datapoints — does not verify that all have active data.
+      elm DeviceInstanceList --id <deviceId> -s0 \
+        | jq -r '.DeviceInstanceList | group_by(.dataSourceId)[] | "\(.[0].dataSourceId) \(length)"' \
+        | while read ds_id inst_count; do
+            dp_count=$(elm DatasourceById --id $ds_id -f dataPoints \
+              | jq '.DatasourceById[0].dataPoints | length')
+            echo $((dp_count * inst_count))
+          done \
+        | awk '{sum += $1} END {print sum}'
 
 DeviceConfigSourceConfigList:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{instanceId}/config

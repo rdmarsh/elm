@@ -123,6 +123,38 @@ Several commands (AuditLogList, ConfigSourceList, DatasourceList, EventSourceLis
 
 ---
 
+## Counting instances and datapoints on a device
+
+### Instance count vs datapoint count
+
+These are different things:
+
+- **Instance count** — number of monitored objects (e.g. 33 filesystems, processes, interfaces).
+  One call: `elm DeviceInstanceList --id <deviceId> -C`
+
+- **Datapoint count** — total individual metrics being collected across all instances
+  (e.g. each filesystem instance collects SpaceUsed, SpaceUsedPercent, Inodes... = ~8 datapoints).
+  No single endpoint — requires one `DatasourceById` call per unique datasource.
+
+### Count datapoints on a device
+
+Groups instances by datasource so each datasource definition is fetched only once, then
+multiplies datapoints × instance count per datasource and sums. Note: counts all *configured*
+datapoints — does not verify that all instances have active data collection.
+
+```shell
+elm DeviceInstanceList --id <deviceId> -s0 \
+  | jq -r '.DeviceInstanceList | group_by(.dataSourceId)[] | "\(.[0].dataSourceId) \(length)"' \
+  | while read ds_id inst_count; do
+      dp_count=$(elm DatasourceById --id $ds_id -f dataPoints \
+        | jq '.DatasourceById[0].dataPoints | length')
+      echo $((dp_count * inst_count))
+    done \
+  | awk '{sum += $1} END {print sum}'
+```
+
+API calls: 1 + unique datasources on the device (typically much less than total instance count).
+
 ## LM API — key patterns
 
 ### Prefer elm native filters over jq
