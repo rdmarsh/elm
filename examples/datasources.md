@@ -8,6 +8,9 @@ Queries relating to datasources, datasource coverage, and which devices have a d
 
 <!--ts-->
    * [Find devices that don't have a datasource applied](#find-devices-that-dont-have-a-datasource-applied)
+   * [Count instances and datapoints on a device](#count-instances-and-datapoints-on-a-device)
+      * [Instance count](#instance-count)
+      * [Datapoint count](#datapoint-count)
    * [meta](#meta)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
@@ -63,6 +66,44 @@ elm DeviceList -s0 -f id,displayName,hostStatus,collectorDescription \
 
 Devices with `hostStatus: normal` are the real gaps — `dead` or `dead-collector`
 devices won't collect NTP data regardless of whether the datasource is applied.
+
+## Count instances and datapoints on a device
+
+These are different things:
+
+- **Instance** — a monitored object, e.g. the filesystem `/var` on a device
+- **Datapoint** — an individual metric within an instance, e.g. `SpaceUsed`, `SpaceUsedPercent`
+
+### Instance count
+
+One API call using `-C`:
+
+```shell
+elm DeviceInstanceList --id <deviceId> -C
+```
+
+### Datapoint count
+
+No single endpoint returns total datapoints. This pipeline groups instances by
+datasource, fetches each unique datasource definition once, and multiplies
+datapoints × instance count:
+
+```shell
+elm DeviceInstanceList --id <deviceId> -s0 \
+  | jq -r '.DeviceInstanceList | group_by(.dataSourceId)[] | "\(.[0].dataSourceId) \(length)"' \
+  | while read ds_id inst_count; do
+      dp_count=$(elm DatasourceById --id $ds_id -f dataPoints \
+        | jq '.DatasourceById[0].dataPoints | length')
+      echo $((dp_count * inst_count))
+    done \
+  | awk '{sum += $1} END {print sum}'
+```
+
+API calls: 1 (`DeviceInstanceList`) + 1 per unique datasource on the device —
+typically much fewer than the total instance count.
+
+Note: this counts all *configured* datapoints. It does not verify that every
+instance has active data flowing.
 
 ## meta
 
