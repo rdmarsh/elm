@@ -108,6 +108,10 @@ This reduces:
 - stale assumptions
 - accidental behavioural drift
 
+Quality degrades as the context window fills — earlier instructions receive
+less reliable attention. Keep sessions short and let project files carry
+continuity instead.
+
 Persistent project files should carry the long-term memory instead.
 
 ---
@@ -204,6 +208,7 @@ Preserve intentional diagnostics and documentation.
 - Avoid speculative refactors unrelated to the task.
 - Prefer minimal, reviewable diffs.
 - Write the simplest code that solves the problem. Avoid clever solutions when a straightforward one exists.
+- When generating code, avoid reproducing verbatim patterns from known licensed sources. In commercial contexts, flag when a generated implementation closely resembles a specific known library or project.
 
 Before making architectural changes:
 - explain the reasoning
@@ -302,6 +307,9 @@ Confirm risky or irreversible operations explicitly each time:
 - dropping or overwriting data
 - force operations
 - modifying shared infrastructure
+
+When suggesting a shell command for the user to run, explain what it does
+before they run it. Flag anything destructive or hard to reverse.
 
 Unless standing permission is recorded in a durable config file that both the human and the AI can read, do not assume prior approval carries forward.
 

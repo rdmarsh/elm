@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `ai.md`: verification section now explicitly names hallucinated library APIs as the failure mode that "run the code" is defending against.
 - `ai.md`: added "Sensitive data in AI sessions" section — covers sanitizing examples before pasting, never pasting credentials, and documenting project-level placeholder conventions.
 - `ai.md`: added "Security review of AI-generated code" section — covers vulnerability patterns to check (injection, hardcoded secrets, insecure defaults, dependency vetting) and establishes a regular review cadence, not just point-of-generation checks.
+- `ai.md`: principle 6 (isolated sessions) now names the mechanism — context window degradation — not just the symptoms.
+- `ai.md`: "Working with code" now includes a note on copyright/IP — avoid reproducing verbatim patterns from known licensed sources.
+- `ai.md`: "Scope of authorisation" now instructs the AI to explain suggested shell commands before the user runs them and flag anything destructive.
 
 ## [1.8.5] - 2026-05-18
 
