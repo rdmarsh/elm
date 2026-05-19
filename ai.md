@@ -223,6 +223,25 @@ Document which files are generated and what produces them, in CLAUDE.md or equiv
 
 ---
 
+## Sensitive data in AI sessions
+
+AI tools are third-party services. Anything pasted into a session may be
+logged, retained, or used for training.
+
+Before pasting any content into an AI session:
+- Replace real account names, hostnames, IPs, and usernames with placeholders.
+- Never paste credential files, API keys, tokens, or secrets.
+- Sanitize log output and API responses before using them as examples.
+- Treat session contents as if they could be read by anyone.
+
+If a session needs to work with output that contains sensitive data, describe
+the structure rather than paste the content directly.
+
+Document the sanitization conventions for the project so the same placeholders
+are used consistently across examples, issues, and docs.
+
+---
+
 ## Verification and testing
 
 After each meaningful change:
@@ -238,6 +257,39 @@ Do not claim something works without verification.
 If verification cannot be performed:
 - say so explicitly
 - explain what remains unverified
+
+---
+
+## Security review of AI-generated code
+
+AI tools introduce security vulnerabilities. Generated code is syntactically
+plausible but may contain:
+- hardcoded credentials or secrets
+- command injection via string concatenation
+- missing input validation at system boundaries
+- insecure defaults
+- invented or malicious package suggestions
+
+Review all AI-generated code for these issues before accepting it. Tests
+passing is not a proxy for security — tests verify behaviour, not safety.
+
+When AI suggests adding a new package or dependency, verify it exists, is
+actively maintained, and has no known CVEs before adding it.
+
+### Ongoing reviews
+
+A single review at generation time is not sufficient. AI-contributed code
+accumulates, and issues missed initially may only surface in combination with
+later changes.
+
+Review AI-contributed code on a regular cadence — at minimum when a
+significant feature completes or when dependencies are updated:
+- check for the patterns above in recently added code
+- confirm no credentials or sensitive data were accidentally committed
+- check that new dependencies added on AI suggestion are still appropriate
+
+Record each review in the project journal: what was checked, what was found,
+what was fixed.
 
 ---
 

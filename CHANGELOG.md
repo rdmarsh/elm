@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - `ai.md`: added principle #10 — prefer simple, readable code over clever solutions; added matching bullet to "Working with code" behaviour rules.
 - `ai.md`: verification section now explicitly names hallucinated library APIs as the failure mode that "run the code" is defending against.
+- `ai.md`: added "Sensitive data in AI sessions" section — covers sanitizing examples before pasting, never pasting credentials, and documenting project-level placeholder conventions.
+- `ai.md`: added "Security review of AI-generated code" section — covers vulnerability patterns to check (injection, hardcoded secrets, insecure defaults, dependency vetting) and establishes a regular review cadence, not just point-of-generation checks.
 
 ## [1.8.5] - 2026-05-18
 
