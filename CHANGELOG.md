@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - `ai.md`: added principle #10 — prefer simple, readable code over clever solutions; added matching bullet to "Working with code" behaviour rules.
+- `ai.md`: verification section now explicitly names hallucinated library APIs as the failure mode that "run the code" is defending against.
 
 ## [1.8.5] - 2026-05-18
 

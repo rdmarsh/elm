@@ -231,6 +231,8 @@ After each meaningful change:
 - verify expected behaviour
 - report failures clearly
 
+AI tools will confidently cite library methods, function signatures, and config options that do not exist. Running the code is what catches this — static review is not sufficient, because a hallucinated method name is syntactically indistinguishable from a real one.
+
 Do not claim something works without verification.
 
 If verification cannot be performed:
