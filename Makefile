@@ -47,7 +47,6 @@ name := elm
 prog := $(name).$(PY)
 
 
-bakdir := ../$(name)_back
 cfgdir := $(HOME)/.config/logicmonitor/credentials
 bindir := $(HOME)/bin
 XDG_DATA_HOME ?= $(HOME)/.local/share
@@ -68,10 +67,6 @@ JINJA ?= venv/bin/jinja2
 # for testing non-required commands
 GREP ?= grep
 GREPFLAGS = -l
-
-# for backup
-TAR ?= tar
-TARFLAGS = -cvf
 
 #python
 PYTHON ?= python3
@@ -174,7 +169,7 @@ JQ-exists: ; @which $(JQ) || { echo "$(ER_STRING) $(JQ) not found"; exit 1; }
 # =======================================
 # do not change
 
-$(bakdir) $(cmddir) $(defdir) $(cfgdir) $(bindir):
+$(cmddir) $(defdir) $(cfgdir) $(bindir):
 	mkdir -p $@
 	chown $$(id -u):$$(id -g) $@
 	chmod 700 $@
@@ -483,11 +478,6 @@ fail: ## A failing test
 # BACKUP
 # =======================================
 # do not change
-
-.PHONY: back
-back: nomac $(bakdir) ## TAR and backup (eg ../name_backup/name.YYYY-MM-DD.tar.gz)
-	$(TAR) $(TARFLAGS) $(bakdir)/$(name).$(shell date +%Y-%m-%d).tar.gz .
-	@echo "$(OK_STRING) $@"
 
 .PHONY: clean
 clean: nomac ## Remove generated files

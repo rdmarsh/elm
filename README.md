@@ -109,7 +109,6 @@ are present by running `make init`)
 * `curl`
 * `jq`
 * `awk`
-* `tar` -- to back up files during dev
 * `git` -- to initially clone the repo
 * `python3`
 
@@ -153,20 +152,8 @@ See `config.example.ini` for a documented example config file
 
 ### Install in PATH
 
-To make the script accessible in your PATH, run:
-
-* `make install`
-
-which will execute:
-
-```shell
-venv/bin/python3 -m pip install --editable .
-venv/bin/pyinstaller  --workpath _build --distpath _dist --noconfirm --clean elm.py
-```
-
-You could run the binary from `_dist/elm/elm` if you want, but it is
-recommended to copy the binary to a dir that you can add to PATH. See
-steps under the "Quick Start" section above.
+Run `make install` to build the binary and copy it to `~/bin`. If `~/bin` is
+not in your PATH, see the steps under [Quick Start](#quick-start) above.
 
 ## Development
 
@@ -547,7 +534,6 @@ By participating, you agree to abide by its terms. See
 
 ## Links
 
-- Project Homepage: https://github.com/rdmarsh/elm
 - Repository: https://github.com/rdmarsh/elm
 - Issue Tracker: https://github.com/rdmarsh/elm/issues
 - Security Vulnerabilities: [SECURITY.md](SECURITY.md)
