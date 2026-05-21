@@ -1106,38 +1106,68 @@ CollectorList:
     hostname:           string
     platform:           string   # "linux" or "windows"
     arch:               string   # "Linux64", "Win64"
-    build:              string   # e.g. "38001"
-    status:             integer  # 1=up
-    collectorSize:      string   # nano/small/medium/large/extra_large/double_extra_large
+    build:              string   # e.g. "38001"; compare against CollectorVersionList for upgrade status
+    status:             integer  # 1=registered/present (not a health indicator; isDown is authoritative)
+    collectorSize:      string   # nano/small/medium/large/extra_large/double_extra_large/custom
     collectorGroupId:   integer
     collectorGroupName: string
-    collectorDeviceId:  integer  # device ID of the collector host
+    collectorDeviceId:  integer  # device ID of the collector host in LM; 0 = no device registered (no host-level metrics)
     numberOfHosts:      integer
-    numberOfInstances:  integer
+    numberOfInstances:  integer  # only meaningful for auto-balance groups; 0 for non-auto-balance
+    numberOfWebsites:   integer
     isDown:             boolean
     inSDT:              boolean
-    upTime:             integer  # seconds
+    upTime:             integer  # seconds since last agent start
+    backupAgentId:      integer  # 0 = no failover; non-zero = ID of backup collector
+    enableFailBack:     boolean  # true = devices auto-return to primary when it recovers
+    calculatedThreshold: float   # current load vs autoBalanceInstanceCountThreshold; only non-zero for auto-balance groups
+    acked:              boolean  # down alert has been acknowledged
+    nextUpgradeInfo:    object   # {majorVersion, minorVersion, mandatory, stable, upgradeTime, upgradeTimeEpoch}
+  gotchas:
+    - "collectorDeviceId=0 means the collector has no device record in LM -- you cannot query its host metrics (CPU, memory) via DeviceDatasourceInstanceData etc."
+    - "status is always 1 for all collectors including DOWN ones -- use isDown for real health status"
+    - "numberOfInstances is 0 for non-auto-balance collectors -- it only tracks auto-balance load distribution"
+    - "backupAgentId is a single value -- a collector can only have one backup; no chain failover"
+    - "enableFailBack only takes effect if backupAgentId is set; harmless but meaningless when 0"
+  patterns:
+    all_collectors_health: |
+      # Full health overview sorted by worst first (DOWN + most hosts = most urgent)
+      elm CollectorList -s0 -f id,hostname,isDown,numberOfHosts,numberOfInstances,build,backupAgentId,enableFailBack,collectorGroupName,collectorSize,collectorDeviceId
+    down_with_hosts: |
+      # DOWN collectors that still have hosts attached (devices are unmonitored)
+      elm CollectorList -s0 -F 'isDown:true' -f id,hostname,numberOfHosts,build,backupAgentId,collectorGroupName
+    no_backup: |
+      # Collectors with hosts but no backup (single point of failure)
+      # No direct API filter for backupAgentId:0 -- pipe through jq
+      elm CollectorList -s0 -f id,hostname,isDown,numberOfHosts,backupAgentId,collectorGroupName | \
+        jq '.CollectorList[] | select(.backupAgentId == 0 and .numberOfHosts > 0)'
+    old_builds: |
+      # Collectors below a build threshold -- replace 38000 with your minimum acceptable build
+      elm -f csv CollectorList -s0 -f id,hostname,isDown,numberOfHosts,build,collectorGroupName -F 'build<:38000' -S build
 
 CollectorById:
   path: /setting/collector/collectors/{id}
   required_params:
     id: integer
-  note: "Returns same fields as CollectorList plus predefinedConfig (size profiles) and full conf fields. predefinedConfig is large — use -f to exclude if not needed."
+  note: "Returns same fields as CollectorList plus predefinedConfig (size profiles) and full conf fields. predefinedConfig is large -- use -f to exclude if not needed."
   key_fields:
     id:                 integer
     description:        string
     build:              string
-    collectorGroupId:   integer   # myhost=<id> (myhost_collector_group)
+    collectorGroupId:   integer
     collectorGroupName: string
-    collectorDeviceId:  integer   # myhost=<id>
-    hostname:           string    # myhost="myhost"
+    collectorDeviceId:  integer
+    hostname:           string
     platform:           string
     collectorSize:      string
     numberOfHosts:      integer
     numberOfInstances:  integer
     isDown:             boolean
     upTime:             integer
-    predefinedConfig:   object    # size profiles (nano..double_extra_large) with agent.conf keys
+    backupAgentId:      integer
+    enableFailBack:     boolean
+    calculatedThreshold: float
+    predefinedConfig:   object    # size profiles (nano..double_extra_large) with requiredMemory and agent.conf/wrapper.conf/sbproxy.conf keys
 
 CollectorGroupById:
   path: /setting/collector/groups/{id}
@@ -1156,27 +1186,56 @@ CollectorGroupById:
 
 CollectorGroupList:
   path: /setting/collector/groups
-  note: "Standard list; no unique options. Verified via live test — 21 groups total."
+  note: "Standard list; no unique options. Verified via live test."
+  auto_balance_explained: |
+    When autoBalance=true, LM automatically redistributes devices between collectors in the
+    group as instance counts change. Key mechanics:
+    - autoBalanceInstanceCountThreshold: maximum instances per collector before rebalancing triggers
+    - autoBalanceStrategy: "none" = LM default strategy
+    - propertyForBalancing: "" = balance by instance count (most common); non-empty = balance
+      by a device property value (e.g. to pin devices to collectors by region or customer)
+    - calThreshold mirrors autoBalanceInstanceCountThreshold (same value, different field name)
+    - Auto-balance only works with 2+ collectors in the group; a single-collector auto-balance
+      group has nowhere to rebalance to
+    - CollectorList.calculatedThreshold shows a collector's current load vs the threshold;
+      only non-zero for collectors in auto-balance groups
+    - CollectorList.numberOfInstances reflects the actual instance count for load calculation;
+      0 for non-auto-balance collectors
+    - mismatchVersion=true means collectors in the group are on different builds -- can cause
+      inconsistent behaviour during rolling upgrades
   key_fields:
     id:                integer
     name:              string
     description:       string
     platform:          string   # "linux"/"windows" when autoBalance is on; "n/a" when off (verified)
     numOfCollectors:   integer
-    numOfHosts:        integer  # always 0 in list — CollectorGroupById returns correct count
-    numOfInstances:    integer  # always 0 in list — CollectorGroupById returns correct count (when autoBalance on); 0 in ById when autoBalance off
+    numOfHosts:        integer  # always 0 in list -- CollectorGroupById returns correct count
+    numOfInstances:    integer  # always 0 in list -- CollectorGroupById returns correct count (when autoBalance on); 0 in ById when autoBalance off
     autoBalance:       boolean
-    autoBalanceStrategy: string
-    autoBalanceInstanceCountThreshold: integer  # 0 when autoBalance is off
-    calThreshold:      integer  # 0 when autoBalance is off
+    autoBalanceStrategy: string  # "none" = LM default; other values undocumented
+    autoBalanceInstanceCountThreshold: integer  # 0 when autoBalance is off; max instances before rebalancing triggers
+    calThreshold:      integer  # mirrors autoBalanceInstanceCountThreshold (same value)
+    propertyForBalancing: string  # "" = balance by instance count; device property name to balance by property value
+    mismatchVersion:   boolean  # true if collectors in the group are on different builds
     customProperties:  array
-    highestPriorityCollectorStatus: object  # {acked, inSDT, isDown, status} — status value unreliable in list (verified: 1 in list vs 0 in ById for same group)
+    highestPriorityCollectorStatus: object  # {acked, inSDT, isDown, status} -- status value unreliable in list (verified: 1 in list vs 0 in ById for same group)
     userPermission:    string
   gotchas:
-    - "numOfHosts and numOfInstances are always 0 in list response — use CollectorGroupById for accurate counts (verified with autoBalance both on and off: list always 0, ById shows real values when autoBalance is on)"
-    - "numOfInstances in ById is only populated when autoBalance is on — 0 when off (it tracks load-balanced instance distribution)"
+    - "numOfHosts and numOfInstances are always 0 in list response -- use CollectorGroupById for accurate counts (verified with autoBalance both on and off: list always 0, ById shows real values when autoBalance is on)"
+    - "numOfInstances in ById is only populated when autoBalance is on -- 0 when off (it tracks load-balanced instance distribution)"
     - "platform shows 'n/a' when autoBalance is off, actual platform string when on"
-    - "highestPriorityCollectorStatus.status is unreliable in list response — consistently disagrees with ById for same group (1 vs 0 for id=64)"
+    - "highestPriorityCollectorStatus.status is unreliable in list response -- consistently disagrees with ById for same group (1 vs 0 for id=64)"
+    - "a group with autoBalance=true and numOfCollectors=1 cannot rebalance -- needs 2+ collectors to be useful"
+  patterns:
+    auto_balance_groups: |
+      # List all auto-balance groups with threshold and collector count
+      elm CollectorGroupList -s0 -F 'autoBalance:true' -f id,name,autoBalanceInstanceCountThreshold,numOfCollectors,platform,propertyForBalancing
+    multi_collector_not_balanced: |
+      # Groups with 2+ collectors but auto-balance off (missing rebalancing)
+      elm -f txt CollectorGroupList -s0 -F 'autoBalance:false,numOfCollectors>:2' -f id,name,autoBalance,numOfCollectors
+    version_mismatch_groups: |
+      # Groups where collectors are on different builds
+      elm CollectorGroupList -s0 -F 'mismatchVersion:true' -f id,name,mismatchVersion,numOfCollectors
 
 CollectorEvents:
   path: /setting/collector/collectors/{collectorId}/events
