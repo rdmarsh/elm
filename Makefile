@@ -7,7 +7,7 @@
 #   more info: make about
 #
 # elm Extract LogicMonitor
-# Copyright (C) 2021--2025 David Marsh rdmarsh@gmail.com
+# Copyright (C) 2021--2026 David Marsh rdmarsh@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -158,12 +158,13 @@ init: $(defdir)/commands.$(JSN) upgrade ## Check prerequisites, initialise dirs,
 # =======================================
 # do not change
 
-.PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists PYINST-exists
+.PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists AWK-exists PYINST-exists
 PYTHON-exists: ; @which $(PYTHON) || { echo "$(ER_STRING) $(PYTHON) not found"; exit 1; }
 PYINST-exists: ; @which $(PYINST) || { echo "$(ER_STRING) $(PYINST) not found"; exit 1; }
-CURL-exists: ; @which $(CURL) || { echo "$(ER_STRING) $(CURL) not found"; exit 1; }
-JINJA-exists: ; @which $(JINJA) || { echo "$(ER_STRING) $(JINJA) not found"; exit 1; }
-JQ-exists: ; @which $(JQ) || { echo "$(ER_STRING) $(JQ) not found"; exit 1; }
+CURL-exists:   ; @which $(CURL)   || { echo "$(ER_STRING) $(CURL) not found"; exit 1; }
+JINJA-exists:  ; @which $(JINJA)  || { echo "$(ER_STRING) $(JINJA) not found"; exit 1; }
+JQ-exists:     ; @which $(JQ)     || { echo "$(ER_STRING) $(JQ) not found"; exit 1; }
+AWK-exists:    ; @which $(AWK)    || { echo "$(ER_STRING) $(AWK) not found"; exit 1; }
 
 # REQ DIRS
 # =======================================
@@ -171,8 +172,6 @@ JQ-exists: ; @which $(JQ) || { echo "$(ER_STRING) $(JQ) not found"; exit 1; }
 
 $(cmddir) $(defdir) $(cfgdir) $(bindir):
 	mkdir -p $@
-	chown $$(id -u):$$(id -g) $@
-	chmod 700 $@
 	@echo "$(OK_STRING) $@"
 
 $(compdir):
@@ -475,7 +474,7 @@ testverb: ## Test the verbose flags                        (connects to LM)
 fail: ## A failing test
 	@echo test false ; false >/dev/null
 
-# BACKUP
+# CLEANUP
 # =======================================
 # do not change
 
@@ -513,7 +512,7 @@ about: ## About this Makefile
 .PHONY: copying
 copying: ## Copyright notice
 	@echo
-	@echo 'Copyright (C) 2021--2025 David Marsh'
+	@echo 'Copyright (C) 2021--2026 David Marsh'
 	@echo 'rdmarsh@gmail.com'
 	@echo
 	@echo 'This program is free software: you can redistribute it and/or modify'
@@ -528,7 +527,7 @@ copying: ## Copyright notice
 
 .PHONY: help
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make [flags] [option]\n"} /^[$$()% \.0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36mmake %-12s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@$(AWK) 'BEGIN {FS = ":.*##"; printf "\nUsage: make [flags] [option]\n"} /^[$$()% \.0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36mmake %-12s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo
 	@echo 'Useful make flags:'
 	@echo '  make -n   : dry run'

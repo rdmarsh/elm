@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `examples/collectors.md`: added collector health report section (all-collectors overview, DOWN with hosts, no-backup single points of failure, backup pair health); added auto-balance section (explanation, single-collector groups, mismatch groups); restructured build version section.
 - README: features bullet updated to "more than 20 formats" (avoids hardcoding a count); curl/wget moved out of format list and into a dedicated feature bullet; first-person removed from Development section; collectors example description updated; dead link reference with typo removed.
 - Makefile: removed `back` target and associated `bakdir`/`TAR`/`TARFLAGS` variables; superseded by git.
+- Makefile: copyright year bumped to 2026; `AWK-exists` prerequisite check added; `-exists` rules aligned; `# BACKUP` section renamed to `# CLEANUP`; directory creation rule simplified (removed redundant `chown`/`chmod`); `help` target uses `$(AWK)` variable.
+- `_jnja/elm.py.j2`: copyright year bumped to 2026.
 - README: removed `tar` from pre-requisites; simplified Install in PATH section.
 
 ## [1.8.6] - 2026-05-21
