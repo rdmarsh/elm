@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.6] - 2026-05-21
+
+### Added
+- Unknown field warning: when `-f` includes a field not returned by the API, a
+  warning is printed listing the missing field(s) with correct singular/plural
+  (`Warning: unknown field: foo` / `Warning: unknown fields: foo, bar`).
+- Both follow-on warnings suppressed when all requested fields are invalid and
+  `output()` has already reported `Error: no valid fields selected`.
+
 ### Changed
 - `ai.md`: added principle #10 — prefer simple, readable code over clever solutions; added matching bullet to "Working with code" behaviour rules.
 - `ai.md`: verification section now explicitly names hallucinated library APIs as the failure mode that "run the code" is defending against.
@@ -14,6 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `ai.md`: principle 6 (isolated sessions) now names the mechanism — context window degradation — not just the symptoms.
 - `ai.md`: "Working with code" now includes a note on copyright/IP — avoid reproducing verbatim patterns from known licensed sources.
 - `ai.md`: "Scope of authorisation" now instructs the AI to explain suggested shell commands before the user runs them and flag anything destructive.
+- Size limit warning reworded to `Warning: results truncated by size limit`.
+- Unknown total warning reworded to `Warning: total unknown, results may be truncated`.
+- `elm-notes.yaml`: added `appliesTo` filter and active/inactive check patterns to
+  `DatasourceList`; noted that `/* */` comments are common disable mechanism and
+  Python is more reliable than jq for stripping them.
 
 ## [1.8.5] - 2026-05-18
 

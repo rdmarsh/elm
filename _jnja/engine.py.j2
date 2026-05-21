@@ -206,7 +206,7 @@ def engine(elm, **kwargs):
         logging.debug('total is a flag, showing total instead')
         if obj['total'] < 0:
             # LM returns -(n_returned + 1) when it cannot compute an exact total
-            click.secho('Warning: total records unknown, there is data you are not seeing.',
+            click.secho('Warning: total unknown, results may be truncated',
                         fg='yellow', err=True)
             click.echo('>{}'.format(abs(obj['total']) - 1))
         else:
@@ -217,11 +217,22 @@ def engine(elm, **kwargs):
     else:
         output(obj['items'], elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
 
-        #give a warning if there are more records not shown
-        if 'size' in flags and (obj['total'] > flags['size'] or obj['total'] < 0):
-            click.secho('Warning: size limit is less than total records,'
-                        ' there is data you are not seeing.',
-                        fg='yellow', err=True)
+        #if output() found no valid fields it already reported an error — suppress follow-on warnings
+        returned = set(obj['items'][0].keys()) if obj['items'] else set()
+
+        if returned:
+            #give a warning if there are more records not shown
+            if 'size' in flags and (obj['total'] > flags['size'] or obj['total'] < 0):
+                click.secho('Warning: results truncated by size limit',
+                            fg='yellow', err=True)
+
+            #warn if any requested fields were not returned by the API
+            if 'fields' in flags:
+                missing = {f.strip() for f in flags['fields'].split(',')} - returned
+                if missing:
+                    label = 'field' if len(missing) == 1 else 'fields'
+                    click.secho('Warning: unknown {}: {}'.format(label, ', '.join(sorted(missing))),
+                                fg='yellow', err=True)
 
 def output(items, command, filename='-', format='json', noheader=False, index=False, head='', foot=''):
     import pandas as pd

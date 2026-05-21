@@ -312,6 +312,33 @@ DatasourceList:
   filter_patterns:
     - "name:NTPv4  # exact name match — use : not ~ when you know the exact name;
       avoids retrieving all 1000+ datasources"
+  patterns:
+    appliesTo_filter: |
+      # Find all datasources referencing a property in their AppliesTo expression
+      elm DatasourceList -F 'appliesTo~purestorage.apitoken.pass' -s0 -f name,displayName,appliesTo
+    appliesTo_active_check: |
+      # Distinguish active from disabled AppliesTo expressions.
+      #
+      # Two common disable patterns in LM:
+      #   1. /* purestorage.apitoken.pass */  — C-style comment wrapping
+      #   2. false() && purestorage.apitoken.pass — short-circuit AND
+      #
+      # jq can strip /* */ comments with gsub but cannot reliably detect all
+      # false() && (...) patterns. /* */ is widely used in this portal, so use
+      # Python for reliable active-vs-inactive checking:
+      elm DatasourceList -F 'appliesTo~purestorage.apitoken.pass' -s0 -f name,displayName,appliesTo | \
+        python3 -c "
+      import sys, re, json
+      data = json.load(sys.stdin)
+      for ds in data['DatasourceList']:
+          expr = ds.get('appliesTo', '')
+          stripped = re.sub(r'/\*.*?\*/', '', expr, flags=re.DOTALL)
+          if re.search(r'purestorage\.apitoken\.pass', stripped):
+              print(f\"{ds['name']}\t{ds['displayName']}\t{expr}\")
+      " | column -t -s$'\t'
+      #
+      # Replace 'purestorage.apitoken.pass' with any property or expression fragment.
+      # Note: false() && (...) still slips through — eyeball those rows.
 
 AssociatedDeviceListByDataSourceId:
   path: /setting/datasources/{id}/devices
