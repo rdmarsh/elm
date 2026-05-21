@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- README restructured: `## Development` is now a top-level section (was `### Development` under Installation); Quick code testing loop and API speed test moved under Development; AdminById help moved under Usage; Installation now contains only install steps.
+
 ## [1.8.6] - 2026-05-21
 
 ### Added
