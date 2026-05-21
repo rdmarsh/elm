@@ -24,16 +24,16 @@ platform.
    * [Features](#features)
    * [Installation](#installation)
       * [Quick Start](#quick-start)
-      * [Quick code testing loop](#quick-code-testing-loop)
       * [Pre-requisites](#pre-requisites)
       * [Clone the Repo](#clone-the-repo)
       * [Building](#building)
       * [Initial Configuration](#initial-configuration)
       * [Install in PATH](#install-in-path)
-      * [Development](#development)
+   * [Development](#development)
+      * [Quick code testing loop](#quick-code-testing-loop)
       * [API speed test](#api-speed-test)
-      * [AdminById help](#adminbyid-help)
    * [Usage](#usage)
+      * [AdminById help](#adminbyid-help)
    * [Examples](#examples)
    * [Errors](#errors)
    * [Contributing](#contributing)
@@ -104,14 +104,6 @@ make testbasic
 make testverb  # requires LM connection
 ```
 
-### Quick code testing loop
-
-While I'm testing, I often do this loop:
-
-```shell
-make clean && make && make install && echo done
-```
-
 ### Pre-requisites
 
 Ensure the following software is installed (you can check some of these
@@ -180,7 +172,7 @@ You could run the binary from `_dist/elm/elm` if you want, but it is
 recommended to copy the binary to a dir that you can add to PATH. See
 steps under the "Quick Start" section above.
 
-### Development
+## Development
 
 After cloning, install the git hooks:
 
@@ -202,6 +194,13 @@ cycle followed by `make docs` to keep the `elm --help` output in the
 make clean && make && make install && make docs
 ```
 
+### Quick code testing loop
+
+While I'm testing, I often do this loop:
+
+```shell
+make clean && make && make install && echo done
+```
 
 ### API speed test
 
@@ -225,6 +224,8 @@ Available list endpoints:
 `DeviceList` `EscalationChainList` `EventSourceList` `IntegrationList`
 `NetscanList` `RecipientGroupList` `ReportGroupList` `ReportList` `RoleList`
 `SDTList` `WebsiteGroupList` `WebsiteList`
+
+## Usage
 
 ### AdminById help
 
@@ -261,8 +262,6 @@ with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
 exact total and elm shows a lower bound like `>50` with a warning. Use
 `-c -s0` to fetch all records and count them — accurate when the total is
 under 1000.
-
-## Usage
 
 <!-- elm-help-start -->
 ```text
