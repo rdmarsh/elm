@@ -1161,7 +1161,7 @@ CollectorById:
     collectorDeviceId:  integer
     hostname:           string
     platform:           string
-    collectorSize:      string
+    collectorSize:      string   # nano/small/medium/large/extra_large/double_extra_large/custom
     numberOfHosts:      integer
     numberOfInstances:  integer
     isDown:             boolean
@@ -1169,7 +1169,22 @@ CollectorById:
     backupAgentId:      integer
     enableFailBack:     boolean
     calculatedThreshold: float
-    predefinedConfig:   object    # size profiles (nano..double_extra_large) with requiredMemory and agent.conf/wrapper.conf/sbproxy.conf keys
+    confVersion:        string   # Unix timestamp updated regularly by the collector (heartbeat/sync tick); does NOT indicate when config was last changed -- use userChangeOn for that
+    userChangeOn:       integer  # Unix timestamp of last user-initiated change to this collector (portal config push, property edit, etc)
+    collectorConf:      string   # JSON-encoded agent.conf overrides set via API; '{}' means no API-managed overrides
+    wrapperConf:        string   # JSON-encoded wrapper.conf overrides set via API; '{}' means no API-managed overrides
+    sbproxyConf:        string   # JSON-encoded sbproxy.conf overrides set via API
+    watchdogConf:       string   # JSON-encoded watchdog.conf overrides set via API
+    websiteConf:        string   # JSON-encoded website.conf overrides set via API
+    agentConfFields:    object   # structured parsed version of agent.conf overrides; null if none set via API
+    predefinedConfig:   object   # size profiles (nano..double_extra_large) with requiredMemory and agent.conf/wrapper.conf/sbproxy.conf keys; no 'custom' entry
+  gotchas:
+    - "All conf fields (collectorConf, wrapperConf, sbproxyConf, watchdogConf, websiteConf, agentConfFields, predefinedConfig, confVersion, config, encodedConfigData) are marked readOnly in the swagger schema. Collector configuration is READ-ONLY via the REST API -- you cannot push config changes through the API."
+    - "The LM portal 'Collector Configuration' UI uses a separate internal channel to push config to the collector agent. This is NOT the public REST API."
+    - "collectorConf and related conf fields return '{}' (string-encoded empty JSON) even after portal UI changes -- they do not reflect what was pushed."
+    - "confVersion updates when the portal pushes a config, even though collectorConf stays '{}'. confVersion being non-zero does not mean the config is readable via API."
+    - "collectorSize 'custom' means the collector was tuned outside the standard profiles. predefinedConfig has no 'custom' key."
+    - "To read or change the actual running config, you need direct host access (SSH/RDP) or the portal UI. There is no API path for either operation."
 
 CollectorGroupById:
   path: /setting/collector/groups/{id}
