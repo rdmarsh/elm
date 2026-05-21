@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - README restructured: `## Development` is now a top-level section (was `### Development` under Installation); Quick code testing loop and API speed test moved under Development; AdminById help moved under Usage; Installation now contains only install steps.
+- `elm-notes.yaml`: expanded `CollectorList` with `backupAgentId`, `enableFailBack`, `calculatedThreshold`, `numberOfWebsites`, `nextUpgradeInfo`, corrected `status` and `collectorSize` notes, added gotchas and patterns.
+- `elm-notes.yaml`: expanded `CollectorGroupList` with `propertyForBalancing`, `mismatchVersion`, and a detailed `auto_balance_explained` block covering the device-side `autoBalancedCollectorGroupId` field, single-collector group intent, and over-capacity limits.
+- `elm-notes.yaml`: expanded `DeviceList` with `preferredCollectorGroupId`, `preferredCollectorId`, and clarified `autoBalancedCollectorGroupId` (0 = pinned, non-zero = in auto-balance pool).
+- `elm-notes.yaml`: expanded `CollectorById` with `backupAgentId`, `enableFailBack`, `calculatedThreshold`.
+- `examples/collectors.md`: added collector health report section (all-collectors overview, DOWN with hosts, no-backup single points of failure, backup pair health); added auto-balance section (explanation, single-collector groups, mismatch groups); restructured build version section.
 
 ## [1.8.6] - 2026-05-21
 

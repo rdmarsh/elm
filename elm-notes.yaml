@@ -264,7 +264,9 @@ DeviceList:
       type: array
       items: {name: string, value: string}
     preferredCollectorGroupName: string
-    autoBalancedCollectorGroupId: integer # 0 means not auto-balanced
+    preferredCollectorGroupId:   integer
+    preferredCollectorId:        integer  # collector currently assigned to this device
+    autoBalancedCollectorGroupId: integer # 0 = pinned to preferredCollectorId, LM will not move it; non-zero = group ID, device is in the auto-balance pool and LM may reassign preferredCollectorId as load shifts
   os_identification:
     system.sysinfo:
       note: "Full uname string e.g. 'Linux hostname 3.10.0-... x86_64' — reliable for OS type"
@@ -1190,19 +1192,40 @@ CollectorGroupList:
   auto_balance_explained: |
     When autoBalance=true, LM automatically redistributes devices between collectors in the
     group as instance counts change. Key mechanics:
-    - autoBalanceInstanceCountThreshold: maximum instances per collector before rebalancing triggers
-    - autoBalanceStrategy: "none" = LM default strategy
-    - propertyForBalancing: "" = balance by instance count (most common); non-empty = balance
-      by a device property value (e.g. to pin devices to collectors by region or customer)
+
+    THE DEVICE FIELD THAT MATTERS:
+    - DeviceList.autoBalancedCollectorGroupId controls whether a specific device participates:
+        0         = device is pinned to its current preferredCollectorId; LM will not move it
+        <groupId> = device is in the auto-balance pool; LM may reassign preferredCollectorId
+    - autoBalance=true on the group sets the capability; each device opts in/out individually
+      via autoBalancedCollectorGroupId. Within one group, some devices can be pinned (0) and
+      others pooled (groupId) -- both coexist (verified).
+    - Collector host devices should be pinned (autoBalancedCollectorGroupId=0). Monitoring a
+      collector from a different collector is pointless: if the collector software is down,
+      the device metrics are lost regardless of which collector nominally owns it. Pinning
+      keeps the collector device on its own collector at all times.
+
+    GROUP FIELDS:
+    - autoBalanceInstanceCountThreshold: max instances per collector before rebalancing triggers
+    - autoBalanceStrategy: "none" = LM default; other values undocumented
+    - propertyForBalancing: "" = balance by instance count; non-empty = balance by device
+      property value (pins devices with the same property value to the same collector)
     - calThreshold mirrors autoBalanceInstanceCountThreshold (same value, different field name)
-    - Auto-balance only works with 2+ collectors in the group; a single-collector auto-balance
-      group has nowhere to rebalance to
-    - CollectorList.calculatedThreshold shows a collector's current load vs the threshold;
-      only non-zero for collectors in auto-balance groups
-    - CollectorList.numberOfInstances reflects the actual instance count for load calculation;
-      0 for non-auto-balance collectors
-    - mismatchVersion=true means collectors in the group are on different builds -- can cause
-      inconsistent behaviour during rolling upgrades
+    - numOfInstances (CollectorGroupById only, not list): total instances across all collectors
+      in the group; if > numOfCollectors * threshold the group is over capacity and auto-balance
+      cannot fully resolve load -- the group needs more collectors
+
+    SINGLE-COLLECTOR AUTO-BALANCE GROUPS:
+    - Valid and intentional. Setting autoBalance=true on a group with one collector means the
+      group is pre-configured and ready to distribute load the moment a second collector is
+      added -- no group reconfiguration needed at that point.
+
+    LIMITS:
+    - If total group load exceeds numOfCollectors * threshold, auto-balance cannot fix it (verified:
+      a group with 26k instances across 2 collectors with 10k threshold stays overloaded)
+    - In that case the group needs more collectors, not tuning
+    - CollectorList.calculatedThreshold: per-collector load score; only non-zero for auto-balance groups
+    - CollectorList.numberOfInstances: per-collector instance count; 0 for non-auto-balance collectors
   key_fields:
     id:                integer
     name:              string
