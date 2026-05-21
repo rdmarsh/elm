@@ -33,6 +33,7 @@ platform.
       * [Development](#development)
       * [API speed test](#api-speed-test)
       * [AdminById help](#adminbyid-help)
+   * [Usage](#usage)
    * [Examples](#examples)
    * [Errors](#errors)
    * [Contributing](#contributing)
@@ -194,15 +195,74 @@ Make any changes to the `Makefile` or templates in the `_jnja/` directory.
 Files in `_cmds` and `_defs` may be overwritten during builds.
 
 After changing any CLI options in `_jnja/elm.py.j2`, run the full build
-cycle followed by `make docs` to keep the `elm --help` output in this
-README in sync:
+cycle followed by `make docs` to keep the `elm --help` output in the
+[Usage](#usage) section in sync:
 
 ```shell
 make clean && make && make install && make docs
 ```
 
-`make docs` injects the live `elm --help` output into the README between
-the `<!-- elm-help-start -->` and `<!-- elm-help-end -->` marker comments.
+
+### API speed test
+
+`elm-speedtest.sh` times the LM API response for each credential profile
+across a set of endpoints. Useful for comparing latency across portals or
+networks. Credentials are kept in memory only — never written to disk. If
+any profile has identical credentials to `config`, `config` is skipped
+automatically to avoid duplicate results.
+
+```shell
+# default endpoints (AdminList, DeviceList, AuditLogList)
+./elm-speedtest.sh
+
+# custom endpoints
+./elm-speedtest.sh ReportList DeviceGroupList WebsiteList
+```
+
+Available list endpoints:
+`AdminList` `AlertRuleList` `ApiTokenList` `CollectorGroupList` `CollectorList`
+`ConfigSourceList` `DashboardGroupList` `DatasourceList` `DeviceGroupList`
+`DeviceList` `EscalationChainList` `EventSourceList` `IntegrationList`
+`NetscanList` `RecipientGroupList` `ReportGroupList` `ReportList` `RoleList`
+`SDTList` `WebsiteGroupList` `WebsiteList`
+
+### AdminById help
+
+This is only one example, but other help messages are similar. The URL
+will take you directly to the swagger document relating to that command
+
+`elm AdminById --help`
+
+```text
+Usage: elm AdminById [OPTIONS]
+
+  Get user
+
+  API Path:
+
+  /setting/admins/{id}
+
+  Swagger URL:
+
+  https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/Users/getAdminById
+
+Options:
+  --id INTEGER               [required]
+  -f, --fields FIELD,...     Only include the listed fields
+  -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
+  -c, --count                Return qty of query objects instead of query data
+  -C, --total                Return qty of ALL objects instead of query data
+  --help                     Show this message and exit.
+```
+
+**Counting records:** `-c` counts records returned in the current page;
+`-C` asks the LM API for the total. Most list endpoints return an exact count
+with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
+exact total and elm shows a lower bound like `>50` with a warning. Use
+`-c -s0` to fetch all records and count them — accurate when the total is
+under 1000.
+
+## Usage
 
 <!-- elm-help-start -->
 ```text
@@ -462,65 +522,6 @@ Commands:
   WidgetListByDashboardId         Get widget list by dashboardid
 ```
 <!-- elm-help-end -->
-
-### API speed test
-
-`elm-speedtest.sh` times the LM API response for each credential profile
-across a set of endpoints. Useful for comparing latency across portals or
-networks. Credentials are kept in memory only — never written to disk. If
-any profile has identical credentials to `config`, `config` is skipped
-automatically to avoid duplicate results.
-
-```shell
-# default endpoints (AdminList, DeviceList, AuditLogList)
-./elm-speedtest.sh
-
-# custom endpoints
-./elm-speedtest.sh ReportList DeviceGroupList WebsiteList
-```
-
-Available list endpoints:
-`AdminList` `AlertRuleList` `ApiTokenList` `CollectorGroupList` `CollectorList`
-`ConfigSourceList` `DashboardGroupList` `DatasourceList` `DeviceGroupList`
-`DeviceList` `EscalationChainList` `EventSourceList` `IntegrationList`
-`NetscanList` `RecipientGroupList` `ReportGroupList` `ReportList` `RoleList`
-`SDTList` `WebsiteGroupList` `WebsiteList`
-
-### AdminById help
-
-This is only one example, but other help messages are similar. The URL
-will take you directly to the swagger document relating to that command
-
-`elm AdminById --help`
-
-```text
-Usage: elm AdminById [OPTIONS]
-
-  Get user
-
-  API Path:
-
-  /setting/admins/{id}
-
-  Swagger URL:
-
-  https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/Users/getAdminById
-
-Options:
-  --id INTEGER               [required]
-  -f, --fields FIELD,...     Only include the listed fields
-  -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
-  -c, --count                Return qty of query objects instead of query data
-  -C, --total                Return qty of ALL objects instead of query data
-  --help                     Show this message and exit.
-```
-
-**Counting records:** `-c` counts records returned in the current page;
-`-C` asks the LM API for the total. Most list endpoints return an exact count
-with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
-exact total and elm shows a lower bound like `>50` with a warning. Use
-`-c -s0` to fetch all records and count them — accurate when the total is
-under 1000.
 
 ## Examples
 
