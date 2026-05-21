@@ -217,7 +217,7 @@ def engine(elm, **kwargs):
     else:
         output(obj['items'], elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
 
-        #if output() found no valid fields it already reported an error — suppress follow-on warnings
+        #if output() found no valid fields it already reported an error - suppress follow-on warnings
         returned = set(obj['items'][0].keys()) if obj['items'] else set()
 
         if returned:

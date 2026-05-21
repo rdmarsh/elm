@@ -14,8 +14,8 @@ This tool simplifies running basic read-only queries against the
 LogicMonitor API, formatting the output in various formats, including
 CSV, HTML, JSON, XML, Markdown, and more.
 
-**elm is intentionally read-only.** It only performs GET requests —
-it cannot create, modify, or delete anything in your LogicMonitor
+**elm is intentionally read-only.** It only performs GET requests and
+cannot create, modify, or delete anything in your LogicMonitor
 account. This makes it safe to hand to anyone: the worst outcome is a
 slow query or confusing output, never an accidental change to your
 platform.
@@ -49,7 +49,7 @@ platform.
 
 * Retrieve data from LogicMonitor via the API
 * Output in 22 formats: csv, json, html, xml, markdown, tsv, jsonl, curl, wget, and more
-* Read-only — GET requests only, no risk of accidental changes
+* Read-only: GET requests only, no risk of accidental changes
 
 ## Installation
 
@@ -64,15 +64,11 @@ make
 make install
 ```
 
-Next, copy the binary to a directory included in your PATH:
+`make install` copies the binary to `~/bin`. If `~/bin` is not in your PATH, add it:
 
 ```shell
-  mkdir -p ~/bin
-  cp -r _dist/elm/* ~/bin
-  vi ~/.bash_profile
-append the following line:
-  export PATH="${HOME}/bin:${PATH}"
-  source ~/.bash_profile
+echo 'export PATH="${HOME}/bin:${PATH}"' >> ~/.bash_profile
+source ~/.bash_profile
 ```
 
 API credentials can be placed in an ini file:
@@ -153,7 +149,7 @@ You will need the following items to run the program after building:
   * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
 
-See [Configuration](#configuration) below for more details
+See `config.example.ini` for a documented example config file
 
 ### Install in PATH
 
@@ -206,7 +202,7 @@ make clean && make && make install && echo done
 
 `elm-speedtest.sh` times the LM API response for each credential profile
 across a set of endpoints. Useful for comparing latency across portals or
-networks. Credentials are kept in memory only — never written to disk. If
+networks. Credentials are kept in memory only, never written to disk. If
 any profile has identical credentials to `config`, `config` is skipped
 automatically to avoid duplicate results.
 
@@ -260,7 +256,7 @@ Options:
 `-C` asks the LM API for the total. Most list endpoints return an exact count
 with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
 exact total and elm shows a lower bound like `>50` with a warning. Use
-`-c -s0` to fetch all records and count them — accurate when the total is
+`-c -s0` to fetch all records and count them, accurate when the total is
 under 1000.
 
 <!-- elm-help-start -->
@@ -281,7 +277,7 @@ Options:
   --config FILE            Read configuration from FILE.
   --ai                     Print quick-start guide for AI assistants and exit
   -l, --list               List available credential profiles and exit
-  -p, --profile NAME       Credentials profile name — shorthand for --config
+  -p, --profile NAME       Credentials profile name, shorthand for --config
                            ~/.config/logicmonitor/credentials/<NAME>.ini
 
   -i, --access_id TEXT     API token access id
@@ -526,14 +522,14 @@ Commands:
 
 See [EXAMPLES.md](EXAMPLES.md) for the full index, or jump directly to a topic:
 
-- [General usage](examples/general.md) — flags, output formats, piping, writing to file
-- [Devices](examples/devices.md) — OS filtering, custom/system properties, group membership
-- [Collectors](examples/collectors.md) — build versions, auto-balance, group mismatches
-- [Alerts and SDTs](examples/alerts.md) — long SDTs, oldest alerts, time-related alerts
-- [Datasources](examples/datasources.md) — finding devices without a datasource applied
-- [Users](examples/users.md) — export by id, status checks, offboarding
-- [Websites](examples/websites.md) — group hierarchy queries, missing required properties
-- [Dashboards and reports](examples/dashboards-reports.md) — filtering by resource group or hostsVal
+- [General usage](examples/general.md) - flags, output formats, piping, writing to file
+- [Devices](examples/devices.md) - OS filtering, custom/system properties, group membership
+- [Collectors](examples/collectors.md) - build versions, auto-balance, group mismatches
+- [Alerts and SDTs](examples/alerts.md) - long SDTs, oldest alerts, time-related alerts
+- [Datasources](examples/datasources.md) - finding devices without a datasource applied
+- [Users](examples/users.md) - export by id, status checks, offboarding
+- [Websites](examples/websites.md) - group hierarchy queries, missing required properties
+- [Dashboards and reports](examples/dashboards-reports.md) - filtering by resource group or hostsVal
 
 ## Errors
 

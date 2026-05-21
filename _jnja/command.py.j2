@@ -50,7 +50,7 @@ import engine
 {%- endif -%}
 )
 {%- endfor -%}
-{# sort and fields are not declared in the swagger — inject them for all commands #}
+{# sort and fields are not declared in the swagger - inject them for all commands #}
 {%- if "sort" not in opt_names %}
 @click.option("--sort", "sort", "-S", type=str, metavar="[+,-]FIELD,...", \
                help="Sort by field; inc (+), dec (-)")
