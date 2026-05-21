@@ -48,7 +48,8 @@ platform.
 ## Features
 
 * Retrieve data from LogicMonitor via the API
-* Output in 22 formats: csv, json, html, xml, markdown, tsv, jsonl, curl, wget, and more
+* Output in more than 20 formats: csv, json, jsonl, html, xml, markdown, tsv, and more
+* Generate ready-to-run `curl` and `wget` commands for any query, with auth headers included
 * Read-only: GET requests only, no risk of accidental changes
 
 ## Installation
@@ -179,7 +180,7 @@ make clean && make && make install && make docs
 
 ### Quick code testing loop
 
-While I'm testing, I often do this loop:
+While testing, a useful loop:
 
 ```shell
 make clean && make && make install && echo done
@@ -511,7 +512,7 @@ See [EXAMPLES.md](EXAMPLES.md) for the full index, or jump directly to a topic:
 
 - [General usage](examples/general.md) - flags, output formats, piping, writing to file
 - [Devices](examples/devices.md) - OS filtering, custom/system properties, group membership
-- [Collectors](examples/collectors.md) - build versions, auto-balance, group mismatches
+- [Collectors](examples/collectors.md) - health reports, build versions, auto-balance, backup pairs
 - [Alerts and SDTs](examples/alerts.md) - long SDTs, oldest alerts, time-related alerts
 - [Datasources](examples/datasources.md) - finding devices without a datasource applied
 - [Users](examples/users.md) - export by id, status checks, offboarding
@@ -569,6 +570,4 @@ Update the ToC on this page by running the following:
 ```shell
 gh-md-toc --insert --no-backup --skip-header README.md
 ```
-
-[githubs vulnerablity reporting function]: https://github.com/rdmarsh/elm/security
 
