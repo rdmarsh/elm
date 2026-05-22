@@ -943,6 +943,52 @@ _byid_pattern:
     WidgetById:           /dashboard/widgets/{id}
     WidgetListByDashboardId: /dashboard/dashboards/{id}/widgets
 
+ImmediateDeviceListByDeviceGroupId:
+  path: /device/groups/{id}/devices
+  required_params:
+    id: integer  # device group ID
+  note: "Shallow, non-recursive fetch — returns only devices that are directly in the specified
+    group. Devices in subgroups are NOT included. This is the key difference from DeviceList
+    with a group filter: there is no server-side recursive traversal."
+  key_fields:
+    id:          integer
+    name:        string   # hostname or IP
+    displayName: string   # friendly name shown in UI
+    customProperties:
+      type: array
+      items: {name: string, value: string}
+      note: "All-or-nothing — cannot request a specific property by name; use -f displayName,customProperties to get all custom properties, then extract client-side"
+  gotchas:
+    - "Shallow only — calling this on a root group that has 0 direct devices returns 0 results,
+      even if child subgroups contain thousands of devices. You need the group ID of the
+      level where devices actually live, not the parent."
+    - "customProperties is all-or-nothing — there is no server-side way to filter to a specific
+      property by name; fetch all and extract with jq client-side"
+  patterns:
+    customer_group_audit: |
+      # Example portal structure (implementation-specific — not universal across LM deployments):
+      #   acme/customer/foo/          <- root group, 0 direct devices
+      #       All/                    <- all canonical devices live here directly
+      #       by Class/               <- same devices, organised by class (dynamic, duplicates)
+      #       by Type/
+      #       by Site/
+      # The point: ImmediateDeviceListByDeviceGroupId on the group that holds devices directly
+      # returns the canonical set. Calling it on a parent group that contains no direct devices
+      # returns 0. Find the right level first (usually one with numOfDirectDevices > 0).
+
+      # Step 1: find all */All subgroups under a customer path
+      elm DeviceGroupList -s0 -F 'fullPath~acme/customer' -f id,fullPath | \
+        jq -r '.DeviceGroupList[] | select(.fullPath | endswith("/All")) | "\(.id)\t\(.fullPath)"'
+
+      # Step 2: for each All group, get devices with custom properties
+      elm ImmediateDeviceListByDeviceGroupId --id <all_group_id> -s0 -f 'displayName,customProperties'
+
+      # Step 3: extract displayName + a specific custom property client-side
+      elm ImmediateDeviceListByDeviceGroupId --id <all_group_id> -s0 -f 'displayName,customProperties' | \
+        jq -r '.ImmediateDeviceListByDeviceGroupId[] |
+          [.displayName, (.customProperties[]? | select(.name == "customer.prop_name") | .value) // ""] |
+          @tsv'
+
 AlertList:
   path: /alert/alerts
   note: "Standard list; verified working. Alert IDs are strings (e.g. 'DS395142385')."
