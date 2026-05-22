@@ -171,6 +171,27 @@ AI tools tend toward impressive-looking solutions. Push back on complexity that 
 
 ---
 
+### 11. Track skills you personally develop
+
+AI tools can mask your own skill development if you are not deliberate about it.
+
+Maintain a record of skills you actively built during a project — things you understood, debugged, designed, or made decisions about yourself, not just reviewed after the AI produced them.
+
+This record is useful for:
+- resume and portfolio evidence
+- performance reviews
+- identifying gaps where you are over-relying on AI and under-developing genuine capability
+- knowing what you can credibly explain and defend in an interview
+
+Keep a `skills.md` alongside the project journal. For each skill or technology, note:
+- what you did hands-on
+- what decisions you made and why
+- what went wrong and what you learned from fixing it
+
+A task where the AI generated code and you approved it is not the same as a skill you hold. Be honest about the distinction.
+
+---
+
 # Recommended AI Behaviour Rules
 
 ## General behaviour

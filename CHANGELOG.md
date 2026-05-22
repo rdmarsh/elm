@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- `ai.md`: added principle #11 — track skills you personally develop alongside AI use, with a `skills.md` recommendation for resume and portfolio evidence.
 - README restructured: `## Development` is now a top-level section (was `### Development` under Installation); Quick code testing loop and API speed test moved under Development; AdminById help moved under Usage; Installation now contains only install steps.
 - `elm-notes.yaml`: expanded `CollectorList` with `backupAgentId`, `enableFailBack`, `calculatedThreshold`, `numberOfWebsites`, `nextUpgradeInfo`, corrected `status` and `collectorSize` notes, added gotchas and patterns.
 - `elm-notes.yaml`: expanded `CollectorGroupList` with `propertyForBalancing`, `mismatchVersion`, and a detailed `auto_balance_explained` block covering the device-side `autoBalancedCollectorGroupId` field, single-collector group intent, and over-capacity limits.
