@@ -192,6 +192,12 @@ A task where the AI generated code and you approved it is not the same as a skil
 
 ---
 
+### 12. Maintain a private SKILLS_USED.md log
+
+When working on a project, maintain a private `SKILLS_USED.md` file if one exists. Add concise dated entries for meaningful skills, investigations, decisions, debugging work, tests, and outcomes that could later be turned into resume bullets. Keep entries factual and outcome-oriented. Do not commit or expose the file if it is gitignored or intended as private. Prefer capturing why the work mattered, not just what files changed.
+
+---
+
 # Recommended AI Behaviour Rules
 
 ## General behaviour

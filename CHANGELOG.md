@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - `elm-notes.yaml`: added full entry for `ImmediateDeviceListByDeviceGroupId` — documents shallow/non-recursive fetch behaviour, `customProperties` all-or-nothing constraint, and a pattern for finding the correct group level to query in hierarchical portal structures.
+- `ai.md`: added principle #12 — maintain a private `SKILLS_USED.md` log with dated, outcome-oriented entries for skills, investigations, decisions, and debugging work that could become resume bullets; do not commit or expose if gitignored.
 - `ai.md`: added principle #11 — track skills you personally develop alongside AI use, with a `skills.md` recommendation for resume and portfolio evidence.
 - README restructured: `## Development` is now a top-level section (was `### Development` under Installation); Quick code testing loop and API speed test moved under Development; AdminById help moved under Usage; Installation now contains only install steps.
 - `elm-notes.yaml`: expanded `CollectorList` with `backupAgentId`, `enableFailBack`, `calculatedThreshold`, `numberOfWebsites`, `nextUpgradeInfo`, corrected `status` and `collectorSize` notes, added gotchas and patterns.
