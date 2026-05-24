@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Makefile: `testfmtcontent` target — asserts each of the 21 output formats actually produces that format (e.g. tsv contains a real tab, json is valid and wrapped in the command-name key, jsonl is valid JSON per line and unwrapped, raw is a Python dict repr, txt has no separator line). `testfmts` only checked exit 0; this catches a format silently producing the wrong structure or being aliased to another. Added to the `test` aggregate; connects to LM.
+
 ### Changed
 - `elm-notes.yaml`: added full entry for `ImmediateDeviceListByDeviceGroupId` — documents shallow/non-recursive fetch behaviour, `customProperties` all-or-nothing constraint, and a pattern for finding the correct group level to query in hierarchical portal structures.
 - `ai.md`: added principle #12 — maintain a private `SKILLS_USED.md` log with dated, outcome-oriented entries for skills, investigations, decisions, and debugging work that could become resume bullets; do not commit or expose if gitignored.

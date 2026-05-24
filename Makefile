@@ -336,7 +336,7 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testbasic testfmts testverb testid ## Run quick and simple tests
+test: testbasic testfmts testfmtcontent testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
@@ -414,6 +414,34 @@ testfmts: ## Test a command with all formats               (connects to LM)
 		echo testing: $(testbin) --format $(fmt) MetricsUsage ; \
 		$(testbin) --format $(fmt) MetricsUsage || exit 1 ; \
 	)
+	@echo "$(OK_STRING) $@"
+
+# testfmts only checks exit 0; this asserts each format's output is actually
+# that format (catches a format silently producing the wrong structure or
+# being aliased to another). Anchored to MetricsUsage like the other targets.
+.PHONY: testfmtcontent
+testfmtcontent: | JQ-exists ## Assert each format's output really is that format (connects to LM)
+	@echo testing: csv is comma-delimited ; $(testbin) -f csv MetricsUsage 2>/dev/null | head -1 | grep -qE '^[A-Za-z].*,'
+	@echo testing: tsv contains a real tab ; $(testbin) -f tsv MetricsUsage 2>/dev/null | grep -q "$$(printf '\t')"
+	@echo testing: html is a minified table ; $(testbin) -f html MetricsUsage 2>/dev/null | grep -q '<table border=1'
+	@echo testing: prettyhtml is a non-minified table ; $(testbin) -f prettyhtml MetricsUsage 2>/dev/null | grep -q 'border="1"'
+	@echo testing: jira uses '||' header delimiter ; $(testbin) -f jira MetricsUsage 2>/dev/null | grep -q '||'
+	@echo testing: json is valid and wrapped in command name ; $(testbin) -f json MetricsUsage 2>/dev/null | $(JQ) -e 'has("MetricsUsage")' >/dev/null
+	@echo testing: jsonl is valid json per line and unwrapped ; out=$$($(testbin) -f jsonl MetricsUsage 2>/dev/null) ; echo "$$out" | $(JQ) -se 'length>0 and all(.[]; type=="object")' >/dev/null && ! echo "$$out" | grep -q MetricsUsage
+	@echo testing: prettyjson is multi-line and wrapped ; out=$$($(testbin) -f prettyjson MetricsUsage 2>/dev/null) ; echo "$$out" | grep -q MetricsUsage && [ "$$(echo "$$out" | wc -l)" -gt 1 ]
+	@echo testing: xml is compact ; $(testbin) -f xml MetricsUsage 2>/dev/null | grep -q '<data><row>'
+	@echo testing: prettyxml is indented ; $(testbin) -f prettyxml MetricsUsage 2>/dev/null | grep -q '^  <row>'
+	@echo testing: gfm has a markdown separator row ; $(testbin) -f gfm MetricsUsage 2>/dev/null | grep -q '^|-'
+	@echo testing: latex has a tabular environment ; $(testbin) -f latex MetricsUsage 2>/dev/null | grep -q 'begin{tabular}'
+	@echo testing: md has a separator line ; $(testbin) -f md MetricsUsage 2>/dev/null | grep -q -- '-----'
+	@echo testing: pipe has alignment colons ; $(testbin) -f pipe MetricsUsage 2>/dev/null | grep -q -- '-:'
+	@echo testing: rst is a grid table ; $(testbin) -f rst MetricsUsage 2>/dev/null | grep -q '==='
+	@echo testing: tab has a separator line ; $(testbin) -f tab MetricsUsage 2>/dev/null | grep -q -- '-----'
+	@echo testing: raw is a python dict repr ; $(testbin) -f raw MetricsUsage 2>/dev/null | grep -q "{'"
+	@echo testing: txt has no separator line ; $(testbin) -f txt MetricsUsage 2>/dev/null | sed -n 2p | grep -qE '^ *[0-9]'
+	@echo testing: api prints the authorization header ; $(testbin) -f api MetricsUsage 2>/dev/null | grep -q '^Authorization: LMv1'
+	@echo testing: curl prints a curl command ; $(testbin) -f curl MetricsUsage 2>/dev/null | grep -q '^curl -H'
+	@echo testing: wget prints a wget command ; $(testbin) -f wget MetricsUsage 2>/dev/null | grep -q '^wget '
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testH
