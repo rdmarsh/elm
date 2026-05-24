@@ -1,14 +1,16 @@
+# Runtime dependencies -- imported by elm at runtime; mirror setup.py install_requires
 click_config_file~=0.6.0
 click~=7.1.2
 htmlmin2~=0.1.13
-Jinja2~=3.1.2
-jinja2-cli~=0.8.2
 lxml~=6.1
-packaging~=23.2
 pandas~=2.3
 Pygments~=2.20
-pyinstaller~=6.15
 PySocks~=1.7.1
 requests~=2.33
 tabulate~=0.8.10
 truststore~=0.10
+
+# Build-time only -- not imported by elm at runtime, so absent from setup.py install_requires
+jinja2-cli~=0.8.2
+Jinja2~=3.1.2
+pyinstaller~=6.15
