@@ -162,12 +162,13 @@ template="$SCRIPT_DIR/lm-collector-reachability-check.groovy.j2"
 [[ -f "$template" ]] || { printf 'Error: template not found: %s\n' "$template" >&2; exit 1; }
 
 venv_python="$SCRIPT_DIR/../venv/bin/python3"
-if [[ -x "$venv_python" ]]; then
+if [[ -x "$venv_python" ]] && "$venv_python" -c 'import jinja2' 2>/dev/null; then
     python_bin="$venv_python"
-elif command -v python3 &>/dev/null; then
+elif command -v python3 &>/dev/null && python3 -c 'import jinja2' 2>/dev/null; then
     python_bin="python3"
 else
-    printf 'Error: python3 not found\n' >&2; exit 1
+    printf 'Error: jinja2 not found. Run "make" in the elm project root to build the venv.\n' >&2
+    exit 1
 fi
 
 if [[ "$INJECT_CREDS" == "true" ]]; then
