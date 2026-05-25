@@ -31,6 +31,9 @@ elm DeviceList -f csv -s0    # -f csv is a field selector here, not format
 ### Size flag
 
 `-s 0` returns all results up to 1000. Without it, default is 50.  
+`-s 0` and `-s 1000` are equivalent — both return all available records up to the API
+maximum of 1000. Confirmed by live test: `CollectorGroupList -s0 -c` and
+`CollectorGroupList -s1000 -c` return identical counts on a portal with 97 groups.  
 For endpoints returning more than 1000 records, pagination via `--offset` is required.
 
 ### Filter operators

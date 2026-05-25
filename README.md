@@ -188,7 +188,7 @@ make clean && make && make install && echo done
 
 ### API speed test
 
-`elm-speedtest.sh` times the LM API response for each credential profile
+`tools/elm-speedtest.sh` times the LM API response for each credential profile
 across a set of endpoints. Useful for comparing latency across portals or
 networks. Credentials are kept in memory only, never written to disk. If
 any profile has identical credentials to `config`, `config` is skipped
@@ -196,10 +196,10 @@ automatically to avoid duplicate results.
 
 ```shell
 # default endpoints (AdminList, DeviceList, AuditLogList)
-./elm-speedtest.sh
+tools/elm-speedtest.sh
 
 # custom endpoints
-./elm-speedtest.sh ReportList DeviceGroupList WebsiteList
+tools/elm-speedtest.sh ReportList DeviceGroupList WebsiteList
 ```
 
 Available list endpoints:
@@ -211,43 +211,8 @@ Available list endpoints:
 
 ## Usage
 
-### AdminById help
-
-This is only one example, but other help messages are similar. The URL
-will take you directly to the swagger document relating to that command
-
-`elm AdminById --help`
-
-```text
-Usage: elm AdminById [OPTIONS]
-
-  Get user
-
-  API Path:
-
-  /setting/admins/{id}
-
-  Swagger URL:
-
-  https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/Users/getAdminById
-
-Options:
-  --id INTEGER               [required]
-  -f, --fields FIELD,...     Only include the listed fields
-  -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
-  -c, --count                Return qty of query objects instead of query data
-  -C, --total                Return qty of ALL objects instead of query data
-  --help                     Show this message and exit.
-```
-
-**Counting records:** `-c` counts records returned in the current page;
-`-C` asks the LM API for the total. Most list endpoints return an exact count
-with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
-exact total and elm shows a lower bound like `>50` with a warning. Use
-`-c -s0` to fetch all records and count them, accurate when the total is
-under 1000.
-
 <!-- elm-help-start -->
+
 ```text
 Usage: elm [OPTIONS] COMMAND [ARGS]...
 
@@ -505,6 +470,42 @@ Commands:
   WidgetListByDashboardId         Get widget list by dashboardid
 ```
 <!-- elm-help-end -->
+
+**Counting records:** `-c` counts records returned in the current page;
+`-C` asks the LM API for the total. Most list endpoints return an exact count
+with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
+exact total and elm shows a lower bound like `>50` with a warning. Use
+`-c -s0` to fetch all records and count them, accurate when the total is
+under 1000.
+
+### AdminById help
+
+This is only one example, but other help messages are similar. The URL
+will take you directly to the swagger document relating to that command
+
+`elm AdminById --help`
+
+```text
+Usage: elm AdminById [OPTIONS]
+
+  Get user
+
+  API Path:
+
+  /setting/admins/{id}
+
+  Swagger URL:
+
+  https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/Users/getAdminById
+
+Options:
+  --id INTEGER               [required]
+  -f, --fields FIELD,...     Only include the listed fields
+  -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
+  -c, --count                Return qty of query objects instead of query data
+  -C, --total                Return qty of ALL objects instead of query data
+  --help                     Show this message and exit.
+```
 
 ## Examples
 

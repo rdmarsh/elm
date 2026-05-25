@@ -3,6 +3,7 @@
 Queries relating to collectors, collector groups, and auto-balance settings.
 
 **See also:**
+- [collector-readiness.md](collector-readiness.md) for pre-add verification before joining an auto-balance group
 - [devices.md](devices.md) for hostgroup/collector group mismatch queries
 - [alerts.md](alerts.md) for collector-related SDT queries
 

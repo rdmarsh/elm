@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `tools/elm-collector-readiness.sh` — pre-add collector verification tool. Discovers all devices in an LM auto-balance group, detects protocols from `autoProperties` (SNMP, SSH, WMI, HTTP/HTTPS) set by LM Active Discovery, and renders a ready-to-paste Groovy reachability test script to stdout. Supports `--id GROUP_ID` and `--name GROUP_NAME`; `--creds` injects LM API credentials from the elm config profile into the rendered script. Profile defaults to `config` (same as elm).
+- `tools/lm-collector-reachability-check.groovy.j2` — Jinja2 template for the LM Collector Debug → Script tab. Device list and credentials pre-filled by `elm-collector-readiness.sh`. Tests ping, SNMP (UDP 161 raw probe), and TCP connectivity per device; reports PASS/FAIL/TIMEOUT per protocol. Supports self-service LM API mode when credentials are injected.
+- `examples/collector-readiness.md` — step-by-step documentation for the collector readiness workflow.
+
+### Changed
+- `elm-speedtest.sh` moved to `tools/elm-speedtest.sh`. All README references updated.
+
+### Added
 - Makefile: `testfmtcontent` target — asserts each of the 21 output formats actually produces that format (e.g. tsv contains a real tab, json is valid and wrapped in the command-name key, jsonl is valid JSON per line and unwrapped, raw is a Python dict repr, txt has no separator line). `testfmts` only checked exit 0; this catches a format silently producing the wrong structure or being aliased to another. Added to the `test` aggregate; connects to LM.
 
 ### Changed
@@ -89,13 +97,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.8.1] - 2026-05-15
 
 ### Added
-- `elm-speedtest.sh` — times LM API response per credential profile across
+- `elm-speedtest.sh` (now `tools/elm-speedtest.sh`) — times LM API response per credential profile across
   configurable endpoints. Runs each endpoint N times and reports averages.
   Credentials kept in memory only (never written to disk). Automatically
   skips `config` if any other profile has identical credentials. Shows short
   hostname at top for easy sharing. Column widths adapt to endpoint name
-  length. Usage: `./elm-speedtest.sh` (defaults: AdminList, DeviceList,
-  AuditLogList) or `./elm-speedtest.sh ReportList DeviceGroupList WebsiteList`.
+  length. Usage: `tools/elm-speedtest.sh` (defaults: AdminList, DeviceList,
+  AuditLogList) or `tools/elm-speedtest.sh ReportList DeviceGroupList WebsiteList`.
 
 ### Fixed
 - `-C`/`--total` now shows `>N` with a warning when the LM API returns a
