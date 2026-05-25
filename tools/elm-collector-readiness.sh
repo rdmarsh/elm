@@ -32,6 +32,10 @@
 #   tcp-135 - 135 in auto.network.listening_tcp_ports
 #   tcp-443 - 443 in auto.network.listening_tcp_ports
 #
+# Dead devices (hostStatus:dead) are skipped — the device itself is unreachable,
+# testing from a new collector adds no information. Devices with hostStatus:dead-collector
+# are kept — the collector is down but the device may be reachable from the new one.
+#
 # Requires: elm, jq, Jinja2 (via elm venv at ../venv or system python3)
 # Requires for --creds: configobj (via elm venv)
 
@@ -103,23 +107,34 @@ fi
 printf 'Fetching devices in group %s...\n' "$GROUP_ID" >&2
 raw=$(elm_run DeviceList -s0 \
     -F "autoBalancedCollectorGroupId:$GROUP_ID" \
-    -f id,displayName,name,autoProperties)
+    -f id,displayName,name,hostStatus,autoProperties)
 
-count=$(printf '%s' "$raw" | jq '.DeviceList | length')
-printf 'Devices found: %s\n\n' "$count" >&2
+total=$(printf '%s' "$raw" | jq '.DeviceList | length')
+dead=$(printf '%s' "$raw" | jq '[.DeviceList[] | select(.hostStatus == "dead")] | length')
+testable=$(( total - dead ))
 
-if [[ "$count" -eq 0 ]]; then
-    printf 'No devices found in this auto-balance group.\n' >&2
+printf 'Devices found: %s' "$total" >&2
+if [[ "$dead" -gt 0 ]]; then
+    printf ' (%s dead — skipped, %s to test)' "$dead" "$testable" >&2
+fi
+printf '\n\n' >&2
+
+if [[ "$testable" -eq 0 ]]; then
+    printf 'No testable devices in this auto-balance group (all dead).\n' >&2
     exit 0
 fi
 
 # ── Build protocol matrix ─────────────────────────────────────────────────────
-# name = the hostname or IP LM uses to connect; not displayName.
+# Skip hostStatus:dead — device itself is unreachable, testing adds no information.
+# Keep hostStatus:dead-collector — the collector is down but the device may be fine;
+# that is exactly the scenario this script is designed to catch.
+#
 # Protocol detection uses autoProperties set by LM Active Discovery:
 #   auto.snmp.operational        - "true" when SNMP responds
 #   auto.network.listening_tcp_ports - comma-separated list of listening ports
 matrix=$(printf '%s' "$raw" | jq '
   [.DeviceList[] |
+    select(.hostStatus != "dead") |
     (
       .autoProperties // [] |
       map(select(.name == "auto.network.listening_tcp_ports")) |
@@ -134,6 +149,7 @@ matrix=$(printf '%s' "$raw" | jq '
       id:          .id,
       displayName: .displayName,
       ip:          .name,
+      hostStatus:  .hostStatus,
       protocols: (
         ["ping"] +
         (if $snmp == "true"           then ["snmp"]    else [] end) +
@@ -148,12 +164,12 @@ matrix=$(printf '%s' "$raw" | jq '
 
 # ── Summary table (stderr) ────────────────────────────────────────────────────
 {
-    printf '%-32s %-22s %s\n' "Device" "IP/Hostname" "Protocols"
-    printf '%-32s %-22s %s\n' "$(printf '%0.s-' {1..32})" "$(printf '%0.s-' {1..22})" "---------"
+    printf '%-32s %-22s %-16s %s\n' "Device" "IP/Hostname" "Status" "Protocols"
+    printf '%-32s %-22s %-16s %s\n' "$(printf '%0.s-' {1..32})" "$(printf '%0.s-' {1..22})" "----------------" "---------"
     printf '%s' "$matrix" \
-        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.protocols | join(", "))"' \
-        | while IFS=$'\t' read -r name ip protos; do
-              printf '%-32s %-22s %s\n' "${name:0:32}" "${ip:0:22}" "$protos"
+        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.hostStatus)\t\(.protocols | join(", "))"' \
+        | while IFS=$'\t' read -r name ip status protos; do
+              printf '%-32s %-22s %-16s %s\n' "${name:0:32}" "${ip:0:22}" "$status" "$protos"
           done
 } >&2
 
