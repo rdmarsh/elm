@@ -24,6 +24,7 @@
 import groovy.json.JsonSlurper
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import java.util.concurrent.*
 
 // ─── Device list ──────────────────────────────────────────────────────────────
 // Pre-filled by elm-collector-readiness.sh. Leave as [] to use Mode C credentials path instead.
@@ -40,9 +41,9 @@ def ACCOUNT_NAME = "{{ account_name | default('acme') }}"
 def GROUP_ID     = {{ group_id | default(0) }}  // auto-balance group ID
 
 // ─── Test timeouts ─────────────────────────────────────────────────────────────
-def PING_TIMEOUT_MS = 3000
-def TCP_TIMEOUT_MS  = 2000
-def SNMP_TIMEOUT_MS = 3000
+def PING_TIMEOUT_MS = 1500
+def TCP_TIMEOUT_MS  = 1000
+def SNMP_TIMEOUT_MS = 2000
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Implementation — no changes needed below this line
@@ -74,14 +75,17 @@ def lmGet(account, path, auth) {
     return new JsonSlurper().parseText(body)
 }
 
-// Derive protocols from LM categories string (same logic as elm-collector-readiness.sh)
-def protocolsFromCategories(cats) {
-    def c = (cats ?: "").toLowerCase()
+// Derive protocols from autoProperties (matches elm-collector-readiness.sh logic)
+def protocolsFromAutoProps(autoProps) {
     def protos = ["ping"]
-    if (c =~ /snmp|netsnmp/) protos << "snmp"
-    if (c =~ /wmi/)           protos << "tcp-135"
-    if (c =~ /linux|ssh/)     protos << "tcp-22"
-    if (c =~ /webpage|http/)  { protos << "tcp-80"; protos << "tcp-443" }
+    def props  = [:]
+    (autoProps ?: []).each { p -> props[p.name] = p.value }
+    if (props["auto.snmp.operational"] == "true") protos << "snmp"
+    def tcp = (props["auto.network.listening_tcp_ports"] ?: "").split(",") as List
+    if ("135" in tcp) protos << "tcp-135"
+    if ("22"  in tcp) protos << "tcp-22"
+    if ("80"  in tcp) protos << "tcp-80"
+    if ("443" in tcp) protos << "tcp-443"
     return protos
 }
 
@@ -93,22 +97,22 @@ def devices  = []
 def pasted = DEVICES_JSON.trim()
 if (pasted.size() > 2 && pasted != "[]") {
     devices = slurper.parseText(pasted)
-    println "Mode A: ${devices.size()} devices from pre-filled list"
+    println "${devices.size()} devices (pre-filled by elm)"
 } else {
     if (!ACCESS_ID || !ACCESS_KEY || GROUP_ID == 0) {
-        println "ERROR: render this script with elm-collector-readiness.sh --render (Mode A)"
-        println "       OR set ACCESS_ID, ACCESS_KEY, ACCOUNT_NAME, GROUP_ID (Mode B)"
+        println "ERROR: render this script with elm-collector-readiness.sh (Mode A)"
+        println "       OR set ACCESS_ID, ACCESS_KEY, ACCOUNT_NAME, GROUP_ID (Mode C)"
         return
     }
-    println "Mode B: querying LM API for devices in collector group ${GROUP_ID}..."
-    def path  = "/device/devices?filter=autoBalancedCollectorGroupId:${GROUP_ID}&size=1000&fields=id,displayName,name,categories"
+    println "Querying LM API for devices in collector group ${GROUP_ID}..."
+    def path  = "/device/devices?filter=autoBalancedCollectorGroupId:${GROUP_ID}&size=1000&fields=id,displayName,name,autoProperties"
     def auth  = lmAuth(ACCESS_ID, ACCESS_KEY, "GET", path)
     def resp  = lmGet(ACCOUNT_NAME, path, auth)
     devices = resp.data.items.collect { d ->
         [id: d.id, displayName: d.displayName, ip: d.name,
-         protocols: protocolsFromCategories(d.categories)]
+         protocols: protocolsFromAutoProps(d.autoProperties)]
     }
-    println "Found ${devices.size()} devices"
+    println "${devices.size()} devices from LM API"
 }
 
 if (!devices) {
@@ -120,9 +124,7 @@ if (!devices) {
 
 def pingOk(ip, timeoutMs) {
     try {
-        def proc = ["ping", "-c", "1", "-W", "2", ip].execute()
-        proc.waitForOrKill(timeoutMs)
-        return proc.exitValue() == 0
+        return java.net.InetAddress.getByName(ip).isReachable(timeoutMs)
     } catch (e) { return false }
 }
 
@@ -171,36 +173,44 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
     }
 }
 
-// ── Print results ──────────────────────────────────────────────────────────────
+// ── Run all devices in parallel ────────────────────────────────────────────────
 
 def allProtos = devices.collectMany { it.protocols }.unique().sort()
+def nameW     = Math.max(30, devices.collect { it.displayName.length() }.max() + 2)
+def ipW       = Math.max(20, devices.collect { it.ip.length() }.max() + 2)
 
-def nameW = Math.max(30, devices.collect { it.displayName.length() }.max() + 2)
-def ipW   = Math.max(20, devices.collect { it.ip.length() }.max() + 2)
+println "Testing ${devices.size()} devices (parallel)...\n"
+
+def pool    = Executors.newFixedThreadPool(Math.min(devices.size(), 20))
+def futures = devices.collect { d ->
+    pool.submit({
+        def res = [:]
+        allProtos.each { proto ->
+            res[proto] = d.protocols.contains(proto)
+                ? runTest(proto, d.ip, PING_TIMEOUT_MS, TCP_TIMEOUT_MS, SNMP_TIMEOUT_MS)
+                : "-"
+        }
+        return [name: d.displayName, ip: d.ip, res: res]
+    } as Callable)
+}
+pool.shutdown()
+pool.awaitTermination(120, TimeUnit.SECONDS)
+
+// ── Print results ──────────────────────────────────────────────────────────────
 
 def header = String.format("%-${nameW}s %-${ipW}s", "Device", "IP/Hostname")
 allProtos.each { header += String.format("  %-8s", it) }
-
-println ""
 println header
 println "-" * header.length()
 
 def failures = []
-
-devices.each { d ->
-    def row = String.format("%-${nameW}s %-${ipW}s",
-        d.displayName.take(nameW - 1),
-        d.ip.take(ipW - 1))
-
+futures.eachWithIndex { f, i ->
+    def r   = f.get()
+    def row = String.format("%-${nameW}s %-${ipW}s", r.name.take(nameW - 1), r.ip.take(ipW - 1))
     allProtos.each { proto ->
-        def result
-        if (!d.protocols.contains(proto)) {
-            result = "-"
-        } else {
-            result = runTest(proto, d.ip, PING_TIMEOUT_MS, TCP_TIMEOUT_MS, SNMP_TIMEOUT_MS)
-        }
+        def result = r.res[proto]
         row += String.format("  %-8s", result)
-        if (result == "FAIL") failures << "${d.displayName}  ${proto}"
+        if (result == "FAIL") failures << "${r.name}  ${proto}"
     }
     println row
 }
