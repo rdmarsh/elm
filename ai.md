@@ -171,30 +171,19 @@ AI tools tend toward impressive-looking solutions. Push back on complexity that 
 
 ---
 
-### 11. Track skills you personally develop
+### 11. Track skills you personally develop in SKILLS_USED.md
 
 AI tools can mask your own skill development if you are not deliberate about it.
 
-Maintain a record of skills you actively built during a project — things you understood, debugged, designed, or made decisions about yourself, not just reviewed after the AI produced them.
-
-This record is useful for:
-- resume and portfolio evidence
-- performance reviews
-- identifying gaps where you are over-relying on AI and under-developing genuine capability
-- knowing what you can credibly explain and defend in an interview
-
-Keep a `skills.md` alongside the project journal. For each skill or technology, note:
-- what you did hands-on
-- what decisions you made and why
-- what went wrong and what you learned from fixing it
+Maintain a private `SKILLS_USED.md` file alongside the project. Add concise dated entries for:
+- skills you actively built — things you understood, debugged, designed, or decided yourself
+- investigations, debugging work, and tests you drove
+- decisions you made and why they mattered
+- outcomes that could later become resume bullets
 
 A task where the AI generated code and you approved it is not the same as a skill you hold. Be honest about the distinction.
 
----
-
-### 12. Maintain a private SKILLS_USED.md log
-
-When working on a project, maintain a private `SKILLS_USED.md` file if one exists. Add concise dated entries for meaningful skills, investigations, decisions, debugging work, tests, and outcomes that could later be turned into resume bullets. Keep entries factual and outcome-oriented. Do not commit or expose the file if it is gitignored or intended as private. Prefer capturing why the work mattered, not just what files changed.
+This record is useful for resume and portfolio evidence, performance reviews, and knowing what you can credibly explain and defend in an interview. Do not commit or expose this file if it is intended as private.
 
 ---
 
@@ -252,6 +241,16 @@ If any files are generated artefacts — from templates, build pipelines, or cod
 - The AI will edit whatever file it can find unless explicitly told otherwise.
 
 Document which files are generated and what produces them, in CLAUDE.md or equivalent.
+
+### File naming convention for AI-created files
+
+Files created or maintained primarily by AI — configuration, rules, logs, and private records — use uppercase names:
+
+- `CLAUDE.md` — project rules and context for the AI
+- `SKILLS_USED.md` — private skills and outcomes log
+- `CHANGELOG.md`, `README.md` — project-level documents
+
+Human-authored working documents (journals, design notes, examples) use lowercase.
 
 ---
 
@@ -377,8 +376,9 @@ Do not rely on the AI to remember previous sessions. Assume a cold start every t
 
 ```text
 project/
-├── CLAUDE.md
-├── journal.md
+├── CLAUDE.md           # AI rules and context (uppercase — AI-maintained)
+├── SKILLS_USED.md      # private skills log (uppercase — AI-maintained, gitignored)
+├── journal.md          # working journal (human-authored)
 ├── memory/
 │   ├── user.md
 │   ├── feedback.md
