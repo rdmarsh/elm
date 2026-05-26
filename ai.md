@@ -534,6 +534,32 @@ Do not record every tiny edit.
 
 A useful journal captures reasoning and operational context, not just actions taken.
 
+### Preserve evidence behind operational decisions
+
+When introducing operational constants, safety rules, retries, timeouts, workarounds, thresholds, or other non-obvious behaviour, record why the decision exists and what evidence supports it.
+
+Future maintainers should be able to determine:
+- what problem was observed
+- what evidence was gathered
+- what behaviour was tested
+- why the chosen value or rule was selected
+- what uncertainty or tradeoffs still remain
+
+Guidelines:
+- Record investigation evidence while the decision is being explored.
+- Move stable rationale into durable design or operational documentation.
+- Keep inline code comments concise, but make the deeper reasoning traceable.
+- Do not leave magic values or unusual behaviour without recoverable context.
+
+For example, if a timeout is increased because testing showed a device regularly completes after the default timeout, record:
+- the original failing behaviour
+- the observed timing range
+- the successful test window
+- environmental conditions that affected the result
+- any remaining uncertainty or operational risk
+
+Operational behaviour without preserved reasoning eventually becomes superstition.
+
 ## Session startup
 
 At the start of each session:
