@@ -6,14 +6,12 @@ The quality of the output depends heavily on:
 - project documentation
 - clear rules
 - tight feedback loops
-- small scoped tasks
+- narrowly scoped tasks
 - verification at every step
-
----
 
 # Core principles
 
-## 1. Keep project knowledge in files
+## Keep project knowledge in files
 
 Do not rely on chat history as memory.
 
@@ -29,26 +27,48 @@ The AI should read these files at the start of every session.
 
 Prefer Markdown files committed to the repository so both humans and AI share the same source of truth.
 
----
+Treat project files as the authoritative long-term memory of the project. Conversations are temporary working context only.
 
-## 2. Structure memory by type
+## Structure memory by type
 
 A single journal file conflates different kinds of information and becomes noise over time.
 
 Separate memory by type:
 
-- **User context** — who is working on this, their expertise, what they care about. Helps calibrate explanation depth and framing.
-- **Feedback** — corrections and confirmations, each with a *why*. Record both directions: if you only save corrections, you avoid past mistakes but drift away from approaches that were already validated. The *why* lets edge cases be judged rather than rules applied blindly.
-- **Project state** — current goals, blockers, parked ideas, open questions, deadlines.
-- **References** — dashboards, issue trackers, documentation, operational runbooks, and non-sensitive configuration locations.
+- **User context** - who is working on the project, their expertise, constraints, and priorities. This helps calibrate explanation depth and implementation style.
+- **Feedback** - corrections and confirmations, each with a *why*. Record both positive and negative outcomes. Saving only mistakes prevents repetition, but saving successful patterns preserves approaches already validated.
+- **Project state** - current goals, blockers, parked ideas, open questions, deadlines, and active investigations.
+- **References** - dashboards, issue trackers, documentation, operational runbooks, and non-sensitive configuration locations.
 
-Keep these in separate files. Load only what is relevant to the current session.
+Keep these in separate files. Load only what is relevant to the current task or session.
 
 Secrets and credentials should never be stored in AI-readable project memory.
 
----
+### Preserve information before condensing it
 
-## 3. Describe desired behaviour positively
+Backlogs, journals, investigation notes, and changelogs serve different purposes. Cleaning one up must not silently discard information that has not yet been classified.
+
+Before deleting, consolidating, or substantially shortening project notes:
+
+1. Identify each distinct item, decision, or observation.
+2. Decide its proper destination:
+   - active or deferred work belongs in backlog or TODO tracking
+   - investigation evidence and lessons learned belong in the project journal or design notes
+   - completed user-visible changes belong in the changelog
+   - rejected ideas should be retained as explicit decisions when the reasoning may matter later
+3. Move or summarise the information in its destination before removing the original detail.
+4. Preserve the original material if classification is uncertain, or ask before deleting it.
+
+Do not silently compress away:
+- future work
+- operational evidence
+- design reasoning
+- unresolved questions
+- rejected alternatives that may later become relevant again
+
+A shorter file is not an improvement if it loses knowledge.
+
+## Describe desired behaviour positively
 
 Write rules describing how work should be done rather than only listing forbidden behaviour.
 
@@ -69,9 +89,7 @@ Negative constraints are still important for:
 
 Use both styles where appropriate.
 
----
-
-## 4. Separate design from implementation
+## Separate design from implementation
 
 Maintain design documents describing:
 - architecture
@@ -90,16 +108,21 @@ If implementation repeatedly goes wrong:
 
 Do not keep patching prompts forever.
 
----
+Repeated prompting is usually evidence that:
+- the design is underspecified
+- project rules are incomplete
+- expectations are implicit instead of documented
 
-## 5. Use minimal prompts
+Fix the system, not just the prompt.
+
+## Use minimal prompts
 
 Once project context exists in files:
 - prompts should be short
 - prompts should reference TODO items
 - prompts should focus on one task at a time
 
-Long conversational prompting usually causes drift and inconsistency.
+Long conversational prompting usually causes drift, inconsistency, and stale assumptions.
 
 Define named shorthands for repeatable multi-step sequences. Document the expansion in project rules so the AI learns it rather than guessing.
 
@@ -108,9 +131,7 @@ Good:
 
 This is more reliable than re-stating the full sequence each time.
 
----
-
-## 6. Use isolated sessions
+## Use isolated sessions
 
 Prefer a new AI session for each feature or task.
 
@@ -125,76 +146,83 @@ Keep sessions short and let project files carry continuity instead.
 
 Persistent project files should carry the long-term memory.
 
----
-
-## 7. Prefer incremental changes
+## Prefer incremental changes
 
 Avoid large speculative rewrites.
 
-Make:
+Prefer:
 - small changes
-- verify behaviour
-- review output
-- continue iteratively
+- explicit verification
+- reviewable diffs
+- iterative progress
 
 Large unverified refactors are where AI tools fail hardest.
 
----
+Small validated steps are easier to:
+- review
+- revert
+- reason about
+- debug
+- attribute
 
-## 8. Use test-driven development where practical
+## Use test-driven development where practical
 
 Preferred workflow:
-1. write failing test/check
-2. confirm failure occurs for expected reason
-3. implement fix
-4. confirm passing result
+1. write a failing test or check
+2. confirm the failure occurs for the expected reason
+3. implement the fix
+4. confirm the result passes
 5. refactor if needed
 
 Do not generate tests and implementation simultaneously and call it TDD.
 
-Tests should validate externally observable behaviour and known edge cases, not merely mirror the implementation.
+Tests should validate externally observable behaviour and important edge cases, not merely mirror the implementation.
 
----
+A weak test that only confirms the generated implementation behaves as written is not meaningful verification.
 
-## 9. Treat mistakes as process failures
+## Treat mistakes as process failures
 
 When the AI makes a mistake:
 1. fix the code
 2. identify why the mistake happened
 3. improve rules or design docs if needed
-4. record lessons learned in the project journal
+4. restore or relocate any information incorrectly deleted, overwritten, or compressed
+5. record lessons learned in the project journal
+6. tell the user what was corrected and what rule or documentation changed
 
 The goal is not merely fixing bugs.
 
 The goal is improving the system that produced them.
 
----
+Repeated classes of mistakes should result in stronger project rules, clearer documentation, or improved verification workflows.
 
-## 10. Prefer simple, readable code
+## Prefer simple, readable code
 
 Write the simplest code that correctly solves the problem.
 
 - Readable and explicit beats clever and compact.
-- A future reader — or the same person at 3am — should understand the code without reverse-engineering it.
+- A future reader - or the same person at 3am - should understand the code without reverse-engineering it.
 - If a solution surprised you when you wrote it, it will surprise the next reader too.
 - Three clear lines beat one clever expression.
 - Avoid unnecessary abstraction, indirection, and generality.
 
 AI tools tend toward impressive-looking solutions. Push back on complexity that is not earned by the problem.
 
----
+Prefer consistency with the existing codebase over introducing theoretically cleaner but unfamiliar patterns.
 
-## 11. Track skills you personally develop in SKILLS_USED.md
+## Track skills you personally develop in SKILLS_USED.md
 
 AI tools can mask your own skill development if you are not deliberate about it.
 
 Maintain a private `SKILLS_USED.md` file alongside the project. Add concise dated entries for:
-- skills you actively built — things you understood, debugged, designed, or decided yourself
-- investigations, debugging work, and tests you drove
+- skills you actively built
+- things you understood, debugged, designed, or decided yourself
+- investigations and debugging work you drove
+- tests and validation you personally performed
 - decisions you made and why they mattered
 - outcomes that could later become resume bullets
 
-A task where the AI generated code and you approved it is not the same as a skill you hold. Be honest about the distinction.
+A task where the AI generated code and you approved it is not the same as a skill you genuinely hold. Be honest about the distinction.
 
 This record is useful for:
 - resume and portfolio evidence
@@ -203,17 +231,15 @@ This record is useful for:
 
 Do not commit or expose this file if it is intended as private.
 
----
-
-## 12. Instruction precedence
+## Instruction precedence
 
 When instructions conflict, use this priority order:
 
-1. Explicit user request in current session
+1. Explicit user request in the current session
 2. Security and safety constraints
 3. Architecture and design documents
 4. Project rules (`CLAUDE.md`)
-5. Inline code comments and local conventions
+5. Inline code comments and established local conventions
 6. TODO items and journals
 7. Historical decisions recorded in memory files
 
@@ -222,9 +248,9 @@ If conflicts remain unresolved:
 - explain the conflict
 - ask for clarification
 
----
+Do not silently guess which instruction should win.
 
-## 13. Understand before modifying
+## Understand before modifying
 
 Before changing code:
 - identify the relevant subsystem
@@ -237,9 +263,16 @@ Do not immediately rewrite unfamiliar code.
 
 Matching established project patterns is usually more important than introducing a theoretically cleaner abstraction.
 
----
+Code that appears awkward may reflect:
+- operational constraints
+- compatibility requirements
+- historical bugs
+- performance characteristics
+- external interfaces
 
-## 14. Prefer modifying existing systems over introducing parallel ones
+Understand the reason before changing it.
+
+## Prefer extending existing systems over introducing parallel ones
 
 Before creating new abstractions, helpers, wrappers, services, or utilities:
 - check whether equivalent functionality already exists
@@ -248,9 +281,9 @@ Before creating new abstractions, helpers, wrappers, services, or utilities:
 
 AI tools frequently introduce redundant abstractions because local generation optimises for immediate completion rather than long-term maintainability.
 
----
+Prefer consistency and reuse over novelty.
 
-## 15. Stop and ask when
+## Stop and ask when
 
 Pause and request clarification if:
 - requirements conflict
@@ -260,9 +293,9 @@ Pause and request clarification if:
 - architectural intent cannot be inferred confidently
 - multiple reasonable implementations exist with materially different tradeoffs
 
----
+Do not continue by guessing when uncertainty materially affects correctness, safety, or maintainability.
 
-## 16. Optimise for maintainability over speed
+## Optimise for maintainability over speed
 
 AI should optimise for:
 - maintainability
@@ -273,9 +306,9 @@ over speed of completion.
 
 A slower correct change is preferable to a fast unstable one.
 
----
+Code survives longer than prompts. Optimise for the future maintainer, not immediate completion.
 
-# Recommended AI Behaviour Rules
+# Recommended AI behaviour rules
 
 ## General behaviour
 
@@ -300,7 +333,7 @@ If uncertain:
 - explain what information is missing
 - suggest ways to verify
 
----
+Do not simulate certainty to maintain conversational flow.
 
 ## Working with code
 
@@ -326,7 +359,12 @@ Before making architectural changes:
 - identify risks
 - confirm assumptions against existing design docs
 
----
+When modifying existing code:
+- preserve surrounding style and conventions unless intentionally standardising them
+- avoid introducing unrelated formatting churn
+- avoid renaming symbols without a clear reason
+
+Consistency reduces maintenance cost.
 
 ## Verify external APIs and libraries
 
@@ -345,19 +383,22 @@ Verify against:
 
 Plausible-looking code is not evidence of correctness.
 
----
+AI-generated examples are often syntactically plausible but operationally wrong.
 
 ## Generated files
 
-If any files are generated artefacts — from templates, build pipelines, or code generators — document this prominently.
+If any files are generated artefacts - from templates, build pipelines, or code generators - document this prominently.
 
 - Do not edit generated files directly.
 - Fixes belong in the template source, not the generated output.
 - The AI will edit whatever file it can find unless explicitly told otherwise.
 
-Document which files are generated and what produces them in `CLAUDE.md` or equivalent.
+Document:
+- which files are generated
+- what produces them
+- how regeneration occurs
 
----
+Record this in `CLAUDE.md` or equivalent project documentation.
 
 ## Sensitive data in AI sessions
 
@@ -372,34 +413,42 @@ Before pasting any content into an AI session:
 - sanitise log output and API responses before using them as examples
 - treat session contents as if they could be read by anyone
 
-If a session needs to work with output that contains sensitive data:
+If a session needs to work with sensitive structures or outputs:
 - describe the structure rather than pasting the content directly
 
-Document sanitisation conventions for the project so the same placeholders are used consistently across examples, issues, and docs.
-
----
+Document sanitisation conventions for the project so the same placeholders are used consistently across:
+- examples
+- issues
+- documentation
+- test fixtures
 
 ## Verification and testing
 
 After each meaningful change:
 - run tests
-- run linters/checks where available
+- run linters and checks where available
 - verify expected behaviour
 - report failures clearly
 
-AI tools will confidently cite library methods, function signatures, and config options that do not exist.
+AI tools will confidently cite:
+- library methods
+- function signatures
+- config options
+
+that do not exist.
 
 Running the code is what catches this.
 
-Static review alone is not sufficient, because a hallucinated method name is syntactically indistinguishable from a real one.
+Static review alone is insufficient, because a hallucinated method name is syntactically indistinguishable from a real one.
 
 Do not claim something works without verification.
 
 If verification cannot be performed:
 - say so explicitly
 - explain what remains unverified
+- explain how it should be verified later
 
----
+Verification should be treated as part of implementation, not an optional follow-up task.
 
 ## Security review of AI-generated code
 
@@ -429,7 +478,7 @@ A single review at generation time is not sufficient.
 
 AI-contributed code accumulates, and issues missed initially may only surface in combination with later changes.
 
-Review AI-contributed code regularly — at minimum:
+Review AI-contributed code regularly - at minimum:
 - when a significant feature completes
 - when dependencies are updated
 
@@ -443,8 +492,6 @@ Record each review in the project journal:
 - what was found
 - what was fixed
 
----
-
 ## Scope of authorisation
 
 Approving one action does not authorise the same action in a different context.
@@ -457,11 +504,9 @@ Confirm risky or irreversible operations explicitly each time:
 
 When suggesting a shell command for the user to run:
 - explain what it does before they run it
-- flag anything destructive or hard to reverse
+- flag anything destructive or difficult to reverse
 
-Unless standing permission is recorded in a durable config file that both the human and AI can read, do not assume prior approval carries forward.
-
----
+Unless standing permission is recorded in a durable configuration file that both the human and AI can read, do not assume prior approval carries forward.
 
 ## Project journal workflow
 
@@ -487,7 +532,7 @@ Summarise:
 
 Do not record every tiny edit.
 
----
+A useful journal captures reasoning and operational context, not just actions taken.
 
 ## Session startup
 
@@ -499,8 +544,6 @@ At the start of each session:
 Do not rely on the AI to remember previous sessions.
 
 Assume a cold start every time and let the files provide continuity.
-
----
 
 # Recommended project structure
 
@@ -527,8 +570,6 @@ project/
 └── src/
 ```
 
----
-
 # Short operational prompt
 
 Once the project is structured properly, prompts can stay extremely small:
@@ -536,10 +577,10 @@ Once the project is structured properly, prompts can stay extremely small:
 ```text
 Read the project docs and journal.
 Complete the highest priority TODO item.
-Use TDD.
-Update journal.md if new lessons or decisions emerge.
+Use TDD where practical.
+Update journal.md if new lessons, decisions, or operational knowledge emerge.
 ```
 
-Most people are still trying to "prompt engineer" around missing project structure.
+Most failed AI-assisted development workflows are fundamentally documentation and process failures, not prompt failures.
 
 The structure matters far more than clever prompts.
