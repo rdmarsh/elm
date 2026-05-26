@@ -4,10 +4,10 @@
 //   LM Portal → Collector → Collector Debug → Script tab
 //
 // INTERPRETING RESULTS:
-//   p       - connection succeeded
+//   pass    - connection succeeded
 //   FAIL    - connection refused or timed out
 //   TIMEOUT - SNMP: port may be reachable but agent dropped the probe
-//   -       - protocol not expected for this device (skipped)
+//   (blank) - protocol not expected for this device (skipped)
 
 import java.util.concurrent.*
 
@@ -67,13 +67,13 @@ def snmpOk(ip, timeoutMs) {
 
 def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
     switch (proto) {
-        case "ping":    return pingOk(ip, pingMs)     ? "p" : "FAIL"
-        case "snmp":    return snmpOk(ip, snmpMs)     ? "p" : "TIMEOUT"
-        case "tcp-135": return tcpOk(ip, 135, tcpMs)  ? "p" : "FAIL"
-        case "wmi":     return tcpOk(ip, 135, tcpMs)  ? "p" : "FAIL"
-        case "tcp-22":  return tcpOk(ip,  22, tcpMs)  ? "p" : "FAIL"
-        case "tcp-80":  return tcpOk(ip,  80, tcpMs)  ? "p" : "FAIL"
-        case "tcp-443": return tcpOk(ip, 443, tcpMs)  ? "p" : "FAIL"
+        case "ping":    return pingOk(ip, pingMs)     ? "pass" : "FAIL"
+        case "snmp":    return snmpOk(ip, snmpMs)     ? "pass" : "TIMEOUT"
+        case "tcp-135": return tcpOk(ip, 135, tcpMs)  ? "pass" : "FAIL"
+        case "wmi":     return tcpOk(ip, 135, tcpMs)  ? "pass" : "FAIL"
+        case "tcp-22":  return tcpOk(ip,  22, tcpMs)  ? "pass" : "FAIL"
+        case "tcp-80":  return tcpOk(ip,  80, tcpMs)  ? "pass" : "FAIL"
+        case "tcp-443": return tcpOk(ip, 443, tcpMs)  ? "pass" : "FAIL"
         default:        return "?"
     }
 }
@@ -87,12 +87,8 @@ def allProtos = devices.collectMany { it.protocols }.unique()
         def ai = protoOrder.indexOf(a); def bi = protoOrder.indexOf(b)
         (ai < 0 ? 999 : ai) <=> (bi < 0 ? 999 : bi)
     }
-def colW  = Math.max(7, (allProtos.collect { (protoLabel[it] ?: it).length() }.max() ?: 4) + 2)
-def nameW = Math.max(30, devices.collect { it.displayName.length() }.max() + 2)
-def ipW   = Math.max(20, devices.collect { it.ip.length() }.max() + 2)
-
 def collectorHost = java.net.InetAddress.getLocalHost().getHostName()
-println "Testing ${devices.size()} devices from ${collectorHost} (parallel)...\n"
+println "Testing ${devices.size()} devices from ${collectorHost} (parallel)..."
 
 def pool    = Executors.newFixedThreadPool(Math.min(devices.size(), 20))
 def futures = devices.collect { d ->
@@ -109,23 +105,19 @@ def futures = devices.collect { d ->
 pool.shutdown()
 pool.awaitTermination(120, TimeUnit.SECONDS)
 
-// ── Print results ──────────────────────────────────────────────────────────────
+// ── Print results (CSV) ───────────────────────────────────────────────────────
 
-def header = String.format("%-${nameW}s %-${ipW}s", "Device", "IP/Hostname")
-allProtos.each { header += String.format("  %-${colW}s", protoLabel[it] ?: it) }
-println header
-println "-" * header.length()
+println (["Device", "IP/Hostname"] + allProtos.collect { protoLabel[it] ?: it }).join(",")
 
 def failures = []
 futures.eachWithIndex { f, i ->
-    def r   = f.get()
-    def row = String.format("%-${nameW}s %-${ipW}s", r.name.take(nameW - 1), r.ip.take(ipW - 1))
-    allProtos.each { proto ->
+    def r = f.get()
+    def row = [r.name, r.ip] + allProtos.collect { proto ->
         def result = r.res[proto]
-        row += String.format("  %-${colW}s", result)
         if (result == "FAIL") failures << "${r.name}  ${protoLabel[proto] ?: proto}"
+        result == "-" ? "" : result
     }
-    println row
+    println row.join(",")
 }
 
 println ""
@@ -134,7 +126,7 @@ if (failures) {
     failures.each { println "  - $it" }
     println ""
     println "snmp TIMEOUT may mean wrong community rather than unreachable — check snmp.community in LM."
-    println "wmi PASS only confirms TCP 135 (RPC endpoint mapper); WMI uses dynamic high ports (49152-65535) too."
+    println "port-135/wmi pass only confirms TCP 135 (RPC endpoint mapper); WMI uses dynamic high ports (49152-65535) too."
 } else {
     println "All checks passed. Collector appears ready to join the auto-balance group."
 }
