@@ -3,8 +3,8 @@
 # and render a ready-to-paste Groovy reachability check script to stdout.
 #
 # Usage:
-#   elm-collector-readiness.sh --id GROUP_ID [--profile PROFILE] [--creds]
-#   elm-collector-readiness.sh --name GROUP_NAME [--profile PROFILE] [--creds]
+#   elm-collector-readiness.sh --id GROUP_ID [--profile PROFILE]
+#   elm-collector-readiness.sh --name GROUP_NAME [--profile PROFILE]
 #   elm-collector-readiness.sh            # list auto-balance groups and exit
 #
 # Options:
@@ -12,14 +12,11 @@
 #   --name GROUP_NAME   auto-balance collector group name (resolved to ID)
 #   --profile PROFILE   elm credential profile; defaults to 'config' (same
 #                       default as elm — reads config.ini)
-#   --creds             inject LM API credentials from the elm profile into
-#                       the rendered script; uses --profile if set
 #
 # Output is the rendered Groovy script on stdout. Status messages go to stderr.
 # Redirect stdout as needed:
 #   elm-collector-readiness.sh --id 42 > /tmp/check.groovy
-#   elm-collector-readiness.sh --id 42 --creds | pbcopy
-#   elm-collector-readiness.sh --id 42 --creds --profile prod > /tmp/check.groovy
+#   elm-collector-readiness.sh --name "My Group" --profile prod | pbcopy
 #
 # The rendered script tests device connections using the hostname or IP address
 # that LM uses to reach each device (the 'name' field, not 'displayName').
@@ -37,24 +34,19 @@
 # are kept — the collector is down but the device may be reachable from the new one.
 #
 # Requires: elm, jq, Jinja2 (via elm venv at ../venv or system python3)
-# Requires for --creds: configobj (via elm venv)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CREDS_DIR="$HOME/.config/logicmonitor/credentials"
 GROUP_ID=""
 GROUP_NAME=""
 ELM_FLAGS=()
-ELM_PROFILE=""
-INJECT_CREDS=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --id)         GROUP_ID="$2";     shift 2 ;;
-        --name)       GROUP_NAME="$2";   shift 2 ;;
-        --profile|-p) ELM_FLAGS+=("-p" "$2"); ELM_PROFILE="$2"; shift 2 ;;
-        --creds)      INJECT_CREDS=true; shift ;;
+        --id)         GROUP_ID="$2";   shift 2 ;;
+        --name)       GROUP_NAME="$2"; shift 2 ;;
+        --profile|-p) ELM_FLAGS+=("-p" "$2"); shift 2 ;;
         -h|--help)
             sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
             exit 0
@@ -76,7 +68,7 @@ fi
 
 # ── No group specified — list auto-balance groups and exit ────────────────────
 if [[ -z "$GROUP_ID" ]]; then
-    printf 'Usage: %s --id GROUP_ID | --name GROUP_NAME [--profile PROFILE] [--creds]\n\n' "$(basename "$0")"
+    printf 'Usage: %s --id GROUP_ID | --name GROUP_NAME [--profile PROFILE]\n\n' "$(basename "$0")"
     printf 'Auto-balance groups:\n\n'
     elm_run -f txt CollectorGroupList -s0 -F 'autoBalance:true' \
         -f id,name,numOfCollectors,autoBalanceInstanceCountThreshold
@@ -187,57 +179,34 @@ else
     exit 1
 fi
 
-if [[ "$INJECT_CREDS" == "true" ]]; then
-    creds_file="${ELM_PROFILE:+$CREDS_DIR/${ELM_PROFILE}.ini}"
-    creds_file="${creds_file:-$CREDS_DIR/config.ini}"
-    [[ -f "$creds_file" ]] \
-        || { printf 'Error: credentials file not found: %s\n' "$creds_file" >&2; exit 1; }
-    printf 'Warning: rendered script contains LM API credentials — do not commit or share.\n\n' >&2
-else
-    creds_file=""
-fi
-
 tmpfile=$(mktemp)
 printf '%s' "$matrix" > "$tmpfile"
 
-"$python_bin" - "$template" "$tmpfile" "$creds_file" "$GROUP_ID" <<'PYEOF'
+"$python_bin" - "$template" "$tmpfile" <<'PYEOF'
 import sys, json
 import jinja2
 
 template_path = sys.argv[1]
 data_path     = sys.argv[2]
-creds_path    = sys.argv[3]
-group_id      = int(sys.argv[4]) if sys.argv[4] else 0
 
 with open(data_path) as f:
     devices = json.load(f)
 
-tvars = {
-    "devices_json": json.dumps(devices, indent=2),
-    "group_id":     group_id,
-}
+def groovy_str(s):
+    return '"' + str(s).replace('\\', '\\\\').replace('"', '\\"') + '"'
 
-if creds_path:
-    import configobj
-    try:
-        cfg = configobj.ConfigObj(creds_path, unrepr=True)
-    except Exception:
-        cfg = configobj.ConfigObj(creds_path)
+def device_to_groovy(d):
+    protos = '[' + ', '.join(groovy_str(p) for p in d['protocols']) + ']'
+    return (f'[id: {d["id"]}, displayName: {groovy_str(d["displayName"])}, '
+            f'ip: {groovy_str(d["ip"])}, hostStatus: {groovy_str(d["hostStatus"])}, '
+            f'protocols: {protos}]')
 
-    def get(key):
-        val = cfg.get(key, "")
-        return str(val).strip().strip("\"'")
-
-    tvars.update({
-        "access_id":    get("access_id"),
-        "access_key":   get("access_key"),
-        "account_name": get("account_name"),
-    })
+devices_groovy = '[\n' + ',\n'.join('    ' + device_to_groovy(d) for d in devices) + '\n]'
 
 with open(template_path) as f:
-    tmpl = jinja2.Template(f.read(), undefined=jinja2.Undefined)
+    tmpl = jinja2.Template(f.read())
 
-print(tmpl.render(**tvars))
+print(tmpl.render(devices_groovy=devices_groovy))
 PYEOF
 
 rm "$tmpfile"
