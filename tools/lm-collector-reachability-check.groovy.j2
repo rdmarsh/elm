@@ -107,7 +107,8 @@ pool.awaitTermination(120, TimeUnit.SECONDS)
 
 // ── Print results (CSV) ───────────────────────────────────────────────────────
 
-println (["id", "Device", "hostname"] + allProtos.collect { protoLabel[it] ?: it }).join(",")
+def header = ["id", "device", "hostname"] + allProtos.collect { protoLabel[it] ?: it }
+println header.join(",")
 
 def failures = []
 futures.eachWithIndex { f, i ->
