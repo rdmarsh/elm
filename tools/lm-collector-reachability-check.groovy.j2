@@ -99,7 +99,7 @@ def futures = devices.collect { d ->
                 ? runTest(proto, d.ip, PING_TIMEOUT_MS, TCP_TIMEOUT_MS, SNMP_TIMEOUT_MS)
                 : "-"
         }
-        return [name: d.displayName, ip: d.ip, res: res]
+        return [id: d.id, name: d.displayName, ip: d.ip, res: res]
     } as Callable)
 }
 pool.shutdown()
@@ -107,12 +107,12 @@ pool.awaitTermination(120, TimeUnit.SECONDS)
 
 // ── Print results (CSV) ───────────────────────────────────────────────────────
 
-println (["Device", "IP/Hostname"] + allProtos.collect { protoLabel[it] ?: it }).join(",")
+println (["id", "Device", "hostname"] + allProtos.collect { protoLabel[it] ?: it }).join(",")
 
 def failures = []
 futures.eachWithIndex { f, i ->
     def r = f.get()
-    def row = [r.name, r.ip] + allProtos.collect { proto ->
+    def row = [r.id, r.name, r.ip] + allProtos.collect { proto ->
         def result = r.res[proto]
         if (result == "FAIL") failures << "${r.name}  ${protoLabel[proto] ?: proto}"
         result == "-" ? "" : result
