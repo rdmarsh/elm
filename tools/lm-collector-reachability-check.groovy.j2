@@ -69,9 +69,10 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
     switch (proto) {
         case "ping":    return pingOk(ip, pingMs)     ? "p" : "FAIL"
         case "snmp":    return snmpOk(ip, snmpMs)     ? "p" : "TIMEOUT"
+        case "tcp-135": return tcpOk(ip, 135, tcpMs)  ? "p" : "FAIL"
+        case "wmi":     return tcpOk(ip, 135, tcpMs)  ? "p" : "FAIL"
         case "tcp-22":  return tcpOk(ip,  22, tcpMs)  ? "p" : "FAIL"
         case "tcp-80":  return tcpOk(ip,  80, tcpMs)  ? "p" : "FAIL"
-        case "tcp-135": return tcpOk(ip, 135, tcpMs)  ? "p" : "FAIL"
         case "tcp-443": return tcpOk(ip, 443, tcpMs)  ? "p" : "FAIL"
         default:        return "?"
     }
@@ -79,8 +80,8 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
 
 // ── Run all devices in parallel ────────────────────────────────────────────────
 
-def protoOrder = ["ping", "snmp", "tcp-135", "tcp-22", "tcp-80", "tcp-443"]
-def protoLabel = ["tcp-135": "wmi", "tcp-22": "ssh", "tcp-80": "http", "tcp-443": "https"]
+def protoOrder = ["ping", "snmp", "tcp-135", "wmi", "tcp-22", "tcp-80", "tcp-443"]
+def protoLabel = ["tcp-135": "port-135", "wmi": "wmi", "tcp-22": "ssh", "tcp-80": "http", "tcp-443": "https"]
 def allProtos = devices.collectMany { it.protocols }.unique()
     .sort { a, b ->
         def ai = protoOrder.indexOf(a); def bi = protoOrder.indexOf(b)

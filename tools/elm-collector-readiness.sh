@@ -22,12 +22,13 @@
 # that LM uses to reach each device (the 'name' field, not 'displayName').
 #
 # Protocol detection (from device autoProperties set by LM Active Discovery):
-#   ping    - always included
-#   snmp    - auto.snmp.operational == "true"
-#   tcp-22  - 22 in auto.network.listening_tcp_ports
-#   tcp-80  - 80 in auto.network.listening_tcp_ports
-#   tcp-135 - 135 in auto.network.listening_tcp_ports
-#   tcp-443 - 443 in auto.network.listening_tcp_ports
+#   ping     - always included
+#   snmp     - auto.snmp.operational == "true"
+#   port-135 - 135 in auto.network.listening_tcp_ports
+#   wmi      - auto.wmi.operational == "true"
+#   ssh      - 22 in auto.network.listening_tcp_ports
+#   http     - 80 in auto.network.listening_tcp_ports, or HTTP- datasource in auto.activedatasources
+#   https    - 443 in auto.network.listening_tcp_ports, or HTTPS/SSL_ datasource in auto.activedatasources
 #
 # Dead devices (hostStatus:dead) are skipped — the device itself is unreachable,
 # testing from a new collector adds no information. Devices with hostStatus:dead-collector
@@ -134,9 +135,19 @@ matrix=$(printf '%s' "$raw" | jq '
     ) as $tcp |
     (
       .autoProperties // [] |
+      map(select(.name == "auto.activedatasources")) |
+      first | .value // "" | split(",")
+    ) as $ds |
+    (
+      .autoProperties // [] |
       map(select(.name == "auto.snmp.operational")) |
       first | .value // "false"
     ) as $snmp |
+    (
+      .autoProperties // [] |
+      map(select(.name == "auto.wmi.operational")) |
+      first | .value // "false"
+    ) as $wmi |
     {
       id:          .id,
       displayName: .displayName,
@@ -144,11 +155,14 @@ matrix=$(printf '%s' "$raw" | jq '
       hostStatus:  .hostStatus,
       protocols: (
         ["ping"] +
-        (if $snmp == "true"           then ["snmp"]    else [] end) +
-        (if $tcp | contains(["135"])  then ["tcp-135"] else [] end) +
-        (if $tcp | contains(["22"])   then ["tcp-22"]  else [] end) +
-        (if $tcp | contains(["80"])   then ["tcp-80"]  else [] end) +
-        (if $tcp | contains(["443"])  then ["tcp-443"] else [] end)
+        (if $snmp == "true"                                                                          then ["snmp"]    else [] end) +
+        (if $tcp | contains(["135"])                                                                 then ["tcp-135"] else [] end) +
+        (if $wmi == "true"                                                                           then ["wmi"]     else [] end) +
+        (if $tcp | contains(["22"])                                                                  then ["tcp-22"]  else [] end) +
+        (if ($tcp | contains(["80"])) or ($ds | map(select(startswith("HTTP") and (startswith("HTTPS") | not))) | length > 0)
+                                                                                                     then ["tcp-80"]  else [] end) +
+        (if ($tcp | contains(["443"])) or ($ds | map(select(startswith("HTTPS") or startswith("SSL_"))) | length > 0)
+                                                                                                     then ["tcp-443"] else [] end)
       )
     }
   ]
