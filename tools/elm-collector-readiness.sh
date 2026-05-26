@@ -167,7 +167,7 @@ matrix=$(printf '%s' "$raw" | jq '
     printf '%-32s %-22s %-16s %s\n' "Device" "IP/Hostname" "Status" "Protocols"
     printf '%-32s %-22s %-16s %s\n' "$(printf '%0.s-' {1..32})" "$(printf '%0.s-' {1..22})" "----------------" "---------"
     printf '%s' "$matrix" \
-        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.hostStatus)\t\(.protocols | join(", "))"' \
+        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.hostStatus)\t\(.protocols | map(if . == "tcp-135" then "wmi" elif . == "tcp-22" then "ssh" elif . == "tcp-80" then "http" elif . == "tcp-443" then "https" else . end) | join(", "))"' \
         | while IFS=$'\t' read -r name ip status protos; do
               printf '%-32s %-22s %-16s %s\n' "${name:0:32}" "${ip:0:22}" "$status" "$protos"
           done

@@ -175,9 +175,16 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
 
 // ── Run all devices in parallel ────────────────────────────────────────────────
 
-def allProtos = devices.collectMany { it.protocols }.unique().sort()
-def nameW     = Math.max(30, devices.collect { it.displayName.length() }.max() + 2)
-def ipW       = Math.max(20, devices.collect { it.ip.length() }.max() + 2)
+def protoOrder = ["ping", "snmp", "tcp-135", "tcp-22", "tcp-80", "tcp-443"]
+def protoLabel = ["tcp-135": "wmi", "tcp-22": "ssh", "tcp-80": "http", "tcp-443": "https"]
+def allProtos = devices.collectMany { it.protocols }.unique()
+    .sort { a, b ->
+        def ai = protoOrder.indexOf(a); def bi = protoOrder.indexOf(b)
+        (ai < 0 ? 999 : ai) <=> (bi < 0 ? 999 : bi)
+    }
+def colW  = Math.max(7, (allProtos.collect { (protoLabel[it] ?: it).length() }.max() ?: 4) + 2)
+def nameW = Math.max(30, devices.collect { it.displayName.length() }.max() + 2)
+def ipW   = Math.max(20, devices.collect { it.ip.length() }.max() + 2)
 
 println "Testing ${devices.size()} devices (parallel)...\n"
 
@@ -199,7 +206,7 @@ pool.awaitTermination(120, TimeUnit.SECONDS)
 // ── Print results ──────────────────────────────────────────────────────────────
 
 def header = String.format("%-${nameW}s %-${ipW}s", "Device", "IP/Hostname")
-allProtos.each { header += String.format("  %-8s", it) }
+allProtos.each { header += String.format("  %-${colW}s", protoLabel[it] ?: it) }
 println header
 println "-" * header.length()
 
@@ -209,8 +216,8 @@ futures.eachWithIndex { f, i ->
     def row = String.format("%-${nameW}s %-${ipW}s", r.name.take(nameW - 1), r.ip.take(ipW - 1))
     allProtos.each { proto ->
         def result = r.res[proto]
-        row += String.format("  %-8s", result)
-        if (result == "FAIL") failures << "${r.name}  ${proto}"
+        row += String.format("  %-${colW}s", result)
+        if (result == "FAIL") failures << "${r.name}  ${protoLabel[proto] ?: proto}"
     }
     println row
 }
@@ -220,8 +227,8 @@ if (failures) {
     println "FAILURES — investigate before adding this collector to the group:"
     failures.each { println "  - $it" }
     println ""
-    println "SNMP TIMEOUT rows may indicate wrong community rather than unreachable."
-    println "Check snmp.community device property in LM if SNMP should be working."
+    println "snmp TIMEOUT may mean wrong community rather than unreachable — check snmp.community in LM."
+    println "wmi PASS only confirms TCP 135 (RPC endpoint mapper); WMI uses dynamic high ports (49152-65535) too."
 } else {
     println "All checks passed. Collector appears ready to join the auto-balance group."
 }
