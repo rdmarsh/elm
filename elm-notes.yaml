@@ -43,6 +43,18 @@ _formats:
     note: "Distinct from 'tab' which is tabulate's human-readable aligned table. Supports -H and -I flags."
     example: "id\tname\n1\tfoo\n2\tbar"
 
+  values:
+    description: Bare values with no headers, no padding — for shell variable assignment and piping
+    pipeable: true
+    note: |
+      Single field: one value per line. Multiple fields: TSV with no header row.
+      Removes jq from simple scalar extraction:
+        gid=$(elm -f values DeviceGroupList -f id -F name:"Linux Devices")
+        elm DeviceList -s0 -F hostGroupIds~${gid}
+      For multi-value array cases requiring --argjson, jq is still needed.
+      Does not support -H or -I (headers are never shown regardless).
+    example: "42"
+
   json:
     description: Compact JSON wrapped in command name key
     pipeable: true  # pipe to jq

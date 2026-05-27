@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.7] - 2026-05-27
+
+### Added
+
+- `values` output format (`-f values`): emits bare field values with no headers or padding. Single field: one value per line — ideal for shell variable assignment (`gid=$(elm -f values DeviceGroupList -f id -F name:Linux)`). Multiple fields: tab-separated values with no header row — pipes cleanly into `cut`, `awk`, or `column`. Removes jq as a dependency for simple scalar extraction and multi-step command chaining.
+
 ### Added
 - `tools/elm-collector-readiness.sh` — pre-add collector verification tool. Discovers all devices in an LM auto-balance group, detects protocols from `autoProperties` (SNMP, SSH, WMI, HTTP/HTTPS) set by LM Active Discovery, and renders a ready-to-paste Groovy reachability test script to stdout. Supports `--id GROUP_ID` and `--name GROUP_NAME`; profile defaults to `config` (same as elm). Devices with `hostStatus:dead` are skipped; `dead-collector` devices are kept (collector is down but device may be reachable from new collector).
 - `tools/lm-collector-reachability-check.groovy.j2` — Jinja2 template for the LM Collector Debug → Script tab. Device list pre-filled by `elm-collector-readiness.sh`. Tests ping (`InetAddress.isReachable`), SNMP (raw UDP 161 probe), and TCP connectivity per device in parallel (one thread per device via `ExecutorService`); outputs CSV with `pass`/`FAIL`/`TIMEOUT`/blank per protocol column.

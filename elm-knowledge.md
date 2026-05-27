@@ -57,7 +57,14 @@ Escape literal commas in filter values with a backslash.
 
 ### Output formats
 
-`csv`, `tsv`, `html`, `prettyhtml`, `jira`, `json`, `jsonl`, `prettyjson`, `xml`, `prettyxml`, `latex`, `md`, `rst`, `tab`, `gfm`, `pipe`, `raw`, `txt`, `api`
+`csv`, `tsv`, `html`, `prettyhtml`, `jira`, `json`, `jsonl`, `prettyjson`, `xml`, `prettyxml`, `latex`, `md`, `rst`, `tab`, `gfm`, `pipe`, `values`, `raw`, `txt`, `api`
+
+`values` format: bare values with no headers or padding. Single field: one value per line — use for shell variable assignment. Multiple fields: TSV no-header row — pipe into `cut` or `awk`. Removes jq from simple scalar extraction:
+
+```shell
+gid=$(elm -f values DeviceGroupList -f id -F name:"Linux Devices")
+elm DeviceList -s0 -F hostGroupIds~${gid}
+```
 
 `api` format: prints the encoded API request URL. The request IS made; `response.url` is the source. The HMAC signature expires in minutes — not suitable for sharing or reuse.
 

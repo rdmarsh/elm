@@ -309,6 +309,12 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="rst", floatfmt='.0f')
         elif format == 'tab':
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="simple", floatfmt='.0f')
+        elif format == 'values':
+            # single field: one bare value per line; multiple fields: TSV, no headers
+            if len(df.columns) == 1:
+                output = '\n'.join(df.iloc[:, 0].astype(str))
+            else:
+                output = df.to_csv(sep='\t', header=False, index=False)[:-1]
         elif format == 'raw':
             output = items
         else:

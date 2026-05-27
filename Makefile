@@ -116,7 +116,7 @@ REQSOURCES = $(patsubst $(defdir)/%.$(JSN),%,$(shell $(GREP) $(GREPFLAGS) "\"req
 NONREQTARGETS = $(filter-out ExternalApiStats $(REQSOURCES),$(TSTTARGETS))
 
 # All output formats supported by elm
-FORMATS_ALL = csv html prettyhtml jira json jsonl prettyjson xml prettyxml gfm latex md pipe rst tab tsv raw txt api curl wget
+FORMATS_ALL = csv html prettyhtml jira json jsonl prettyjson xml prettyxml gfm latex md pipe rst tab tsv values raw txt api curl wget
 # Formats that support -H (hide headers) and -I (show index) flags (excludes json, jsonl, prettyjson, xml, prettyxml, raw, api)
 FORMATS_HDR = csv html prettyhtml jira gfm latex md pipe rst tab tsv txt
 # Formats that support --head and --foot custom text (text-based table formats only)
@@ -442,6 +442,8 @@ testfmtcontent: | JQ-exists ## Assert each format's output really is that format
 	@echo testing: api prints the authorization header ; $(testbin) -f api MetricsUsage 2>/dev/null | grep -q '^Authorization: LMv1'
 	@echo testing: curl prints a curl command ; $(testbin) -f curl MetricsUsage 2>/dev/null | grep -q '^curl -H'
 	@echo testing: wget prints a wget command ; $(testbin) -f wget MetricsUsage 2>/dev/null | grep -q '^wget '
+	@echo testing: values single-field is a bare value with no header ; $(testbin) -f values MetricsUsage -f numberOfDevices 2>/dev/null | grep -qE '^[0-9]+$$'
+	@echo testing: values multi-field is tab-separated with no header ; out=$$($(testbin) -f values MetricsUsage -f numberOfDevices,numberOfStandardDevices 2>/dev/null) ; echo "$$out" | grep -q "$$(printf '\t')" && ! echo "$$out" | grep -qi 'numberOfDevices'
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testH
