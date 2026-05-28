@@ -1,5 +1,5 @@
 theme: jekyll-theme-cayman
 title: elm
-description: LogicMonitor CLI — query the LM REST API from the command line
+description: Unofficial CLI for extracting data from the LM REST API
 github:
   repository_url: https://github.com/rdmarsh/elm
