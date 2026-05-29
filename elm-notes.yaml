@@ -141,6 +141,30 @@ _formats:
     example: |
       curl -H "Authorization: LMv1 ..." "https://acme.logicmonitor.com/santaba/rest/..."
 
+  sqlite:
+    description: Appends query results to a local SQLite database file — a running database, not a new file per run
+    pipeable: false
+    requires: "-o/--filename is mandatory; errors if stdout is requested"
+    note: |
+      Table name is derived by converting the CamelCase command name to snake_case:
+        DeviceList      -> device_list
+        AlertList       -> alert_list
+        MetricsUsage    -> metrics_usage
+        CollectorById   -> collector_by_id
+      Every row gets a 'fetched_at' column (first column, UTC ISO8601, e.g. '2026-05-29T01:44:25Z').
+      Repeated runs append new rows — data accumulates over time. To get the latest snapshot only:
+        SELECT * FROM device_list WHERE fetched_at = (SELECT MAX(fetched_at) FROM device_list)
+      Nested dict/list fields (e.g. customProperties) are serialised to JSON strings for storage.
+      Multiple endpoints can share one file — each lands in its own table.
+      Uses stdlib sqlite3, no extra dependencies.
+      The file is created on first run; subsequent runs append to the existing file/table.
+    use_for: "Building a local queryable cache across multiple elm runs; replacing ad-hoc JSON file collections"
+    example: |
+      elm DeviceList -s0 -f sqlite -o lm.sqlite
+      elm AlertList  -s0 -f sqlite -o lm.sqlite
+      sqlite3 lm.sqlite "SELECT displayName, hostStatus FROM device_list LIMIT 5"
+      duckdb lm.sqlite "SELECT * FROM alert_list WHERE fetched_at > '2026-05-28'"
+
 # ---
 # Global notes (apply to all commands)
 # ---

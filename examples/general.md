@@ -14,6 +14,7 @@ These apply across all commands and resource types.
    * [Use a filter with a space in the VALUE](#use-a-filter-with-a-space-in-the-value)
    * [Pipe stdout to another program](#pipe-stdout-to-another-program)
    * [Write data to a file](#write-data-to-a-file)
+   * [Build a local SQLite database](#build-a-local-sqlite-database)
    * [Count results matching a filter](#count-results-matching-a-filter)
    * [Use --format api to debug the API call](#use---format-api-to-debug-the-api-call)
    * [Output formats for tables and documents](#output-formats-for-tables-and-documents)
@@ -103,6 +104,67 @@ pbcopy
 ```shell
 elm -o filename MetricsUsage
 ```
+
+## Build a local SQLite database
+
+`-f sqlite` appends query results to a SQLite database file. It is a **running
+database**, not a new file per run — each call adds rows to the same table so
+data accumulates over time.
+
+The table name is derived from the command name by converting CamelCase to
+snake\_case (e.g. `DeviceList` → `device_list`, `AlertList` → `alert_list`).
+Multiple endpoints can share one file — each lands in its own table.
+
+Every row gets a `fetched_at` column (UTC ISO8601, e.g. `2026-05-29T01:44:25Z`)
+as its first column so you can tell how old each row is.
+
+```shell
+# Accumulate snapshots over time — re-run daily, weekly, whenever
+elm DeviceList -s0 -f sqlite -o lm.sqlite
+elm AlertList  -s0 -f sqlite -o lm.sqlite
+```
+
+elm prints a confirmation to stderr and produces no stdout output:
+
+```
+Appended 1567 rows to table 'device_list' in lm.sqlite
+```
+
+Query with any SQLite-compatible tool:
+
+```shell
+# sqlite3 CLI
+sqlite3 lm.sqlite "SELECT displayName, hostStatus FROM device_list LIMIT 5"
+sqlite3 lm.sqlite ".tables"
+
+# DuckDB (can query SQLite files natively)
+duckdb lm.sqlite "SELECT * FROM alert_list WHERE fetched_at > '2026-05-28'"
+```
+
+To see just the **latest snapshot** when you have multiple runs in the database:
+
+```sql
+SELECT *
+FROM device_list
+WHERE fetched_at = (SELECT MAX(fetched_at) FROM device_list);
+```
+
+To compare **two snapshots** — e.g. devices that appeared between runs:
+
+```sql
+SELECT id, displayName
+FROM device_list
+WHERE fetched_at = (SELECT MAX(fetched_at) FROM device_list)
+  AND id NOT IN (
+    SELECT id FROM device_list
+    WHERE fetched_at < (SELECT MAX(fetched_at) FROM device_list)
+  );
+```
+
+> **Note:** `-o`/`--filename` is required. `-f sqlite` cannot write to stdout
+> and will error if you omit `-o`. Nested API fields (e.g. `customProperties`)
+> are serialised to JSON strings for storage and can be parsed with
+> `json_extract()` in DuckDB or `json_each()` in SQLite.
 
 ## Count results matching a filter
 
