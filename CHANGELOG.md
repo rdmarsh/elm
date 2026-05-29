@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.8] - 2026-05-29
+
+### Added
+
+- `sqlite` output format (`-f sqlite -o file.sqlite`): appends query results to a local SQLite database. Table name is derived from the command name (e.g. `DeviceList` → `device_list`). Each row gets a `fetched_at` UTC timestamp (ISO8601) as the first column so freshness can be checked at query time. Nested dict/list values are serialised to JSON strings for storage. Repeated runs append new rows — query `WHERE fetched_at = (SELECT MAX(fetched_at) FROM <table>)` for the latest snapshot. Requires `-o`/`--filename`; errors clearly if stdout is requested. Uses stdlib `sqlite3` — no new dependencies.
+
 ## [1.8.7] - 2026-05-27
 
 ### Added

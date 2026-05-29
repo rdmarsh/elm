@@ -239,7 +239,7 @@ Options:
   -f, --format FORMAT      Output format: csv, tsv, json, jsonl, prettyjson,
                            xml, prettyxml, html, prettyhtml, gfm, pipe, jira,
                            latex, md, rst, tab, values, raw, txt, api, curl,
-                           wget  [default: json]
+                           wget, sqlite  [default: json]
 
   -H, --noheader           Hide the column headers  [default: False]
   -I, --index              Show the row indices  [default: False]
@@ -256,6 +256,10 @@ Options:
 Commands:
   AccessGroupById                 Get access group by id
   AccessGroupList                 Get access group list
+  ActionChainById                 Get action chain by id
+  ActionChainsList                Get action chains list
+  ActionRuleById                  Get action rule
+  ActionRulesList                 Get action rules list
   AdminById                       Get user
   AdminList                       Get user list
   AlertById                       Get alert
@@ -360,6 +364,14 @@ Commands:
   DeviceList                      Get device list
   DevicePropertyByName            Get device property by name
   DevicePropertyList              Get device properties
+  DiagnosticRemediationAssignedSources
+                                  List assigned diagnostic and remediation
+                                  exchange modules
+
+  DiagnosticRemediationExecutionResults
+                                  Get diagnostic and remediation execution
+                                  results (canonical)
+
   DiagnosticSourcesById           Get diagnostics sources by id
   DiagnosticSourcesList           Get diagnostics sources list
   EscalationChainById             Get escalation chain by id

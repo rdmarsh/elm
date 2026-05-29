@@ -336,7 +336,7 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testbasic testfmts testfmtcontent testverb testid ## Run quick and simple tests
+test: testbasic testfmts testfmtcontent testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
@@ -362,6 +362,7 @@ testbasic: ## Test basic flags
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
+	@echo testing: sqlite format requires -o flag ; $(testbin) -f sqlite MetricsUsage 2>&1 | grep -q 'requires -o'
 	@$(foreach cmd,$(TSTTARGETS), \
 		echo testing: $(testbin) $(cmd) --help ;\
 		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\
@@ -444,6 +445,18 @@ testfmtcontent: | JQ-exists ## Assert each format's output really is that format
 	@echo testing: wget prints a wget command ; $(testbin) -f wget MetricsUsage 2>/dev/null | grep -q '^wget '
 	@echo testing: values single-field is a bare value with no header ; $(testbin) -f values MetricsUsage -f numberOfDevices 2>/dev/null | grep -qE '^[0-9]+$$'
 	@echo testing: values multi-field is tab-separated with no header ; out=$$($(testbin) -f values MetricsUsage -f numberOfDevices,numberOfStandardDevices 2>/dev/null) ; echo "$$out" | grep -q "$$(printf '\t')" && ! echo "$$out" | grep -qi 'numberOfDevices'
+	@echo "$(OK_STRING) $@"
+
+.PHONY: testsqlite
+testsqlite: ## Test sqlite format with a temp file         (connects to LM)
+	@tmp=$$(mktemp /tmp/elm-test-XXXXXX.sqlite) ; \
+	echo "testing: sqlite format appends rows with fetched_at" ; \
+	$(testbin) -f sqlite -o $$tmp MetricsUsage 2>&1 | grep -q 'Appended' || (rm -f $$tmp; exit 1) ; \
+	python3 -c "import sqlite3; c=sqlite3.connect('$$tmp'); r=c.execute('SELECT fetched_at FROM metrics_usage LIMIT 1').fetchone(); assert r and r[0].endswith('Z'), 'fetched_at missing or wrong format'; print('fetched_at ok')" || (rm -f $$tmp; exit 1) ; \
+	echo "testing: sqlite format appends on second run" ; \
+	$(testbin) -f sqlite -o $$tmp MetricsUsage 2>/dev/null ; \
+	python3 -c "import sqlite3; c=sqlite3.connect('$$tmp'); n=c.execute('SELECT COUNT(*) FROM metrics_usage').fetchone()[0]; assert n>1, f'expected >1 rows after two appends, got {n}'; print(f'append ok: {n} rows')" || (rm -f $$tmp; exit 1) ; \
+	rm -f $$tmp
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testH

@@ -257,6 +257,23 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
         logging.debug('index: %s', index)
         logging.debug('dtypes:\n%s', df.dtypes)
 
+        if format == 'sqlite':
+            import sqlite3
+            import datetime
+            if filename == '-':
+                click.secho('Error: sqlite format requires -o/--filename (cannot write to stdout)', fg='red', err=True)
+                raise click.Abort()
+            # CamelCase command name to snake_case table name
+            table = re.sub(r'(?<!^)(?=[A-Z])', '_', command).lower()
+            # serialize any nested dict/list values to JSON strings for SQLite storage
+            df = df.map(lambda v: json.dumps(v) if isinstance(v, (dict, list)) else v)
+            df.insert(0, 'fetched_at', datetime.datetime.utcnow().isoformat(timespec='seconds') + 'Z')
+            conn = sqlite3.connect(filename)
+            df.to_sql(table, conn, if_exists='append', index=False)
+            conn.close()
+            click.secho(f"Appended {len(df)} rows to table '{table}' in {filename}", fg='green', err=True)
+            return
+
         #set headers to an empty array, this is for passing
         #to tabulate as it doesn't understand header=False
         if noheader:
