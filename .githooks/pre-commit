@@ -1,0 +1,10 @@
+#!/bin/bash
+# Regenerate ToC for any staged .md file that contains a gh-md-toc marker.
+if command -v gh-md-toc >/dev/null 2>&1; then
+	while IFS= read -r -d '' file; do
+		if grep -q "<!--ts-->" "$file" 2>/dev/null; then
+			gh-md-toc --insert --no-backup --hide-footer --skip-header "$file"
+			git add "$file"
+		fi
+	done < <(git diff --cached --name-only -z -- '*.md')
+fi

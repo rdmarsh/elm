@@ -10,9 +10,6 @@ The following show some errors you may see and what they mean:
    * [Warning: no data found](#warning-no-data-found)
    * [REST API error codes](#rest-api-error-codes)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Error: access_id, access_key or account_name not set via cli or config file
@@ -101,6 +98,6 @@ https://www.logicmonitor.com/support/api-error-codes
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header ERRORS.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header ERRORS.md
 ```
 

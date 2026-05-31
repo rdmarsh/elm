@@ -20,9 +20,6 @@ These apply across all commands and resource types.
    * [Output formats for tables and documents](#output-formats-for-tables-and-documents)
    * [Add header and footer custom text](#add-header-and-footer-custom-text)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Get metrics
@@ -237,5 +234,5 @@ elm --head "{warning}This information is automatically generated. Changes may be
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/general.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/general.md
 ```

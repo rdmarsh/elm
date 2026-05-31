@@ -300,8 +300,7 @@ install: $(bindir)/$(name) cfg completion ## (Re)installs the script and modifie
 
 .PHONY: hooks
 hooks: ## Install git hooks (run once after cloning)
-	@printf '#!/bin/bash\n# Regenerate ToC for any staged .md file that contains a gh-md-toc marker\nif command -v gh-md-toc >/dev/null 2>&1; then\n\twhile IFS= read -r file; do\n\t\tif grep -q "<!--ts-->" "$$file" 2>/dev/null; then\n\t\t\tgh-md-toc --insert --no-backup --skip-header "$$file"\n\t\t\tsed -i "" "/^<!-- Added by:/d" "$$file"\n\t\t\tgit add "$$file"\n\t\tfi\n\tdone < <(git diff --cached --name-only | grep "\\.md$$")\nfi\n' > .git/hooks/pre-commit
-	@chmod +x .git/hooks/pre-commit
+	git config core.hooksPath .githooks
 	@echo "$(OK_STRING) $@"
 
 .PHONY: docs

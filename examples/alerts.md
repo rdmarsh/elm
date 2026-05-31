@@ -12,9 +12,6 @@ Queries relating to active alerts, scheduled downtime (SDT), and alert history.
    * [Find time-related alerts (NTP, clock skew)](#find-time-related-alerts-ntp-clock-skew)
    * [Find the oldest WMI alerts for Windows devices](#find-the-oldest-wmi-alerts-for-windows-devices)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Find long SDTs
@@ -61,5 +58,5 @@ elm AlertList -s0 -S startEpoch -F cleared:false \
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/alerts.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/alerts.md
 ```

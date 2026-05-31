@@ -23,9 +23,6 @@ Queries relating to collectors, collector groups, and auto-balance settings.
       * [Find collectors running old builds](#find-collectors-running-old-builds)
    * [Find non-auto balanced devices on a collector](#find-non-auto-balanced-devices-on-a-collector)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Collector health report
@@ -171,5 +168,5 @@ elm DeviceList -f id,name,displayName,autoBalancedCollectorGroupId,collectorDesc
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/collectors.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/collectors.md
 ```

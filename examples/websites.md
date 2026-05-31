@@ -10,9 +10,6 @@ Queries relating to websites, website groups, and website properties.
    * [Find websites with no properties in a group hierarchy](#find-websites-with-no-properties-in-a-group-hierarchy)
    * [Find websites missing required properties](#find-websites-missing-required-properties)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Find websites with no properties in a group hierarchy
@@ -60,5 +57,5 @@ elm WebsiteList -s0 -f name,domain,groupId,properties | \
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/websites.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/websites.md
 ```

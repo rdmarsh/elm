@@ -7,9 +7,6 @@ Each topic has its own file in the [examples/](examples/) directory.
    * [Topics](#topics)
    * [Scripts](#scripts)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Topics
@@ -37,6 +34,6 @@ For longer automation, see the scripts in [examples/](examples/):
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header EXAMPLES.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header EXAMPLES.md
 ```
 

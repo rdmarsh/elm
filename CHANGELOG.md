@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Git pre-commit hook (ToC regeneration) is now a tracked file at `.githooks/pre-commit` instead of being emitted as an escaped `printf` string by the `make hooks` target. `make hooks` now just runs `git config core.hooksPath .githooks`, so the hook is normal, reviewable bash. The hook itself now passes `--hide-footer` to `gh-md-toc` (dropping the post-hoc `sed` that stripped the `Added by:` footer) and selects staged Markdown via NUL-delimited `git diff --name-only -z -- '*.md'` (handles paths with spaces/newlines). Because the footer lives inside the `<!--ts-->`/`<!--te-->` block, existing footers are removed automatically the next time a file is staged.
+- `## meta` ToC-update commands across the 13 documented Markdown files now include `--hide-footer`, matching the hook so a manual run no longer re-adds the footer.
+
 ## [1.8.8] - 2026-05-29
 
 ### Added

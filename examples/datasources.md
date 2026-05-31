@@ -12,9 +12,6 @@ Queries relating to datasources, datasource coverage, and which devices have a d
       * [Instance count](#instance-count)
       * [Datapoint count](#datapoint-count)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Find devices that don't have a datasource applied
@@ -110,5 +107,5 @@ instance has active data flowing.
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/datasources.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/datasources.md
 ```

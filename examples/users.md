@@ -12,9 +12,6 @@ Queries relating to user accounts, API tokens, roles, and offboarding.
    * [Audit all active API tokens](#audit-all-active-api-tokens)
    * [Offboarding checks — collectors, devices, and API tokens](#offboarding-checks--collectors-devices-and-api-tokens)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Export users by userid
@@ -83,5 +80,5 @@ A suspended account with no API tokens, collectors, or devices is fully offboard
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/users.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/users.md
 ```

@@ -13,10 +13,6 @@
       * [4. Permanent Ban](#4-permanent-ban)
    * [Attribution](#attribution)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-<!-- Added by: davidmarsh, at: Wed 21 Feb 2024 20:14:05 AEDT -->
-
 <!--te-->
 
 ## Our Pledge
@@ -155,6 +151,6 @@ For answers to common questions about this code of conduct, see the FAQ at
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header CODE_OF_CONDUCT.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header CODE_OF_CONDUCT.md
 ```
 

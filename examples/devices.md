@@ -24,9 +24,6 @@ Includes filtering by OS type, custom/system properties, and group membership.
    * [Find devices with a specific property value](#find-devices-with-a-specific-property-value)
    * [Scripts](#scripts)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Find all hosts in a group by name
@@ -211,6 +208,6 @@ For more complex device queries see the scripts in this directory:
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/devices.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/devices.md
 ```
 

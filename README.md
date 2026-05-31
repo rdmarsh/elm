@@ -40,9 +40,6 @@ platform.
    * [Links](#links)
    * [Licensing](#licensing)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Features
@@ -580,6 +577,6 @@ affiliated with this project
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header README.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header README.md
 ```
 

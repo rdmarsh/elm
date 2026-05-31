@@ -25,9 +25,6 @@ The standard workflow:
       * [WMI (tcp-135)](#wmi-tcp-135)
    * [Mode C — LM API directly, no elm](#mode-c--lm-api-directly-no-elm)
    * [meta](#meta)
-
-<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
-
 <!--te-->
 
 ## Step 1 — Find the auto-balance group
@@ -206,5 +203,5 @@ the script after use — the LM debug console history may retain them.
 Update the ToC on this page by running the following:
 
 ```shell
-gh-md-toc --insert --no-backup --skip-header examples/collector-readiness.md
+gh-md-toc --insert --no-backup --hide-footer --skip-header examples/collector-readiness.md
 ```
