@@ -6,10 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `tools/lm-collector-reachability-run-all.ps1` — PowerShell runner that checks reachability across **every active collector in an auto-balance group at once** and saves each collector's result as `<hostname>.csv` for diffing between collectors. Self-contained: uses only the `Logic.Monitor` module (no elm, bash, jq, or jinja2) and a single `Connect-LMAccount` session. Discovers group members (`preferredCollectorGroupId`), builds the protocol matrix from `autoProperties`, generates the Groovy inline, submits it to each active collector via Collector Debug, waits, and retrieves the results. Skips devices that are themselves collector hosts (matched via a collector's `collectorDeviceId`) and warns when such hosts are found in an auto-balance group.
+
 ### Changed
 
 - Git pre-commit hook (ToC regeneration) is now a tracked file at `.githooks/pre-commit` instead of being emitted as an escaped `printf` string by the `make hooks` target. `make hooks` now just runs `git config core.hooksPath .githooks`, so the hook is normal, reviewable bash. The hook itself now passes `--hide-footer` to `gh-md-toc` (dropping the post-hoc `sed` that stripped the `Added by:` footer) and selects staged Markdown via NUL-delimited `git diff --name-only -z -- '*.md'` (handles paths with spaces/newlines). Because the footer lives inside the `<!--ts-->`/`<!--te-->` block, existing footers are removed automatically the next time a file is staged.
 - `## meta` ToC-update commands across the 13 documented Markdown files now include `--hide-footer`, matching the hook so a manual run no longer re-adds the footer.
+
+### Fixed
+
+- `tools/elm-collector-readiness.sh`: device membership filter changed from `autoBalancedCollectorGroupId` to `preferredCollectorGroupId`. `autoBalancedCollectorGroupId` is only populated for devices LM has already auto-placed, so it returned no devices for groups whose members are assigned but not yet balanced (observed: a group with 2 assigned devices reported 0 to test).
 
 ## [1.8.8] - 2026-05-29
 

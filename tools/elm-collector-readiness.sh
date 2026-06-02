@@ -98,8 +98,12 @@ fi
 
 # ── Fetch devices ─────────────────────────────────────────────────────────────
 printf 'Fetching devices in group %s...\n' "$GROUP_ID" >&2
+# Group membership is preferredCollectorGroupId (what the device is assigned to).
+# autoBalancedCollectorGroupId only reflects devices LM has actively placed, which
+# can be empty even for an autoBalance group with assigned devices (observed on
+# group 191: 0 by autoBalancedCollectorGroupId, 2 by preferredCollectorGroupId).
 raw=$(elm_run DeviceList -s0 \
-    -F "autoBalancedCollectorGroupId:$GROUP_ID" \
+    -F "preferredCollectorGroupId:$GROUP_ID" \
     -f id,displayName,name,hostStatus,autoProperties)
 
 total=$(printf '%s' "$raw" | jq '.DeviceList | length')

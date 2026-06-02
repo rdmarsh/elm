@@ -317,6 +317,7 @@ DeviceList:
     - "displayName~foo,preferredCollectorGroupName\\!~foo  # ! must be escaped in bash"
   gotchas:
     - "hostGroupIds is a comma-separated string, not an array — use ~ not : to match"
+    - "To list devices assigned to a collector group, filter on preferredCollectorGroupId (the assigned group). autoBalancedCollectorGroupId is only populated once LM has actually placed the device, so it can be empty for a group whose devices are assigned but not yet balanced — filtering on it may return 0 devices (e.g. CollectorGroupList -F 'autoBalancedCollectorGroupId:N' found nothing while preferredCollectorGroupId:N found the members)"
     - "There is no way to effectively filter by effective property (per LM community)"
     - "Device groups (e.g. 'Linux Servers') may contain non-Linux devices — prefer
       system.sysinfo filter over group membership for OS-based queries"
@@ -1209,6 +1210,7 @@ CollectorList:
     nextUpgradeInfo:    object   # {majorVersion, minorVersion, mandatory, stable, upgradeTime, upgradeTimeEpoch}
   gotchas:
     - "collectorDeviceId=0 means the collector has no device record in LM -- you cannot query its host metrics (CPU, memory) via DeviceDatasourceInstanceData etc."
+    - "collectorDeviceId (when non-zero) is the device ID of the collector host in DeviceList -- use it to identify which devices in a group are themselves collector hosts so reachability/cross-collector checks can skip them (a collector is monitored from itself; collector name and device name need not match)"
     - "status is always 1 for all collectors including DOWN ones -- use isDown for real health status"
     - "numberOfInstances is 0 for non-auto-balance collectors -- it only tracks auto-balance load distribution"
     - "backupAgentId is a single value -- a collector can only have one backup; no chain failover"

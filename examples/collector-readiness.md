@@ -155,6 +155,39 @@ FAILURES — investigate before adding this collector to the group:
   - unreachable-host  tcp-22
 ```
 
+## Automated run across all collectors (PowerShell)
+
+`tools/lm-collector-reachability-run-all.ps1` does Steps 2-4 in a single pass for
+**every active collector in the group at once**, then saves each collector's result as
+`<hostname>.csv` so you can diff them to find reachability gaps between collectors.
+
+It is self-contained PowerShell — it uses only the `Logic.Monitor` module (no elm,
+bash, jq, or jinja2). Establish a session first (`Connect-LMAccount`, or your own
+connection wrapper), then:
+
+```powershell
+# List auto-balance groups
+./tools/lm-collector-reachability-run-all.ps1
+
+# Run against a group by id or name
+./tools/lm-collector-reachability-run-all.ps1 -id 42
+./tools/lm-collector-reachability-run-all.ps1 -name "My Region Collectors" -OutputDir ./results
+```
+
+It discovers group members via `preferredCollectorGroupId`, builds the same protocol
+matrix from `autoProperties`, generates the Groovy inline, submits it to each active
+collector via Collector Debug, waits, and writes one CSV per collector. Compare them:
+
+```shell
+diff results/collectorA.csv results/collectorB.csv
+```
+
+Devices that are themselves collector hosts (identified by a collector's
+`collectorDeviceId`) are skipped — a collector is monitored from itself, so
+cross-testing it from another collector is meaningless. If such hosts are found in an
+auto-balance group the script warns: collector hosts should be pinned to their own
+collector, not auto-balanced.
+
 ## Interpreting results
 
 | Result | Meaning |
