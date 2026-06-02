@@ -418,11 +418,34 @@ function Get-DebugText($result) {
     return ($result | Out-String)
 }
 
+# Parse the protocol matrix out of a saved collector result. The Groovy prints
+# preamble ("Testing N devices..."), a CSV header (id,device,hostname,<protocols>),
+# data rows, then a blank line and a FAILURES / all-passed footer. Extract just the
+# header + data rows and hand them to ConvertFrom-Csv. (Fields are joined unquoted by
+# the Groovy, so a comma inside a displayName/hostname would misalign columns — none
+# do today, but that is the assumption.)
+function ConvertFrom-ReachabilityText {
+    param([string]$Text)
+    $lines  = $Text -split "\r?\n"
+    $header = $lines | Select-String -SimpleMatch 'id,device,hostname' | Select-Object -First 1
+    if (-not $header) { return @() }
+    $csv = [System.Collections.Generic.List[string]]::new()
+    for ($i = $header.LineNumber - 1; $i -lt $lines.Count; $i++) {
+        if ([string]::IsNullOrWhiteSpace($lines[$i])) { break }   # blank line ends the table
+        $csv.Add($lines[$i])
+    }
+    if ($csv.Count -lt 2) { return @() }                          # header only, no data rows
+    return $csv -join "`n" | ConvertFrom-Csv
+}
+
 # Poll and save each collector's result as soon as it is ready, instead of a fixed sleep.
 Write-Host "Polling for results (up to ${WaitSeconds}s)..."
 $pending  = [System.Collections.Generic.List[object]]::new()
 $jobs | ForEach-Object { $pending.Add($_) }
 $deadline = (Get-Date).AddSeconds($WaitSeconds)
+
+# Successfully retrieved results, in completion order, for the cross-collector comparison.
+$results = [System.Collections.Generic.List[object]]::new()
 
 while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 5
@@ -433,6 +456,11 @@ while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
             $outFile  = Join-Path $OutputDir "${safeName}.csv"
             $text | Set-Content $outFile
             Write-Host "  Saved: $outFile  ($($job.Hostname))"
+            $results.Add([PSCustomObject]@{
+                Hostname = $job.Hostname
+                OutFile  = $outFile
+                Rows     = @(ConvertFrom-ReachabilityText $text)
+            })
             [void]$pending.Remove($job)
         }
     }
@@ -442,4 +470,87 @@ foreach ($job in $pending) {
     Write-Warning "  No output for $($job.Hostname) (session $($job.SessionId)) - timed out after ${WaitSeconds}s"
 }
 
+# ── Cross-collector comparison: surface reachability gaps ─────────────────────
+# Not a textual file diff. For every device+protocol, gather the result from each
+# collector that returned and flag the row when collectors disagree (e.g. one
+# 'pass', another 'FAIL'). Works for any collector count - the odd one out of N is
+# visible in the per-protocol line, not just an A-vs-B comparison.
+if ($results.Count -ge 2) {
+    Write-Host ""
+    Write-Host "-- Comparison: reachability gaps between collectors --"
+
+    # Protocol columns = CSV headers minus the identity columns, in CSV order.
+    $idCols    = 'id', 'device', 'hostname'
+    $protoCols = @()
+    foreach ($r in $results) {
+        if ($r.Rows.Count -gt 0) {
+            $protoCols = @($r.Rows[0].PSObject.Properties.Name | Where-Object { $_ -notin $idCols })
+            break
+        }
+    }
+
+    # Index each collector's rows by device id, and collect device ids in first-seen order.
+    $byCollector = @{}
+    $allIds      = [System.Collections.Generic.List[string]]::new()
+    foreach ($r in $results) {
+        $map = @{}
+        foreach ($row in $r.Rows) {
+            $key = [string]$row.id
+            $map[$key] = $row
+            if (-not $allIds.Contains($key)) { $allIds.Add($key) }
+        }
+        $byCollector[$r.Hostname] = $map
+    }
+
+    $disagree = 0
+    $agree    = 0
+    foreach ($id in $allIds) {
+        # Device label from the first collector that reported this id.
+        $label = $id
+        foreach ($r in $results) {
+            if ($byCollector[$r.Hostname].ContainsKey($id)) { $label = $byCollector[$r.Hostname][$id].device; break }
+        }
+
+        $diffs = [System.Collections.Generic.List[string]]::new()
+        foreach ($p in $protoCols) {
+            $cells = foreach ($r in $results) {
+                $row = $byCollector[$r.Hostname][$id]
+                $v   = if ($row) { [string]$row.$p } else { '(absent)' }   # collector never reported this device
+                if ([string]::IsNullOrEmpty($v)) { $v = '-' }              # protocol not tested for this device
+                [PSCustomObject]@{ Collector = $r.Hostname; Value = $v }
+            }
+            $distinct = @($cells.Value | Select-Object -Unique)
+            if ($distinct.Count -gt 1) {
+                $detail = ($cells | ForEach-Object { "$($_.Collector)=$($_.Value)" }) -join '  '
+                $diffs.Add(("    {0,-10} {1}" -f $p, $detail))
+            }
+        }
+
+        if ($diffs.Count -gt 0) {
+            $disagree++
+            Write-Host ""
+            Write-Host "  $label  [id=$id]"
+            $diffs | ForEach-Object { Write-Host $_ }
+        } else {
+            $agree++
+        }
+    }
+
+    Write-Host ""
+    if ($disagree -eq 0) {
+        Write-Host "All $agree device(s) agree across all $($results.Count) collectors - no reachability gaps."
+    } else {
+        Write-Host "$disagree device(s) differ between collectors; $agree agree."
+        Write-Host "Investigate the gaps above before relying on auto-balance to move them."
+    }
+} elseif ($results.Count -eq 1) {
+    Write-Host ""
+    Write-Host "Only one collector returned results - nothing to compare."
+}
+
+Write-Host ""
 Write-Host "Done. Results in: $(Resolve-Path $OutputDir)"
+# difft is pairwise only, so suggest it just for the two-collector case.
+if ($results.Count -eq 2) {
+    Write-Host "Full text diff: difft '$($results[0].OutFile)' '$($results[1].OutFile)'"
+}

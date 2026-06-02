@@ -20,6 +20,7 @@ The standard workflow:
    * [Step 2 — Discover devices and generate the test script](#step-2--discover-devices-and-generate-the-test-script)
    * [Step 3 — Inject credentials (optional)](#step-3--inject-credentials-optional)
    * [Step 4 — Run the test from the new collector](#step-4--run-the-test-from-the-new-collector)
+   * [Automated run across all collectors (PowerShell)](#automated-run-across-all-collectors-powershell)
    * [Interpreting results](#interpreting-results)
       * [SNMP TIMEOUT](#snmp-timeout)
       * [WMI (tcp-135)](#wmi-tcp-135)
@@ -176,10 +177,29 @@ connection wrapper), then:
 
 It discovers group members via `preferredCollectorGroupId`, builds the same protocol
 matrix from `autoProperties`, generates the Groovy inline, submits it to each active
-collector via Collector Debug, waits, and writes one CSV per collector. Compare them:
+collector via Collector Debug, waits, and writes one CSV per collector.
+
+When two or more collectors return, the script then prints a **built-in cross-collector
+comparison** — for every device and protocol it gathers each collector's result and
+lists only the rows where collectors disagree (e.g. one `pass`, another `FAIL`):
+
+```text
+-- Comparison: reachability gaps between collectors --
+
+  Graylog Cluster - Azure  [id=39136]
+      http       collectorA=pass  collectorB=FAIL
+
+3 device(s) differ between collectors; 26 agree.
+```
+
+This scales to any collector count — the odd collector out of eight is visible on the
+per-protocol line, not just an A-vs-B comparison. The raw per-collector CSVs are still
+written to the output directory if you want to eyeball them. For a full textual diff of
+the two-collector case the script also prints a ready-to-run `difft` command (`difft` is
+pairwise only, so it is suggested only when exactly two collectors returned):
 
 ```shell
-diff results/collectorA.csv results/collectorB.csv
+difft results/collectorA.csv results/collectorB.csv
 ```
 
 Devices that are themselves collector hosts (identified by a collector's
