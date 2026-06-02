@@ -457,13 +457,14 @@ if (failures) {
 '@
 
 $groovyScript = $groovyTemplate.Replace('__DEVICES__', $devicesGroovy)
-Write-Host "Groovy script ready ($($groovyScript.Length) chars)"
 
 # ── Output directory ──────────────────────────────────────────────────────────
 if (-not $OutputDir) {
     $OutputDir = Join-Path ([System.IO.Path]::GetTempPath()) "lm-reachability/$GroupId-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 }
 $null = New-Item -ItemType Directory -Force -Path $OutputDir
+$OutputDir = (Resolve-Path $OutputDir).Path   # absolute, so the run output can show clean filenames
+Write-Host "Output dir:  $OutputDir"
 
 # ── Submit to all collectors, wait once, then retrieve ────────────────────────
 # -IncludeResult times out before the Groovy pool.awaitTermination (120s), so we
@@ -479,7 +480,7 @@ $jobs = foreach ($t in $targets) {
     try {
         $r = Invoke-LMCollectorDebugCommand -Id $col.id -GroovyCommand $groovyScript -ErrorAction Stop
         $tag = if ($t.IsCandidate) { ' [candidate]' } else { '' }
-        Write-Host "  -> $($col.hostname) (id=$($col.id))$tag session=$($r.SessionId)"
+        Write-Host "  -> $($col.hostname) (id=$($col.id))$tag"
         [PSCustomObject]@{
             Hostname    = $col.hostname
             Id          = $col.id
@@ -545,7 +546,7 @@ while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
             $safeName = $job.Hostname -replace '[\\/:*?"<>|]', '_'
             $outFile  = Join-Path $OutputDir "${safeName}.csv"
             $text | Set-Content $outFile
-            Write-Host "  Saved: $outFile  ($($job.Hostname))"
+            Write-Host "  saved $(Split-Path $outFile -Leaf)  ($($job.Hostname))"
             $results.Add([PSCustomObject]@{
                 Hostname    = $job.Hostname
                 OutFile     = $outFile
@@ -731,7 +732,7 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
 }
 
 Write-Host ""
-Write-Host "Done. Results in: $(Resolve-Path $OutputDir)"
+Write-Host "Done. Results in: $OutputDir"
 # difft is pairwise only, so suggest it just for the two-collector case.
 if ($results.Count -eq 2) {
     Write-Host "Full text diff: difft '$($results[0].OutFile)' '$($results[1].OutFile)'"
