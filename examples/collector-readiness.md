@@ -21,6 +21,7 @@ The standard workflow:
    * [Step 3 — Inject credentials (optional)](#step-3--inject-credentials-optional)
    * [Step 4 — Run the test from the new collector](#step-4--run-the-test-from-the-new-collector)
    * [Automated run across all collectors (PowerShell)](#automated-run-across-all-collectors-powershell)
+      * [Vetting a new collector before adding it (-Candidate)](#vetting-a-new-collector-before-adding-it--candidate)
    * [Interpreting results](#interpreting-results)
       * [SNMP TIMEOUT](#snmp-timeout)
       * [WMI (tcp-135)](#wmi-tcp-135)
@@ -186,7 +187,7 @@ lists only the rows where collectors disagree (e.g. one `pass`, another `FAIL`):
 ```text
 -- Comparison: reachability gaps between collectors --
 
-  Graylog Cluster - Azure  [id=39136]
+  api-device  [id=10293]
       http       collectorA=pass  collectorB=FAIL
 
 3 device(s) differ between collectors; 26 agree.
@@ -207,6 +208,36 @@ Devices that are themselves collector hosts (identified by a collector's
 cross-testing it from another collector is meaningless. If such hosts are found in an
 auto-balance group the script warns: collector hosts should be pinned to their own
 collector, not auto-balanced.
+
+### Vetting a new collector before adding it (`-Candidate`)
+
+This is the pre-add check the whole workflow exists for: you built a new collector and
+want to know whether it will reach everything a group monitors *before* you move it in.
+Pass it with `-Candidate` (collector id or hostname). The group still defines the device
+list; the candidate — which is **not** in the group — gets that same list submitted to
+it alongside the group's own collectors:
+
+```powershell
+# Will newedge02 reach everything group 191 monitors?
+./tools/lm-collector-reachability-run-all.ps1 -id 191 -Candidate newedge02
+```
+
+After the general comparison, the script prints a per-candidate **verdict** that lists
+only the device+protocol combinations the candidate fails to reach **but an in-group
+collector does** — the real gaps the candidate would introduce. Devices the whole group
+already can't reach are not counted against the candidate.
+
+```text
+== Candidate verdict: newedge02 ==
+  2 gap(s) - the candidate would NOT reach these, but a group collector does:
+    https      windows-box  [id=10220]  candidate=FAIL, group reaches it
+    wmi        api-device   [id=10293]  candidate=FAIL, group reaches it
+  Fix routing/firewall for these before moving the candidate into the group.
+```
+
+If there are no gaps it prints "Reaches everything the group's collectors reach. Ready
+to add to the group." You can pass `-Candidate` more than once (or a comma-separated
+list) to vet several collectors in one run.
 
 ## Interpreting results
 

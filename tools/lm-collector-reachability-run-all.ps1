@@ -44,6 +44,14 @@
     testing reveals relocate candidates. Dead devices show 'dead' in the Status column so
     you can tell them apart, and their ids let you find their rows in the CSV.
 
+.PARAMETER Candidate
+    One or more collectors (id or hostname) that are NOT in the group, tested against the
+    group's device list. Use this to vet a freshly built collector before moving it in:
+    "will it reach everything this group monitors?" Each candidate is submitted the same
+    device list as the group's own collectors, then a per-candidate verdict lists any
+    device+protocol the candidate fails to reach but an in-group collector does reach.
+    Alias: -collector. Requires a group (-id/-group) to define the devices.
+
 .EXAMPLE
     ./lm-collector-reachability-run-all.ps1
     List auto-balance collector groups and exit.
@@ -53,6 +61,11 @@
 
 .EXAMPLE
     ./lm-collector-reachability-run-all.ps1 -id 191 -OutputDir ./results
+
+.EXAMPLE
+    ./lm-collector-reachability-run-all.ps1 -id 191 -Candidate newedge02
+    Test new collector 'newedge02' (not yet in group 191) against group 191's devices and
+    report whether it would reach everything the group's existing collectors reach.
 
 .NOTES
     Prerequisite: Logic.Monitor module loaded and Connect-LMAccount already
@@ -71,7 +84,14 @@ param(
 
     [string]$OutputDir,                 # defaults to a per-run dir under the system temp
     [int]$WaitSeconds   = 180,          # cap; polling returns as soon as results are ready
-    [switch]$IncludeDead                # also test hostStatus:dead devices (flagged in output)
+    [switch]$IncludeDead,               # also test hostStatus:dead devices (flagged in output)
+
+    # Extra collector(s) NOT in the group, tested against the group's device list.
+    # Answers "I built a new collector - will it reach everything this group monitors
+    # before I add it?" Accepts collector ids or hostnames. Submitted alongside the
+    # group's own collectors; a per-candidate verdict is printed at the end.
+    [Alias('collector')]
+    [string[]]$Candidate
 )
 
 $ErrorActionPreference = 'Stop'
@@ -84,7 +104,10 @@ if (-not (Get-Command Get-LMDevice -ErrorAction SilentlyContinue)) {
 
 # ── No group specified — list auto-balance groups and exit ────────────────────
 if ($PSCmdlet.ParameterSetName -eq 'List') {
-    Write-Host "Usage: ./lm-collector-reachability-run-all.ps1 -id GROUP_ID | -group GROUP_NAME [-OutputDir DIR] [-WaitSeconds N] [-IncludeDead]"
+    if ($Candidate) {
+        Write-Warning "-Candidate requires a group (-id or -group) to define the device list; ignoring it and listing groups."
+    }
+    Write-Host "Usage: ./lm-collector-reachability-run-all.ps1 -id GROUP_ID | -group GROUP_NAME [-Candidate ID|NAME ...] [-OutputDir DIR] [-WaitSeconds N] [-IncludeDead]"
     Write-Host ""
     # -BatchSize 1000 forces full pagination (older module versions can default to 50).
     $allGroups   = Get-LMCollectorGroup -BatchSize 1000
@@ -118,8 +141,37 @@ $allCollectors = Get-LMCollector -BatchSize 1000
 $collectors    = $allCollectors | Where-Object { $_.collectorGroupId -eq $GroupId -and $_.status -eq 1 }
 if (-not $collectors) { throw "No active collectors found in group $GroupId" }
 Write-Host "Collectors:  $($collectors.Count) active"
-if (@($collectors).Count -eq 1) {
+if (@($collectors).Count -eq 1 -and -not $Candidate) {
     Write-Host "Note: only 1 active collector in this group - results have nothing to compare against."
+}
+
+# ── Candidate collector(s): extra collectors NOT in the group ──────────────────
+# Tested against THIS group's device list, so you can check a freshly built collector
+# before moving it in. Device discovery and collector-host detection still come from
+# the group; the candidate just gets the same device list submitted to it.
+$candidateCols = @()
+if ($Candidate) {
+    $groupColIds = @($collectors | ForEach-Object { [int]$_.id })
+    foreach ($c in $Candidate) {
+        $match = if ($c -match '^\d+$') {
+            @($allCollectors | Where-Object { $_.id -eq [int]$c })
+        } else {
+            @($allCollectors | Where-Object { $_.hostname -eq $c -or $_.description -eq $c })
+        }
+        if ($match.Count -eq 0) { Write-Warning "Candidate collector '$c' not found - skipping."; continue }
+        if ($match.Count -gt 1) { Write-Warning "Candidate '$c' matched $($match.Count) collectors - skipping (use the numeric id)."; continue }
+        $m = $match[0]
+        if ($groupColIds -contains [int]$m.id) {
+            Write-Warning "Candidate '$($m.hostname)' (id=$($m.id)) is already in group $GroupId - it will be tested as an incumbent, not a candidate."
+            continue
+        }
+        if ($m.status -ne 1) { Write-Warning "Candidate '$($m.hostname)' (id=$($m.id)) is not active (status=$($m.status)) - skipping."; continue }
+        $candidateCols += $m
+    }
+    if ($candidateCols.Count -gt 0) {
+        Write-Host "Candidates:  $($candidateCols.Count) (not in the group; tested against its devices)"
+        foreach ($cc in $candidateCols) { Write-Host "  + $($cc.hostname) (id=$($cc.id))" }
+    }
 }
 
 # A device that hosts a collector is linked by that collector's collectorDeviceId.
@@ -386,15 +438,23 @@ $null = New-Item -ItemType Directory -Force -Path $OutputDir
 # ── Submit to all collectors, wait once, then retrieve ────────────────────────
 # -IncludeResult times out before the Groovy pool.awaitTermination (120s), so we
 # use the submit / wait / retrieve pattern instead.
-Write-Host "Submitting to $($collectors.Count) collectors..."
-$jobs = foreach ($col in $collectors) {
+# Submission targets = the group's own collectors plus any candidates, each tagged.
+$targets = @()
+$targets += $collectors    | ForEach-Object { [PSCustomObject]@{ Collector = $_; IsCandidate = $false } }
+$targets += $candidateCols | ForEach-Object { [PSCustomObject]@{ Collector = $_; IsCandidate = $true  } }
+
+Write-Host "Submitting to $($targets.Count) collector(s)..."
+$jobs = foreach ($t in $targets) {
+    $col = $t.Collector
     try {
         $r = Invoke-LMCollectorDebugCommand -Id $col.id -GroovyCommand $groovyScript -ErrorAction Stop
-        Write-Host "  -> $($col.hostname) (id=$($col.id)) session=$($r.SessionId)"
+        $tag = if ($t.IsCandidate) { ' [candidate]' } else { '' }
+        Write-Host "  -> $($col.hostname) (id=$($col.id))$tag session=$($r.SessionId)"
         [PSCustomObject]@{
-            Hostname  = $col.hostname
-            Id        = $col.id
-            SessionId = $r.SessionId
+            Hostname    = $col.hostname
+            Id          = $col.id
+            SessionId   = $r.SessionId
+            IsCandidate = $t.IsCandidate
         }
     } catch {
         Write-Warning "  Submit failed for $($col.hostname) (id=$($col.id)): $($_.Exception.Message)"
@@ -457,9 +517,10 @@ while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
             $text | Set-Content $outFile
             Write-Host "  Saved: $outFile  ($($job.Hostname))"
             $results.Add([PSCustomObject]@{
-                Hostname = $job.Hostname
-                OutFile  = $outFile
-                Rows     = @(ConvertFrom-ReachabilityText $text)
+                Hostname    = $job.Hostname
+                OutFile     = $outFile
+                IsCandidate = $job.IsCandidate
+                Rows        = @(ConvertFrom-ReachabilityText $text)
             })
             [void]$pending.Remove($job)
         }
@@ -546,6 +607,59 @@ if ($results.Count -ge 2) {
 } elseif ($results.Count -eq 1) {
     Write-Host ""
     Write-Host "Only one collector returned results - nothing to compare."
+}
+
+# ── Candidate verdict: would the new collector(s) reach what the group already does? ──
+# A candidate "gap" is a device+protocol the candidate does NOT reach but at least one
+# incumbent (already-in-group) collector does. Devices the whole group already cannot
+# reach are not the candidate's fault, so they are not counted against it.
+$candResults = @($results | Where-Object { $_.IsCandidate })
+$incResults  = @($results | Where-Object { -not $_.IsCandidate })
+if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
+    $idCols    = 'id', 'device', 'hostname'
+    $protoCols = @()
+    foreach ($r in $results) {
+        if ($r.Rows.Count -gt 0) { $protoCols = @($r.Rows[0].PSObject.Properties.Name | Where-Object { $_ -notin $idCols }); break }
+    }
+
+    # Per device id: which protocols at least one incumbent reaches ('pass'), and a label.
+    $incPass = @{}
+    $labels  = @{}
+    foreach ($r in $incResults) {
+        foreach ($row in $r.Rows) {
+            $id = [string]$row.id
+            if (-not $labels.ContainsKey($id))  { $labels[$id]  = $row.device }
+            if (-not $incPass.ContainsKey($id)) { $incPass[$id] = @{} }
+            foreach ($p in $protoCols) { if ([string]$row.$p -eq 'pass') { $incPass[$id][$p] = $true } }
+        }
+    }
+
+    foreach ($cand in $candResults) {
+        Write-Host ""
+        Write-Host "== Candidate verdict: $($cand.Hostname) =="
+        $gaps = [System.Collections.Generic.List[string]]::new()
+        foreach ($row in $cand.Rows) {
+            $id = [string]$row.id
+            if (-not $incPass.ContainsKey($id)) { continue }   # no incumbent baseline for this device
+            foreach ($p in $protoCols) {
+                if ($incPass[$id][$p]) {                        # an incumbent reaches it
+                    $v = [string]$row.$p
+                    if ($v -ne 'pass') {
+                        $lbl = if ($labels.ContainsKey($id)) { $labels[$id] } else { $id }
+                        $shown = if ($v -eq '') { '-' } else { $v }
+                        $gaps.Add(("    {0,-10} {1}  [id={2}]  candidate={3}, group reaches it" -f $p, $lbl, $id, $shown))
+                    }
+                }
+            }
+        }
+        if ($gaps.Count -eq 0) {
+            Write-Host "  Reaches everything the group's collectors reach. Ready to add to the group."
+        } else {
+            Write-Host "  $($gaps.Count) gap(s) - the candidate would NOT reach these, but a group collector does:"
+            $gaps | ForEach-Object { Write-Host $_ }
+            Write-Host "  Fix routing/firewall for these before moving the candidate into the group."
+        }
+    }
 }
 
 Write-Host ""
