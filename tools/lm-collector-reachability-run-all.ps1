@@ -91,7 +91,9 @@ param(
     # before I add it?" Accepts collector ids or hostnames. Submitted alongside the
     # group's own collectors; a per-candidate verdict is printed at the end.
     [Alias('collector')]
-    [string[]]$Candidate
+    [string[]]$Candidate,
+
+    [switch]$NoColor                    # disable ANSI colour in the comparison/verdict output
 )
 
 $ErrorActionPreference = 'Stop'
@@ -559,6 +561,23 @@ foreach ($job in $pending) {
     Write-Warning "  No output for $($job.Hostname) (session $($job.SessionId)) - timed out after ${WaitSeconds}s"
 }
 
+# ── Colour helper: green pass / red FAIL / yellow TIMEOUT ─────────────────────
+# Honour -NoColor and the NO_COLOR convention, and skip colour when stdout is
+# redirected. Colour is applied to the value token only, so it never shifts the
+# column alignment computed from the plain text.
+$script:useColor = -not $NoColor -and [string]::IsNullOrEmpty($env:NO_COLOR) -and -not [Console]::IsOutputRedirected
+function Format-Cell {
+    param([string]$Text, [string]$Value)
+    if (-not $script:useColor) { return $Text }
+    $esc = [char]27
+    switch ($Value) {
+        'pass'    { "$esc[32m$Text$esc[0m" }   # green
+        'FAIL'    { "$esc[31m$Text$esc[0m" }   # red
+        'TIMEOUT' { "$esc[33m$Text$esc[0m" }   # yellow
+        default   { $Text }
+    }
+}
+
 # ── Cross-collector comparison: surface reachability gaps ─────────────────────
 # Not a textual file diff. For every device+protocol, gather the result from each
 # collector that returned and flag the row when collectors disagree (e.g. one
@@ -568,10 +587,16 @@ if ($results.Count -ge 2) {
     Write-Host ""
     Write-Host "-- Comparison: reachability gaps between collectors --"
 
+    # Fixed column order: incumbents first (sorted by hostname), then any candidate(s)
+    # on the right. Results arrive in completion order, so without this the columns would
+    # shuffle run-to-run.
+    $ordered = @(@($results | Where-Object { -not $_.IsCandidate } | Sort-Object Hostname) +
+                 @($results | Where-Object {      $_.IsCandidate } | Sort-Object Hostname))
+
     # Protocol columns = CSV headers minus the identity columns, in CSV order.
     $idCols    = 'id', 'device', 'hostname'
     $protoCols = @()
-    foreach ($r in $results) {
+    foreach ($r in $ordered) {
         if ($r.Rows.Count -gt 0) {
             $protoCols = @($r.Rows[0].PSObject.Properties.Name | Where-Object { $_ -notin $idCols })
             break
@@ -581,7 +606,7 @@ if ($results.Count -ge 2) {
     # Index each collector's rows by device id, and collect device ids in first-seen order.
     $byCollector = @{}
     $allIds      = [System.Collections.Generic.List[string]]::new()
-    foreach ($r in $results) {
+    foreach ($r in $ordered) {
         $map = @{}
         foreach ($row in $r.Rows) {
             $key = [string]$row.id
@@ -596,13 +621,13 @@ if ($results.Count -ge 2) {
     foreach ($id in $allIds) {
         # Device label from the first collector that reported this id.
         $label = $id
-        foreach ($r in $results) {
+        foreach ($r in $ordered) {
             if ($byCollector[$r.Hostname].ContainsKey($id)) { $label = $byCollector[$r.Hostname][$id].device; break }
         }
 
         $diffs = [System.Collections.Generic.List[string]]::new()
         foreach ($p in $protoCols) {
-            $cells = foreach ($r in $results) {
+            $cells = foreach ($r in $ordered) {
                 $row = $byCollector[$r.Hostname][$id]
                 $v   = if ($row) { [string]$row.$p } else { '(absent)' }   # collector never reported this device
                 if ([string]::IsNullOrEmpty($v)) { $v = '-' }              # protocol not tested for this device
@@ -610,7 +635,7 @@ if ($results.Count -ge 2) {
             }
             $distinct = @($cells.Value | Select-Object -Unique)
             if ($distinct.Count -gt 1) {
-                $detail = ($cells | ForEach-Object { "$($_.Collector)=$($_.Value)" }) -join '  '
+                $detail = ($cells | ForEach-Object { Format-Cell "$($_.Collector)=$($_.Value)" $_.Value }) -join '  '
                 $diffs.Add(("    {0,-10} {1}" -f $p, $detail))
             }
         }
@@ -641,7 +666,7 @@ if ($results.Count -ge 2) {
 # A candidate "gap" is a device+protocol the candidate does NOT reach but at least one
 # incumbent (already-in-group) collector does. Devices the whole group already cannot
 # reach are not the candidate's fault, so they are not counted against it.
-$candResults = @($results | Where-Object { $_.IsCandidate })
+$candResults = @($results | Where-Object { $_.IsCandidate } | Sort-Object Hostname)
 $incResults  = @($results | Where-Object { -not $_.IsCandidate })
 if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
     $idCols    = 'id', 'device', 'hostname'
@@ -665,7 +690,9 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
     foreach ($cand in $candResults) {
         Write-Host ""
         Write-Host "== Candidate verdict: $($cand.Hostname) =="
-        $gaps = [System.Collections.Generic.List[string]]::new()
+
+        # First pass: collect the gap rows so column widths can be computed before printing.
+        $gaps = [System.Collections.Generic.List[object]]::new()
         foreach ($row in $cand.Rows) {
             $id = [string]$row.id
             if (-not $incPass.ContainsKey($id)) { continue }   # no incumbent baseline for this device
@@ -674,17 +701,30 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
                     $v = [string]$row.$p
                     if ($v -ne 'pass') {
                         $lbl = if ($labels.ContainsKey($id)) { $labels[$id] } else { $id }
-                        $shown = if ($v -eq '') { '-' } else { $v }
-                        $gaps.Add(("    {0,-10} {1}  [id={2}]  candidate={3}, group reaches it" -f $p, $lbl, $id, $shown))
+                        $gaps.Add([PSCustomObject]@{
+                            Proto = $p
+                            Label = $lbl
+                            IdTok = "[id=$id]"
+                            Value = if ($v -eq '') { '-' } else { $v }
+                        })
                     }
                 }
             }
         }
+
         if ($gaps.Count -eq 0) {
             Write-Host "  Reaches everything the group's collectors reach. Ready to add to the group."
         } else {
             Write-Host "  $($gaps.Count) gap(s) - the candidate would NOT reach these, but a group collector does:"
-            $gaps | ForEach-Object { Write-Host $_ }
+            # Second pass: pad each column to its widest value so everything lines up.
+            $wProto = ($gaps | ForEach-Object { $_.Proto.Length } | Measure-Object -Maximum).Maximum
+            $wLabel = ($gaps | ForEach-Object { $_.Label.Length } | Measure-Object -Maximum).Maximum
+            $wIdTok = ($gaps | ForEach-Object { $_.IdTok.Length } | Measure-Object -Maximum).Maximum
+            foreach ($g in $gaps) {
+                Write-Host ("    {0}  {1}  {2}  candidate={3}, group reaches it" -f `
+                    $g.Proto.PadRight($wProto), $g.Label.PadRight($wLabel),
+                    $g.IdTok.PadRight($wIdTok), (Format-Cell $g.Value $g.Value))
+            }
             Write-Host "  Fix routing/firewall for these before moving the candidate into the group."
         }
     }
