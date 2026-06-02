@@ -143,3 +143,6 @@ _cmds/
 _defs/
 SKILLS_USED.md
 
+# Pre-commit leak-scan denylist (contains real customer tokens; stays local only)
+.githooks/leak-patterns.local
+

@@ -8,3 +8,41 @@ if command -v gh-md-toc >/dev/null 2>&1; then
 		fi
 	done < <(git diff --cached --name-only -z -- '*.md')
 fi
+
+# Leak scan: block a commit whose staged ADDED lines contain a known-sensitive token.
+# The denylist lives in .githooks/leak-patterns.local, which is gitignored and stays
+# LOCAL (so the sensitive tokens themselves are never committed). Format: one
+# case-insensitive extended-regex per line; blank lines and # comments ignored.
+# See .githooks/leak-patterns.example. Bypass once with: LEAK_SCAN_SKIP=1 git commit ...
+if [ -z "$LEAK_SCAN_SKIP" ]; then
+	root="$(git rev-parse --show-toplevel)"
+	patterns_file="$root/.githooks/leak-patterns.local"
+	if [ -f "$patterns_file" ]; then
+		# Collapse non-comment, non-blank lines into one alternation for grep -E.
+		alt="$(grep -vE '^[[:space:]]*(#|$)' "$patterns_file" | paste -sd'|' -)"
+		if [ -n "$alt" ]; then
+			hit=0
+			while IFS= read -r -d '' file; do
+				added="$(git diff --cached -U0 --no-color -- "$file" | grep -E '^\+' | grep -vE '^\+\+\+')"
+				[ -z "$added" ] && continue
+				found="$(printf '%s\n' "$added" | grep -inE "$alt")"
+				if [ -n "$found" ]; then
+					if [ "$hit" -eq 0 ]; then
+						echo "COMMIT BLOCKED: staged changes contain sensitive tokens (see .githooks/leak-patterns.local):" >&2
+						hit=1
+					fi
+					echo "  $file" >&2
+					printf '%s\n' "$found" | sed 's/^/    /' >&2
+				fi
+			done < <(git diff --cached --name-only -z)
+			if [ "$hit" -ne 0 ]; then
+				echo "" >&2
+				echo "Replace with placeholders (acme, newedge03, 203.0.113.x, ...) and re-stage." >&2
+				echo "If this is a genuine false positive, bypass once: LEAK_SCAN_SKIP=1 git commit ..." >&2
+				exit 1
+			fi
+		fi
+	else
+		echo "note: leak scan skipped (no $patterns_file; copy leak-patterns.example to enable)" >&2
+	fi
+fi

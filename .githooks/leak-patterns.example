@@ -1,0 +1,17 @@
+# Pre-commit leak-scan denylist - EXAMPLE / template.
+#
+# Copy this to .githooks/leak-patterns.local (which is gitignored and never committed)
+# and fill it with your real customer/portal tokens. The pre-commit hook blocks any
+# commit whose staged ADDED lines match any pattern here.
+#
+# Format: one case-insensitive extended-regex (grep -E) per line. A plain word works as
+# a substring match. Blank lines and lines starting with # are ignored.
+#
+# Bypass a genuine false positive once with:  LEAK_SCAN_SKIP=1 git commit ...
+#
+# --- examples (replace with your own in leak-patterns.local; do NOT put real ones here) ---
+# acmecorp
+# acme-portal
+# 203\.0\.113\.
+# 198\.51\.100\.
+# [a-z]+prod[0-9]{2}
