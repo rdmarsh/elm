@@ -534,7 +534,10 @@ A token appearing repeatedly at a regular interval (e.g. every hour) from the sa
 - `hostStatus`: `normal`, `dead`, `dead-collector`
 - `systemProperties`: array of `{name, value}` — use `.name:system.sysinfo` and `.value~Linux` for OS filtering
 - `preferredCollectorId`: collector assigned to this device
+- `preferredCollectorGroupId`: the collector group the device is assigned to — use this to list a group's members. `autoBalancedCollectorGroupId` only fills in once LM has *actively placed* the device, so filtering on it can return 0 for a group whose devices are assigned but not yet balanced.
 - `createdBy`: username who added the device
+
+To find which devices in a group are themselves collector hosts, match a device `id` against each collector's `collectorDeviceId` (`CollectorList`). Collector and device names need not match, so the id join is the only reliable signal. Running Collector Debug commands on a collector needs a Manage-level token — a read-only token returns "Access denied".
 
 ### AdminList
 

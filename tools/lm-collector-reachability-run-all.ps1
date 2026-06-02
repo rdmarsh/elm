@@ -24,24 +24,32 @@
     Diff the resulting CSV files to find reachability gaps between collectors.
 
 .PARAMETER GroupName
-    Collector group name (resolved to an id). Alias: -name.
+    Collector group name (resolved to an id). Alias: -group.
 
 .PARAMETER GroupId
     Collector group id. Alias: -id.
 
 .PARAMETER OutputDir
-    Directory for the per-collector CSV files. Defaults to the current directory.
+    Directory for the per-collector CSV files. Defaults to a per-run directory under
+    the system temp dir, e.g. <temp>/lm-reachability/<groupid>-<timestamp>.
 
 .PARAMETER WaitSeconds
-    Seconds to wait for the Groovy scripts to finish before retrieving results.
-    Defaults to 140 (the Groovy thread pool awaits up to 120s).
+    Maximum seconds to poll for results before giving up. Polling saves each collector's
+    result as soon as it is ready, so this is only a cap, not a fixed wait. Defaults to
+    180 (the Groovy thread pool can await up to 120s for unreachable devices).
+
+.PARAMETER IncludeDead
+    Also test devices with hostStatus 'dead' (skipped by default). They are down from
+    their current collector, but may be reachable from another collector in the group —
+    testing reveals relocate candidates. Dead devices show 'dead' in the Status column so
+    you can tell them apart, and their ids let you find their rows in the CSV.
 
 .EXAMPLE
     ./lm-collector-reachability-run-all.ps1
     List auto-balance collector groups and exit.
 
 .EXAMPLE
-    ./lm-collector-reachability-run-all.ps1 -name "Acme Auto-Balance Group"
+    ./lm-collector-reachability-run-all.ps1 -group "Acme Auto-Balance Group"
 
 .EXAMPLE
     ./lm-collector-reachability-run-all.ps1 -id 191 -OutputDir ./results
@@ -54,15 +62,16 @@
 [CmdletBinding(DefaultParameterSetName = 'List')]
 param(
     [Parameter(Mandatory, ParameterSetName = 'ByName')]
-    [Alias('name')]
+    [Alias('group')]
     [string]$GroupName,
 
     [Parameter(Mandatory, ParameterSetName = 'ById')]
     [Alias('id')]
     [int]$GroupId,
 
-    [string]$OutputDir  = '.',
-    [int]$WaitSeconds   = 140
+    [string]$OutputDir,                 # defaults to a per-run dir under the system temp
+    [int]$WaitSeconds   = 180,          # cap; polling returns as soon as results are ready
+    [switch]$IncludeDead                # also test hostStatus:dead devices (flagged in output)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,13 +84,16 @@ if (-not (Get-Command Get-LMDevice -ErrorAction SilentlyContinue)) {
 
 # ── No group specified — list auto-balance groups and exit ────────────────────
 if ($PSCmdlet.ParameterSetName -eq 'List') {
-    Write-Host "Usage: ./lm-collector-reachability-run-all.ps1 -id GROUP_ID | -name GROUP_NAME [-OutputDir DIR] [-WaitSeconds N]"
+    Write-Host "Usage: ./lm-collector-reachability-run-all.ps1 -id GROUP_ID | -group GROUP_NAME [-OutputDir DIR] [-WaitSeconds N] [-IncludeDead]"
     Write-Host ""
-    Write-Host "Auto-balance collector groups:"
+    # -BatchSize 1000 forces full pagination (older module versions can default to 50).
+    $allGroups   = Get-LMCollectorGroup -BatchSize 1000
+    $multiGroups = @($allGroups | Where-Object { $_.numOfCollectors -gt 1 })
+    Write-Host "Collector groups with more than 1 collector: $($multiGroups.Count) of $($allGroups.Count) total"
+    Write-Host "(reachability matters whenever >1 collector could monitor a device - auto-balance or not)"
     Write-Host ""
-    Get-LMCollectorGroup |
-        Where-Object { $_.autoBalance } |
-        Select-Object id, name, numOfCollectors, autoBalanceInstanceCountThreshold |
+    $multiGroups |
+        Select-Object id, name, numOfCollectors, autoBalance |
         Sort-Object id |
         Format-Table -AutoSize
     return
@@ -94,19 +106,21 @@ if ($PSCmdlet.ParameterSetName -eq 'ByName') {
     $GroupId   = $group.id
     $groupDesc = "$($group.name) (id=$GroupId)"
 } else {
-    $group = Get-LMCollectorGroup | Where-Object { $_.id -eq $GroupId }
+    $group = Get-LMCollectorGroup -BatchSize 1000 | Where-Object { $_.id -eq $GroupId }
     $groupDesc = if ($group) { "$($group.name) (id=$GroupId)" } else { "id=$GroupId" }
 }
 Write-Host "Group:       $groupDesc"
-if ($group -and -not $group.autoBalance) {
-    Write-Warning "Group '$($group.name)' does not have autoBalance enabled."
-}
 
 # ── Collectors (fetched once; reused to detect collector-host devices) ─────────
-$allCollectors = Get-LMCollector
+# -BatchSize 1000 forces full pagination — missing collectors here would both drop active
+# collectors from the run and leave gaps in the collector-host (collectorDeviceId) set.
+$allCollectors = Get-LMCollector -BatchSize 1000
 $collectors    = $allCollectors | Where-Object { $_.collectorGroupId -eq $GroupId -and $_.status -eq 1 }
 if (-not $collectors) { throw "No active collectors found in group $GroupId" }
 Write-Host "Collectors:  $($collectors.Count) active"
+if (@($collectors).Count -eq 1) {
+    Write-Host "Note: only 1 active collector in this group - results have nothing to compare against."
+}
 
 # A device that hosts a collector is linked by that collector's collectorDeviceId.
 # Such hosts are monitored only from themselves and must not be cross-tested. Collect
@@ -121,28 +135,46 @@ foreach ($c in $allCollectors) {
 # autoBalancedCollectorGroupId only reflects devices LM has actively placed and
 # can be empty even for an autoBalance group with assigned devices.
 $allDevices     = Get-LMDevice -Filter "preferredCollectorGroupId -eq $GroupId"
-$dead           = @($allDevices | Where-Object { $_.hostStatus -eq 'dead' })
-$alive          = @($allDevices | Where-Object { $_.hostStatus -ne 'dead' })
-$collectorHosts = @($alive | Where-Object { $collectorDeviceIds.Contains([int]$_.id) })
-$devices        = @($alive | Where-Object { -not $collectorDeviceIds.Contains([int]$_.id) })
+$collectorHosts = @($allDevices | Where-Object { $collectorDeviceIds.Contains([int]$_.id) })
+$nonHosts       = @($allDevices | Where-Object { -not $collectorDeviceIds.Contains([int]$_.id) })
+$dead           = @($nonHosts | Where-Object { $_.hostStatus -eq 'dead' })
+$devices        = if ($IncludeDead) { $nonHosts } else { @($nonHosts | Where-Object { $_.hostStatus -ne 'dead' }) }
 
 $skips = @()
-if ($dead.Count -gt 0)           { $skips += "$($dead.Count) dead" }
-if ($collectorHosts.Count -gt 0) { $skips += "$($collectorHosts.Count) collector host(s)" }
+if ($dead.Count -gt 0 -and -not $IncludeDead) { $skips += "$($dead.Count) dead" }
+if ($collectorHosts.Count -gt 0)              { $skips += "$($collectorHosts.Count) collector host(s)" }
 $msg = "Devices found: $($allDevices.Count)"
-if ($skips) { $msg += " (skipped: " + ($skips -join ', ') + "; $($devices.Count) to test)" }
+if ($skips) {
+    $msg += " (skipped: " + ($skips -join ', ') + "; $($devices.Count) to test)"
+} elseif ($IncludeDead -and $dead.Count -gt 0) {
+    $msg += " ($($devices.Count) to test, incl. $($dead.Count) dead)"
+} else {
+    $msg += " ($($devices.Count) to test)"
+}
 Write-Host $msg
 
 if ($collectorHosts.Count -gt 0) {
     Write-Host ""
-    Write-Host "Skipped (collector host - monitored from itself, not cross-tested):"
+    if ($group -and $group.autoBalance) {
+        Write-Warning "$($collectorHosts.Count) collector host(s) are in auto-balance group '$($group.name)' (id=$GroupId)."
+        Write-Warning "Collector hosts should be pinned to their own collector, not auto-balanced. Skipped:"
+    } else {
+        Write-Host "Skipped (collector host - monitored from itself, not cross-tested):"
+    }
     foreach ($ch in ($collectorHosts | Sort-Object displayName)) {
         Write-Host "  - $($ch.displayName) ($($ch.name)) [id=$($ch.id)]"
     }
-    if ($group -and $group.autoBalance) {
-        Write-Warning ("$($collectorHosts.Count) collector host(s) are assigned to auto-balance group " +
-                       "'$($group.name)' (id=$GroupId). Collector hosts should be pinned to their own " +
-                       "collector, not auto-balanced - review their preferred collector group.")
+}
+
+if ($dead.Count -gt 0) {
+    Write-Host ""
+    if ($IncludeDead) {
+        Write-Host "Testing anyway (hostStatus 'dead' - down from its CURRENT collector; -IncludeDead set):"
+    } else {
+        Write-Host "Skipped (hostStatus 'dead' - down from its CURRENT collector; pass -IncludeDead to test):"
+    }
+    foreach ($dh in ($dead | Sort-Object displayName)) {
+        Write-Host "  - $($dh.displayName) ($($dh.name)) [id=$($dh.id)] currentCollectorId=$($dh.preferredCollectorId)"
     }
 }
 
@@ -346,6 +378,9 @@ $groovyScript = $groovyTemplate.Replace('__DEVICES__', $devicesGroovy)
 Write-Host "Groovy script ready ($($groovyScript.Length) chars)"
 
 # ── Output directory ──────────────────────────────────────────────────────────
+if (-not $OutputDir) {
+    $OutputDir = Join-Path ([System.IO.Path]::GetTempPath()) "lm-reachability/$GroupId-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+}
 $null = New-Item -ItemType Directory -Force -Path $OutputDir
 
 # ── Submit to all collectors, wait once, then retrieve ────────────────────────
@@ -353,42 +388,58 @@ $null = New-Item -ItemType Directory -Force -Path $OutputDir
 # use the submit / wait / retrieve pattern instead.
 Write-Host "Submitting to $($collectors.Count) collectors..."
 $jobs = foreach ($col in $collectors) {
-    $r = Invoke-LMCollectorDebugCommand -Id $col.id -GroovyCommand $groovyScript
-    Write-Host "  -> $($col.hostname) (id=$($col.id)) session=$($r.SessionId)"
-    [PSCustomObject]@{
-        Hostname  = $col.hostname
-        Id        = $col.id
-        SessionId = $r.SessionId
+    try {
+        $r = Invoke-LMCollectorDebugCommand -Id $col.id -GroovyCommand $groovyScript -ErrorAction Stop
+        Write-Host "  -> $($col.hostname) (id=$($col.id)) session=$($r.SessionId)"
+        [PSCustomObject]@{
+            Hostname  = $col.hostname
+            Id        = $col.id
+            SessionId = $r.SessionId
+        }
+    } catch {
+        Write-Warning "  Submit failed for $($col.hostname) (id=$($col.id)): $($_.Exception.Message)"
+    }
+}
+$jobs = @($jobs)
+if ($jobs.Count -eq 0) {
+    throw ("No debug sessions were created. The most common cause is insufficient LM permissions: " +
+           "running Collector Debug commands requires an account/API token whose role grants 'Manage' " +
+           "rights on collectors (remote debug). Verify the credentials used to connect the LM session.")
+}
+
+# Get-LMCollectorDebugResult returns the command output TEXT directly (the module does
+# `Return $Response.output`) — NOT an object with an .output property — and `output` stays
+# empty until the Groovy completes, so non-empty output means "done". Handle a plain
+# string, an object that still carries .output, and string[], for robustness across
+# module versions.
+function Get-DebugText($result) {
+    if ($result -is [string]) { return $result }
+    if ($result -and $result.PSObject.Properties['output']) { return [string]$result.output }
+    return ($result | Out-String)
+}
+
+# Poll and save each collector's result as soon as it is ready, instead of a fixed sleep.
+Write-Host "Polling for results (up to ${WaitSeconds}s)..."
+$pending  = [System.Collections.Generic.List[object]]::new()
+$jobs | ForEach-Object { $pending.Add($_) }
+$deadline = (Get-Date).AddSeconds($WaitSeconds)
+
+while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Seconds 5
+    foreach ($job in @($pending)) {
+        $text = Get-DebugText (Get-LMCollectorDebugResult -SessionId $job.SessionId -Id $job.Id)
+        if (-not [string]::IsNullOrWhiteSpace($text)) {
+            $safeName = $job.Hostname -replace '[\\/:*?"<>|]', '_'
+            $outFile  = Join-Path $OutputDir "${safeName}.csv"
+            $text | Set-Content $outFile
+            Write-Host "  Saved: $outFile  ($($job.Hostname))"
+            [void]$pending.Remove($job)
+        }
     }
 }
 
-Write-Host "Waiting ${WaitSeconds}s for Groovy scripts to complete..."
-Start-Sleep -Seconds $WaitSeconds
-
-Write-Host "Collecting results..."
-foreach ($job in $jobs) {
-    $result   = Get-LMCollectorDebugResult -SessionId $job.SessionId -Id $job.Id
-    $safeName = $job.Hostname -replace '[\\/:*?"<>|]', '_'
-    $outFile  = Join-Path $OutputDir "${safeName}.csv"
-
-    # Get-LMCollectorDebugResult returns the command output TEXT directly (the module
-    # does `Return $Response.output`) — NOT an object with an .output property. Handle a
-    # plain string, an object that still carries .output, and string[], so the retrieval
-    # is robust across module versions.
-    $text = if ($result -is [string]) {
-        $result
-    } elseif ($result -and $result.PSObject.Properties['output']) {
-        [string]$result.output
-    } else {
-        ($result | Out-String)
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($text)) {
-        $text | Set-Content $outFile
-        Write-Host "  Saved: $outFile"
-    } else {
-        Write-Warning "  No output for $($job.Hostname) (session $($job.SessionId)) - not ready or expired"
-    }
+foreach ($job in $pending) {
+    Write-Warning "  No output for $($job.Hostname) (session $($job.SessionId)) - timed out after ${WaitSeconds}s"
 }
 
 Write-Host "Done. Results in: $(Resolve-Path $OutputDir)"

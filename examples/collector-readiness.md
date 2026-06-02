@@ -171,7 +171,7 @@ connection wrapper), then:
 
 # Run against a group by id or name
 ./tools/lm-collector-reachability-run-all.ps1 -id 42
-./tools/lm-collector-reachability-run-all.ps1 -name "My Region Collectors" -OutputDir ./results
+./tools/lm-collector-reachability-run-all.ps1 -group "My Region Collectors" -OutputDir ./results
 ```
 
 It discovers group members via `preferredCollectorGroupId`, builds the same protocol

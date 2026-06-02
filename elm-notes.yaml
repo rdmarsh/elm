@@ -1211,6 +1211,7 @@ CollectorList:
   gotchas:
     - "collectorDeviceId=0 means the collector has no device record in LM -- you cannot query its host metrics (CPU, memory) via DeviceDatasourceInstanceData etc."
     - "collectorDeviceId (when non-zero) is the device ID of the collector host in DeviceList -- use it to identify which devices in a group are themselves collector hosts so reachability/cross-collector checks can skip them (a collector is monitored from itself; collector name and device name need not match)"
+    - "Collector Debug / remote debug operations (running a Groovy/!groovy command on a collector, e.g. via the Logic.Monitor PS module Invoke-LMCollectorDebugCommand) require a Manage-level token; a read-only token returns 'Access denied. Your API credentials do not have sufficient permissions.' (same class as CollectorStatusCheck returning 403 read-only)"
     - "status is always 1 for all collectors including DOWN ones -- use isDown for real health status"
     - "numberOfInstances is 0 for non-auto-balance collectors -- it only tracks auto-balance load distribution"
     - "backupAgentId is a single value -- a collector can only have one backup; no chain failover"
