@@ -157,19 +157,38 @@ if ($Candidate) {
     $groupColIds = @($collectors | ForEach-Object { [int]$_.id })
     $candErrors  = [System.Collections.Generic.List[string]]::new()
     foreach ($c in $Candidate) {
-        $match = if ($c -match '^\d+$') {
-            @($allCollectors | Where-Object { $_.id -eq [int]$c })
+        # Resolve: numeric -> id; otherwise exact hostname/description (case-insensitive),
+        # then fall back to a partial (substring) match so an FQDN like 'newedge03.example.com'
+        # still resolves from 'newedge03'. A partial match is only accepted if it is
+        # unambiguous; multiple matches list candidates and ask for the exact name/id.
+        if ($c -match '^\d+$') {
+            $exact = @($allCollectors | Where-Object { $_.id -eq [int]$c })
         } else {
-            @($allCollectors | Where-Object { $_.hostname -eq $c -or $_.description -eq $c })
+            $exact = @($allCollectors | Where-Object { $_.hostname -eq $c -or $_.description -eq $c })
         }
-        if ($match.Count -eq 0) { $candErrors.Add("'$c' not found"); continue }
-        if ($match.Count -gt 1) { $candErrors.Add("'$c' matched $($match.Count) collectors - use the numeric id"); continue }
-        $m = $match[0]
+        if ($exact.Count -eq 1) {
+            $m = $exact[0]
+        } elseif ($exact.Count -gt 1) {
+            $candErrors.Add("'$c' matched $($exact.Count) collectors exactly - use the numeric id"); continue
+        } elseif ($c -match '^\d+$') {
+            $candErrors.Add("collector id $c not found (it must be installed and connected to LM, just not in the group)"); continue
+        } else {
+            $partial = @($allCollectors | Where-Object { $_.hostname -like "*$c*" -or $_.description -like "*$c*" })
+            if ($partial.Count -eq 1) {
+                $m = $partial[0]
+                Write-Host "Candidate '$c' resolved to '$($m.hostname)' (id=$($m.id)) by partial match."
+            } elseif ($partial.Count -gt 1) {
+                $names = ($partial | ForEach-Object { "$($_.hostname) (id=$($_.id))" }) -join ', '
+                $candErrors.Add("'$c' matched no collector exactly and $($partial.Count) partially ($names) - use the exact hostname or numeric id"); continue
+            } else {
+                $candErrors.Add("'$c' not found - no collector hostname/description contains it (the collector must be installed and connected to LM, just not yet in the group)"); continue
+            }
+        }
         if ($groupColIds -contains [int]$m.id) {
             $candErrors.Add("'$($m.hostname)' (id=$($m.id)) is already in group $GroupId - it is an incumbent, not a candidate")
             continue
         }
-        if ($m.status -ne 1) { $candErrors.Add("'$($m.hostname)' (id=$($m.id)) is not active (status=$($m.status))"); continue }
+        if ($m.status -ne 1) { $candErrors.Add("'$($m.hostname)' (id=$($m.id)) is not active (status=$($m.status) - is the collector running and connected?)"); continue }
         $candidateCols += $m
     }
     if ($candErrors.Count -gt 0) {
