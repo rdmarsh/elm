@@ -1187,8 +1187,8 @@ CollectorList:
   note: "Standard list command; no unique options. Key fields verified via live test."
   key_fields:
     id:                 integer
-    description:        string   # human label e.g. "myhost"
-    hostname:           string
+    description:        string   # human label; often mirrors hostname e.g. "DOMAIN\HOSTNAME"
+    hostname:           string   # frequently "DOMAIN\HOSTNAME" or an FQDN, NOT a bare hostname
     platform:           string   # "linux" or "windows"
     arch:               string   # "Linux64", "Win64"
     build:              string   # e.g. "38001"; compare against CollectorVersionList for upgrade status
@@ -1212,6 +1212,8 @@ CollectorList:
     - "collectorDeviceId=0 means the collector has no device record in LM -- you cannot query its host metrics (CPU, memory) via DeviceDatasourceInstanceData etc."
     - "collectorDeviceId (when non-zero) is the device ID of the collector host in DeviceList -- use it to identify which devices in a group are themselves collector hosts so reachability/cross-collector checks can skip them (a collector is monitored from itself; collector name and device name need not match)"
     - "Collector Debug / remote debug operations (running a Groovy/!groovy command on a collector, e.g. via the Logic.Monitor PS module Invoke-LMCollectorDebugCommand) require a Manage-level token; a read-only token returns 'Access denied. Your API credentials do not have sufficient permissions.' (same class as CollectorStatusCheck returning 403 read-only)"
+    - "hostname and description are usually the 'DOMAIN\\HOSTNAME' form (e.g. 'CORP\\NEWEDGE03') or an FQDN, not the bare host label -- matching a collector by an exact bare name fails. Match by numeric id, or substring/partial. The tools/lm-collector-reachability-run-all.ps1 -Candidate flag resolves id -> exact hostname/description -> unambiguous substring for this reason."
+    - "tools/lm-collector-reachability-run-all.ps1 -Candidate <id|name> tests a collector NOT yet in a group against that group's device list (pre-add vetting): submits the group's device list to the candidate via Collector Debug and reports device+protocol combos the candidate fails to reach but an in-group collector does. Requires the candidate to already be installed and connected to LM (just not in the group)."
     - "status is always 1 for all collectors including DOWN ones -- use isDown for real health status"
     - "numberOfInstances is 0 for non-auto-balance collectors -- it only tracks auto-balance load distribution"
     - "backupAgentId is a single value -- a collector can only have one backup; no chain failover"

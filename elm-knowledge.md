@@ -359,6 +359,10 @@ elm RecipientGroupList -s0 -f id,name         # wrong — name is empty
 elm CollectorGroupById --id <id> -f numOfHosts,numOfInstances
 ```
 
+### Collector hostname is `DOMAIN\HOSTNAME`, not a bare name
+
+`CollectorList`'s `hostname` (and usually `description`) is typically the `DOMAIN\HOSTNAME` form (e.g. `CORP\NEWEDGE03`) or an FQDN — not the bare host label. So matching a collector by an exact bare name fails; match by numeric `id`, or by a substring/partial match. (This is why `tools/lm-collector-reachability-run-all.ps1 -Candidate` resolves id → exact hostname/description → unambiguous substring.)
+
 ---
 
 ## Scoping to Linux devices
