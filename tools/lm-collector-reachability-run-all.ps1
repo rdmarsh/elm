@@ -151,27 +151,36 @@ if (@($collectors).Count -eq 1 -and -not $Candidate) {
 # the group; the candidate just gets the same device list submitted to it.
 $candidateCols = @()
 if ($Candidate) {
+    # You explicitly asked to vet a candidate, so any -Candidate entry that cannot be
+    # used as one is a hard error: collect every problem and throw BEFORE the (expensive)
+    # device discovery, rather than silently degrading into a plain group run.
     $groupColIds = @($collectors | ForEach-Object { [int]$_.id })
+    $candErrors  = [System.Collections.Generic.List[string]]::new()
     foreach ($c in $Candidate) {
         $match = if ($c -match '^\d+$') {
             @($allCollectors | Where-Object { $_.id -eq [int]$c })
         } else {
             @($allCollectors | Where-Object { $_.hostname -eq $c -or $_.description -eq $c })
         }
-        if ($match.Count -eq 0) { Write-Warning "Candidate collector '$c' not found - skipping."; continue }
-        if ($match.Count -gt 1) { Write-Warning "Candidate '$c' matched $($match.Count) collectors - skipping (use the numeric id)."; continue }
+        if ($match.Count -eq 0) { $candErrors.Add("'$c' not found"); continue }
+        if ($match.Count -gt 1) { $candErrors.Add("'$c' matched $($match.Count) collectors - use the numeric id"); continue }
         $m = $match[0]
         if ($groupColIds -contains [int]$m.id) {
-            Write-Warning "Candidate '$($m.hostname)' (id=$($m.id)) is already in group $GroupId - it will be tested as an incumbent, not a candidate."
+            $candErrors.Add("'$($m.hostname)' (id=$($m.id)) is already in group $GroupId - it is an incumbent, not a candidate")
             continue
         }
-        if ($m.status -ne 1) { Write-Warning "Candidate '$($m.hostname)' (id=$($m.id)) is not active (status=$($m.status)) - skipping."; continue }
+        if ($m.status -ne 1) { $candErrors.Add("'$($m.hostname)' (id=$($m.id)) is not active (status=$($m.status))"); continue }
         $candidateCols += $m
     }
-    if ($candidateCols.Count -gt 0) {
-        Write-Host "Candidates:  $($candidateCols.Count) (not in the group; tested against its devices)"
-        foreach ($cc in $candidateCols) { Write-Host "  + $($cc.hostname) (id=$($cc.id))" }
+    if ($candErrors.Count -gt 0) {
+        $nl = [Environment]::NewLine
+        throw ("Candidate collector(s) could not be used as candidates; aborting:" + $nl +
+               (($candErrors | ForEach-Object { "  - $_" }) -join $nl) + $nl +
+               "Collector hostnames are case-insensitive but must match exactly. Run with no -Candidate " +
+               "to see the group, or Get-LMCollector to list collector hostnames/ids.")
     }
+    Write-Host "Candidates:  $($candidateCols.Count) (not in the group; tested against its devices)"
+    foreach ($cc in $candidateCols) { Write-Host "  + $($cc.hostname) (id=$($cc.id))" }
 }
 
 # A device that hosts a collector is linked by that collector's collectorDeviceId.
