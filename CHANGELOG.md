@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `tools/lm-collector-reachability-run-all.ps1`: detect "not logged in" up front. Previously the only precondition was that the `Logic.Monitor` module was loaded, not that a session was active, so running with no connection spilled the module's multi-line "ensure you are logged in" error mid-listing followed by a misleading `0 of 0 total`. It now checks `Get-LMAccountStatus` (a plain string when logged out, a status object when connected) and, like the module-not-loaded case, fails with a single clean red message and exit code 1 rather than a thrown `Line | NN |` caret block. Also documented that `-Candidate` takes several collectors comma-separated (`-Candidate id1,id2`), each producing its own verdict block.
 - `tools/elm-collector-readiness.sh`: device membership filter changed from `autoBalancedCollectorGroupId` to `preferredCollectorGroupId`. `autoBalancedCollectorGroupId` is only populated for devices LM has already auto-placed, so it returned no devices for groups whose members are assigned but not yet balanced (observed: a group with 2 assigned devices reported 0 to test).
 
 ## [1.8.8] - 2026-05-29

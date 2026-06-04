@@ -50,7 +50,9 @@
     "will it reach everything this group monitors?" Each candidate is submitted the same
     device list as the group's own collectors, then a per-candidate verdict lists any
     device+protocol the candidate fails to reach but an in-group collector does reach.
-    Alias: -collector. Requires a group (-id/-group) to define the devices.
+    Pass several comma-separated (-Candidate id1,id2 or -Candidate name1,name2); each gets
+    its own verdict block. Alias: -collector. Requires a group (-id/-group) to define the
+    devices.
 
 .EXAMPLE
     ./lm-collector-reachability-run-all.ps1
@@ -66,6 +68,10 @@
     ./lm-collector-reachability-run-all.ps1 -id 191 -Candidate newedge02
     Test new collector 'newedge02' (not yet in group 191) against group 191's devices and
     report whether it would reach everything the group's existing collectors reach.
+
+.EXAMPLE
+    ./lm-collector-reachability-run-all.ps1 -id 191 -Candidate newedge02,newedge03
+    Vet two candidate collectors at once (comma-separated); each gets its own verdict block.
 
 .NOTES
     Prerequisite: Logic.Monitor module loaded and Connect-LMAccount already
@@ -99,9 +105,27 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # ── Preconditions ─────────────────────────────────────────────────────────────
+# Precondition failures use a clean red one-liner + exit, not throw: a thrown error from a
+# script file prints a "Line | NN | ..." caret block, which is noise for "you forgot to log in".
+function Stop-WithMessage {
+    param([string]$Message)
+    Write-Host $Message -ForegroundColor Red
+    exit 1
+}
+
 if (-not (Get-Command Get-LMDevice -ErrorAction SilentlyContinue)) {
-    throw "Logic.Monitor module not loaded. Establish an LM session first " +
-          "(Connect-LMAccount, or your own connection wrapper), then re-run."
+    Stop-WithMessage ("Logic.Monitor module not loaded. Establish an LM session first " +
+                      "(Connect-LMAccount, or your own connection wrapper), then re-run.")
+}
+
+# The module can be loaded but with no active session. Get-LMAccountStatus returns a
+# plain string ("Not currently logged into any LogicMonitor portals.") when logged out
+# and a status object when connected. Check it here so the data cmdlets below don't spew
+# a multi-line "ensure you are logged in" error mid-listing (and a misleading "0 of 0").
+$lmStatus = Get-LMAccountStatus
+if ($null -eq $lmStatus -or $lmStatus -is [string]) {
+    Stop-WithMessage ("Not connected to a LogicMonitor portal. Run Connect-LMAccount " +
+                      "(or your connection wrapper) first, then re-run.")
 }
 
 # ── No group specified — list auto-balance groups and exit ────────────────────
@@ -109,7 +133,7 @@ if ($PSCmdlet.ParameterSetName -eq 'List') {
     if ($Candidate) {
         Write-Warning "-Candidate requires a group (-id or -group) to define the device list; ignoring it and listing groups."
     }
-    Write-Host "Usage: ./lm-collector-reachability-run-all.ps1 -id GROUP_ID | -group GROUP_NAME [-Candidate ID|NAME ...] [-OutputDir DIR] [-WaitSeconds N] [-IncludeDead]"
+    Write-Host "Usage: ./lm-collector-reachability-run-all.ps1 -id GROUP_ID | -group GROUP_NAME [-Candidate ID|NAME[,ID|NAME...]] [-OutputDir DIR] [-WaitSeconds N] [-IncludeDead]"
     Write-Host ""
     # -BatchSize 1000 forces full pagination (older module versions can default to 50).
     $allGroups   = Get-LMCollectorGroup -BatchSize 1000
