@@ -518,11 +518,24 @@ RecipientGroupList:
 
 IntegrationList:
   path: /setting/integrations
-  note: "Standard list; verified working. Very wide response — use -f to limit fields."
+  note: "Standard list. Very wide response. filter and size work; -f/--fields is
+    only PARTIALLY honored (see gotcha)."
   key_fields:
     id:     integer
     name:   string
-    type:   string   # e.g. "servicenow", "http"
+    type:   string   # e.g. "http", "email", "servicenow", "msTeams", "slack-2", "connectwise-2"
+  gotchas:
+    - "The LM /setting/integrations endpoint only honours -f/--fields for GENERIC
+      integration types (http, email) — for BRANDED types (servicenow, msTeams,
+      slack-2, connectwise-2, ...) it ignores fields and returns the full ~100+
+      field object. Projection is per-record, so one response can mix trimmed and
+      full records depending on each record's type — looks intermittent until you
+      group by type. No 'unknown field' warning fires because the requested fields
+      ARE present among the full set. elm sends fields= correctly and does no
+      client-side projection (output() renders whatever the API returns), so this
+      is purely an LM API bug — upstream issue #52. Workaround: project client-side,
+      e.g. elm IntegrationList -s0 -f json | jq '[.IntegrationList[]|{id,name,type}]'.
+      Confirmed type-correlated across three portals 2026-06-11."
 
 NetscanList:
   path: /setting/netscans
