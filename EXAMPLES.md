@@ -14,6 +14,7 @@ Each topic has its own file in the [examples/](examples/) directory.
 | File | Contents |
 |------|----------|
 | [examples/general.md](examples/general.md) | Basic usage: flags, output formats, piping, writing to file, header/footer |
+| [examples/filtering.md](examples/filtering.md) | Using `-F`/`--filter`: operators, `~` substring search, combining filters, gotchas |
 | [examples/devices.md](examples/devices.md) | Devices and device groups: OS filtering, custom/system properties, group membership |
 | [examples/collectors.md](examples/collectors.md) | Collectors and collector groups: build versions, auto-balance, group mismatches |
 | [examples/alerts.md](examples/alerts.md) | Alerts and SDTs: long SDTs, oldest alerts, time-related alerts |

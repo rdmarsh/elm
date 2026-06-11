@@ -6,6 +6,7 @@ See [../EXAMPLES.md](../EXAMPLES.md) for the full index.
 | File | Contents |
 |------|----------|
 | [general.md](general.md) | Basic usage: flags, output formats, piping, writing to file, header/footer |
+| [filtering.md](filtering.md) | Using `-F`/`--filter`: operators, `~` substring search, combining filters, gotchas |
 | [devices.md](devices.md) | Devices and device groups: OS filtering, custom/system properties, group membership |
 | [collectors.md](collectors.md) | Collectors and collector groups: build versions, auto-balance, group mismatches |
 | [alerts.md](alerts.md) | Alerts and SDTs: long SDTs, oldest alerts, time-related alerts |

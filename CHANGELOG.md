@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `examples/filtering.md` — a dedicated `-F`/`--filter` reference: operator table (`:`, `~`, `!:`, `!~`, `>`, `<`, `>:`, `<:`), `~` substring-search behaviour (case-insensitive, spaces OK), combining filters with repeated `-F` (AND), the no-OR limitation, comma-separated string fields, and the quoting/comma-escape gotchas. Linked from `examples/README.md` and `EXAMPLES.md`.
+
 ## [1.8.9] - 2026-06-11
 
 ### Added
