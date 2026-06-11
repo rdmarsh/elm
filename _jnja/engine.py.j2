@@ -390,11 +390,24 @@ def validate_filter(ctx, param, filters):
                 #filter needs quotes around the value to work for strings
                 #this saves the user from having to escape quotes on the cli
                 #ints are not unaffected, so do it for everything
+                #escape any backslash or double-quote already in the value first,
+                #otherwise a trailing backslash escapes our closing quote (or an
+                #embedded quote ends the value early) and LM rejects it with a 400.
+                #backslash must be escaped before the quote so we don't double our own.
+                value = value.replace('\\', '\\\\').replace('"', '\\"')
                 value = '"' + value + '"'
                 logging.debug('value: %s', value)
                 filters_fmtchkd.append(field + operator + value)
                 logging.debug('filters_fmtchkd: %s', filters_fmtchkd)
             except ValueError:
-                raise click.BadParameter("format must be 'FIELD[>:,<:,>,<,!:,:,~,!~]VALUE'")
+                #re.split with maxsplit=1 returns a single element (failing the
+                #3-way unpack) only when the clause contains no operator. The most
+                #common cause is an unescaped comma in a value: commas separate
+                #clauses, so 'name~Smith, Inc' splits into 'name~Smith' and ' Inc',
+                #and ' Inc' has no operator. Point the user at the \, escape.
+                raise click.BadParameter(
+                    "filter clause %r has no operator "
+                    "(expected FIELD[>:,<:,>,<,!:,:,~,!~]VALUE); "
+                    "to include a literal comma in a value, escape it as '\\,'" % filter)
 
         return ",".join(filters_fmtchkd)

@@ -205,6 +205,20 @@ _global:
     - "-s0 means return all records (up to 1000), not zero records"
     - "validate_filter() wraps values in double quotes automatically — do not
       double-quote values in shell, it causes doubling"
+    - "Filter values are auto-escaped (v1.8.9+): validate_filter() escapes any
+      backslash or double-quote in the value before wrapping it in quotes, so just
+      type the literal value you want — elm handles it. Earlier versions wrapped the
+      raw value, so a trailing backslash escaped the closing quote
+      (-F 'hostname~foo\\' became hostname~\"foo\\\" -> 400 Bad Request) and the
+      workaround was to double the backslash. That workaround is now wrong: with
+      auto-escaping, -F 'hostname~foo\\\\' matches TWO literal backslashes."
+    - "Comma is the filter-clause separator, so a literal comma in a search VALUE
+      must be escaped as \\, — otherwise elm splits the value into two clauses and
+      the second (which has no operator) errors with 'format must be FIELD[op]VALUE'.
+      Free-text substring search is otherwise robust: -F 'name~ServiceNow' is
+      case-insensitive (ServiceNow == servicenow) and spaces work
+      (-F 'name~ServiceNow DEV'). Only the comma needs escaping:
+      -F 'name~Smith\\, Inc' searches for the literal 'Smith, Inc'."
     - "--format TEXT on some commands (AuditLogList, ConfigSourceList, DatasourceList,
       EventSourceList, JobMonitorList, LogSourceList, PropertyRulesList) is an LM API-level
       parameter, NOT elm's output format flag. It instructs the LM API to return data in that

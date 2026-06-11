@@ -359,6 +359,8 @@ testbasic: ## Test basic flags
 	@echo testing: --ai output includes elm-notes.yaml ; $(testbin) --ai | grep -q 'elm-notes.yaml'
 	@echo testing: --help includes --ai ; $(testbin) --help | grep -q -- '--ai'
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
+	@echo testing: trailing backslash in filter value is escaped ; $(testbin) -f api DeviceList -F 'hostname~foo\' -s1 2>/dev/null | grep -q 'filter=hostname~%22foo%5C%5C%22'
+	@echo testing: embedded quote in filter value is escaped ; $(testbin) -f api DeviceList -F 'hostname~a"b' -s1 2>/dev/null | grep -q 'filter=hostname~%22a%5C%22b%22'
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
 	@echo testing: sqlite format requires -o flag ; $(testbin) -f sqlite MetricsUsage 2>&1 | grep -q 'requires -o'
