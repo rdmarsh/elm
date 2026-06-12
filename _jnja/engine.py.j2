@@ -215,6 +215,16 @@ def engine(elm, **kwargs):
         logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
     else:
+        # Client-side field projection: trim each item to only the requested fields.
+        # Defence against endpoints that ignore fields= (e.g. IntegrationList branded
+        # types — upstream bug #52). No-op when the API already honoured fields=.
+        if 'fields' in flags and obj['items']:
+            requested = {f.strip() for f in flags['fields'].split(',')}
+            obj['items'] = [
+                {k: v for k, v in item.items() if k in requested}
+                for item in obj['items']
+            ]
+
         output(obj['items'], elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
 
         #if output() found no valid fields it already reported an error - suppress follow-on warnings
