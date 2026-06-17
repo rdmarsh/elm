@@ -385,6 +385,27 @@ Plausible-looking code is not evidence of correctness.
 
 AI-generated examples are often syntactically plausible but operationally wrong.
 
+## Generate documentation examples from real output
+
+When documentation shows the output of a program - a rendered table, a CLI
+session, a JSON response, a formatted report - generate that example by running
+the program and pasting its actual output. Do not author it by hand.
+
+Hand-written examples drift from reality:
+- they silently misrepresent what the tool actually produces
+- they go stale when the output format changes
+- subtle details are easy to get wrong (alignment, separators, escaping, field
+  order) in ways that look correct but are not
+
+This is the documentation-facing form of the same trap as hand-written code:
+plausible is not the same as correct.
+
+Guidelines:
+- produce output examples by executing the code, not from memory
+- regenerate them whenever the output format changes
+- keep the input that produced an example recorded nearby, so it can be
+  reproduced and re-verified later
+
 ## Generated files
 
 If any files are generated artefacts - from templates, build pipelines, or code generators - document this prominently.
