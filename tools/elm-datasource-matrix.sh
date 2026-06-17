@@ -4,10 +4,12 @@
 # matching datasources, cells are a tick (used) or X (not used).
 #
 # Usage:
-#   elm-datasource-matrix.sh [PATTERN] [--profile PROFILE] [-i] [--csv]
+#   elm-datasource-matrix.sh [PATTERN] [--profile PROFILE] [-i] [--no-x] [--csv]
 #   elm-datasource-matrix.sh                 # PATTERN defaults to 'NTP'
 #   elm-datasource-matrix.sh NTP --profile prod
 #   elm-datasource-matrix.sh ntp -i          # case-insensitive match
+#
+# Output columns are: device ID, device name, then one column per datasource.
 #
 # Arguments:
 #   PATTERN             substring to match in the datasource NAME.
@@ -20,8 +22,10 @@
 #                       is case-SENSITIVE so that 'NTP' matches NTPv4/Cisco_NTP
 #                       but NOT substrings like AccessPoi[ntP]erformance or
 #                       OverCurre[ntP]rotectors. Pass -i to widen the match.
-#   --csv               emit CSV (device,<datasource names...>) instead of the
-#                       aligned grid. Cells are 1/0. Good for spreadsheets.
+#   --no-x              in the grid, leave 'not applied' cells blank instead of
+#                       marking them with X (ticks only). No effect on --csv.
+#   --csv               emit CSV (id,device,<datasource names...>) instead of
+#                       the aligned grid. Cells are 1/0. Good for spreadsheets.
 #   -h, --help          show this help and exit.
 #
 # How it works (efficient -- N_datasources API calls, not N_devices):
@@ -45,6 +49,7 @@ PATTERN="NTP"
 PROFILE="config"
 IGNORE_CASE=0
 CSV=0
+NO_X=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,6 +58,7 @@ while [ $# -gt 0 ]; do
       exit 0 ;;
     --profile) PROFILE="$2"; shift 2 ;;
     -i|--ignore-case) IGNORE_CASE=1; shift ;;
+    --no-x) NO_X=1; shift ;;
     --csv) CSV=1; shift ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) PATTERN="$1"; shift ;;
@@ -66,7 +72,7 @@ echo "profile: $PROFILE   pattern: '$PATTERN'   match: $([ $IGNORE_CASE -eq 1 ] 
 # Step 1: candidate datasources (server-side filter is case-insensitive).
 DS_JSON="$(elm --profile "$PROFILE" -f json DatasourceList -F "name~${PATTERN}" -f id,name -s0 2>/dev/null || true)"
 
-PATTERN="$PATTERN" IGNORE_CASE="$IGNORE_CASE" PROFILE="$PROFILE" CSV="$CSV" \
+PATTERN="$PATTERN" IGNORE_CASE="$IGNORE_CASE" PROFILE="$PROFILE" CSV="$CSV" NO_X="$NO_X" \
 python3 - "$DS_JSON" <<'PY'
 import json, os, subprocess, sys
 
@@ -74,6 +80,7 @@ pattern = os.environ["PATTERN"]
 ignore  = os.environ["IGNORE_CASE"] == "1"
 profile = os.environ["PROFILE"]
 as_csv  = os.environ["CSV"] == "1"
+no_x    = os.environ["NO_X"] == "1"
 
 try:
     cands = json.loads(sys.argv[1]).get("DatasourceList", [])
@@ -124,9 +131,9 @@ print(f"{len(devices)} device(s) x {len(cols)} datasource(s)", file=sys.stderr)
 if as_csv:
     import csv
     w = csv.writer(sys.stdout)
-    w.writerow(["device"] + cols)
+    w.writerow(["id", "device"] + cols)
     for did, dname in devices:
-        w.writerow([dname] + [1 if did in used[c] else 0 for c in cols])
+        w.writerow([did, dname] + [1 if did in used[c] else 0 for c in cols])
     sys.exit(0)
 
 # Aligned grid with a numbered legend (datasource names are long).
@@ -136,16 +143,19 @@ for lab, name in zip(labels, cols):
     print(f"  {lab} = {name}")
 print()
 
-TICK, CROSS = "✓", "X"
+TICK = "✓"
+CROSS = " " if no_x else "X"
+id_w  = max([len("ID")] + [len(str(i)) for i, _ in devices])
 dev_w = max([len("Device")] + [len(n) for _, n in devices])
 col_w = [max(len(lab), 1) for lab in labels]
 
-header = "Device".ljust(dev_w) + "  " + "  ".join(lab.center(w) for lab, w in zip(labels, col_w))
+header = ("ID".rjust(id_w) + "  " + "Device".ljust(dev_w) + "  "
+          + "  ".join(lab.center(w) for lab, w in zip(labels, col_w)))
 print(header)
 print("-" * len(header))
 for did, dname in devices:
     cells = []
     for c, w in zip(cols, col_w):
         cells.append((TICK if did in used[c] else CROSS).center(w))
-    print(dname.ljust(dev_w) + "  " + "  ".join(cells))
+    print(str(did).rjust(id_w) + "  " + dname.ljust(dev_w) + "  " + "  ".join(cells))
 PY

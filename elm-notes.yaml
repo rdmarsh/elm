@@ -416,13 +416,15 @@ AssociatedDeviceListByDataSourceId:
         '.DeviceList[] | select(.id as $id | $ntp_ids | contains([$id]) | not) | .displayName' | sort
   usage_matrix_tool: |
     tools/elm-datasource-matrix.sh builds a device x datasource usage matrix
-    (rows = devices, columns = datasources, cells = tick/X) for every datasource
-    whose NAME matches a pattern. It pivots one AssociatedDeviceListByDataSourceId
-    call per matching datasource, so cost is N_datasources calls, not N_devices.
+    (each row = a device, shown as device ID + name; each datasource = a column;
+    cells = tick/X) for every datasource whose NAME matches a pattern. It pivots
+    one AssociatedDeviceListByDataSourceId call per matching datasource, so cost
+    is N_datasources calls, not N_devices.
       tools/elm-datasource-matrix.sh NTP                  # sandbox, case-sensitive
       tools/elm-datasource-matrix.sh NTP --profile prod
+      tools/elm-datasource-matrix.sh NTP --no-x           # blank instead of X (ticks only)
       tools/elm-datasource-matrix.sh ntp -i               # case-insensitive
-      tools/elm-datasource-matrix.sh NTP --csv            # 1/0 cells for spreadsheets
+      tools/elm-datasource-matrix.sh NTP --csv            # id,device,... 1/0 cells for spreadsheets
     Default match is case-SENSITIVE: 'NTP' matches NTPv4/Cisco_NTP but not
     substrings like AccessPoi[ntP]erformance or OverCurre[ntP]rotectors (these
     are real datasources that contain the letters n-t-p). Pass -i to widen.
