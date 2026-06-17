@@ -218,30 +218,31 @@ call per matching datasource, so the cost is one API call per datasource — not
 one per device.
 
 ```shell
-# all NTP datasources on the sandbox (case-sensitive match)
+# all NTP datasources on the sandbox (case-insensitive by default)
 tools/elm-datasource-matrix.sh NTP
 
 # against another portal
 tools/elm-datasource-matrix.sh NTP --profile prod
 
-# case-insensitive match, and CSV output for spreadsheets
-tools/elm-datasource-matrix.sh ntp -i
+# case-sensitive match, and CSV output for spreadsheets
+tools/elm-datasource-matrix.sh NTP -s
 tools/elm-datasource-matrix.sh NTP --csv
 ```
 
-Example output:
+Example output (columns are padded so the raw Markdown lines up):
 
 ```text
-| ID | Device | Cisco_NTP | NTPv4 | NTT_Cisco_NTP_Peers |
-| ---: | --- | :---: | :---: | :---: |
-| 101 | host-a |  | ✓ |  |
-| 102 | host-b |  | ✓ |  |
-| 103 | host-c | ✓ |  | ✓ |
+|  ID | Device | Cisco_NTP | NTPv4 | NTT_Cisco_NTP_Peers |
+| --: | ------ | :-------: | :---: | :-----------------: |
+| 101 | host-a |           |   ✓   |                     |
+| 102 | host-b |           |   ✓   |                     |
+| 103 | host-c |     ✓     |       |          ✓          |
 ```
 
-The match is **case-sensitive by default**, so `NTP` matches `NTPv4` and
-`Cisco_NTP` but not incidental substrings such as `AccessPoi`*`ntP`*`erformance`
-or `OverCurre`*`ntP`*`rotectors`. Pass `-i`/`--ignore-case` to widen it.
+The match is **case-insensitive by default**, so `ntp`, `NTP` and `Ntp` all
+match `NTPv4` and `Cisco_NTP`. Pass `-s`/`--case-sensitive` (the same flag as
+ripgrep) to narrow it — then `NTP` no longer matches incidental substrings such
+as `AccessPoi`*`ntP`*`erformance` or `OverCurre`*`ntP`*`rotectors`.
 `--csv` emits `id,device,<datasource…>` rows with `1`/`0` cells for spreadsheets.
 **Real devices only:** rows are restricted to actual devices (`deviceType` 0 or
 1); everything else LM models as a "device" — LM Services / Service Insight,

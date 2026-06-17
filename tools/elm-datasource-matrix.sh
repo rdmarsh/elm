@@ -5,24 +5,27 @@
 # (blank otherwise). Output is a GitHub Flavored Markdown (GFM) table.
 #
 # Usage:
-#   elm-datasource-matrix.sh [PATTERN] [--profile PROFILE] [-i] [--csv]
+#   elm-datasource-matrix.sh [PATTERN] [--profile PROFILE] [-s] [--csv]
 #   elm-datasource-matrix.sh                 # PATTERN defaults to 'NTP'
 #   elm-datasource-matrix.sh NTP --profile prod
-#   elm-datasource-matrix.sh ntp -i          # case-insensitive match
+#   elm-datasource-matrix.sh ntp             # matches NTP (case-insensitive)
+#   elm-datasource-matrix.sh NTP -s          # case-sensitive match
 #
 # Output columns are: device ID, device name, then one column per datasource.
 #
 # Arguments:
 #   PATTERN             substring to match in the datasource NAME.
+#                       Matching is case-INSENSITIVE by default, so 'ntp',
+#                       'NTP' and 'Ntp' all match NTPv4 / Cisco_NTP.
 #                       Default: 'NTP'.
 #
 # Options:
-#   --profile PROFILE   elm credential profile; defaults to 'config' (same
+#   -p, --profile PROFILE   elm credential profile; defaults to 'config' (same
 #                       default as elm -- reads config.ini, the sandbox).
-#   -i, --ignore-case   match PATTERN case-insensitively. By default the match
-#                       is case-SENSITIVE so that 'NTP' matches NTPv4/Cisco_NTP
-#                       but NOT substrings like AccessPoi[ntP]erformance or
-#                       OverCurre[ntP]rotectors. Pass -i to widen the match.
+#   -s, --case-sensitive  match PATTERN case-SENSITIVELY (same flag as ripgrep).
+#                       Use this so that 'NTP' matches NTPv4/Cisco_NTP but NOT
+#                       substrings like AccessPoi[ntP]erformance or
+#                       OverCurre[ntP]rotectors.
 #   --csv               emit CSV (id,device,<datasource names...>) instead of
 #                       the GFM table. Cells are 1/0. Good for spreadsheets.
 #   -h, --help          show this help and exit.
@@ -35,7 +38,7 @@
 # How it works (efficient -- N_datasources API calls, not N_devices):
 #   1. DatasourceList -F name~PATTERN          -> candidate datasources
 #      (server-side ~ filter is case-insensitive; we then refine client-side
-#       unless -i is given).
+#       to a case-SENSITIVE match when -s is given).
 #   2. AssociatedDeviceListByDataSourceId --id  -> devices per datasource.
 #   3. DeviceList -F deviceType!:0 -F deviceType!:1 -> non-device ids to exclude
 #      (services, cloud, k8s, ...). One call; the non-device set is normally
@@ -57,7 +60,7 @@ set -euo pipefail
 
 PATTERN="NTP"
 PROFILE="config"
-IGNORE_CASE=0
+IGNORE_CASE=1
 CSV=0
 
 while [ $# -gt 0 ]; do
@@ -65,8 +68,8 @@ while [ $# -gt 0 ]; do
     -h|--help)
       sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'
       exit 0 ;;
-    --profile) PROFILE="$2"; shift 2 ;;
-    -i|--ignore-case) IGNORE_CASE=1; shift ;;
+    -p|--profile) PROFILE="$2"; shift 2 ;;
+    -s|--case-sensitive) IGNORE_CASE=0; shift ;;
     --csv) CSV=1; shift ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) PATTERN="$1"; shift ;;
@@ -96,7 +99,8 @@ try:
 except Exception:
     cands = []
 
-# Client-side refine: server ~ is case-insensitive; honour case unless -i.
+# Client-side refine: server ~ is case-insensitive; default is case-insensitive
+# too, but honour a case-SENSITIVE match when -s is given.
 needle = pattern if not ignore else pattern.lower()
 def matches(name):
     hay = name if not ignore else name.lower()
@@ -175,13 +179,41 @@ if as_csv:
         w.writerow([did, dname] + [1 if did in used[c] else 0 for c in cols])
     sys.exit(0)
 
-# GFM table: full datasource names as headers, tick where applied, blank otherwise.
+# GFM table: full datasource names as headers, tick where applied, blank
+# otherwise. Columns are padded so the raw Markdown source lines up too.
 def esc(s):
     return str(s).replace("|", "\\|")
 
-print("| " + " | ".join(["ID", "Device"] + [esc(c) for c in cols]) + " |")
-print("| " + " | ".join(["---:", "---"] + [":---:"] * len(cols)) + " |")
-for did, dname in devices:
-    cells = ["✓" if did in used[c] else "" for c in cols]
-    print("| " + " | ".join([str(did), esc(dname)] + cells) + " |")
+headers = ["ID", "Device"] + [esc(c) for c in cols]
+aligns  = ["right", "left"] + ["center"] * len(cols)
+body    = [[str(did), esc(dname)] +
+           ["✓" if did in used[c] else "" for c in cols]
+           for did, dname in devices]
+
+# Column widths, with minimums the alignment markers (--:, :--:) require.
+widths = [max(2, len(h)) for h in headers]
+for i, a in enumerate(aligns):
+    if a == "center":
+        widths[i] = max(widths[i], 3)
+for row in body:
+    for i, cell in enumerate(row):
+        widths[i] = max(widths[i], len(cell))
+
+def pad(s, w, a):
+    return s.center(w) if a == "center" else (s.rjust(w) if a == "right" else s.ljust(w))
+
+def sep(w, a):
+    if a == "right":
+        return "-" * (w - 1) + ":"
+    if a == "center":
+        return ":" + "-" * (w - 2) + ":"
+    return "-" * w
+
+def emit(cells):
+    print("| " + " | ".join(cells) + " |")
+
+emit([pad(h, widths[i], aligns[i]) for i, h in enumerate(headers)])
+emit([sep(widths[i], aligns[i]) for i in range(len(headers))])
+for row in body:
+    emit([pad(c, widths[i], aligns[i]) for i, c in enumerate(row)])
 PY

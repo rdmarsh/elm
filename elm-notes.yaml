@@ -421,13 +421,15 @@ AssociatedDeviceListByDataSourceId:
     datasource whose NAME matches a pattern. Pivots one
     AssociatedDeviceListByDataSourceId call per matching datasource, so cost is
     N_datasources calls, not N_devices.
-      tools/elm-datasource-matrix.sh NTP                  # sandbox, case-sensitive
-      tools/elm-datasource-matrix.sh NTP --profile prod
-      tools/elm-datasource-matrix.sh ntp -i               # case-insensitive
+      tools/elm-datasource-matrix.sh NTP                  # sandbox, case-insensitive
+      tools/elm-datasource-matrix.sh NTP -p prod          # -p/--profile selects portal
+      tools/elm-datasource-matrix.sh NTP -s               # case-sensitive (ripgrep's flag)
       tools/elm-datasource-matrix.sh NTP --csv            # id,device,... 1/0 cells for spreadsheets
-    Default match is case-SENSITIVE: 'NTP' matches NTPv4/Cisco_NTP but not
-    substrings like AccessPoi[ntP]erformance or OverCurre[ntP]rotectors (these
-    are real datasources that contain the letters n-t-p). Pass -i to widen.
+    Default match is case-INSENSITIVE: 'ntp'/'NTP'/'Ntp' all match NTPv4/Cisco_NTP.
+    Pass -s/--case-sensitive (ripgrep's flag) to narrow it — then 'NTP' no longer
+    matches substrings like AccessPoi[ntP]erformance or OverCurre[ntP]rotectors
+    (these are real datasources that contain the letters n-t-p). GFM cells are
+    padded so the raw Markdown source lines up.
     REAL DEVICES ONLY (not configurable): rows are limited to deviceType 0/1.
     LM Services/Service Insight (deviceType 6), cloud (AWS/Azure), and k8s
     resources are excluded — implemented by fetching the non-device id set via
