@@ -210,11 +210,12 @@ Available list endpoints:
 ### Datasource usage matrix
 
 `tools/elm-datasource-matrix.sh` builds a device-by-datasource usage matrix for
-every datasource whose **name** matches a pattern. Each row is a device (device
-ID, then device name); each remaining column is a matching datasource; each cell
-is a tick (applied) or `X` (not applied). It pivots one
-`AssociatedDeviceListByDataSourceId` call per matching datasource, so the cost is
-one API call per datasource — not one per device.
+every datasource whose **name** matches a pattern, as a GitHub Flavored Markdown
+table. Each row is a device (device ID, then device name); each remaining column
+is a matching datasource; a cell holds a tick (✓) where the datasource is
+applied and is blank otherwise. It pivots one `AssociatedDeviceListByDataSourceId`
+call per matching datasource, so the cost is one API call per datasource — not
+one per device.
 
 ```shell
 # all NTP datasources on the sandbox (case-sensitive match)
@@ -223,23 +224,32 @@ tools/elm-datasource-matrix.sh NTP
 # against another portal
 tools/elm-datasource-matrix.sh NTP --profile prod
 
-# leave 'not applied' cells blank instead of marking them X (ticks only)
-tools/elm-datasource-matrix.sh NTP --no-x
-
 # case-insensitive match, and CSV output for spreadsheets
 tools/elm-datasource-matrix.sh ntp -i
 tools/elm-datasource-matrix.sh NTP --csv
 ```
 
+Example output:
+
+```text
+| ID | Device | Cisco_NTP | NTPv4 | NTT_Cisco_NTP_Peers |
+| ---: | --- | :---: | :---: | :---: |
+| 101 | host-a |  | ✓ |  |
+| 102 | host-b |  | ✓ |  |
+| 103 | host-c | ✓ |  | ✓ |
+```
+
 The match is **case-sensitive by default**, so `NTP` matches `NTPv4` and
 `Cisco_NTP` but not incidental substrings such as `AccessPoi`*`ntP`*`erformance`
 or `OverCurre`*`ntP`*`rotectors`. Pass `-i`/`--ignore-case` to widen it.
-`--no-x` leaves un-applied cells blank so the ticks stand out; `--csv` emits
-`id,device,<datasource…>` rows with `1`/`0` cells for spreadsheets.
-Datasources with no associated devices are dropped (empty columns), and only
-devices using at least one matching datasource appear as rows. "Applied" is the
-live device→datasource association, not the daily `auto.activedatasources`
-property.
+`--csv` emits `id,device,<datasource…>` rows with `1`/`0` cells for spreadsheets.
+**Real devices only:** rows are restricted to actual devices (`deviceType` 0 or
+1); everything else LM models as a "device" — LM Services / Service Insight,
+cloud accounts and resources (AWS, Azure), Kubernetes resources — is excluded,
+and this is not configurable. Datasources with no remaining devices are dropped
+(empty columns), and only devices using at least one matching datasource appear
+as rows. "Applied" is the live device→datasource association, not the daily
+`auto.activedatasources` property.
 
 ## Usage
 

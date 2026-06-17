@@ -415,19 +415,25 @@ AssociatedDeviceListByDataSourceId:
       jq -r --argjson ntp_ids "$ntp_ids" \
         '.DeviceList[] | select(.id as $id | $ntp_ids | contains([$id]) | not) | .displayName' | sort
   usage_matrix_tool: |
-    tools/elm-datasource-matrix.sh builds a device x datasource usage matrix
-    (each row = a device, shown as device ID + name; each datasource = a column;
-    cells = tick/X) for every datasource whose NAME matches a pattern. It pivots
-    one AssociatedDeviceListByDataSourceId call per matching datasource, so cost
-    is N_datasources calls, not N_devices.
+    tools/elm-datasource-matrix.sh builds a device x datasource usage matrix as a
+    GFM (GitHub Flavored Markdown) table: each row = a device (device ID + name),
+    each datasource = a column, cell = tick (applied) or blank. For every
+    datasource whose NAME matches a pattern. Pivots one
+    AssociatedDeviceListByDataSourceId call per matching datasource, so cost is
+    N_datasources calls, not N_devices.
       tools/elm-datasource-matrix.sh NTP                  # sandbox, case-sensitive
       tools/elm-datasource-matrix.sh NTP --profile prod
-      tools/elm-datasource-matrix.sh NTP --no-x           # blank instead of X (ticks only)
       tools/elm-datasource-matrix.sh ntp -i               # case-insensitive
       tools/elm-datasource-matrix.sh NTP --csv            # id,device,... 1/0 cells for spreadsheets
     Default match is case-SENSITIVE: 'NTP' matches NTPv4/Cisco_NTP but not
     substrings like AccessPoi[ntP]erformance or OverCurre[ntP]rotectors (these
     are real datasources that contain the letters n-t-p). Pass -i to widen.
+    REAL DEVICES ONLY (not configurable): rows are limited to deviceType 0/1.
+    LM Services/Service Insight (deviceType 6), cloud (AWS/Azure), and k8s
+    resources are excluded — implemented by fetching the non-device id set via
+    `DeviceList -F deviceType!:0 -F deviceType!:1` (one call; the non-device set
+    is smaller than the device set, so the 1000-row cap rarely bites) and
+    dropping those ids. NOTE the filter operator for not-equals is `!:` (not `!`).
     "Used" = the live applied set (this endpoint), NOT the 24h-stale
     auto.activedatasources property — see DeviceDatasourceList.finding_active_datasources.
 

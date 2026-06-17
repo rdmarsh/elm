@@ -363,6 +363,34 @@ elm CollectorGroupById --id <id> -f numOfHosts,numOfInstances
 
 `CollectorList`'s `hostname` (and usually `description`) is typically the `DOMAIN\HOSTNAME` form (e.g. `CORP\NEWEDGE03`) or an FQDN — not the bare host label. So matching a collector by an exact bare name fails; match by numeric `id`, or by a substring/partial match. (This is why `tools/lm-collector-reachability-run-all.ps1 -Candidate` resolves id → exact hostname/description → unambiguous substring.)
 
+### deviceType — distinguishes real devices from cloud, services, and k8s
+
+`deviceType` on `DeviceList`/`DeviceById` records is an integer that classifies what a "device" actually is. LM models many non-device things as `device` objects; this field tells them apart.
+
+| deviceType | Meaning | Confidence |
+|-----------|---------|------------|
+| 0 | Standard device (the normal case) | confirmed |
+| 1 | Device (rare; treat as a real device) | per LM; not seen on test portal |
+| 2 | AWS account / cloud resource | confirmed by naming |
+| 4 | Azure account / cloud resource | confirmed by naming |
+| 6 | LM Service / Service Insight (incl. APM traces) | confirmed by naming |
+| 8 | Kubernetes resource (nodes, pods, services) | confirmed by naming |
+| 9 | Push Metrics / custom-metric device | observed (names often end `…pushmetric`) |
+| 11 | Synthetic / web check (auth checks, Selenium tests) | observed |
+| 18 | Synthetic check (returns full schema regardless of `-f`) | observed |
+
+Other values (e.g. 7 = GCP) exist in LM but were not present on the test portal.
+
+**"Real devices only" = `deviceType` 0 or 1.** To exclude everything else (services, cloud, k8s, synthetics), fetch the *non-device* id set in one call and drop those ids client-side:
+
+```shell
+elm -f json DeviceList -F 'deviceType!:0' -F 'deviceType!:1' -s0 -f id
+```
+
+The `!:` (not-equals) operator **works correctly on `DeviceList`** — verified: the result count is exactly `total − type0 − type1`. This is unlike AuditLogList/AlertList, where NOT filters are silently broken (see "NOT filter operators are broken on some endpoints"). Excluding the (smaller) non-device set is safer than fetching the device set, which can exceed the 1000-row `-s0` cap on large portals. `tools/elm-datasource-matrix.sh` uses exactly this to keep its matrix to real devices.
+
+Note `deviceType` is **not** returned by `AssociatedDeviceListByDataSourceId` even when requested with `-f` — that endpoint only returns `id`/`displayName`/`description`, so classifying its devices requires a separate `DeviceList` lookup.
+
 ---
 
 ## Scoping to Linux devices

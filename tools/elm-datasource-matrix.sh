@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # elm-datasource-matrix: build a device x datasource usage matrix for every
 # datasource whose name matches a pattern. Rows are devices, columns are the
-# matching datasources, cells are a tick (used) or X (not used).
+# matching datasources, and a cell holds a tick where the datasource is applied
+# (blank otherwise). Output is a GitHub Flavored Markdown (GFM) table.
 #
 # Usage:
-#   elm-datasource-matrix.sh [PATTERN] [--profile PROFILE] [-i] [--no-x] [--csv]
+#   elm-datasource-matrix.sh [PATTERN] [--profile PROFILE] [-i] [--csv]
 #   elm-datasource-matrix.sh                 # PATTERN defaults to 'NTP'
 #   elm-datasource-matrix.sh NTP --profile prod
 #   elm-datasource-matrix.sh ntp -i          # case-insensitive match
@@ -22,21 +23,30 @@
 #                       is case-SENSITIVE so that 'NTP' matches NTPv4/Cisco_NTP
 #                       but NOT substrings like AccessPoi[ntP]erformance or
 #                       OverCurre[ntP]rotectors. Pass -i to widen the match.
-#   --no-x              in the grid, leave 'not applied' cells blank instead of
-#                       marking them with X (ticks only). No effect on --csv.
 #   --csv               emit CSV (id,device,<datasource names...>) instead of
-#                       the aligned grid. Cells are 1/0. Good for spreadsheets.
+#                       the GFM table. Cells are 1/0. Good for spreadsheets.
 #   -h, --help          show this help and exit.
+#
+# Real devices only: rows are restricted to actual devices (deviceType 0 or 1).
+# Everything else LM models as a "device" -- LM Services / Service Insight
+# (deviceType 6), cloud accounts/resources (AWS, Azure), Kubernetes resources,
+# etc -- is excluded. This is not configurable.
 #
 # How it works (efficient -- N_datasources API calls, not N_devices):
 #   1. DatasourceList -F name~PATTERN          -> candidate datasources
 #      (server-side ~ filter is case-insensitive; we then refine client-side
 #       unless -i is given).
 #   2. AssociatedDeviceListByDataSourceId --id  -> devices per datasource.
-#   3. Pivot into a device x datasource matrix.
+#   3. DeviceList -F deviceType!:0 -F deviceType!:1 -> non-device ids to exclude
+#      (services, cloud, k8s, ...). One call; the non-device set is normally
+#      far smaller than the device set, so the 1000-row cap is not a concern
+#      in practice (if a portal somehow has >1000 non-devices, some could slip
+#      through).
+#   4. Pivot into a GFM device x datasource matrix.
 #
-# Datasources with zero associated devices are dropped (empty columns). Only
-# devices that use at least one matching datasource appear as rows.
+# Datasources with zero (real-device) associated devices are dropped (empty
+# columns). Only devices that use at least one matching datasource appear as
+# rows.
 #
 # Status messages go to stderr; the table/CSV goes to stdout.
 #
@@ -49,7 +59,6 @@ PATTERN="NTP"
 PROFILE="config"
 IGNORE_CASE=0
 CSV=0
-NO_X=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -58,7 +67,6 @@ while [ $# -gt 0 ]; do
       exit 0 ;;
     --profile) PROFILE="$2"; shift 2 ;;
     -i|--ignore-case) IGNORE_CASE=1; shift ;;
-    --no-x) NO_X=1; shift ;;
     --csv) CSV=1; shift ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) PATTERN="$1"; shift ;;
@@ -72,7 +80,7 @@ echo "profile: $PROFILE   pattern: '$PATTERN'   match: $([ $IGNORE_CASE -eq 1 ] 
 # Step 1: candidate datasources (server-side filter is case-insensitive).
 DS_JSON="$(elm --profile "$PROFILE" -f json DatasourceList -F "name~${PATTERN}" -f id,name -s0 2>/dev/null || true)"
 
-PATTERN="$PATTERN" IGNORE_CASE="$IGNORE_CASE" PROFILE="$PROFILE" CSV="$CSV" NO_X="$NO_X" \
+PATTERN="$PATTERN" IGNORE_CASE="$IGNORE_CASE" PROFILE="$PROFILE" CSV="$CSV" \
 python3 - "$DS_JSON" <<'PY'
 import json, os, subprocess, sys
 
@@ -80,7 +88,8 @@ pattern = os.environ["PATTERN"]
 ignore  = os.environ["IGNORE_CASE"] == "1"
 profile = os.environ["PROFILE"]
 as_csv  = os.environ["CSV"] == "1"
-no_x    = os.environ["NO_X"] == "1"
+DEVICE_TYPES = (0, 1)   # LM deviceType values that are real devices; all others
+                        # (services=6, cloud=2/4/7, k8s=8, ...) are excluded
 
 try:
     cands = json.loads(sys.argv[1]).get("DatasourceList", [])
@@ -117,6 +126,36 @@ if not ds_devices:
     print(f"{len(cands)} datasource(s) matched '{pattern}' but none are applied to any device", file=sys.stderr)
     sys.exit(0)
 
+# Step 3: keep real devices only. Fetch the set of NON-device ids (deviceType
+# not in DEVICE_TYPES) in one filtered call and drop them from the matrix.
+# Excluding the (smaller) non-device set is safer than fetching the device set,
+# which can exceed the 1000-row cap on large portals.
+not_eq = [["-F", f"deviceType!:{t}"] for t in DEVICE_TYPES]
+out = subprocess.run(
+    ["elm", "--profile", profile, "-f", "json", "DeviceList",
+     *[a for pair in not_eq for a in pair], "-s0", "-f", "id"],
+    capture_output=True, text=True)
+try:
+    nondevice_ids = {x["id"] for x in json.loads(out.stdout).get("DeviceList", [])}
+except Exception:
+    nondevice_ids = set()
+
+excluded = set()
+filtered = []
+for name, dmap in ds_devices:
+    excluded |= (set(dmap) & nondevice_ids)
+    dmap2 = {i: n for i, n in dmap.items() if i not in nondevice_ids}
+    if dmap2:                      # column may go empty once non-devices are gone
+        filtered.append((name, dmap2))
+ds_devices = filtered
+if excluded:
+    print(f"excluded {len(excluded)} non-device resource(s) "
+          f"(services / cloud / k8s -- deviceType not in {DEVICE_TYPES})", file=sys.stderr)
+if not ds_devices:
+    print("all matching usage was on non-device resources (services / cloud / k8s); "
+          "nothing left to show", file=sys.stderr)
+    sys.exit(0)
+
 # Build the device universe (rows = devices using >=1 matching datasource).
 dev_names = {}
 for _, dmap in ds_devices:
@@ -136,26 +175,13 @@ if as_csv:
         w.writerow([did, dname] + [1 if did in used[c] else 0 for c in cols])
     sys.exit(0)
 
-# Aligned grid with a numbered legend (datasource names are long).
-labels = [f"D{i+1}" for i in range(len(cols))]
-print("Datasources:")
-for lab, name in zip(labels, cols):
-    print(f"  {lab} = {name}")
-print()
+# GFM table: full datasource names as headers, tick where applied, blank otherwise.
+def esc(s):
+    return str(s).replace("|", "\\|")
 
-TICK = "✓"
-CROSS = " " if no_x else "X"
-id_w  = max([len("ID")] + [len(str(i)) for i, _ in devices])
-dev_w = max([len("Device")] + [len(n) for _, n in devices])
-col_w = [max(len(lab), 1) for lab in labels]
-
-header = ("ID".rjust(id_w) + "  " + "Device".ljust(dev_w) + "  "
-          + "  ".join(lab.center(w) for lab, w in zip(labels, col_w)))
-print(header)
-print("-" * len(header))
+print("| " + " | ".join(["ID", "Device"] + [esc(c) for c in cols]) + " |")
+print("| " + " | ".join(["---:", "---"] + [":---:"] * len(cols)) + " |")
 for did, dname in devices:
-    cells = []
-    for c, w in zip(cols, col_w):
-        cells.append((TICK if did in used[c] else CROSS).center(w))
-    print(str(did).rjust(id_w) + "  " + dname.ljust(dev_w) + "  " + "  ".join(cells))
+    cells = ["✓" if did in used[c] else "" for c in cols]
+    print("| " + " | ".join([str(did), esc(dname)] + cells) + " |")
 PY
