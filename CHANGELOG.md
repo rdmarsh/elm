@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `tools/elm-datasource-matrix.sh` — builds a device-by-datasource usage matrix (rows = devices, columns = datasources, cells = tick/`X`) for every datasource whose **name** matches a pattern. Pivots one `AssociatedDeviceListByDataSourceId` (`/setting/datasources/{id}/devices`) call per matching datasource, so the cost is one API call per datasource, not one per device. Matching is **case-sensitive by default** so `NTP` matches `NTPv4`/`Cisco_NTP` but not incidental substrings like `AccessPoi[ntP]erformance` or `OverCurre[ntP]rotectors`; `-i`/`--ignore-case` widens it. Drops datasources with no associated devices (empty columns) and only lists devices using at least one match. `--csv` emits `1`/`0` cells for spreadsheets; `--profile` selects the portal (defaults to `config`). "Applied" is the live device→datasource association, not the daily `auto.activedatasources` property. Documented under README **Development → Datasource usage matrix**.
 - `examples/filtering.md` — a dedicated `-F`/`--filter` reference: operator table (`:`, `~`, `!:`, `!~`, `>`, `<`, `>:`, `<:`), `~` substring-search behaviour (case-insensitive, spaces OK), combining filters with repeated `-F` (AND), the no-OR limitation, comma-separated string fields, and the quoting/comma-escape gotchas. Linked from `examples/README.md` and `EXAMPLES.md`.
 
 ## [1.8.9] - 2026-06-11

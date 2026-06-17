@@ -32,6 +32,7 @@ platform.
    * [Development](#development)
       * [Quick code testing loop](#quick-code-testing-loop)
       * [API speed test](#api-speed-test)
+      * [Datasource usage matrix](#datasource-usage-matrix)
    * [Usage](#usage)
       * [AdminById help](#adminbyid-help)
    * [Examples](#examples)
@@ -205,6 +206,34 @@ Available list endpoints:
 `DeviceList` `EscalationChainList` `EventSourceList` `IntegrationList`
 `NetscanList` `RecipientGroupList` `ReportGroupList` `ReportList` `RoleList`
 `SDTList` `WebsiteGroupList` `WebsiteList`
+
+### Datasource usage matrix
+
+`tools/elm-datasource-matrix.sh` builds a device-by-datasource usage matrix for
+every datasource whose **name** matches a pattern: rows are devices, columns are
+the matching datasources, and each cell is a tick (applied) or `X` (not applied).
+It pivots one `AssociatedDeviceListByDataSourceId` call per matching datasource,
+so the cost is one API call per datasource — not one per device.
+
+```shell
+# all NTP datasources on the sandbox (case-sensitive match)
+tools/elm-datasource-matrix.sh NTP
+
+# against another portal
+tools/elm-datasource-matrix.sh NTP --profile prod
+
+# case-insensitive match, and CSV output for spreadsheets
+tools/elm-datasource-matrix.sh ntp -i
+tools/elm-datasource-matrix.sh NTP --csv
+```
+
+The match is **case-sensitive by default**, so `NTP` matches `NTPv4` and
+`Cisco_NTP` but not incidental substrings such as `AccessPoi`*`ntP`*`erformance`
+or `OverCurre`*`ntP`*`rotectors`. Pass `-i`/`--ignore-case` to widen it.
+Datasources with no associated devices are dropped (empty columns), and only
+devices using at least one matching datasource appear as rows. "Applied" is the
+live device→datasource association, not the daily `auto.activedatasources`
+property.
 
 ## Usage
 

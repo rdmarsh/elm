@@ -414,6 +414,20 @@ AssociatedDeviceListByDataSourceId:
     elm DeviceList -s0 -f id,displayName -F systemProperties.name:system.sysinfo,systemProperties.value~Linux | \
       jq -r --argjson ntp_ids "$ntp_ids" \
         '.DeviceList[] | select(.id as $id | $ntp_ids | contains([$id]) | not) | .displayName' | sort
+  usage_matrix_tool: |
+    tools/elm-datasource-matrix.sh builds a device x datasource usage matrix
+    (rows = devices, columns = datasources, cells = tick/X) for every datasource
+    whose NAME matches a pattern. It pivots one AssociatedDeviceListByDataSourceId
+    call per matching datasource, so cost is N_datasources calls, not N_devices.
+      tools/elm-datasource-matrix.sh NTP                  # sandbox, case-sensitive
+      tools/elm-datasource-matrix.sh NTP --profile prod
+      tools/elm-datasource-matrix.sh ntp -i               # case-insensitive
+      tools/elm-datasource-matrix.sh NTP --csv            # 1/0 cells for spreadsheets
+    Default match is case-SENSITIVE: 'NTP' matches NTPv4/Cisco_NTP but not
+    substrings like AccessPoi[ntP]erformance or OverCurre[ntP]rotectors (these
+    are real datasources that contain the letters n-t-p). Pass -i to widen.
+    "Used" = the live applied set (this endpoint), NOT the 24h-stale
+    auto.activedatasources property — see DeviceDatasourceList.finding_active_datasources.
 
 # ---
 # Users / Roles / Tokens
@@ -666,6 +680,41 @@ DeviceDatasourceList:
     dataSourceName: string
     instanceNumber: integer
     alertStatus: string # "none", "warn", "error", "critical"
+  finding_active_datasources: |
+    Two ways to answer "which datasources are active on this device". They are
+    NOT equivalent — pick based on what's available on the portal.
+
+    1. STANDARD (always works, API-native, authoritative):
+       Lists the device-datasources LM has actually matched/applied to the device.
+         elm DeviceDatasourceList --deviceId <id> -s0 -f dataSourceName,instanceNumber
+       - Always available on any portal; no setup required.
+       - Authoritative — this is LM's own record of applied datasources.
+       - Returns structured rows (one per applied datasource), so it's filterable
+         (-F), sortable (-S), and countable (-C).
+
+    2. NON-STANDARD (only if the 'DataSources_List' PropertySource is applied):
+       Reads a single auto property that the PropertySource populates with a flat,
+       comma-separated list of active datasource names.
+         elm DeviceById --id <id> -f autoProperties \
+           | jq -r '.DeviceById[0].autoProperties[]
+                    | select(.name=="auto.activedatasources").value'
+       - Property name is auto.activedatasources (NOTE: "active", not
+         "activated" — easy to get wrong and get an empty result).
+       - Only exists on devices where the 'DataSources_List' PropertySource is
+         assigned and has run. Absent everywhere else — do not rely on it for
+         cross-portal work without checking first.
+       - Value is a single comma-separated string. Some names contain spaces
+         (e.g. "CPU Cores-", "System Level IP Stats-") and some end in a trailing
+         dash, so split on ',' ONLY, never on whitespace.
+       - Convenience/reporting shortcut, not authoritative — it reflects the
+         applied set as of the PropertySource's last run. PropertySources run on
+         a 24-hour cycle, so this value can be up to ~24h stale: a datasource
+         added/removed since the last run won't show until the next run. When you
+         need the live applied set, use DeviceDatasourceList instead.
+
+    Rule of thumb: use DeviceDatasourceList for anything programmatic or
+    cross-portal; the auto.activedatasources property is a quick human-readable
+    glance that only exists where the PropertySource is deployed (e.g. sandbox).
 
 DeviceDatasourceInstanceList:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances
