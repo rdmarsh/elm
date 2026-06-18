@@ -387,7 +387,7 @@ Other values (e.g. 7 = GCP) exist in LM but were not present on the test portal.
 elm -f json DeviceList -F 'deviceType!:0' -F 'deviceType!:1' -s0 -f id
 ```
 
-The `!:` (not-equals) operator **works correctly on `DeviceList`** — verified: the result count is exactly `total − type0 − type1`. This is unlike AuditLogList/AlertList, where NOT filters are silently broken (see "NOT filter operators are broken on some endpoints"). Excluding the (smaller) non-device set is safer than fetching the device set, which can exceed the 1000-row `-s0` cap on large portals. `tools/elm-datasource-matrix.sh` uses exactly this to keep its matrix to real devices.
+The `!:` (not-equals) operator **works correctly on `DeviceList`** — verified: the result count is exactly `total − type0 − type1`. This is unlike AuditLogList/AlertList, where NOT filters are silently broken (see "NOT filter operators are broken on some endpoints"). Excluding the (smaller) non-device set is safer than fetching the device set, which can exceed the 1000-row `-s0` cap on large portals. `tools/elm-datasource-matrix.py` uses exactly this to keep its matrix to real devices.
 
 Note `deviceType` is **not** returned by `AssociatedDeviceListByDataSourceId` even when requested with `-f` — that endpoint only returns `id`/`displayName`/`description`, so classifying its devices requires a separate `DeviceList` lookup.
 

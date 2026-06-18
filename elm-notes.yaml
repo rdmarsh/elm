@@ -415,20 +415,32 @@ AssociatedDeviceListByDataSourceId:
       jq -r --argjson ntp_ids "$ntp_ids" \
         '.DeviceList[] | select(.id as $id | $ntp_ids | contains([$id]) | not) | .displayName' | sort
   usage_matrix_tool: |
-    tools/elm-datasource-matrix.sh builds a device x datasource usage matrix as a
+    tools/elm-datasource-matrix.py builds a device x datasource usage matrix as a
     GFM (GitHub Flavored Markdown) table: each row = a device (device ID + name),
     each datasource = a column, cell = tick (applied) or blank. For every
     datasource whose NAME matches a pattern. Pivots one
     AssociatedDeviceListByDataSourceId call per matching datasource, so cost is
     N_datasources calls, not N_devices.
-      tools/elm-datasource-matrix.sh NTP                  # sandbox, case-insensitive
-      tools/elm-datasource-matrix.sh NTP -p prod          # -p/--profile selects portal
-      tools/elm-datasource-matrix.sh NTP -s               # case-sensitive (ripgrep's flag)
-      tools/elm-datasource-matrix.sh NTP --csv            # id,device,... 1/0 cells for spreadsheets
+      tools/elm-datasource-matrix.py NTP                  # sandbox, case-insensitive
+      tools/elm-datasource-matrix.py -p prod NTP          # -p/--profile selects portal
+      tools/elm-datasource-matrix.py -s NTP               # case-sensitive (ripgrep's flag)
+      tools/elm-datasource-matrix.py -x '^NTP|NTP$'       # regex: NTP only at start/end
+      tools/elm-datasource-matrix.py -x 'NTP|Ping'        # OR: one server call per branch, unioned
+      tools/elm-datasource-matrix.py --csv NTP            # id,device,... 1/0 cells for spreadsheets
     Default match is case-INSENSITIVE: 'ntp'/'NTP'/'Ntp' all match NTPv4/Cisco_NTP.
     Pass -s/--case-sensitive (ripgrep's flag) to narrow it — then 'NTP' no longer
     matches substrings like AccessPoi[ntP]erformance or OverCurre[ntP]rotectors
-    (these are real datasources that contain the letters n-t-p). GFM cells are
+    (these are real datasources that contain the letters n-t-p). Pass -x/--regex
+    to treat the pattern as a Python regex (anchor with ^/$ for start/end-only);
+    it derives a literal core (e.g. 'NTP' from '^NTP|NTP$') for the server-side
+    name~ filter, then refines with the full regex client-side, so the full
+    datasource list (can be thousands) is never downloaded. Top-level | ORs
+    several patterns ('NTP|Ping') — LM ANDs repeated -F, so each branch becomes
+    its own name~ call and the results are unioned. Size guard: aborts before
+    the per-datasource calls if >--max-cols datasources match (default 20; each
+    is one API call) and before rendering if >--max-rows devices would be rows
+    (default 1000, LM's per-request -s0 row cap, beyond which the underlying
+    device lists truncate anyway); 0 disables a limit. GFM cells are
     padded so the raw Markdown source lines up.
     REAL DEVICES ONLY (not configurable): rows are limited to deviceType 0/1.
     LM Services/Service Insight (deviceType 6), cloud (AWS/Azure), and k8s
