@@ -73,8 +73,9 @@ source ~/.bash_profile
 API credentials can be placed in an ini file:
 
 ```shell
-cp ~/.config/logicmonitor/credentials/config.example.ini ~/.config/logicmonitor/credentials/config.ini
-vi ~/.config/logicmonitor/credentials/config.ini
+cd ~/.config/logicmonitor/credentials
+cp config.example.ini config.ini
+vi config.ini
 ```
 
 elm enforces secure permissions on the credentials directory (`700`) and
