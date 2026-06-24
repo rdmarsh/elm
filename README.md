@@ -20,6 +20,11 @@ account. This makes it safe to hand to anyone: the worst outcome is a
 slow query or confusing output, never an accidental change to your
 platform.
 
+```shell
+$ elm -f jsonl DeviceList -F displayName:acme -f id,name,displayName
+{"id":1234,"name":"acme.lan","displayName":"acme"}
+```
+
 <!--ts-->
    * [Features](#features)
    * [Installation](#installation)
