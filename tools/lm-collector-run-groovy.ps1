@@ -396,7 +396,7 @@ $jobs = foreach ($s in $submissions) {
             SessionId         = $r.SessionId
         }
     } catch {
-        Write-Warning "  Submit failed for $($s.CollectorHostname) (id=$($s.CollectorId))$tag: $($_.Exception.Message)"
+        Write-Warning "  Submit failed for $($s.CollectorHostname) (id=$($s.CollectorId))${tag}: $($_.Exception.Message)"
     }
 }
 $jobs = @($jobs)
