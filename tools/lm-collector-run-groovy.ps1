@@ -96,10 +96,10 @@
     read-only token returns "Access denied. Your API credentials do not have sufficient
     permissions."
 
-    Your Groovy MUST print something (e.g. end it with `println "done"`). Collector Debug
-    returns an empty result until the script finishes, and a script that completes without
-    printing is indistinguishable from one still running - it will appear to "time out" and
-    warn "No output" after -WaitSeconds. Print at least one line so completion is detected.
+    Collector Debug returns nothing until the script finishes, then wraps the result in a
+    "returns <n> / output:" envelope - which is non-empty even when the script printed nothing,
+    so completion is always detected. That envelope is stripped from what you see and save, so
+    you get only the script's own stdout (an empty result if it printed nothing).
 
     Unless -OutputDir is set, each run's Groovy output goes to the pipeline (success stream)
     while status lines, the per-run header and "saved" notices go to the host, so they do not
@@ -417,6 +417,19 @@ function Get-DebugText($result) {
     return ($result | Out-String)
 }
 
+# Collector Debug wraps every result in a 2-line envelope before the script's own output:
+#     returns <n>
+#     output:
+#     <the script's stdout...>
+# Strip that leading envelope so callers get only the script's output (no added metadata).
+# Anchored at the start and matched defensively, so a result in a different shape - or the
+# script's own text that happens to contain 'output:' later - is left untouched. NOTE: the
+# completion check must run on the RAW text (the envelope is non-empty even when the script
+# printed nothing), so only strip the value that is displayed/saved, never the done-check.
+function Remove-DebugEnvelope([string]$Text) {
+    return ($Text -replace '^\s*returns\s+-?\d+\r?\noutput:\r?\n?', '')
+}
+
 # ── Colour gate for the per-collector header ──────────────────────────────────
 # Honour -NoColor and the NO_COLOR convention, and skip colour when stdout is redirected.
 $script:useColor = -not $NoColor -and [string]::IsNullOrEmpty($env:NO_COLOR) -and -not [Console]::IsOutputRedirected
@@ -430,8 +443,11 @@ $deadline = (Get-Date).AddSeconds($WaitSeconds)
 while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 5
     foreach ($job in @($pending)) {
-        $text = Get-DebugText (Get-LMCollectorDebugResult -SessionId $job.SessionId -Id $job.CollectorId)
-        if (-not [string]::IsNullOrWhiteSpace($text)) {
+        # Check completion on the RAW result (the envelope is non-empty even for a script that
+        # printed nothing); strip the envelope only from the value shown/saved.
+        $raw = Get-DebugText (Get-LMCollectorDebugResult -SessionId $job.SessionId -Id $job.CollectorId)
+        if (-not [string]::IsNullOrWhiteSpace($raw)) {
+            $text = Remove-DebugEnvelope $raw
             $header = if ($job.Label -ne $job.CollectorHostname) {
                 "==== $($job.Label) @ $($job.CollectorHostname) (id=$($job.CollectorId)) ===="
             } else {
