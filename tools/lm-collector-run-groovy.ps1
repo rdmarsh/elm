@@ -36,11 +36,23 @@
 
 .PARAMETER Device
     One or more device names. Each is resolved to the collector it currently runs on
-    (the device's preferredCollectorId) and that collector is added to the targets.
+    (the device's preferredCollectorId) and the Groovy is run there. By default the script
+    is sent verbatim - the collector has no device bound, so 'hostProps' is empty. Add
+    -WithHostProps to run device-scoped scripts (see below).
+
+.PARAMETER WithHostProps
+    Only meaningful with -Device. Fetches each device's properties via the API and injects a
+    'hostProps' binding into the Groovy (after its imports) so scripts that read
+    hostProps.get('...') resolve against that device's properties. Each device becomes its own
+    run (two devices on one collector run twice, named per device). NOTE: the REST API masks
+    secret properties (passwords, tokens) as '********', so this confirms which properties are
+    *set* but does not reveal secret values the way a real datasource run on the collector would.
 
 .PARAMETER OutputDir
-    If set, also write each collector's output to <OutputDir>/<hostname>.txt (in addition
-    to the screen). The directory is created if it does not exist.
+    If set, write each run's output to <OutputDir>/<label>.txt INSTEAD of echoing it to the
+    screen (<label> is the collector hostname, or the device name with -WithHostProps). A
+    per-run header and a "saved" line are still shown so you can follow progress. The
+    directory is created if it does not exist.
 
 .PARAMETER OutFile
     Single-target convenience: write the one collector's output to this file. If more than
@@ -68,6 +80,11 @@
     Resolve db-prod-01 to its current collector, run probe.groovy there, and save the output.
 
 .EXAMPLE
+    ./lm-collector-run-groovy.ps1 -Script credential-check.groovy -Device db-prod-01 -WithHostProps
+    Run a device-scoped script (one that reads hostProps) against db-prod-01's properties on its
+    collector. Secret property values come back masked as '********'.
+
+.EXAMPLE
     ./lm-collector-run-groovy.ps1 -Script probe.groovy -Collector a,b -OutputDir ./out
     Run on collectors a and b; screen output plus out/<a>.txt and out/<b>.txt.
 
@@ -84,10 +101,11 @@
     printing is indistinguishable from one still running - it will appear to "time out" and
     warn "No output" after -WaitSeconds. Print at least one line so completion is detected.
 
-    Each collector's Groovy output goes to the pipeline (success stream); status lines, the
-    per-collector header and "saved" notices go to the host, so they do not pollute a pipe.
-    You can therefore pipe results, e.g.
+    Unless -OutputDir is set, each run's Groovy output goes to the pipeline (success stream)
+    while status lines, the per-run header and "saved" notices go to the host, so they do not
+    pollute a pipe. You can therefore pipe results, e.g.
         ./lm-collector-run-groovy.ps1 -Script probe.groovy -Collector 42 | Select-String ERROR
+    With -OutputDir the output is written to files instead of the pipeline/screen.
 #>
 [CmdletBinding()]
 param(
@@ -95,6 +113,7 @@ param(
 
     [string[]]$Collector,               # collectors by id / hostname / description
     [string[]]$Device,                  # device names; resolved to their current collector
+    [switch]$WithHostProps,             # for -Device: inject the device's hostProps into the Groovy
 
     [string]$OutputDir,                 # also save <hostname>.txt per collector here
     [string]$OutFile,                   # single-target convenience: save the one output here
@@ -136,6 +155,15 @@ if (-not $Collector -and -not $Device) {
 
 # ── Load Groovy source (explicit path, or interactive picker) ─────────────────
 if ($Script) {
+    if (Test-Path -LiteralPath $Script -PathType Container) {
+        $inDir = @(Get-ChildItem -LiteralPath $Script -File -Filter *.groovy -ErrorAction SilentlyContinue | Sort-Object Name)
+        $listing = if ($inDir.Count) {
+            "  .groovy files in it: " + (($inDir | ForEach-Object { $_.Name }) -join ', ')
+        } else {
+            "  (it contains no *.groovy files)"
+        }
+        Stop-WithMessage "'$Script' is a directory, not a file - point -Script at a file inside it.`n$listing"
+    }
     if (-not (Test-Path -LiteralPath $Script -PathType Leaf)) {
         Stop-WithMessage "Groovy script not found: $Script"
     }
@@ -209,24 +237,88 @@ function Resolve-Collector {
     return $null
 }
 
-# ── Resolve targets (union of -Collector and -Device collectors, de-duped by id) ──
-$targets    = [System.Collections.Generic.List[object]]::new()
-$seenIds    = [System.Collections.Generic.HashSet[int]]::new()
+# ── Helpers for -WithHostProps (inject a device's hostProps into the Groovy) ──
+# Quote a value as a Groovy single-quoted string literal. Groovy un-escapes \, ', \n inside
+# single quotes, so backslashes/quotes are escaped and newlines normalised. ($ is NOT special
+# in a single-quoted Groovy string, so values containing $ need no escaping.)
+function ConvertTo-GroovyString {
+    param([string]$Value)
+    if ($null -eq $Value) { return "''" }
+    $e = $Value.Replace('\', '\\').Replace("'", "\'").Replace("`r", '').Replace("`n", '\n')
+    return "'$e'"
+}
 
-function Add-Target {
-    param([object]$Col, [string]$Why)
+# Build a device's effective property map. Prefer the authoritative per-device endpoint
+# (Get-LMDeviceProperty); fall back to the property collections on the device object.
+function Get-DeviceHostPropMap {
+    param([object]$Device)
+    $map = [ordered]@{}
+    $props = $null
+    try { $props = @(Get-LMDeviceProperty -Id $Device.id -ErrorAction Stop) } catch { $props = $null }
+    if ($props -and $props.Count) {
+        foreach ($p in $props) { if ($p.name) { $map[[string]$p.name] = [string]$p.value } }
+        return $map
+    }
+    foreach ($coll in 'systemProperties', 'autoProperties', 'inheritedProperties', 'customProperties') {
+        foreach ($p in @($Device.$coll)) { if ($p.name) { $map[[string]$p.name] = [string]$p.value } }
+    }
+    return $map
+}
+
+# Insert 'hostProps = [ ... ]' into the Groovy. Two requirements:
+#   * Groovy requires imports before any other statement, so the assignment goes AFTER the
+#     last leading import/package line, not at the very top.
+#   * It is a BINDING variable (no 'def'), so methods in the script (e.g. a printprop helper
+#     that calls hostProps.get(...)) can see it - a script-local 'def' would be invisible to them.
+function Add-HostProps {
+    param([string]$Groovy, [System.Collections.IDictionary]$Props)
+    $pairs = foreach ($k in $Props.Keys) { (ConvertTo-GroovyString $k) + ': ' + (ConvertTo-GroovyString $Props[$k]) }
+    $mapLiteral = if ($pairs) { "hostProps = [`n    " + ($pairs -join ",`n    ") + "`n]" } else { "hostProps = [:]" }
+    $banner = "// hostProps injected by lm-collector-run-groovy.ps1 -WithHostProps (binding var; secret values may be masked as ********)"
+    $lines = $Groovy -split "`r?`n"
+    $insertAt = 0
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $t = $lines[$i].TrimStart()
+        if ($t -like 'import *' -or $t -like 'package *') { $insertAt = $i + 1 }
+    }
+    if ($insertAt -ge $lines.Count) {        # script is only imports/package (degenerate)
+        return ($Groovy.TrimEnd() + "`n`n" + $banner + "`n" + $mapLiteral + "`n")
+    }
+    $head = if ($insertAt -gt 0) { (($lines[0..($insertAt - 1)]) -join "`n") + "`n" } else { '' }
+    $tail = ($lines[$insertAt..($lines.Count - 1)]) -join "`n"
+    return $head + $banner + "`n" + $mapLiteral + "`n`n" + $tail
+}
+
+# ── Resolve submissions (one entry = one Groovy run on one collector) ──────────
+# A submission carries its own Script so -WithHostProps device runs can differ per device.
+# Self-contained collector runs are de-duped by collector id; device runs by device id.
+$submissions    = [System.Collections.Generic.List[object]]::new()
+$seenCollectors = [System.Collections.Generic.HashSet[int]]::new()
+$seenDevices    = [System.Collections.Generic.HashSet[int]]::new()
+
+if ($WithHostProps -and -not $Device) {
+    Write-Warning "-WithHostProps only applies to -Device targets; it has no effect on -Collector runs."
+}
+
+function Add-Submission {
+    param([string]$Label, [object]$Col, [string]$Body, [string]$Why)
     if ($Col.status -ne 1) {
         Write-Warning "Collector '$($Col.hostname)' (id=$($Col.id)) is not active (status=$($Col.status)) - skipping ($Why)."
         return
     }
-    if ($seenIds.Add([int]$Col.id)) {
-        $targets.Add([PSCustomObject]@{ Hostname = $Col.hostname; Id = [int]$Col.id })
-    }
+    $submissions.Add([PSCustomObject]@{
+        Label             = $Label
+        CollectorHostname = $Col.hostname
+        CollectorId       = [int]$Col.id
+        Script            = $Body
+    })
 }
 
 foreach ($token in $Collector) {
     $col = Resolve-Collector -Token $token -All $allCollectors
-    if ($col) { Add-Target -Col $col -Why "named with -Collector" }
+    if (-not $col) { continue }
+    if (-not $seenCollectors.Add([int]$col.id)) { continue }   # this script already runs there
+    Add-Submission -Label $col.hostname -Col $col -Body $groovyScript -Why "named with -Collector"
 }
 
 foreach ($name in $Device) {
@@ -239,27 +331,41 @@ foreach ($name in $Device) {
     if ($dev.Count -eq 0) { Write-Warning "Device '$name' not found - skipping."; continue }
     if ($dev.Count -gt 1) { Write-Warning "Device '$name' matched $($dev.Count) devices - skipping (be more specific)."; continue }
     $d = $dev[0]
+    if (-not $seenDevices.Add([int]$d.id)) { continue }
     # preferredCollectorId is the collector currently assigned to a device (elm-notes.yaml).
     $colId = $d.preferredCollectorId
     if (-not $colId) { Write-Warning "Device '$name' (id=$($d.id)) has no preferredCollectorId - skipping."; continue }
     $col = @($allCollectors | Where-Object { $_.id -eq [int]$colId })
     if ($col.Count -ne 1) { Write-Warning "Device '$name' points at collector id $colId, which was not found - skipping."; continue }
-    Write-Host "Device '$($d.displayName)' (id=$($d.id)) runs on collector '$($col[0].hostname)' (id=$($col[0].id))."
-    Add-Target -Col $col[0] -Why "current collector of device '$name'"
+
+    if ($WithHostProps) {
+        $props = Get-DeviceHostPropMap -Device $d
+        $body  = Add-HostProps -Groovy $groovyScript -Props $props
+        Write-Host "Device '$($d.displayName)' (id=$($d.id)) on collector '$($col[0].hostname)' (id=$($col[0].id)) - injected $($props.Count) hostProps."
+        Add-Submission -Label $d.displayName -Col $col[0] -Body $body -Why "device '$name' (-WithHostProps)"
+    } else {
+        # No hostProps wanted: de-dupe self-contained runs by collector, same as -Collector.
+        if (-not $seenCollectors.Add([int]$col[0].id)) {
+            Write-Host "Device '$($d.displayName)' runs on collector '$($col[0].hostname)' (id=$($col[0].id)) - already targeted, skipping duplicate run."
+            continue
+        }
+        Write-Host "Device '$($d.displayName)' (id=$($d.id)) runs on collector '$($col[0].hostname)' (id=$($col[0].id))."
+        Add-Submission -Label $col[0].hostname -Col $col[0] -Body $groovyScript -Why "current collector of device '$name'"
+    }
 }
 
-if ($targets.Count -eq 0) {
-    Stop-WithMessage "No active target collectors resolved from -Collector / -Device. Nothing to run."
+if ($submissions.Count -eq 0) {
+    Stop-WithMessage "No active targets resolved from -Collector / -Device. Nothing to run."
 }
-Write-Host "Targets:     $($targets.Count) collector(s)"
+Write-Host "Targets:     $($submissions.Count) run(s)"
 
 # ── Output destination ────────────────────────────────────────────────────────
 # -OutFile is single-target only; with multiple targets fall back to per-collector files
 # in its parent directory so no output is silently dropped.
-if ($OutFile -and $targets.Count -gt 1) {
+if ($OutFile -and $submissions.Count -gt 1) {
     $OutputDir = Split-Path -Parent $OutFile
     if (-not $OutputDir) { $OutputDir = '.' }
-    Write-Warning "-OutFile is for a single target but $($targets.Count) resolved; writing per-collector files to '$OutputDir' instead."
+    Write-Warning "-OutFile is for a single target but $($submissions.Count) resolved; writing per-run files to '$OutputDir' instead."
     $OutFile = $null
 }
 # -OutputDir takes precedence over -OutFile when both are given, so the per-collector
@@ -277,14 +383,20 @@ if ($OutputDir) {
 # ── Submit to every target ────────────────────────────────────────────────────
 # Invoke-LMCollectorDebugCommand submits the Groovy and returns a SessionId; results are
 # retrieved separately because -IncludeResult would time out before a long Groovy finishes.
-Write-Host "Submitting to $($targets.Count) collector(s)..."
-$jobs = foreach ($t in $targets) {
+Write-Host "Submitting $($submissions.Count) run(s)..."
+$jobs = foreach ($s in $submissions) {
+    $tag = if ($s.Label -ne $s.CollectorHostname) { " ($($s.Label))" } else { "" }
     try {
-        $r = Invoke-LMCollectorDebugCommand -Id $t.Id -GroovyCommand $groovyScript -ErrorAction Stop
-        Write-Host "  -> $($t.Hostname) (id=$($t.Id))"
-        [PSCustomObject]@{ Hostname = $t.Hostname; Id = $t.Id; SessionId = $r.SessionId }
+        $r = Invoke-LMCollectorDebugCommand -Id $s.CollectorId -GroovyCommand $s.Script -ErrorAction Stop
+        Write-Host "  -> $($s.CollectorHostname) (id=$($s.CollectorId))$tag"
+        [PSCustomObject]@{
+            Label             = $s.Label
+            CollectorHostname = $s.CollectorHostname
+            CollectorId       = $s.CollectorId
+            SessionId         = $r.SessionId
+        }
     } catch {
-        Write-Warning "  Submit failed for $($t.Hostname) (id=$($t.Id)): $($_.Exception.Message)"
+        Write-Warning "  Submit failed for $($s.CollectorHostname) (id=$($s.CollectorId))$tag: $($_.Exception.Message)"
     }
 }
 $jobs = @($jobs)
@@ -318,9 +430,13 @@ $deadline = (Get-Date).AddSeconds($WaitSeconds)
 while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 5
     foreach ($job in @($pending)) {
-        $text = Get-DebugText (Get-LMCollectorDebugResult -SessionId $job.SessionId -Id $job.Id)
+        $text = Get-DebugText (Get-LMCollectorDebugResult -SessionId $job.SessionId -Id $job.CollectorId)
         if (-not [string]::IsNullOrWhiteSpace($text)) {
-            $header = "==== $($job.Hostname) (id=$($job.Id)) ===="
+            $header = if ($job.Label -ne $job.CollectorHostname) {
+                "==== $($job.Label) @ $($job.CollectorHostname) (id=$($job.CollectorId)) ===="
+            } else {
+                "==== $($job.CollectorHostname) (id=$($job.CollectorId)) ===="
+            }
             Write-Host ""
             if ($script:useColor) {
                 $esc = [char]27
@@ -328,18 +444,21 @@ while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
             } else {
                 Write-Host $header
             }
-            # The actual Groovy output goes to the success stream so it can be piped/captured;
-            # the header above and the "saved" notice below stay on the host stream.
-            Write-Output $text
-
             if ($OutputDir) {
-                $safeName = $job.Hostname -replace '[\\/:*?"<>|]', '_'
+                # Saving to per-run files: write to disk only, do NOT echo the content to the
+                # screen. The header above and the "saved" line below are the on-screen record.
+                $safeName = $job.Label -replace '[\\/:*?"<>|]', '_'
                 $dest     = Join-Path $OutputDir "${safeName}.txt"
                 $text | Set-Content $dest
                 Write-Host "  saved $dest"
-            } elseif ($OutFile) {
-                $text | Set-Content $OutFile
-                Write-Host "  saved $OutFile"
+            } else {
+                # No -OutputDir: emit the output to the success stream so it can be piped/captured
+                # (the header/notices stay on the host stream). -OutFile also keeps a copy on disk.
+                Write-Output $text
+                if ($OutFile) {
+                    $text | Set-Content $OutFile
+                    Write-Host "  saved $OutFile"
+                }
             }
             [void]$pending.Remove($job)
         }
@@ -347,9 +466,9 @@ while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
 }
 
 foreach ($job in $pending) {
-    Write-Warning "No output for $($job.Hostname) (session $($job.SessionId)) - timed out after ${WaitSeconds}s"
+    Write-Warning "No output for $($job.Label) on $($job.CollectorHostname) (session $($job.SessionId)) - timed out after ${WaitSeconds}s"
 }
 
 Write-Host ""
-Write-Host "Done. $($jobs.Count - $pending.Count) of $($jobs.Count) collector(s) returned results."
+Write-Host "Done. $($jobs.Count - $pending.Count) of $($jobs.Count) run(s) returned results."
 
