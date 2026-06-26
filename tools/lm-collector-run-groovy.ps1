@@ -41,12 +41,15 @@
     -WithHostProps to run device-scoped scripts (see below).
 
 .PARAMETER WithHostProps
-    Only meaningful with -Device. Fetches each device's properties via the API and injects a
-    'hostProps' binding into the Groovy (after its imports) so scripts that read
-    hostProps.get('...') resolve against that device's properties. Each device becomes its own
-    run (two devices on one collector run twice, named per device). NOTE: the REST API masks
-    secret properties (passwords, tokens) as '********', so this confirms which properties are
-    *set* but does not reveal secret values the way a real datasource run on the collector would.
+    Only meaningful with -Device. Loads the device's properties ON THE COLLECTOR via
+    CollectorDb.getInstance().getHost(name).getProperties() and binds them as 'hostProps' so
+    your script - including helper methods that call hostProps.get(...) - can read them. (Sent
+    as a raw !groovy via -DebugCommand and assigned WITHOUT 'def', because the module's own
+    -GroovyCommand preamble uses a script-local 'def hostProps' that methods cannot see.) Each
+    device becomes its own run (two devices on one collector run twice, named per device).
+    Because the collector reads its own host database, the values are the real ones it uses to
+    monitor. Caution: output can contain sensitive values in clear text, so prefer -OutputDir
+    to a file you control rather than leaving it on screen or in a pipe.
 
 .PARAMETER OutputDir
     If set, write each run's output to <OutputDir>/<label>.txt INSTEAD of echoing it to the
@@ -82,7 +85,8 @@
 .EXAMPLE
     ./lm-collector-run-groovy.ps1 -Script credential-check.groovy -Device db-prod-01 -WithHostProps
     Run a device-scoped script (one that reads hostProps) against db-prod-01's properties on its
-    collector. Secret property values come back masked as '********'.
+    collector. The collector loads the host's real properties. Caution: output can contain
+    sensitive values in clear text, so save to a file you control (-OutputDir) rather than to screen.
 
 .EXAMPLE
     ./lm-collector-run-groovy.ps1 -Script probe.groovy -Collector a,b -OutputDir ./out
@@ -113,7 +117,7 @@ param(
 
     [string[]]$Collector,               # collectors by id / hostname / description
     [string[]]$Device,                  # device names; resolved to their current collector
-    [switch]$WithHostProps,             # for -Device: inject the device's hostProps into the Groovy
+    [switch]$WithHostProps,             # for -Device: load the device's real hostProps on the collector
 
     [string]$OutputDir,                 # also save <hostname>.txt per collector here
     [string]$OutFile,                   # single-target convenience: save the one output here
@@ -237,61 +241,13 @@ function Resolve-Collector {
     return $null
 }
 
-# ── Helpers for -WithHostProps (inject a device's hostProps into the Groovy) ──
-# Quote a value as a Groovy single-quoted string literal. Groovy un-escapes \, ', \n inside
-# single quotes, so backslashes/quotes are escaped and newlines normalised. ($ is NOT special
-# in a single-quoted Groovy string, so values containing $ need no escaping.)
-function ConvertTo-GroovyString {
-    param([string]$Value)
-    if ($null -eq $Value) { return "''" }
-    $e = $Value.Replace('\', '\\').Replace("'", "\'").Replace("`r", '').Replace("`n", '\n')
-    return "'$e'"
-}
-
-# Build a device's effective property map. Prefer the authoritative per-device endpoint
-# (Get-LMDeviceProperty); fall back to the property collections on the device object.
-function Get-DeviceHostPropMap {
-    param([object]$Device)
-    $map = [ordered]@{}
-    $props = $null
-    try { $props = @(Get-LMDeviceProperty -Id $Device.id -ErrorAction Stop) } catch { $props = $null }
-    if ($props -and $props.Count) {
-        foreach ($p in $props) { if ($p.name) { $map[[string]$p.name] = [string]$p.value } }
-        return $map
-    }
-    foreach ($coll in 'systemProperties', 'autoProperties', 'inheritedProperties', 'customProperties') {
-        foreach ($p in @($Device.$coll)) { if ($p.name) { $map[[string]$p.name] = [string]$p.value } }
-    }
-    return $map
-}
-
-# Insert 'hostProps = [ ... ]' into the Groovy. Two requirements:
-#   * Groovy requires imports before any other statement, so the assignment goes AFTER the
-#     last leading import/package line, not at the very top.
-#   * It is a BINDING variable (no 'def'), so methods in the script (e.g. a printprop helper
-#     that calls hostProps.get(...)) can see it - a script-local 'def' would be invisible to them.
-function Add-HostProps {
-    param([string]$Groovy, [System.Collections.IDictionary]$Props)
-    $pairs = foreach ($k in $Props.Keys) { (ConvertTo-GroovyString $k) + ': ' + (ConvertTo-GroovyString $Props[$k]) }
-    $mapLiteral = if ($pairs) { "hostProps = [`n    " + ($pairs -join ",`n    ") + "`n]" } else { "hostProps = [:]" }
-    $banner = "// hostProps injected by lm-collector-run-groovy.ps1 -WithHostProps (binding var; secret values may be masked as ********)"
-    $lines = $Groovy -split "`r?`n"
-    $insertAt = 0
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        $t = $lines[$i].TrimStart()
-        if ($t -like 'import *' -or $t -like 'package *') { $insertAt = $i + 1 }
-    }
-    if ($insertAt -ge $lines.Count) {        # script is only imports/package (degenerate)
-        return ($Groovy.TrimEnd() + "`n`n" + $banner + "`n" + $mapLiteral + "`n")
-    }
-    $head = if ($insertAt -gt 0) { (($lines[0..($insertAt - 1)]) -join "`n") + "`n" } else { '' }
-    $tail = ($lines[$insertAt..($lines.Count - 1)]) -join "`n"
-    return $head + $banner + "`n" + $mapLiteral + "`n`n" + $tail
-}
-
 # ── Resolve submissions (one entry = one Groovy run on one collector) ──────────
-# A submission carries its own Script so -WithHostProps device runs can differ per device.
-# Self-contained collector runs are de-duped by collector id; device runs by device id.
+# A submission carries its own HostName so -WithHostProps device runs can each load a
+# different device's hostProps. Self-contained collector runs de-dupe by collector id;
+# device runs by device id. With -WithHostProps the submit step wraps the script (see
+# Build-HostPropsGroovy) so the collector loads that host's real properties via
+# CollectorDb.getHost(name).getProperties() and binds them as hostProps - no client-side
+# injection, so the values are the genuine ones the collector holds.
 $submissions    = [System.Collections.Generic.List[object]]::new()
 $seenCollectors = [System.Collections.Generic.HashSet[int]]::new()
 $seenDevices    = [System.Collections.Generic.HashSet[int]]::new()
@@ -301,7 +257,7 @@ if ($WithHostProps -and -not $Device) {
 }
 
 function Add-Submission {
-    param([string]$Label, [object]$Col, [string]$Body, [string]$Why)
+    param([string]$Label, [object]$Col, [string]$HostName, [string]$Why)
     if ($Col.status -ne 1) {
         Write-Warning "Collector '$($Col.hostname)' (id=$($Col.id)) is not active (status=$($Col.status)) - skipping ($Why)."
         return
@@ -310,7 +266,7 @@ function Add-Submission {
         Label             = $Label
         CollectorHostname = $Col.hostname
         CollectorId       = [int]$Col.id
-        Script            = $Body
+        HostName          = $HostName   # device name for -CommandHostName; '' for plain runs
     })
 }
 
@@ -318,7 +274,7 @@ foreach ($token in $Collector) {
     $col = Resolve-Collector -Token $token -All $allCollectors
     if (-not $col) { continue }
     if (-not $seenCollectors.Add([int]$col.id)) { continue }   # this script already runs there
-    Add-Submission -Label $col.hostname -Col $col -Body $groovyScript -Why "named with -Collector"
+    Add-Submission -Label $col.hostname -Col $col -HostName '' -Why "named with -Collector"
 }
 
 foreach ($name in $Device) {
@@ -339,10 +295,10 @@ foreach ($name in $Device) {
     if ($col.Count -ne 1) { Write-Warning "Device '$name' points at collector id $colId, which was not found - skipping."; continue }
 
     if ($WithHostProps) {
-        $props = Get-DeviceHostPropMap -Device $d
-        $body  = Add-HostProps -Groovy $groovyScript -Props $props
-        Write-Host "Device '$($d.displayName)' (id=$($d.id)) on collector '$($col[0].hostname)' (id=$($col[0].id)) - injected $($props.Count) hostProps."
-        Add-Submission -Label $d.displayName -Col $col[0] -Body $body -Why "device '$name' (-WithHostProps)"
+        # Pass the device's name (the key CollectorDb.getHost expects) so the collector loads
+        # this host's real hostProps. Each device is its own run (named per device).
+        Write-Host "Device '$($d.displayName)' (id=$($d.id)) on collector '$($col[0].hostname)' (id=$($col[0].id)) - loading hostProps for host '$($d.name)'."
+        Add-Submission -Label $d.displayName -Col $col[0] -HostName $d.name -Why "device '$name' (-WithHostProps)"
     } else {
         # No hostProps wanted: de-dupe self-contained runs by collector, same as -Collector.
         if (-not $seenCollectors.Add([int]$col[0].id)) {
@@ -350,7 +306,7 @@ foreach ($name in $Device) {
             continue
         }
         Write-Host "Device '$($d.displayName)' (id=$($d.id)) runs on collector '$($col[0].hostname)' (id=$($col[0].id))."
-        Add-Submission -Label $col[0].hostname -Col $col[0] -Body $groovyScript -Why "current collector of device '$name'"
+        Add-Submission -Label $col[0].hostname -Col $col[0] -HostName '' -Why "current collector of device '$name'"
     }
 }
 
@@ -380,6 +336,34 @@ if ($OutputDir) {
     Write-Host "Output dir:  $OutputDir"
 }
 
+# Build a raw !groovy payload that loads a device's REAL hostProps on the collector and binds
+# it so the user script - including any method that reads hostProps - can see it. Sent via
+# -DebugCommand (raw passthrough), NOT -GroovyCommand: the module's -GroovyCommand preamble
+# assigns hostProps with 'def' (a script-local), which methods cannot see (confirmed: main body
+# saw 107 entries, a method saw 0). A binding assignment (no 'def') overrides the collector's
+# default empty hostProps binding, so methods resolve the loaded value. Groovy requires imports
+# first, so the user's import/package lines are hoisted above the assignment.
+function Build-HostPropsGroovy {
+    param([string]$Groovy, [string]$HostName)
+    $esc = $HostName.Replace('\', '\\').Replace("'", "\'")
+    $imports = [System.Collections.Generic.List[string]]::new()
+    $body    = [System.Collections.Generic.List[string]]::new()
+    foreach ($ln in ($Groovy -split "`r?`n")) {
+        $t = $ln.TrimStart()
+        if ($t -like 'import *' -or $t -like 'package *') { $imports.Add($ln) } else { $body.Add($ln) }
+    }
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine('!groovy')
+    [void]$sb.AppendLine('import com.santaba.agent.collector3.CollectorDb')
+    foreach ($imp in $imports) { [void]$sb.AppendLine($imp) }
+    # Binding assignment (no 'def') so methods see it; if the host cannot be loaded, leave the
+    # collector's default hostProps in place and say why rather than failing the whole script.
+    [void]$sb.AppendLine("try { hostProps = CollectorDb.getInstance().getHost('$esc').getProperties() }")
+    [void]$sb.AppendLine("catch (Throwable _e) { println 'WARN: could not load hostProps for host ${esc}: ' + _e.message }")
+    foreach ($b in $body) { [void]$sb.AppendLine($b) }
+    return $sb.ToString()
+}
+
 # ── Submit to every target ────────────────────────────────────────────────────
 # Invoke-LMCollectorDebugCommand submits the Groovy and returns a SessionId; results are
 # retrieved separately because -IncludeResult would time out before a long Groovy finishes.
@@ -387,7 +371,15 @@ Write-Host "Submitting $($submissions.Count) run(s)..."
 $jobs = foreach ($s in $submissions) {
     $tag = if ($s.Label -ne $s.CollectorHostname) { " ($($s.Label))" } else { "" }
     try {
-        $r = Invoke-LMCollectorDebugCommand -Id $s.CollectorId -GroovyCommand $s.Script -ErrorAction Stop
+        if ($s.HostName) {
+            # Device run: send a raw !groovy via -DebugCommand that binds the device's real
+            # hostProps (see Build-HostPropsGroovy). We do NOT use -GroovyCommand/-CommandHostName
+            # because the module's preamble binds hostProps with 'def', which methods can't see.
+            $payload = Build-HostPropsGroovy -Groovy $groovyScript -HostName $s.HostName
+            $r = Invoke-LMCollectorDebugCommand -Id $s.CollectorId -DebugCommand $payload -ErrorAction Stop
+        } else {
+            $r = Invoke-LMCollectorDebugCommand -Id $s.CollectorId -GroovyCommand $groovyScript -ErrorAction Stop
+        }
         Write-Host "  -> $($s.CollectorHostname) (id=$($s.CollectorId))$tag"
         [PSCustomObject]@{
             Label             = $s.Label
