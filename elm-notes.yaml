@@ -317,7 +317,17 @@ DeviceList:
     preferredCollectorGroupId:   integer
     preferredCollectorId:        integer  # collector currently assigned to this device
     autoBalancedCollectorGroupId: integer # 0 = pinned to preferredCollectorId, LM will not move it; non-zero = group ID, device is in the auto-balance pool and LM may reassign preferredCollectorId as load shifts
-  os_identification:
+    sdtStatus:    string # 3-position SDT rollup "<group>-<device>-<instance>" — see sdtStatus_legend
+  sdtStatus_legend:
+    format: '"<group>-<device>-<instance>", each position "SDT" (active) or "none". e.g. none-SDT-none, SDT-none-none, SDT-SDT-SDT'
+    positions:
+      - "1 group:    SDT when a group-level SDT that APPLIES to this device is active"
+      - "2 device:   SDT when a device-scoped SDT (ResourceSDT) is active"
+      - "3 instance: SDT when an instance / datasource-instance SDT is active"
+    rules:
+      - "Positions are independent — an SDT does NOT cascade across them. A group SDT lights position 1 only, never 2 or 3."
+      - "Applicability, not existence: a group SDT narrowed to a datasource/instance the device does not have will NOT light position 1 for that device (LM evaluates whether it actually applies)."
+    verified: "Tested on a single device, 2026-06-26, by toggling SDTs scope-by-scope: none-SDT-none (device SDT) -> none-SDT-SDT (+ instance SDT) -> stayed none-SDT-SDT when a group SDT was limited to a datasource the device lacks -> SDT-SDT-SDT once the group SDT applied -> SDT-SDT-none (instance expired) -> SDT-none-none (device expired, group only)."
     system.sysinfo:
       note: "Full uname string e.g. 'Linux hostname 3.10.0-... x86_64' — reliable for OS type"
       linux_filter: "systemProperties.name:system.sysinfo,systemProperties.value~Linux"
