@@ -253,7 +253,6 @@ Options:
   --head TEXT              Text to prepend before the output
   --foot TEXT              Text to append after the output
   -v, --verbose            Be more verbose, -v is INFO, -vv is DEBUG
-  -x, --export FILENAME    Export the query to FILENAME
   --halt-on-api-error      Halt on API response errors
   --cacert FILE            Path to CA certificate bundle for SSL verification
   -V, --version            Show the version and exit.

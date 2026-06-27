@@ -168,14 +168,6 @@ def engine(elm, **kwargs):
             raise click.Abort()
         return
 
-    #for future use, currently not finished
-    if elm.export:
-        logging.debug('elm.export: %s', elm.export)
-        logging.debug('elm.config_file: %s', elm.config_file)
-        logging.debug('elm.path: %s', elm.path)
-        logging.debug('elm.flags: %s', elm.flags)
-        export(elm.export, elm.config_file, elm.command, elm.path, flags)
-
     #obj = response.content
     obj = response.json()
     #obj = response.content.decode('utf-8')
@@ -367,15 +359,6 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
         click.secho('Error: no valid fields selected', fg='red', err=True)
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
-
-#for future use, currently not finished
-def export(export, config_file, command, path, flags=""):
-    '''export python query to file'''
-    file_loader = FileSystemLoader('elm')
-    env = Environment(loader=file_loader)
-    template = env.get_template('save_query.py.j2')
-    output = template.render(config_file=config_file, command=command, path=path, flags=flags)
-    export.write(output)
 
 def validate_filter(ctx, param, filters):
     if filters:

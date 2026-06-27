@@ -177,7 +177,7 @@ FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
 
 class ELM(object):
     """Load config and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, export, halt_on_api_error, cacert):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
@@ -188,7 +188,6 @@ class ELM(object):
         self.filename = filename
         self.head = head
         self.foot = foot
-        self.export = export
         self.halt_on_api_error = halt_on_api_error
         self.cacert = cacert
 
@@ -248,12 +247,11 @@ enforce_config_perms(config_file)
 @click.option(      '--head',         default='', help="Text to prepend before the output")
 @click.option(      '--foot',         default='', help="Text to append after the output")
 @click.option('-v', '--verbose',      count=True, help='Be more verbose, -v is INFO, -vv is DEBUG')
-@click.option('-x', '--export',       type=click.File('w'), help='Export the query to FILENAME')
 @click.option('--halt-on-api-error',  is_flag=True, default=False, help="Halt on API response errors")
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(__version__, '-V', '--version')
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, export, halt_on_api_error, cacert, profile):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile):
     """A cli interface for extracting LogicMonitor data via the api
 
     Default config: ~/.config/logicmonitor/credentials/config.ini
@@ -318,10 +316,9 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     logging.info('filename: %s', filename)
     logging.info('head: %s', head)
     logging.info('foot: %s', foot)
-    logging.info('export: %s', export)
     logging.info('halt_on_api_error: %s', halt_on_api_error)
     logging.info('cacert: %s', cacert)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, export, halt_on_api_error, cacert)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert)
 
 if __name__ == '__main__':
     cli()

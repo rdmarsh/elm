@@ -171,69 +171,40 @@ See requirements.txt for pinned versions.
   LM docs. This is intentional.
 
 
-## What broke and current state
+## Current state
 
-The project broke due to outdated Python dependencies. An attempt was
-made to migrate from pip + requirements.txt to Poetry, but the
-migration was incomplete and left the project in a broken state.
+The project builds and runs. It uses the pip + venv workflow (a past
+partial Poetry migration was abandoned and removed — do not reintroduce
+Poetry unless doing a deliberate packaging migration).
 
-Current situation:
-- At the start of investigation on 2026-05-11, pyproject.toml,
-  poetry.lock, venv/, _defs/, _cmds/, elm.py, and engine.py were not
-  present in the working tree.
-- The git worktree was clean before investigation.
-- The repo currently appears to be back on the original pip + venv
-  workflow.
-- Default python3 on this machine is Python 3.14.4; python3.12 and
-  python3.13 are also available.
+Environment notes:
+- Build with a conservative Python first if you hit dependency issues:
+  `make PYTHON=python3.12`. Default `python3` on this machine is 3.14.x,
+  which is new enough to occasionally surface unrelated dependency
+  incompatibilities.
+- `setup.py` ships the generated top-level modules via
+  `py_modules=['elm', 'engine', '_version']` (not `find_packages()`).
 
-Investigation notes from 2026-05-11:
-- `make -n` recurses indefinitely because the
-  `_defs/commands.json` recipe calls `$(MAKE)` after generating the
-  combined commands file. In dry-run mode the target is never actually
-  written, so make repeatedly re-enters the same target.
-- A real `make` with network access succeeds on this machine using
-  Python 3.14.4, but the recursive `$(MAKE)` still causes duplicated
-  work: the nested make performs a full build, then the outer make
-  resumes and runs the build path again.
-- The real `make` generated venv/, _defs/, _cmds/, elm.py, engine.py,
-  _build/, _dist/, and elm.spec. These are generated/ignored artefacts;
-  git status only showed CLAUDE.md modified afterward.
-- The generated binary and generated `elm.py` both return `--version`
-  and `--help`. Startup was slow (fixed in v1.8.0 via LazyGroup and
-  deferred heavy imports -- --version now loads in ~0.2s).
-- `setup.py` uses `packages=find_packages()` but the generated entry
-  point is a top-level `elm.py` module; packaging likely needs
-  `py_modules` or a package restructure.
-- `_jnja/engine.py.j2` has a broken `--export` path: it references
-  `elm.flags` and uses Jinja `FileSystemLoader` / `Environment`
-  without importing them.
-- `_jnja/engine.py.j2` manually concatenates query parameters instead
-  of passing structured params to requests, which risks bad URL
-  encoding for filters and other values.
-- `_jnja/elm.py.j2` captures a custom config path but still stores and
-  logs the default config path in several places.
+Resolved (kept here so the history is not re-investigated):
+- Slow startup — fixed in v1.8.0 via LazyGroup + deferred heavy imports
+  (`--version` now loads in ~0.2s).
+- `make -n` infinite recursion / duplicated build from a recursive
+  `$(MAKE)` in the `_defs/commands.json` recipe — fixed; the build now
+  calls explicit sub-targets (`$(MAKE) _render _build`).
+- Query params are sent structured (`requests.get(..., params=...)` in
+  `_jnja/engine.py.j2`), not hand-concatenated.
 
-Recommended approach:
-1. Keep the pip + venv workflow for now. The partial Poetry migration
-   appears to have been removed, so do not reintroduce Poetry unless
-   doing a deliberate packaging migration.
-2. Fix the Makefile recursion to remove duplicate work and make
-   `make -n` useful again. The real build succeeds, so this is not the
-   first functional blocker. Recommended fix: replace the recursive
-   `$(MAKE)` in the `_defs/commands.json` recipe with an explicit
-   restart target or two-phase workflow. For example, `make init`
-   should create `_defs/commands.json` and per-command defs, and a
-   subsequent `make render` should render from the now-known defs. If
-   keeping self-reentry, guard it so it is skipped when `MAKEFLAGS`
-   contains `n` and so the outer build does not repeat `build`.
-3. Build using a conservative Python version first, preferably
-   `make PYTHON=python3.12`, because Python 3.14 is very new and may
-   expose dependency compatibility issues unrelated to elm.
-4. Fix packaging metadata in setup.py so the generated top-level
-   modules are installed correctly.
-5. Fix template bugs in _jnja/, regenerate, then run `make testbasic`
-   before any API-backed tests.
+Removed:
+- `-x` / `--export` (export a query as a standalone script) was a
+  never-finished stub carried over from an older project — its handler
+  referenced an `elm.flags` attribute that was never set, used jinja2
+  symbols it never imported, and rendered a template that did not exist,
+  so the advertised flag crashed on use. It was removed from
+  `_jnja/elm.py.j2`, `_jnja/engine.py.j2`, and the README. The reproduce
+  -a-request need it was meant to serve is already covered by `-f api`
+  (prints the exact request URL + auth header) plus the PyInstaller binary.
+
+Deferred work lives in `todo.md`.
 
 
 ## Do not
