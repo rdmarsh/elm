@@ -8,7 +8,9 @@ Queries relating to active alerts, scheduled downtime (SDT), and alert history.
 
 <!--ts-->
    * [Find long SDTs](#find-long-sdts)
+   * [Find devices in SDT right now](#find-devices-in-sdt-right-now)
    * [Find the oldest active critical alert](#find-the-oldest-active-critical-alert)
+   * [Find unacknowledged active alerts](#find-unacknowledged-active-alerts)
    * [Find time-related alerts (NTP, clock skew)](#find-time-related-alerts-ntp-clock-skew)
    * [Find the oldest WMI alerts for Windows devices](#find-the-oldest-wmi-alerts-for-windows-devices)
    * [meta](#meta)
@@ -22,6 +24,17 @@ This will find SDTs that don't end for at least one year from the current time:
 elm SDTList -F endDateTime\>$(( ( $(date +'%s') + 31536000 ) * 1000 )) -f id,deviceGroupFullPath,deviceDisplayName,endDateTimeOnLocal,duration,admin,comment -S endDateTime -s0
 ```
 
+## Find devices in SDT right now
+
+Which resources are *currently* in scheduled downtime — actively suppressing
+alerts this moment (`isEffective:true`). The `type` column shows whether the SDT
+is on the device, a group, or an instance:
+
+```shell
+elm SDTList -s0 -F isEffective:true \
+  -f type,deviceDisplayName,deviceGroupFullPath,startDateTimeOnLocal,endDateTimeOnLocal,comment
+```
+
 ## Find the oldest active critical alert
 
 Alert severity: 2=Warning, 3=Error, 4=Critical.
@@ -29,6 +42,16 @@ Alert severity: 2=Warning, 3=Error, 4=Critical.
 ```shell
 elm AlertList -s1 -S startEpoch -F severity:4,cleared:false \
   -f id,severity,startEpoch,resourceTemplateName,instanceName,resourceId,resourceName
+```
+
+## Find unacknowledged active alerts
+
+Active alerts (`cleared:false`) that nobody has acknowledged yet
+(`acked:false`) — the ones still demanding attention, oldest first:
+
+```shell
+elm AlertList -s0 -S startEpoch -F cleared:false,acked:false \
+  -f id,severity,startEpoch,acked,resourceTemplateName,instanceName,resourceName
 ```
 
 ## Find time-related alerts (NTP, clock skew)
