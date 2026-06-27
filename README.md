@@ -17,7 +17,7 @@ CSV, HTML, JSON, XML, Markdown, and more.
 **elm is intentionally read-only.** It only performs GET requests and
 cannot create, modify, or delete anything in your LogicMonitor
 account. This makes it safe to hand to anyone: the worst outcome is a
-slow query or confusing output, never an accidental change to your
+slow query or confusing output, *never* an accidental change to your
 platform.
 
 ```shell
