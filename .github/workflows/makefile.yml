@@ -23,9 +23,6 @@ jobs:
     - name: Create config dir, copy example file and set permissions of all config files
       run: make cfg
 
-    - name: TAR and backup
-      run: make back
-      
     - name: Remove generated files
       run: make clean
       
