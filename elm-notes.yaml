@@ -135,8 +135,10 @@ _formats:
     pipeable: false
     note: "Authorization header contains the HMAC signature — sensitive, do not share output
       or commit it to version control. The header is time-stamped (epoch ms in the third
-      colon-separated field) and expires within minutes — run curl immediately after elm -f api.
-      The request IS made; response.url is used for the URL output."
+      colon-separated field). The LMv1 signature eventually expires, but the expiry window is
+      long and inconsistent across portals/environments — measured still valid after 3h22m on one
+      sandbox, yet expired in under 2h elsewhere — so do not rely on it persisting; run curl
+      promptly. The request IS made; response.url is used for the URL output."
     use_for: "Debug exactly what API call elm made, or replay it with curl"
     example: |
       curl -H "Authorization: LMv1 ..." "https://acme.logicmonitor.com/santaba/rest/..."
@@ -191,7 +193,8 @@ _global:
       ~0.7s. Earlier slow times on the corporate Mac were against a different portal with
       a less favourable network path from that location -- not a proxy/SSL inspection issue.
       To isolate elm overhead: elm --profile NAME -f api COMMAND -s1 > /tmp/t.txt && curl
-      with URL+auth from that file (auth expires in seconds, run steps together)."
+      with URL+auth from that file (auth eventually expires — window is long but inconsistent
+      across environments; run the steps together to be safe)."
   gotchas:
     - "Never use 2>&1 when piping elm output to jq — elm warnings go to stderr and
       will corrupt the JSON stream causing jq parse errors"
