@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- README hero reworked to lead with use-cases — a "What can I use it for?" bullet list and an aligned table + CSV example block (replacing the single jsonl one-liner), so the front page answers "what can I use this for?" at a glance. The curl/wget bullet was dropped (niche) and "never" emphasised in the read-only note.
+- `examples/alerts.md` — added "Find devices in SDT right now" (`SDTList -F isEffective:true`) and "Find unacknowledged active alerts" (`AlertList -F cleared:false,acked:false`), backing the new README use-cases ("missing a datasource" was already in `datasources.md`).
+- `elm-notes.yaml` — corrected the `-f api`/curl auth expiry note: the LMv1 signature window is long and inconsistent across environments (measured valid 3h22m on one sandbox, yet under 2h elsewhere), not "within minutes/seconds".
 - Standalone helper scripts in `tools/` are now documented in a dedicated `tools/README.md` rather than the main `README.md`. The **API speed test** and **Datasource usage matrix** sections moved there, an entry for `elm-host-sdts.sh` was added, and the main README now carries a short **Development → Tools** pointer. These scripts are out of scope of the elm program itself — not part of the CLI, and not built or installed by `make` — so keeping them out of the main README keeps it focused on elm.
 
 ## [1.8.9] - 2026-06-11
