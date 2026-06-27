@@ -21,11 +21,14 @@
 #                          accidentally staged/committed. The script refuses to
 #                          write inside a git work tree unless --dir is explicit.
 #   --date                 nest output under a UTC datestamp subdir
-#                          (DIR/PROFILE/YYYY-MM-DD/), for keeping history
+#                          (DIR/ACCOUNT/YYYY-MM-DD/), for keeping history
 #   -h, --help             show this help
 #
-# Output: one JSONL file per endpoint under DIR/PROFILE/[DATE/], e.g.
-#   ~/elm-backup/config/AlertRuleList.jsonl
+# Output: one JSONL file per endpoint under DIR/ACCOUNT/[DATE/], where ACCOUNT is
+# the LM account_name (portal) the profile points at, e.g.
+#   ~/elm-backup/acmesandbox/AlertRuleList.jsonl
+# The account_name is read from elm itself (the request URL it builds), not from
+# the credentials .ini. If it can't be resolved, the profile name is used.
 # JSONL (one object per line) is chosen because it diffs cleanly — point a
 # separate git repo at the backup dir and `git log -p` shows exactly what
 # changed in the portal. Keep that repo OUT of this codebase.
@@ -38,7 +41,7 @@
 # transient telemetry, not configuration.
 #
 # Examples:
-#   elm-backup.sh                          # default 'config' profile -> ~/elm-backup/config/
+#   elm-backup.sh                          # default profile -> ~/elm-backup/<account>/
 #   elm-backup.sh --profile prod --date    # prod, history kept by date
 #   elm-backup.sh -p preprod -d ~/lm-snapshots
 #   ELM_BACKUP_DIR=/srv/lm elm-backup.sh   # set default dir via env
@@ -94,7 +97,26 @@ if [[ $ROOT_EXPLICIT -eq 0 ]]; then
     fi
 fi
 
-OUTDIR="$ROOT/$PROFILE"
+# Label the backup by LM account_name rather than the elm profile name, so the
+# directory reflects the portal that was backed up (a profile like 'config' can
+# point at different accounts over time). We get account_name from elm itself,
+# NOT by reading the credentials .ini: 'elm -f api' prints the request URL it
+# builds (https://<account_name>.logicmonitor.com/...), so one cheap probe call
+# yields the account name with no .ini parsing. The Authorization line that -f
+# api also prints (contains the HMAC signature) is discarded.
+LABEL="$PROFILE"
+# '|| true' so a failed probe (with pipefail) falls through to the fallback
+# below instead of aborting under 'set -e'.
+account="$(elm -p "$PROFILE" -f api CollectorList -s1 2>/dev/null \
+    | sed -n 's#^https://\([^./]*\)\.logicmonitor\.com/.*#\1#p' | head -1)" || true
+if [[ -n "$account" ]]; then
+    LABEL="$account"
+else
+    echo "elm-backup: could not resolve account_name (probe failed); falling" >&2
+    echo "  back to profile name '$PROFILE' for the directory." >&2
+fi
+
+OUTDIR="$ROOT/$LABEL"
 [[ $USE_DATE -eq 1 ]] && OUTDIR="$OUTDIR/$(date -u +%Y-%m-%d)"
 mkdir -p "$OUTDIR"
 
@@ -118,7 +140,7 @@ dump() {
     return 1
 }
 
-echo "elm-backup: profile '$PROFILE' -> $OUTDIR" >&2
+echo "elm-backup: profile '$PROFILE' (account '$LABEL') -> $OUTDIR" >&2
 
 rc=0
 echo "Alerting:" >&2
