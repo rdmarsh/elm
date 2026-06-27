@@ -84,7 +84,14 @@ pyiworkdir := _build
 pyidistdir := _dist
 testbin := $(pyidistdir)/$(name)/$(name)
 PYINST ?= $(VENV)/bin/pyinstaller
-PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=_cmds --collect-all=pandas --collect-all=numpy --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm
+# --collect-all=pandas/numpy is blunt: it drags in the libraries' own test
+# suites (~29M of pandas/tests + numpy/*/tests) that elm never imports. They
+# are removed by the post-build prune in the _build recipe. NB: do not also
+# use --exclude-module here -- --collect-all registers every test submodule as
+# an explicit hidden import, which --exclude-module then drops, emitting
+# thousands of spurious "ERROR: Hidden import not found" lines. The prune is
+# the clean mechanism.
+PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=_cmds --collect-all=pandas --collect-all=numpy --log-level WARN --workpath $(pyiworkdir) --distpath $(pyidistdir) --noconfirm
 
 # SWAGGER PATHS AND API VERSION
 # ---------------------------------------
@@ -267,9 +274,15 @@ build: init ## (Re)build the script
 
 _build: $(pyidistdir)/$(name)/$(name)
 
-$(pyidistdir)/$(name)/$(name): reqs | PYTHON-exists PYINST-exists
+# Real inputs are the rendered sources: engine.py, elm.py (which itself depends
+# on $(CMDTARGETS), so it re-renders whenever any command module changes) and
+# the _cmds package marker. reqs is order-only -- it still runs every time to
+# keep deps installed, but being phony it must NOT be a normal prerequisite or
+# it would force a full rebuild on every make/install/docs invocation.
+$(pyidistdir)/$(name)/$(name): engine.$(PY) $(prog) $(cmddir)/__init__.$(PY) | reqs PYTHON-exists PYINST-exists
 	$(PIP) $(PIPFLAGS) $(EDITABLE) .
 	$(PYINST) $(PYINSTFLAGS) $(prog)
+	-find $(pyidistdir)/$(name)/_internal -type d -name tests \( -path '*/pandas/*' -o -path '*/numpy/*' \) -prune -exec $(RM) -r {} +
 	@echo "$(OK_STRING) $@"
 
 .PHONY: completion

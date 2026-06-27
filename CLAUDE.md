@@ -178,10 +178,10 @@ partial Poetry migration was abandoned and removed — do not reintroduce
 Poetry unless doing a deliberate packaging migration).
 
 Environment notes:
-- Build with a conservative Python first if you hit dependency issues:
-  `make PYTHON=python3.12`. Default `python3` on this machine is 3.14.x,
-  which is new enough to occasionally surface unrelated dependency
-  incompatibilities.
+- Python 3.14 is validated: a full clean build runs cleanly on 3.14.6 with
+  the current pins (pandas 2.3.3, numpy 2.5.0, pyinstaller 6.21.0). If a
+  future dependency bump surfaces incompatibilities, fall back to a
+  conservative interpreter with `make PYTHON=python3.12`.
 - `setup.py` ships the generated top-level modules via
   `py_modules=['elm', 'engine', '_version']` (not `find_packages()`).
 
