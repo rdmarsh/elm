@@ -20,9 +20,27 @@ account. This makes it safe to hand to anyone: the worst outcome is a
 slow query or confusing output, *never* an accidental change to your
 platform.
 
+**What can I use it for?**
+
+- Pull any LM list endpoint — devices, alerts, collectors, SDTs, websites, audit logs, and more
+- Answer questions fast: *which devices are in downtime right now? which alerts are unacked? what's missing a datasource?*
+- Output in 20+ formats — CSV for a spreadsheet, JSON for a script, Markdown or HTML for a report — by changing one flag (`-f`)
+
 ```shell
-$ elm -f jsonl DeviceList -F displayName:acme -f id,name,displayName
-{"id":1234,"name":"acme.lan","displayName":"acme"}
+# a readable table in your terminal (one of 20+ output formats)
+$ elm -f pipe DeviceList -f name,displayName,preferredCollectorGroupName
+| name           | displayName | preferredCollectorGroupName |
+|:---------------|:------------|:----------------------------|
+| acme-web01.lan | acme-web01  | Production Collectors       |
+| acme-db01.lan  | acme-db01   | Production Collectors       |
+| 10.0.0.5       | acme-fw01   | Production Collectors       |
+
+# the same query as CSV for a spreadsheet - just change -f
+$ elm -f csv DeviceList -f name,displayName
+name,displayName
+acme-web01.lan,acme-web01
+acme-db01.lan,acme-db01
+10.0.0.5,acme-fw01
 ```
 
 <!--ts-->
