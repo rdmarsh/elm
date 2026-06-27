@@ -551,6 +551,24 @@ EscalationChainList:
     destinations:      array   # list of escalation stages
     ccDestinations:    array
 
+ActionChainsList:
+  path: /setting/action/chains
+  note: "size/offset/filter are absent from the official LM swagger (same class
+    as issue #47) and supplied via swagger.undocumented.json, so -s/-o/-F are
+    exposed after make init. NOT yet live-verified that the API honours them —
+    pending test; every sibling /setting/* endpoint in the same patch does."
+  key_fields:
+    id:     integer
+    name:   string
+
+ActionRulesList:
+  path: /setting/action/rules
+  note: "size/offset/filter absent from the official LM swagger (issue #47 class)
+    and supplied via swagger.undocumented.json, same as ActionChainsList. -s/-o/-F
+    are exposed after make init but not yet live-verified against the API."
+  key_fields:
+    id:     integer
+
 RecipientGroupList:
   path: /setting/recipientgroups
   note: "Standard list; verified working. Name field is groupName not name."

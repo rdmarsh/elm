@@ -435,6 +435,72 @@
           }
         ]
       }
+    },
+    "/setting/action/chains": {
+      "get": {
+        "operationId": "getActionChainsList",
+        "summary": "Get action chains list",
+        "tags": [
+          "Action Chains"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/setting/action/rules": {
+      "get": {
+        "operationId": "getActionRulesList",
+        "summary": "Get action rules list",
+        "tags": [
+          "Action Rules"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ]
+      }
     }
   }
 }
