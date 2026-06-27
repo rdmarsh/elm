@@ -149,3 +149,7 @@ SKILLS_USED.md
 # Pre-commit leak-scan denylist (contains real customer tokens; stays local only)
 .githooks/leak-patterns.local
 
+# Claude Code per-user local settings (machine-specific; a shared
+# .claude/settings.json may still be committed if ever needed)
+.claude/settings.local.json
+
