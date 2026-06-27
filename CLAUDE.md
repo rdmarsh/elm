@@ -59,6 +59,25 @@ in the template instead.
 Dev loop: make clean && make && make install && cp -r _dist/elm/* ~/bin
 
 
+## Testing
+
+There is no pytest/unittest suite — ignore the generic pytest guidance in the
+parent ../CLAUDE.md. Tests are Makefile-driven and run against the built
+PyInstaller binary (_dist/elm/elm):
+
+- `make testbasic` is fully offline: it checks CLI flags, profile/config
+  resolution, filter-value escaping, and the curl/wget/sqlite format guards
+  without ever contacting LM. Run this after any template change.
+- `make testfmtcontent` asserts each output format really is that format.
+  The api/curl/wget assertions are offline (URL is built, not sent); the rest
+  hit LM via MetricsUsage.
+- Targets marked "(connects to LM)" (testfmts, testcount, testtotal, testverb,
+  testid, testH/I, testhead/foot) need live credentials and the default
+  `config` profile.
+
+Run `make test` for the quick suite; `make testlong` for the slow ones.
+
+
 ## Runtime
 
 - Uses a Python venv at venv/ (created by make)
