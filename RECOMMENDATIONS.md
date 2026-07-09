@@ -1,0 +1,329 @@
+# RECOMMENDATIONS
+
+Agreed follow-up work from the 2026-07 project audit, in priority order
+(smallest risk first). Written so that any AI assistant or contributor can
+pick up an item and complete it without further context.
+
+## Rules — read before doing ANY item
+
+1. Read `CLAUDE.md` first. The rules there override anything else.
+2. **Never edit generated files**: `elm.py`, `engine.py`, `elm-completion.bash`,
+   anything in `_cmds/`, `_defs/`, `_build/`, `_dist/`. Fix the source instead:
+   `_jnja/*.j2` templates, the `Makefile`, or `swagger.undocumented.json`.
+3. After changing a template or the Makefile, rebuild and test:
+   `make && make testbasic`. `make testbasic` is fully **offline** — it never
+   contacts LogicMonitor — but it does need the built binary
+   (`_dist/elm/elm`) and a default `config` profile to exist.
+4. Do **one item at a time**. Run `make testbasic` before considering an item
+   done. If a test fails and the fix isn't obvious, stop and report — do not
+   pile on more changes.
+5. Add a CHANGELOG.md entry under `## [Unreleased]` for every user-visible
+   change (this project keeps detailed changelog entries — look at existing
+   ones for the expected style and level of detail).
+6. Never read or print the contents of `~/.config/logicmonitor/credentials/*.ini`
+   (real credentials) or `.githooks/leak-patterns.local` (real customer
+   tokens). Live API checks use the default `config` profile only (no
+   `--profile` flag).
+
+## Status legend
+
+- `[x]` done
+- `[ ]` ready to do
+- `[defer]` agreed in principle, but do NOT start without the maintainer —
+  needs a careful testing window
+
+---
+
+## [x] 1. `make install` fails from a clean tree
+
+Done 2026-07-09. `install` now depends on `init` and re-invokes
+`$(MAKE) _render _build _install`, matching the `all`/`build` pattern.
+See CHANGELOG `[Unreleased]` → Fixed for the full explanation.
+
+## [ ] 2. Add an HTTP timeout to the API request
+
+**Problem:** `requests.get(...)` in `_jnja/engine.py.j2` (the line inside the
+`try:` block, currently `response = requests.get(url, data=data, ...)`) has no
+`timeout=` argument. If LogicMonitor or a proxy stops responding, elm hangs
+forever instead of erroring.
+
+**Change:** add `timeout=(10, 120)` (10 s to connect, 120 s to read) to that
+one `requests.get(...)` call in `_jnja/engine.py.j2`. Nothing else. A timeout
+raises `requests.exceptions.Timeout`, which is a subclass of
+`requests.RequestException`, so the existing `except` block already handles it
+— no new error handling needed.
+
+**Verify:** `make && make testbasic` (offline). Then one live call:
+`_dist/elm/elm MetricsUsage` must still return data.
+
+## [ ] 3. Guard `response.json()` against non-JSON responses
+
+**Problem:** in `_jnja/engine.py.j2`, right after the `try/except` block for
+the request, the line `obj = response.json()` is unguarded. A 200 response
+whose body is not JSON (corporate proxy interception page, LM maintenance
+page) produces a raw Python traceback instead of elm's normal red error
+message.
+
+**Change:** wrap that line in `try/except ValueError` (requests raises
+`requests.exceptions.JSONDecodeError`, a `ValueError` subclass; catching
+`ValueError` avoids importing requests at that point). On failure, follow the
+same pattern as the existing request-error handler directly above it:
+`click.secho('Error: response was not JSON', fg='red', err=True)` plus the
+command/path context lines, then `raise click.Abort()` if
+`elm.halt_on_api_error` is set, else `return`.
+
+**Verify:** `make && make testbasic` (offline). Then one live call:
+`_dist/elm/elm MetricsUsage` must still return data.
+
+## [ ] 4. Make CI actually build and test
+
+**Problem:** `.github/workflows/makefile.yml` never renders the templates,
+never builds the binary, and never runs any test — it only exercises helper
+targets (`cfg`, `clean`, `help`, ...). A breaking change to a `_jnja/`
+template passes CI today.
+
+**Change:** replace the `steps:` of the `build` job with:
+
+```yaml
+    steps:
+    - uses: actions/checkout@v4
+
+    # testbasic needs a default 'config' profile to exist. Use the example
+    # file's dummy credentials — never real ones. This is safe because
+    # testbasic is fully offline: the -f api/curl/wget tests build and print
+    # the signed URL locally without ever sending it.
+    - name: Create dummy credentials from the example file
+      run: |
+        mkdir -p ~/.config/logicmonitor/credentials
+        cp config.example.ini ~/.config/logicmonitor/credentials/config.ini
+        chmod 700 ~/.config/logicmonitor/credentials
+        chmod 600 ~/.config/logicmonitor/credentials/*.ini
+
+    - name: Full build (init, render, PyInstaller binary)
+      run: make
+
+    - name: Offline test suite
+      run: make testbasic
+```
+
+Why copy the example file instead of passing `--config config.example.ini`:
+the `testbasic` target invokes the binary without a `--config` flag throughout,
+and two of its assertions test the default-profile machinery itself
+(`--list` must print `* config`, and `elm --list` deliberately hides
+`config.example.ini` from the profile list, so pointing `--config` at it would
+fail those tests). Copying the example's fake credentials into the runner's
+throwaway home directory gives the same safety with no test changes.
+
+Notes: `ubuntu-latest` already has `jq`, `curl`, and `python3`; `make`
+downloads the LM swagger spec from logicmonitor.com, which works from GitHub
+runners. Expect the job to take several minutes (PyInstaller build).
+
+**Verify:** push to a branch, open a PR, confirm the workflow goes green; then
+break something trivial in `_jnja/elm.py.j2` on a scratch branch and confirm
+the workflow goes red (delete the scratch branch afterwards).
+
+## [ ] 5. Version numbering cleanup
+
+**Problem:** `_version.py` says `1.8.10`, but `CHANGELOG.md`'s newest release
+heading is `[1.8.9]` (current work sits under `[Unreleased]`), and
+`SECURITY.md`'s supported-versions table still lists 1.8.9/1.8.8. The table
+goes stale every release.
+
+**Change (two parts):**
+
+1. In `SECURITY.md`, delete the whole "Supported Versions" markdown table and
+   keep just the existing sentence ("Only the latest release is supported...").
+   Nothing else in the file changes.
+2. At the next release: rename `## [Unreleased]` to `## [1.8.10] - <date>` in
+   `CHANGELOG.md` and add a fresh empty `## [Unreleased]` above it. (Do not do
+   this part as routine cleanup — only when the maintainer says a release is
+   happening.)
+
+**Verify:** proofread; no build needed for part 1.
+
+## [ ] 6. Rename the markdown link-check workflow file
+
+**Problem:** `.github/workflows/action.yml` is the "Check Markdown links"
+workflow, but its generic filename says nothing about what it does.
+
+**Change:** `git mv .github/workflows/action.yml .github/workflows/markdown-link-check.yml`.
+No content changes. GitHub identifies workflows by the `name:` inside the
+file, so nothing else needs updating (the README badges reference
+`dependency-review.yml` and `makefile.yml`, not this file).
+
+**Verify:** after push, the "Check Markdown links" workflow still runs.
+
+## [ ] 7. Add a scheduled pip-audit workflow
+
+**Problem:** `dependency-review.yml` only runs on pull requests, so a
+vulnerability published for an *already-pinned* dependency never triggers
+anything.
+
+**Change:** create `.github/workflows/pip-audit.yml`:
+
+```yaml
+name: pip-audit
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:        # allow manual runs
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pip-audit
+        run: python3 -m pip install pip-audit
+      - name: Audit pinned requirements
+        run: python3 -m pip_audit -r requirements.txt
+```
+
+**Verify:** trigger it once via the Actions tab (workflow_dispatch) and check
+it completes. A finding makes the job fail — that's the alert mechanism.
+
+## [ ] 8. Ignore `_build/` and `_dist/` explicitly
+
+**Problem:** `.gitignore` has no entry for `_build/` or `_dist/` — they are
+only ignored by luck, because the bare `elm` pattern happens to match the
+`elm/` subdirectory PyInstaller creates inside each. If PyInstaller ever
+changes its layout, build artefacts would show up as untracked files.
+
+**Change:** in `.gitignore`, in the `# ELM project compiled files` section,
+add two lines: `_build/` and `_dist/`.
+
+**Verify:** `git status` still shows a clean tree after a build.
+
+## [ ] 9. Replace deprecated `datetime.utcnow()`
+
+**Problem:** the sqlite branch of `output()` in `_jnja/engine.py.j2` uses
+`datetime.datetime.utcnow()`, deprecated since Python 3.12.
+
+**Change:** in that one line, use
+`datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')`.
+Note the result now ends in `+00:00`, and the code currently appends a literal
+`'Z'` — replace the string concatenation so the stored value ends in `Z` with
+no `+00:00` (e.g. `.replace('+00:00', 'Z')` on the isoformat result, and drop
+the manual `+ 'Z'`). The `make testsqlite` test asserts `fetched_at` ends with
+`Z`, so it will catch a mistake here.
+
+**Verify:** `make && make testbasic`, then `make testsqlite` (needs live LM,
+default profile).
+
+## [ ] 10. Friendlier error when a sqlite table's schema changed
+
+**Problem:** `-f sqlite` appends with `df.to_sql(..., if_exists='append')`.
+If the API returns different columns than the existing table has (LM added or
+removed a field between runs), pandas raises a cryptic exception.
+
+**Change:** in `_jnja/engine.py.j2`, wrap the `df.to_sql(...)` call in
+`try/except Exception`; on failure print
+`Error: table '<table>' in <filename> has a different schema (the API fields changed); write to a new file or delete the old table`
+via `click.secho(..., fg='red', err=True)`, close the connection, and
+`raise click.Abort()`.
+
+**Verify:** `make && make testsqlite`. For the failure path: run
+`-f sqlite -o /tmp/t.sqlite MetricsUsage` once, then
+`-f sqlite -o /tmp/t.sqlite MetricsUsage -f numberOfDevices` (fewer columns)
+— expect the new red error, not a traceback.
+
+## [ ] 11. Guard against bare-array API responses
+
+**Problem:** in `_jnja/engine.py.j2`, the block `if 'items' not in obj:`
+assumes `obj` is a dict. If an endpoint ever returns a bare JSON array
+(`[...]`), `'items' not in obj` is a membership test over the list and the
+code then misrenders the whole array as a single item.
+
+**Change:** before that block, add: if `isinstance(obj, list)`, set
+`obj = {"total": len(obj), "items": obj, "searchId": None, "isMin": False}`.
+The existing `if 'items' not in obj:` block stays as-is beneath it.
+
+**Verify:** `make && make testbasic`, plus one live `MetricsUsage` call.
+
+## [ ] 12. Use mktemp in the Makefile `docs` target
+
+**Problem:** the `docs` target writes to fixed paths `/tmp/elm_help.txt` and
+`/tmp/README_tmp.md` — collision-prone on shared machines.
+
+**Change:** in the `docs` recipe, generate both paths with `mktemp` into shell
+variables and use those. Remember Makefile recipes need `$$` for shell
+variables and each line runs in its own shell, so join the lines with `; \`.
+
+**Verify:** `make docs` still injects the help text into README.md
+(`git diff README.md` should show no change if help output is unchanged).
+
+## [ ] 13. URL-encode query parameter values — DO THIS ITEM LAST
+
+**Problem:** in `_jnja/engine.py.j2`, query parameters are glued into a string
+(`queryParams += '&' + flag + '=' + str(flags[flag])`) and passed to
+`requests.get(..., params=queryParams)`. When `params` is a *string*, requests
+appends it almost verbatim — it does NOT properly encode URL-special
+characters. So a filter value containing `&` silently splits into a bogus
+extra parameter, `+` is decoded by the server as a space, and `#` truncates
+the URL. The user gets wrong results with no error.
+
+**Change:** build a dict instead — `queryParams = {}` and
+`queryParams[flag] = str(flags[flag])` inside the loop (keep skipping the
+`_output_only` names) — and pass that dict as `params=`. requests then
+percent-encodes every value correctly. This CANNOT break authentication: the
+LMv1 signature covers only the resource path, never the query string.
+
+**But be careful — two knock-on effects:**
+
+1. Characters that previously passed through raw (`~`, `:`, `,` inside the
+   filter expression) will now arrive percent-encoded (`%7E`, `%3A`, `%2C`).
+   LogicMonitor should decode these identically, but this MUST be confirmed
+   against a live portal before merging.
+2. Two `make testbasic` assertions grep for exact encodings in the `-f api`
+   URL (search the Makefile for `filter=hostname~%22`); if the encoding of
+   `~` changes, update those grep patterns to match the new (correct) URL.
+
+**Verify (in this order):**
+
+1. Before changing anything, record baseline URLs:
+   `_dist/elm/elm -f api DeviceList -F 'hostStatus:normal' -s5`,
+   same with `-F 'displayName~foo'`, with two `-F` flags, with `--sort +id`,
+   and with `-f name,id` (fields). Save the printed URLs.
+2. Make the change, `make`, and diff the same commands' URLs against the
+   baseline — differences must be *only* percent-encoding, never structure.
+3. `make testbasic` (update the two grep patterns if needed, per note above).
+4. Live checks with the default profile: repeat each command WITHOUT `-f api`
+   and confirm each returns the same data as before the change; then confirm
+   the fix works: `-F 'displayName~R&D'` and `-F 'name~a+b'` must reach LM as
+   one filter (0 results is fine — no error, and `-f api` shows `%26`/`%2B`).
+5. Update `CLAUDE.md`: the "Current state → Resolved" bullet claiming query
+   params are "sent structured ... not hand-concatenated" is wrong today —
+   after this change it becomes true; reword it to describe the dict-based
+   `params=` and reference this fix.
+
+## [defer] 14. Falsy option values (booleans and id 0)
+
+The `flags = {k: v for k, v in kwargs.items() if v}` filter in
+`_jnja/engine.py.j2` drops every falsy value. Consequences: `--dont-<flag>`
+boolean options are silently never sent (the server default always applies),
+and a path parameter of `0` crashes with a KeyError traceback (cosmetic — no
+real LM object has id 0). Agreed to fix eventually; needs a careful testing
+window because it changes which parameters get sent. Do not start without the
+maintainer.
+
+## [defer] 15. Retry/backoff on HTTP 429 (rate limiting)
+
+LM does rate-limit. engine.py already reads the `X-Rate-Limit-*` headers (debug
+log only). A single retry that waits out the window on 429 would make looping
+tools (e.g. `tools/elm-datasource-matrix.py`) robust. Needs live testing
+against a real rate limit; design (max retries, wait cap, message to stderr)
+to be agreed with the maintainer first.
+
+## [defer] 16. Dependency upgrades (click 7→8, tabulate 0.8→0.9)
+
+`click~=7.1.2` is a 2020 release and no longer receives fixes; `tabulate` 0.9
+may make the manual pipe-escaping workaround in `output()` unnecessary (check
+astanin/python-tabulate#241 first). Upgrading touches every command's CLI
+parsing (click) and most output formats (tabulate), so it needs the full
+`make test` + `make testlong` suite against a live portal, and
+`click_config_file` compatibility must be confirmed. Do not start without the
+maintainer.

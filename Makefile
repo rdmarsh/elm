@@ -292,8 +292,13 @@ $(compdir)/$(name): elm-completion.bash | $(compdir)
 	cp elm-completion.bash $(compdir)/$(name)
 	@echo "$(OK_STRING) bash completion installed to $(compdir)/$(name)"
 
-.PHONY: install
-install: $(bindir)/$(name) cfg completion ## (Re)installs the script and modifies the path
+# Like all/build, install must run init first and then re-invoke make:
+# from a clean tree CMDTARGETS is computed before init creates _defs/, so a
+# plain prerequisite chain would build the binary with no command modules
+# (and fail earlier at JINJA-exists, since only init installs jinja2-cli).
+.PHONY: install _install
+install: init ## (Re)installs the script and modifies the path
+	$(MAKE) _render _build _install
 	@echo
 	@echo "$(OK_COLOR)>>> If needed, you can add \$${HOME}/bin to your \$$PATH like this <<<$(NO_COLOR)"
 	@echo
@@ -310,6 +315,8 @@ install: $(bindir)/$(name) cfg completion ## (Re)installs the script and modifie
 	@uname -s | grep -q Darwin && echo "$(WR_COLOR)Note:$(NO_COLOR) macOS Gatekeeper verifies new binaries on first run - expect 10-30 seconds once per install, then normal speed" || true
 	@echo
 	@echo "$(OK_STRING) $@"
+
+_install: $(bindir)/$(name) cfg completion
 
 .PHONY: hooks
 hooks: ## Install git hooks (run once after cloning)

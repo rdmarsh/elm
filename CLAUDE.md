@@ -223,7 +223,9 @@ Removed:
   -a-request need it was meant to serve is already covered by `-f api`
   (prints the exact request URL + auth header) plus the PyInstaller binary.
 
-Deferred work lives in `todo.md`.
+Deferred work lives in `todo.md`. Agreed follow-ups from the 2026-07 audit
+live in `RECOMMENDATIONS.md` — work items are written there in full so any
+assistant can execute them; do them in order, one at a time.
 
 
 ## Do not

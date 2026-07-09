@@ -25,6 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `elm-notes.yaml` — corrected the `-f api`/curl auth expiry note: the LMv1 signature window is long and inconsistent across environments (measured valid 3h22m on one sandbox, yet under 2h elsewhere), not "within minutes/seconds".
 - Standalone helper scripts in `tools/` are now documented in a dedicated `tools/README.md` rather than the main `README.md`. The **API speed test** and **Datasource usage matrix** sections moved there, an entry for `elm-host-sdts.sh` was added, and the main README now carries a short **Development → Tools** pointer. These scripts are out of scope of the elm program itself — not part of the CLI, and not built or installed by `make` — so keeping them out of the main README keeps it focused on elm.
 
+### Fixed
+
+- `make install` from a clean tree failed with `[ERROR] venv/bin/jinja2 not found`. The `install` target's prerequisite chain (`$(bindir)/elm` → PyInstaller binary → rendered sources → `JINJA-exists`) never ran `init`, which is the only target that creates the venv and installs jinja2-cli — so `make install` only worked after a prior `make`. `install` now runs `init` and then re-invokes make (`$(MAKE) _render _build _install`), the same pattern `all` and `build` use; the re-invocation is required because from a clean tree `CMDTARGETS` is computed before `init` creates `_defs/`, so a plain prerequisite chain would also have built a binary with no command modules. The usual `make && make install` flow is unchanged (the second invocation finds everything up to date).
+
 ## [1.8.9] - 2026-06-11
 
 ### Added
