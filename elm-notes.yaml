@@ -1335,6 +1335,7 @@ CollectorList:
     calculatedThreshold: float   # current load vs autoBalanceInstanceCountThreshold; only non-zero for auto-balance groups
     acked:              boolean  # down alert has been acknowledged
     nextUpgradeInfo:    object   # {majorVersion, minorVersion, mandatory, stable, upgradeTime, upgradeTimeEpoch}
+    userPermission:     string   # calling token's effective rights on this collector: "read" (read-only) or "write"/"write,debug" (manage). Only write/manage tokens can read the *Conf config-file fields
   gotchas:
     - "collectorDeviceId=0 means the collector has no device record in LM -- you cannot query its host metrics (CPU, memory) via DeviceDatasourceInstanceData etc."
     - "collectorDeviceId (when non-zero) is the device ID of the collector host in DeviceList -- use it to identify which devices in a group are themselves collector hosts so reachability/cross-collector checks can skip them (a collector is monitored from itself; collector name and device name need not match)"
@@ -1345,6 +1346,7 @@ CollectorList:
     - "numberOfInstances is 0 for non-auto-balance collectors -- it only tracks auto-balance load distribution"
     - "backupAgentId is a single value -- a collector can only have one backup; no chain failover"
     - "enableFailBack only takes effect if backupAgentId is set; harmless but meaningless when 0"
+    - "The config-file fields (wrapperConf/collectorConf/sbproxyConf/watchdogConf/websiteConf) are only returned to a token whose userPermission includes 'write'; a read-only token gets the literal string '{}' for every one of them. Gate a collector-config backup on userPermission (per collector, so RBAC-scoped access still works) instead of fetching the blobs and inspecting for '{}'. userPermission is an LM-wide field (~22 object types) -- see elm-knowledge.md."
   patterns:
     all_collectors_health: |
       # Full health overview sorted by worst first (DOWN + most hosts = most urgent)

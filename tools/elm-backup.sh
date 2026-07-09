@@ -3,8 +3,9 @@
 # JSONL files for auditing, change-tracking, and disaster reference.
 #
 # This is a config-as-data backup, NOT a restore mechanism. elm is read-only:
-# LM has no bulk import, so the value here is a versioned, diffable record of
-# what your portal looked like. To write anything back you would use the
+# LM has no bulk import, so the value here is a diffable record of what your
+# portal looked like (each run overwrites in place; version it with a separate
+# git repo, or keep dated snapshots with --date). To write anything back you would use the
 # Logic.Monitor PowerShell module (New-/Set-/Import-/Restore- cmdlets) against
 # these snapshots; see CLAUDE.md notes on that round-trip's caveats (read-only
 # fields, ID remapping, redacted secrets).

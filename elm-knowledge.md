@@ -363,6 +363,29 @@ elm CollectorGroupById --id <id> -f numOfHosts,numOfInstances
 
 `CollectorList`'s `hostname` (and usually `description`) is typically the `DOMAIN\HOSTNAME` form (e.g. `CORP\NEWEDGE03`) or an FQDN — not the bare host label. So matching a collector by an exact bare name fails; match by numeric `id`, or by a substring/partial match. (This is why `tools/lm-collector-reachability-run-all.ps1 -Candidate` resolves id → exact hostname/description → unambiguous substring.)
 
+### userPermission — the calling token's effective rights on each object
+
+Many LM list/get responses include a `userPermission` field: a comma-separated
+list of what the **calling API token** may do to *that specific object* — e.g.
+`read`, `write`, `write,debug`. Bare `read` = read-only; presence of `write` =
+manage. It reflects the token's role, so the same object shows different
+`userPermission` values to different tokens.
+
+It appears on ~22 object types, including `Collector`, `Device`, `DeviceGroup`,
+`Dashboard`(+Group), `Website`(+Group), `Report`(+Group), `Role`, `Admin`,
+`APIToken`, `LogQueryGroup`, and `Widget`. Request it like any other field:
+
+```shell
+elm CollectorList -s0 -f id,hostname,userPermission
+```
+
+Practical use — **gate on `userPermission` instead of probing sensitive blobs.**
+A collector's config-file fields (`wrapperConf`, `collectorConf`, `sbproxyConf`,
+`watchdogConf`, `websiteConf`) are only returned to a token whose
+`userPermission` includes `write`; a `read`-only token gets the literal string
+`"{}"` for each. So before a collector-config backup, check `userPermission` per
+collector rather than fetching the blobs and inspecting them for `{}`.
+
 ### deviceType — distinguishes real devices from cloud, services, and k8s
 
 `deviceType` on `DeviceList`/`DeviceById` records is an integer that classifies what a "device" actually is. LM models many non-device things as `device` objects; this field tells them apart.

@@ -16,6 +16,7 @@ script also responds to `-h`/`--help`.
 ## Contents
 
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
+- [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
 
@@ -41,6 +42,49 @@ Available list endpoints:
 `DeviceList` `EscalationChainList` `EventSourceList` `IntegrationList`
 `NetscanList` `RecipientGroupList` `ReportGroupList` `ReportList` `RoleList`
 `SDTList` `WebsiteGroupList` `WebsiteList`
+
+## Backups
+
+Two read-only snapshotters that record what a portal looks like for auditing and
+change-tracking. Neither is a **restore** mechanism — elm is read-only and LM has
+no bulk import; the value is a diffable record of what the portal looked like.
+The tools do **not** version anything themselves — each run overwrites the
+previous snapshot in place. To get history you either version it yourself (point
+a separate git repo at the backup dir and commit after each run, then `git log
+-p` shows exactly what changed) or pass `--date`, which writes each run under a
+UTC datestamp subdir (`.../YYYY-MM-DD/`) so different days don't overwrite each
+other. Both label output by LM **account name** (resolved from elm's own request
+URL, not the credentials `.ini`), default their root to `$ELM_BACKUP_DIR` or
+`~/elm-backup` (**outside** this code repo so a backup is never committed), and
+refuse to write inside a git work tree unless `--dir` is given explicitly.
+
+`tools/elm-backup.sh` dumps configuration **objects** — alerting (alert rules,
+escalation/action chains, action rules, recipient groups, integrations) and
+collectors (collector/group/version lists) — one JSONL file per endpoint
+(`<endpoint>.jsonl`). Active/historical alerts are excluded (transient telemetry,
+not config).
+
+```shell
+tools/elm-backup.sh                       # default profile -> ~/elm-backup/<account>/
+tools/elm-backup.sh -p prod --date        # prod, history kept by date
+ELM_BACKUP_DIR=/srv/lm tools/elm-backup.sh
+```
+
+`tools/elm-collector-config-backup.py` captures the thing `elm-backup.sh` leaves
+out: each collector's actual **config files** (`collectorConf`, `wrapperConf`,
+`sbproxyConf`, `watchdogConf`, `websiteConf`), decoded into a per-collector tree
+(`collectors/<id>-<hostname>/<conf>`) — one text file per non-empty conf, so diffs
+are clean. Those fields are permission-gated: LM only returns them to a token
+whose `userPermission` on the collector includes `write` (Manage); a read-only
+token gets `"{}"`. The tool reads `userPermission` up front, so it **skips**
+read-only collectors (reporting a summary) and RBAC-scoped tokens back up exactly
+what they can. If **no** collector is readable it aborts (exit 3) and writes
+nothing rather than leaving a tree of empty files.
+
+```shell
+tools/elm-collector-config-backup.py               # default profile
+tools/elm-collector-config-backup.py -p prod --date
+```
 
 ## Datasource usage matrix
 
