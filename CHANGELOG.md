@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The LogicMonitor API request (`requests.get` in `_jnja/engine.py.j2`) now sets `timeout=(10, 120)` — a 10-second connect timeout and a 120-second read (between-bytes) timeout. Previously the call had no timeout, so if LogicMonitor or an intervening proxy stopped responding, elm would hang indefinitely instead of erroring. A timeout raises `requests.exceptions.Timeout`, a subclass of `requests.RequestException`, so the existing request-error handler reports it as elm's normal red `Error: request failed` message with no new error-handling code. The read timeout is per-gap, not a total-request budget, so a large but steadily-streaming result is still tolerated.
+
 - `make install` from a clean tree failed with `[ERROR] venv/bin/jinja2 not found`. The `install` target's prerequisite chain (`$(bindir)/elm` → PyInstaller binary → rendered sources → `JINJA-exists`) never ran `init`, which is the only target that creates the venv and installs jinja2-cli — so `make install` only worked after a prior `make`. `install` now runs `init` and then re-invokes make (`$(MAKE) _render _build _install`), the same pattern `all` and `build` use; the re-invocation is required because from a clean tree `CMDTARGETS` is computed before `init` creates `_defs/`, so a plain prerequisite chain would also have built a binary with no command modules. The usual `make && make install` flow is unchanged (the second invocation finds everything up to date).
 
 ## [1.8.9] - 2026-06-11
