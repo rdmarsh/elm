@@ -82,16 +82,43 @@ never builds the binary, and never runs any test — it only exercises helper
 targets (`cfg`, `clean`, `help`, ...). A breaking change to a `_jnja/`
 template passes CI today.
 
-**Change:** replace the `steps:` of the `build` job with:
+**CORRECTION (2026-07-10) — an earlier draft of this item was wrong.** It
+claimed `make testbasic` is "fully offline" and that the `-f api/curl/wget`
+tests "build and print the signed URL locally without ever sending it." That is
+false, confirmed empirically against the built binary. In
+`_jnja/engine.py.j2` the `api`/`curl`/`wget` formats print the URL/command only
+*after* `response.raise_for_status()` (line ~125) and `response.json()`
+(line ~172) succeed, and the `sqlite` `-o`-required guard likewise fires only
+after a successful fetch. So a block of `testbasic` assertions needs a **live
+2xx JSON response from a real LM portal**: currently every line from
+"multiple -F flags both appear in URL" through "sqlite format requires -o"
+(the `-f api`, `-f api` escaping, `-f curl`, `-f wget`, and `-f sqlite` lines).
+With dummy `config.example.ini` credentials those requests reach
+`example.logicmonitor.com` and return **403**, so the assertions fail. Copying
+the example creds into CI is therefore NOT enough to make `make testbasic`
+green — it will go red on those lines.
+
+What IS genuinely offline in `testbasic` (verified against the binary): the
+help / `--version` / `--list` / `--ai` / `--profile`-resolution assertions (the
+first block, up to and including "--help includes --ai") and the per-command
+`<cmd> --help` loop at the end. Those pass with no LM access.
+
+**Revised change — do 4a and 4b, in order:**
+
+**4a. Build the binary in CI (highest value, fully offline).** Rendering the
+templates and running PyInstaller is what catches template-syntax breakage and
+bundling regressions — the biggest gap today, and it needs no LM access. A
+green `make` proves every `_jnja/` template renders to valid Python and the
+binary links. Replace the `build` job `steps:` with:
 
 ```yaml
     steps:
     - uses: actions/checkout@v4
 
-    # testbasic needs a default 'config' profile to exist. Use the example
-    # file's dummy credentials — never real ones. This is safe because
-    # testbasic is fully offline: the -f api/curl/wget tests build and print
-    # the signed URL locally without ever sending it.
+    # A default 'config' profile must exist for the binary to resolve a
+    # profile at all. Use the example file's dummy credentials — never real
+    # ones. Do NOT expect these to satisfy the live -f api/curl/wget/sqlite
+    # assertions (they 403); those are excluded from the CI test step below.
     - name: Create dummy credentials from the example file
       run: |
         mkdir -p ~/.config/logicmonitor/credentials
@@ -102,21 +129,41 @@ template passes CI today.
     - name: Full build (init, render, PyInstaller binary)
       run: make
 
-    - name: Offline test suite
-      run: make testbasic
+    - name: Offline test subset
+      run: make testbasicoffline
 ```
 
 Why copy the example file instead of passing `--config config.example.ini`:
-the `testbasic` target invokes the binary without a `--config` flag throughout,
-and two of its assertions test the default-profile machinery itself
-(`--list` must print `* config`, and `elm --list` deliberately hides
-`config.example.ini` from the profile list, so pointing `--config` at it would
-fail those tests). Copying the example's fake credentials into the runner's
-throwaway home directory gives the same safety with no test changes.
+the test targets invoke the binary without a `--config` flag throughout, and
+some assertions test the default-profile machinery itself (`--list` must print
+`* config`, and `elm --list` deliberately hides `config.example.ini`, so
+pointing `--config` at it would fail those tests). Copying the example's fake
+credentials into the runner's throwaway home directory gives the same safety
+with no test changes.
 
-Notes: `ubuntu-latest` already has `jq`, `curl`, and `python3`; `make`
+Notes: `ubuntu-latest` already has `jq`, `curl`, `python3`, `binutils`
+(objdump, which PyInstaller needs on Linux) and a shared `libpython`; `make`
 downloads the LM swagger spec from logicmonitor.com, which works from GitHub
 runners. Expect the job to take several minutes (PyInstaller build).
+
+**4b. Add a `testbasicoffline` target and call it from CI.** Split the LM-free
+assertions of `testbasic` into a new `make testbasicoffline` target: the first
+block (help / `--version` / `--list` / `--ai` / `--profile` strip / `--list`
+marks `* config`) plus the trailing `$(TSTTARGETS)` `<cmd> --help` loop —
+i.e. everything EXCEPT the `-f api`, `-f curl`, `-f wget`, and `-f sqlite`
+lines. Leave the full `testbasic` as-is for local runs against the default
+`config` profile (which has real creds on the maintainer's machine). Do NOT
+call full `make testbasic` from CI expecting green.
+
+**Optional, needs maintainer sign-off (design change, do separately):** the
+`-f api/curl/wget` formats could print the request WITHOUT sending it — the
+URL, auth header and query params are all fully computed *before*
+`requests.get` is called, so those formats could short-circuit and print
+before the request. That would make them genuinely offline (and arguably
+better matches their "reproduce a request" intent), letting CI cover them too.
+But it changes documented behaviour (CLAUDE.md: "api makes the request then
+prints the URL and Authorization header"), so decide deliberately — do not fold
+it into this CI item.
 
 **Verify:** push to a branch, open a PR, confirm the workflow goes green; then
 break something trivial in `_jnja/elm.py.j2` on a scratch branch and confirm

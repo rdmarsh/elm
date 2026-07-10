@@ -53,10 +53,28 @@ in the template instead.
     make install    Build binary via PyInstaller into _dist/
     make clean      Remove all generated files
     make test       Quick offline tests
-    make testbasic  Test CLI flags without LM connection
+    make testbasic  Test CLI flags (mostly offline; the -f api/curl/wget/sqlite
+                    assertions send a real request and need the live config profile)
     make testverb   Test verbose flags (requires LM connection)
 
-Dev loop: make clean && make && make install && cp -r _dist/elm/* ~/bin
+Dev loop: make clean && make && make install
+
+(`make install` already copies both the `elm` executable and its `_internal/`
+dependency dir into `~/bin` — see the `$(bindir)/$(name)` recipe — so no manual
+`cp` afterwards is needed.)
+
+Sandbox note: in a Linux sandbox with the host tree mounted directly, running
+`make` writes a **Linux** binary into `_dist/` (and regenerates `_cmds/`,
+`engine.py`, `elm.py`, etc.). These are gitignored, so nothing is committed,
+but they overwrite the host's macOS build — `_dist/elm/elm` will then fail on
+macOS with "cannot execute binary file". Rebuild on the Mac (`make clean &&
+make && make install`) to restore it. Also note `make` re-downloads the
+documented swagger from logicmonitor.com; if that host is firewalled a 127-byte
+block page silently clobbers `_defs/swagger.json` and the build proceeds with
+only the ~15 undocumented commands. To build from source in a sandbox without
+touching the host `venv/` (which is macOS-arch), point make at an isolated
+venv: `make VENV=/path/to/lxvenv JINJA=/path/to/lxvenv/bin/jinja2` (PyInstaller
+on Linux additionally needs `binutils` and a shared `libpython`).
 
 
 ## Testing
@@ -65,12 +83,18 @@ There is no pytest/unittest suite — ignore the generic pytest guidance in the
 parent ../CLAUDE.md. Tests are Makefile-driven and run against the built
 PyInstaller binary (_dist/elm/elm):
 
-- `make testbasic` is fully offline: it checks CLI flags, profile/config
-  resolution, filter-value escaping, and the curl/wget/sqlite format guards
-  without ever contacting LM. Run this after any template change.
+- `make testbasic` is mostly offline — CLI flags, help/version, `--list`,
+  `--ai`, profile/config resolution, and the per-command `<cmd> --help` loop
+  never contact LM. But its `-f api`, `-f curl`, `-f wget` and `-f sqlite`
+  assertions are NOT offline: those formats print the URL/command only after a
+  successful `response.raise_for_status()` + `response.json()`, so they send a
+  real request and need the live default `config` profile (with dummy creds
+  they 403 and fail). Run it after any template change, but expect those lines
+  to need LM. (The old claim that they "build the URL without sending it" is
+  wrong — the request is sent first.)
 - `make testfmtcontent` asserts each output format really is that format.
-  The api/curl/wget assertions are offline (URL is built, not sent); the rest
-  hit LM via MetricsUsage.
+  The api/curl/wget assertions also send a real request (same reason as above);
+  the rest hit LM via MetricsUsage.
 - Targets marked "(connects to LM)" (testfmts, testcount, testtotal, testverb,
   testid, testH/I, testhead/foot) need live credentials and the default
   `config` profile.
