@@ -17,6 +17,7 @@ script also responds to `-h`/`--help`.
 
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
+- [Collector health check](#collector-health-check) — `tools/lm-collector-run-groovy.ps1`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
 
@@ -85,6 +86,39 @@ nothing rather than leaving a tree of empty files.
 tools/elm-collector-config-backup.py               # default profile
 tools/elm-collector-config-backup.py -p prod --date
 ```
+
+## Collector health check
+
+`tools/lm-collector-run-groovy.ps1` runs an arbitrary Groovy script on one or
+more LM collectors via Collector Debug and prints (or saves) each collector's
+output. It is a **generic** runner — `-Script` points at a `.groovy` file of
+your own (e.g. a collector health-check script that reports JVM heap, disk,
+and task queue stats from the collector itself); no such script ships with
+elm or lives in this repo. Unlike the elm-based tools above it is
+**self-contained** — only the Logic.Monitor PowerShell module and one
+`Connect-LMAccount` session are needed, no elm, bash, jq, or jinja2. Collector
+Debug requires a Manage-level API token (a read-only token gets "Access
+denied").
+
+```pwsh
+# run your own health-check script against one collector, save its output
+./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+    -Collector collector01 -OutFile ./collector01.txt
+
+# run against a list of collectors; one output file per collector
+./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+    -Collector collector01,collector02,collector03 `
+    -OutputDir ~/logicmonitor/collector_health
+```
+
+Collectors are matched by numeric id, hostname, or description — an
+unambiguous substring is enough (e.g. `collector01` resolves against
+`CORP\COLLECTOR01`). `-Device` can be used instead of, or alongside,
+`-Collector`: each device name is resolved to the collector it currently runs
+on, which is handy when you think in terms of monitored hosts rather than
+collector hostnames. See `-h`/`--help` (or the script's own comment header)
+for `-WithHostProps` (binds a device's real host properties, for
+device-scoped rather than collector-scoped scripts) and other options.
 
 ## Datasource usage matrix
 
