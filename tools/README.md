@@ -120,6 +120,26 @@ collector hostnames. See `-h`/`--help` (or the script's own comment header)
 for `-WithHostProps` (binds a device's real host properties, for
 device-scoped rather than collector-scoped scripts) and other options.
 
+There is no built-in "every collector" or pattern flag — `-Collector` always
+wants an explicit list. Build that list yourself with `Get-LMCollector` (the
+same cmdlet the script uses internally), then pass its output straight
+through. This stays self-contained — one `Connect-LMAccount` session, no
+elm needed:
+
+```pwsh
+# every active collector
+$targets = (Get-LMCollector -BatchSize 1000 | Where-Object { $_.status -eq 1 }).hostname
+./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+    -Collector $targets -OutputDir ~/logicmonitor/collector_health
+
+# only collectors matching a pattern (hostname or description)
+$targets = (Get-LMCollector -BatchSize 1000 | Where-Object {
+    $_.status -eq 1 -and ($_.hostname -like '*edge*' -or $_.description -like '*edge*')
+}).hostname
+./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+    -Collector $targets -OutputDir ~/logicmonitor/collector_health
+```
+
 ## Datasource usage matrix
 
 `tools/elm-datasource-matrix.py` builds a device-by-datasource usage matrix for
