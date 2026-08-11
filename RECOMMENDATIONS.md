@@ -375,88 +375,14 @@ parsing (click) and most output formats (tabulate), so it needs the full
 `click_config_file` compatibility must be confirmed. Do not start without the
 maintainer.
 
-## [ ] 17. Label reachability-check columns by what they actually test
+## [x] 17. Label reachability-check columns by what they actually test
 
-**Problem:** in the collector reachability/move-readiness tooling
-(`tools/lm-collector-reachability-run-all.ps1`,
-`tools/lm-collector-move-readiness-run-all.ps1`,
-`tools/elm-collector-readiness.sh`,
-`tools/lm-collector-reachability-check.groovy.j2`), the TCP-based checks
-(port 135, 22, 80, 443) are all bare `Socket.connect()`/`tcpOk()` calls — no
-protocol handshake, no credentials, nothing beyond "did the TCP port accept a
-connection." But they are labelled with purpose names — `wmi`, `ssh`, `http`,
-`https` — which overclaim what was actually tested. A passing `ssh` column
-does not mean SSH auth would succeed, or even that an SSH server is listening
-(some other service could be bound to 22); it means TCP port 22 accepted a
-connection.
-
-This also caused a real duplicate-output bug (fixed 2026-08, see CHANGELOG):
-`auto.network.listening_tcp_ports` containing `135` and
-`auto.wmi.operational == "true"` are two *independent* discovery signals that
-both trigger the exact same test (`tcpOk(ip, 135, ...)` — verified identical
-in every version of the Groovy), so a device with both flags set got two
-protocol-list entries (`tcp-135` and `wmi`) that always agree, printed as two
-separate columns. The immediate fix (matching `elm-collector-readiness.sh`'s
-label to the already-correct `port-135` used elsewhere) only stopped the
-*display* collision; the redundant double-test is still there.
-
-**Change — two parts, do together:**
-
-**17a. Squash `tcp-135` and `wmi` into one signal.** In each protocol-detection
-function/block, combine the two independent conditions into a single
-`tcp-135` entry instead of two:
-
-- PowerShell (`Get-DeviceProtocols` in both `.ps1` files): replace
-  ```powershell
-  if ($tcp -contains '135') { $protocols.Add('tcp-135') }
-  if ($wmi -eq 'true')      { $protocols.Add('wmi') }
-  ```
-  with
-  ```powershell
-  if (($tcp -contains '135') -or ($wmi -eq 'true')) { $protocols.Add('tcp-135') }
-  ```
-- Bash/jq (`elm-collector-readiness.sh`, inside the `matrix=$(... jq '...')` protocol list): replace the two independent `tcp-135` / `wmi` branches with one:
-  `(if ($tcp | contains(["135"])) or ($wmi == "true") then ["tcp-135"] else [] end) +`
-
-**17b. Rename the TCP-only labels to port numbers, drop the now-dead `wmi`
-label.** These checks test "is the port open," nothing more, so the label
-should say that plainly instead of implying a real protocol test happened:
-
-| internal token | old display label | new display label |
-|---|---|---|
-| `tcp-135` | `port-135` (or `wmi`, inconsistently — see above) | `135` |
-| `tcp-22`  | `ssh`  | `22`  |
-| `tcp-80`  | `http` | `80`  |
-| `tcp-443` | `https`| `443` |
-
-Apply in: each `$protoLabel` hashtable in the two `.ps1` files (both the
-PowerShell-side one used for the summary table, and the one inside the
-embedded `$groovyTemplate` here-string); the `protoLabel` map inside
-`tools/lm-collector-reachability-check.groovy.j2`; and the jq label-mapping
-line in `elm-collector-readiness.sh`'s summary table (already touched once
-for the duplicate fix — finish the job by changing `"port-135"`/`"ssh"`/
-`"http"`/`"https"` to `"135"`/`"22"`/`"80"`/`"443"`). Remove the now-unreachable
-`case "wmi":` branch from `runTest()` in both Groovy sources (dead code once
-17a means the `wmi` token is never emitted). Update the failure-footer text
-("port-135/wmi pass only confirms TCP 135 ...") and
-`examples/collector-readiness.md` (the `### WMI (tcp-135)` section heading and
-any sample output blocks showing `wmi`/`ssh`/`http`/`https` column headers) to
-match the new `135`/`22`/`80`/`443` labels and to state plainly that a pass
-means "TCP port open," not "protocol/credentials verified."
-
-**Leave `ping` and `snmp` as purpose-named, not renamed.** `ping` is a real
-ICMP test, not port-based. `snmp` already sends an actual SNMPv2c `GetRequest`
-payload (community `public`) and checks for a real response, not just a raw
-socket connect — UDP has no connection handshake, so there is no equivalent
-"is the port open" signal to fall back to; a judgment call, not mandatory, if
-someone later wants to reconsider this.
-
-**Verify:** re-run the synthetic verdict test pattern used for the 2026-08
-protoLabel bug fix (a device with both `tcp-135` and `wmi` conditions true
-must appear as ONE `135` entry, not two) plus a live run of each of the three
-scripts against a small group — column headers should read `135`/`22`/`80`/
-`443` instead of `wmi`/`ssh`/`http`/`https`, and no protocol column should be
-duplicated. Add a CHANGELOG.md entry under `## [Unreleased]`.
+Done 2026-08-11. Squashed `tcp-135`/`wmi` into one signal and renamed the
+bare-TCP-connect checks from purpose names to port numbers (`wmi`→`135`,
+`ssh`→`22`, `http`→`80`, `https`→`443`) across all four files plus
+`examples/collector-readiness.md`. `ping`/`snmp` left purpose-named (real
+protocol tests, not bare socket connects). See CHANGELOG `[Unreleased]` →
+Fixed for the full explanation.
 
 ## [defer] 18. New idea: single-device WMI/WinRM/SNMPv3 diagnostic tool
 

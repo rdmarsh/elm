@@ -24,7 +24,7 @@ The standard workflow:
    * [Checking whether devices can move to a different group (-SourceCollector)](#checking-whether-devices-can-move-to-a-different-group--sourcecollector)
    * [Interpreting results](#interpreting-results)
       * [SNMP TIMEOUT](#snmp-timeout)
-      * [WMI (tcp-135)](#wmi-tcp-135)
+      * [135 (WMI/DCOM endpoint mapper)](#135-wmidcom-endpoint-mapper)
    * [meta](#meta)
 <!--te-->
 
@@ -90,22 +90,25 @@ Devices found: 47
 
 Device                           IP/Hostname             Protocols
 -------------------------------- ----------------------  ---------
-server01                         10.0.1.10               ping, snmp, tcp-22
-windows-box                      10.0.1.20               ping, tcp-135
-api-device                       10.0.1.30               ping, tcp-80, tcp-443
+server01                         10.0.1.10               ping, snmp, 22
+windows-box                      10.0.1.20               ping, 135
+api-device                       10.0.1.30               ping, 80, 443
 ```
 
 Protocol detection uses `autoProperties` set by LM Active Discovery on each device.
 The IP/hostname used is the `name` field — the address LM uses to reach the device,
-not `displayName`.
+not `displayName`. The `22`/`80`/`135`/`443` columns are bare TCP connect checks — no
+protocol handshake, no credentials — so they're labelled by port number rather than by
+a protocol name that would overclaim what was actually verified. `ping` and `snmp` are
+real protocol tests (ICMP, and an actual SNMP `GetRequest`), so they keep purpose names.
 
 | autoProperty | Value | Test added |
 |---|---|---|
 | `auto.snmp.operational` | `true` | SNMP probe (UDP 161) |
-| `auto.network.listening_tcp_ports` | contains `22` | TCP port 22 (SSH) |
-| `auto.network.listening_tcp_ports` | contains `80` | TCP port 80 (HTTP) |
-| `auto.network.listening_tcp_ports` | contains `135` | TCP port 135 (WMI/RPC) |
-| `auto.network.listening_tcp_ports` | contains `443` | TCP port 443 (HTTPS) |
+| `auto.network.listening_tcp_ports` | contains `22` | TCP port 22 open |
+| `auto.network.listening_tcp_ports` | contains `80` | TCP port 80 open |
+| `auto.network.listening_tcp_ports` contains `135`, or `auto.wmi.operational` | `135`, or `true` | TCP port 135 open (RPC endpoint mapper — necessary for WMI, not sufficient) |
+| `auto.network.listening_tcp_ports` | contains `443` | TCP port 443 open |
 | _(always)_ | — | Ping (ICMP) |
 
 If a device has no Active Discovery data yet (no `auto.network.listening_tcp_ports`),
@@ -123,7 +126,7 @@ Example output:
 ```
 47 devices (pre-filled by elm)
 
-Device                           IP/Hostname          ping      snmp      tcp-22    tcp-135
+Device                           IP/Hostname          ping      snmp      22        135
 -------------------------------- -------------------- --------- --------- --------- ---------
 server01                         10.0.1.10            PASS      PASS      PASS      -
 windows-box                      10.0.1.20            PASS      -         -         PASS
@@ -132,7 +135,7 @@ unreachable-host                 10.0.2.99            FAIL      -         FAIL  
 
 FAILURES — investigate before adding this collector to the group:
   - unreachable-host  ping
-  - unreachable-host  tcp-22
+  - unreachable-host  22
 ```
 
 ## Automated run across all collectors (PowerShell)
@@ -166,7 +169,7 @@ lists only the rows where collectors disagree (e.g. one `pass`, another `FAIL`):
 -- Comparison: reachability gaps between collectors --
 
   api-device  [id=10293]
-      http       collectorA=pass  collectorB=FAIL
+      80         collectorA=pass  collectorB=FAIL
 
 3 device(s) differ between collectors; 26 agree.
 ```
@@ -208,8 +211,8 @@ already can't reach are not counted against the candidate.
 ```text
 == Candidate verdict: newedge02 ==
   2 gap(s) - the candidate would NOT reach these, but a group collector does:
-    https      windows-box  [id=10220]  candidate=FAIL, group reaches it
-    wmi        api-device   [id=10293]  candidate=FAIL, group reaches it
+    443        windows-box  [id=10220]  candidate=FAIL, group reaches it
+    135        api-device   [id=10293]  candidate=FAIL, group reaches it
   Fix routing/firewall for these before moving the candidate into the group.
 ```
 
@@ -256,12 +259,12 @@ READY:   44 device(s) - every target collector reaches them; safe to move.
 
 BLOCKED: 1 device(s) - NO target collector reaches at least one expected protocol:
   - unreachable-host  [id=10299]  (from legacy01)
-      ping: collectorA=FAIL  collectorB=FAIL
+      ping  collectorA=FAIL  collectorB=FAIL
 
 PARTIAL: 2 device(s) - SOME target collectors reach them, some don't.
          Risky if the target group is auto-balance: the device could land on a collector that fails it.
   - windows-box  [id=10220]  (from legacy02)
-      wmi: collectorA=pass  collectorB=FAIL
+      135   collectorA=pass  collectorB=FAIL
 ```
 
 `BLOCKED` means no collector in the target group can reach the device on an expected
@@ -290,11 +293,14 @@ running and the port is open.
 If `ping` passes but `snmp` shows `TIMEOUT`, check the device's `snmp.community`
 property in LM and verify the collector can reach UDP 161 from the network level.
 
-### WMI (tcp-135)
+### 135 (WMI/DCOM endpoint mapper)
 
-TCP 135 is the WMI/DCOM endpoint mapper. A passing TCP-135 check means the
+TCP 135 is the WMI/DCOM endpoint mapper. A passing `135` check means the
 Windows RPC endpoint is reachable from the new collector, which is the necessary
-precondition for WMI collection. It does not test WMI credentials.
+precondition for WMI collection. It is a bare TCP connect test — it does not verify
+WMI credentials, and a pass does not mean WMI itself would actually work (see
+`collector-debug-notes.md` for `!wmi`, a real credentialed WMI test — with caveats
+about when it can and can't be used for this kind of pre-move check).
 
 ## meta
 

@@ -21,14 +21,16 @@
 # The rendered script tests device connections using the hostname or IP address
 # that LM uses to reach each device (the 'name' field, not 'displayName').
 #
-# Protocol detection (from device autoProperties set by LM Active Discovery):
-#   ping     - always included
-#   snmp     - auto.snmp.operational == "true"
-#   port-135 - 135 in auto.network.listening_tcp_ports
-#   wmi      - auto.wmi.operational == "true"
-#   ssh      - 22 in auto.network.listening_tcp_ports
-#   http     - 80 in auto.network.listening_tcp_ports, or HTTP- datasource in auto.activedatasources
-#   https    - 443 in auto.network.listening_tcp_ports, or HTTPS/SSL_ datasource in auto.activedatasources
+# Protocol detection (from device autoProperties set by LM Active Discovery). The 135/
+# 22/80/443 checks are bare TCP connect tests (no protocol handshake or credentials), so
+# they're labelled by port number, not by the protocol that usually lives there:
+#   ping - always included
+#   snmp - auto.snmp.operational == "true" (a real SNMP GetRequest, not just a socket test)
+#   135  - 135 in auto.network.listening_tcp_ports, OR auto.wmi.operational == "true"
+#          (both independently imply "test TCP 135"; merged into one check)
+#   22   - 22 in auto.network.listening_tcp_ports
+#   80   - 80 in auto.network.listening_tcp_ports, or HTTP- datasource in auto.activedatasources
+#   443  - 443 in auto.network.listening_tcp_ports, or HTTPS/SSL_ datasource in auto.activedatasources
 #
 # Dead devices (hostStatus:dead) are skipped — the device itself is unreachable,
 # testing from a new collector adds no information. Devices with hostStatus:dead-collector
@@ -160,8 +162,7 @@ matrix=$(printf '%s' "$raw" | jq '
       protocols: (
         ["ping"] +
         (if $snmp == "true"                                                                          then ["snmp"]    else [] end) +
-        (if $tcp | contains(["135"])                                                                 then ["tcp-135"] else [] end) +
-        (if $wmi == "true"                                                                           then ["wmi"]     else [] end) +
+        (if ($tcp | contains(["135"])) or ($wmi == "true")                                          then ["tcp-135"] else [] end) +
         (if $tcp | contains(["22"])                                                                  then ["tcp-22"]  else [] end) +
         (if ($tcp | contains(["80"])) or ($ds | map(select(startswith("HTTP") and (startswith("HTTPS") | not))) | length > 0)
                                                                                                      then ["tcp-80"]  else [] end) +
@@ -177,7 +178,7 @@ matrix=$(printf '%s' "$raw" | jq '
     printf '%-32s %-22s %-16s %s\n' "Device" "IP/Hostname" "Status" "Protocols"
     printf '%-32s %-22s %-16s %s\n' "$(printf '%0.s-' {1..32})" "$(printf '%0.s-' {1..22})" "----------------" "---------"
     printf '%s' "$matrix" \
-        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.hostStatus)\t\(.protocols | map(if . == "tcp-135" then "port-135" elif . == "tcp-22" then "ssh" elif . == "tcp-80" then "http" elif . == "tcp-443" then "https" else . end) | join(", "))"' \
+        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.hostStatus)\t\(.protocols | map(if . == "tcp-135" then "135" elif . == "tcp-22" then "22" elif . == "tcp-80" then "80" elif . == "tcp-443" then "443" else . end) | join(", "))"' \
         | while IFS=$'\t' read -r name ip status protos; do
               printf '%-32s %-22s %-16s %s\n' "${name:0:32}" "${ip:0:22}" "$status" "$protos"
           done

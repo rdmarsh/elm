@@ -15,8 +15,8 @@
       2. Find active devices assigned to the group (preferredCollectorGroupId),
          skipping hostStatus 'dead'. Devices that are 'dead-collector' are KEPT —
          the collector is down but the device may be reachable from a new one.
-      3. Build a per-device protocol list from autoProperties (ping/snmp/wmi/
-         port-135/ssh/http/https).
+      3. Build a per-device protocol list from autoProperties (ping/snmp/
+         135/22/80/443).
       4. Generate a Groovy reachability script and submit it to every active
          collector in the group via Collector Debug.
       5. Wait, retrieve each result, and save <hostname>.csv in OutputDir.
@@ -287,12 +287,13 @@ if ($dead.Count -gt 0) {
 if ($devices.Count -eq 0) { throw "No testable devices in group $GroupId (none assigned, all dead, or all collector hosts)." }
 
 # ── Protocol detection from autoProperties (LM Active Discovery) ──────────────
-#   auto.snmp.operational == "true"                  -> snmp
-#   135 in auto.network.listening_tcp_ports          -> port-135
-#   auto.wmi.operational  == "true"                  -> wmi
-#   22  in auto.network.listening_tcp_ports          -> ssh
-#   80  in tcp ports, or HTTP- (not HTTPS) datasource -> http
-#   443 in tcp ports, or HTTPS/SSL_ datasource        -> https
+# 135/22/80/443 are bare TCP connect checks -- no protocol handshake or credentials --
+# so they're labelled by port number, not by the protocol that usually lives there.
+#   auto.snmp.operational == "true"                   -> snmp (real SNMP GetRequest)
+#   135 in tcp ports, or auto.wmi.operational == "true" -> 135
+#   22  in auto.network.listening_tcp_ports           -> 22
+#   80  in tcp ports, or HTTP- (not HTTPS) datasource -> 80
+#   443 in tcp ports, or HTTPS/SSL_ datasource        -> 443
 function Get-DeviceProtocols {
     param([object]$Device)
 
@@ -309,9 +310,12 @@ function Get-DeviceProtocols {
 
     $protocols = [System.Collections.Generic.List[string]]::new()
     $protocols.Add('ping')
-    if ($snmp -eq 'true')     { $protocols.Add('snmp') }
-    if ($tcp -contains '135') { $protocols.Add('tcp-135') }
-    if ($wmi -eq 'true')      { $protocols.Add('wmi') }
+    if ($snmp -eq 'true') { $protocols.Add('snmp') }
+    # auto.network.listening_tcp_ports showing 135 open and auto.wmi.operational are two
+    # independent discovery signals that trigger the exact same tcpOk(ip, 135, ...) test
+    # (see the Groovy below) -- squashed into one entry so a device with both flags set
+    # doesn't get two protocol columns that always agree.
+    if (($tcp -contains '135') -or ($wmi -eq 'true')) { $protocols.Add('tcp-135') }
     if ($tcp -contains '22')  { $protocols.Add('tcp-22') }
 
     $http  = ($tcp -contains '80')  -or @($ds | Where-Object { $_ -like 'HTTP*' -and $_ -notlike 'HTTPS*' }).Count
@@ -337,7 +341,11 @@ $deviceObjs = foreach ($dev in $devices) {
 $deviceObjs = @($deviceObjs | Sort-Object displayName)
 
 # ── Summary table ─────────────────────────────────────────────────────────────
-$protoLabel = @{ 'tcp-135' = 'port-135'; 'wmi' = 'wmi'; 'tcp-22' = 'ssh'; 'tcp-80' = 'http'; 'tcp-443' = 'https' }
+# These are bare TCP connect checks -- no protocol handshake, no credentials -- so the
+# label says what was actually tested (the port), not what it might imply (the protocol
+# that usually lives there). 'ping' and 'snmp' stay purpose-named: ping is a real ICMP
+# test, and snmp sends an actual GetRequest payload, not just a socket connect.
+$protoLabel = @{ 'tcp-135' = '135'; 'tcp-22' = '22'; 'tcp-80' = '80'; 'tcp-443' = '443' }
 $deviceObjs |
     Select-Object @{n='Device';e={$_.displayName}},
                   @{n='IP/Hostname';e={$_.ip}},
@@ -425,7 +433,6 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
         case "ping":    return pingOk(ip, pingMs)     ? "pass" : "FAIL"
         case "snmp":    return snmpOk(ip, snmpMs)     ? "pass" : "TIMEOUT"
         case "tcp-135": return tcpOk(ip, 135, tcpMs)  ? "pass" : "FAIL"
-        case "wmi":     return tcpOk(ip, 135, tcpMs)  ? "pass" : "FAIL"
         case "tcp-22":  return tcpOk(ip,  22, tcpMs)  ? "pass" : "FAIL"
         case "tcp-80":  return tcpOk(ip,  80, tcpMs)  ? "pass" : "FAIL"
         case "tcp-443": return tcpOk(ip, 443, tcpMs)  ? "pass" : "FAIL"
@@ -433,8 +440,8 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
     }
 }
 
-def protoOrder = ["ping", "snmp", "tcp-135", "wmi", "tcp-22", "tcp-80", "tcp-443"]
-def protoLabel = ["tcp-135": "port-135", "wmi": "wmi", "tcp-22": "ssh", "tcp-80": "http", "tcp-443": "https"]
+def protoOrder = ["ping", "snmp", "tcp-135", "tcp-22", "tcp-80", "tcp-443"]
+def protoLabel = ["tcp-135": "135", "tcp-22": "22", "tcp-80": "80", "tcp-443": "443"]
 def allProtos = devices.collectMany { it.protocols }.unique()
     .sort { a, b ->
         def ai = protoOrder.indexOf(a); def bi = protoOrder.indexOf(b)
@@ -478,7 +485,7 @@ if (failures) {
     failures.each { println "  - $it" }
     println ""
     println "snmp TIMEOUT may mean wrong community rather than unreachable — check snmp.community in LM."
-    println "port-135/wmi pass only confirms TCP 135 (RPC endpoint mapper); WMI uses dynamic high ports (49152-65535) too."
+    println "135 pass only confirms TCP 135 (RPC endpoint mapper) is open, not that WMI/credentials work; WMI also uses dynamic high ports (49152-65535)."
 } else {
     println "All checks passed. Collector appears ready to join the auto-balance group."
 }
