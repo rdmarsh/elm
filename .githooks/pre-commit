@@ -9,40 +9,72 @@ if command -v gh-md-toc >/dev/null 2>&1; then
 	done < <(git diff --cached --name-only -z -- '*.md')
 fi
 
-# Leak scan: block a commit whose staged ADDED lines contain a known-sensitive token.
-# The denylist lives in .githooks/leak-patterns.local, which is gitignored and stays
-# LOCAL (so the sensitive tokens themselves are never committed). Format: one
-# case-insensitive extended-regex per line; blank lines and # comments ignored.
-# See .githooks/leak-patterns.example. Bypass once with: LEAK_SCAN_SKIP=1 git commit ...
+# Leak scan: block a commit whose staged ADDED lines match a sensitive pattern.
+# Two independent checks share this scanner and the same bypass flag
+# (LEAK_SCAN_SKIP=1 git commit ...) for a genuine false positive:
+#   1. A manually-curated denylist in .githooks/leak-patterns.local (gitignored,
+#      stays LOCAL so the sensitive tokens themselves are never committed).
+#   2. A generic, always-on private-IP heuristic (not dependent on the denylist)
+#      so a real internal IP doesn't need to be remembered and added by hand
+#      before it's caught.
 if [ -z "$LEAK_SCAN_SKIP" ]; then
 	root="$(git rev-parse --show-toplevel)"
+
+	# scan_added_lines LABEL PATTERN
+	# Greps staged ADDED lines (across all staged files) for PATTERN (case-insensitive
+	# extended regex) and prints a blocked-commit report if anything matches.
+	scan_added_lines() {
+		label="$1"
+		pattern="$2"
+		hit=0
+		while IFS= read -r -d '' file; do
+			added="$(git diff --cached -U0 --no-color -- "$file" | grep -E '^\+' | grep -vE '^\+\+\+')"
+			[ -z "$added" ] && continue
+			found="$(printf '%s\n' "$added" | grep -inE "$pattern")"
+			if [ -n "$found" ]; then
+				if [ "$hit" -eq 0 ]; then
+					echo "COMMIT BLOCKED: staged changes contain $label:" >&2
+					hit=1
+				fi
+				echo "  $file" >&2
+				printf '%s\n' "$found" | sed 's/^/    /' >&2
+			fi
+		done < <(git diff --cached --name-only -z)
+		return "$hit"
+	}
+
+	blocked=0
+
+	# Check 1: manually-curated denylist (see .githooks/leak-patterns.example).
 	patterns_file="$root/.githooks/leak-patterns.local"
 	if [ -f "$patterns_file" ]; then
 		# Collapse non-comment, non-blank lines into one alternation for grep -E.
 		alt="$(grep -vE '^[[:space:]]*(#|$)' "$patterns_file" | paste -sd'|' -)"
 		if [ -n "$alt" ]; then
-			hit=0
-			while IFS= read -r -d '' file; do
-				added="$(git diff --cached -U0 --no-color -- "$file" | grep -E '^\+' | grep -vE '^\+\+\+')"
-				[ -z "$added" ] && continue
-				found="$(printf '%s\n' "$added" | grep -inE "$alt")"
-				if [ -n "$found" ]; then
-					if [ "$hit" -eq 0 ]; then
-						echo "COMMIT BLOCKED: staged changes contain sensitive tokens (see .githooks/leak-patterns.local):" >&2
-						hit=1
-					fi
-					echo "  $file" >&2
-					printf '%s\n' "$found" | sed 's/^/    /' >&2
-				fi
-			done < <(git diff --cached --name-only -z)
-			if [ "$hit" -ne 0 ]; then
-				echo "" >&2
-				echo "Replace with placeholders (acme, newedge03, 203.0.113.x, ...) and re-stage." >&2
-				echo "If this is a genuine false positive, bypass once: LEAK_SCAN_SKIP=1 git commit ..." >&2
-				exit 1
+			if ! scan_added_lines "sensitive tokens (see .githooks/leak-patterns.local)" "$alt"; then
+				blocked=1
 			fi
 		fi
 	else
-		echo "note: leak scan skipped (no $patterns_file; copy leak-patterns.example to enable)" >&2
+		echo "note: denylist leak scan skipped (no $patterns_file; copy leak-patterns.example to enable)" >&2
+	fi
+
+	# Check 2: generic private-IP heuristic. Blocks 10.x.x.x (except 10.0.x.x, which
+	# matches this repo's own documented-example convention -- see examples/*.md) and
+	# 172.16.x.x-172.31.x.x. Deliberately does NOT block 192.168.x.x (common generic
+	# example range) or the RFC 5737 documentation-only ranges (192.0.2.x, 198.51.100.x,
+	# 203.0.113.x -- the recommended way to write a fake IP in examples, per
+	# leak-patterns.example) since those aren't real internal addresses. This catches a
+	# real internal IP even if nobody remembered to add it to leak-patterns.local first.
+	ip_pattern='10\.[1-9][0-9]{0,2}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}'
+	if ! scan_added_lines "a private IP address (10.x/172.16-31.x, excluding 10.0.x.x and 192.168.x.x)" "$ip_pattern"; then
+		blocked=1
+	fi
+
+	if [ "$blocked" -ne 0 ]; then
+		echo "" >&2
+		echo "Replace with placeholders (acme, newedge03, 10.0.x.x, 203.0.113.x, ...) and re-stage." >&2
+		echo "If this is a genuine false positive, bypass once: LEAK_SCAN_SKIP=1 git commit ..." >&2
+		exit 1
 	fi
 fi
