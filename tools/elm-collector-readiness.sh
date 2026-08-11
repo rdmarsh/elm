@@ -169,7 +169,7 @@ matrix=$(printf '%s' "$raw" | jq '
                                                                                                      then ["tcp-443"] else [] end)
       )
     }
-  ]
+  ] | sort_by(.displayName)
 ')
 
 # ── Summary table (stderr) ────────────────────────────────────────────────────
