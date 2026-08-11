@@ -481,7 +481,7 @@ attempt:
   (`!snmpdiagnose version=v3 <host>`, no explicit credentials) resolved to a
   generic `securityName=logicmonitor`/`noAuthNoPriv` (which failed with
   "Unknown user name") when run from one collector, and to the device's real
-  `securityName=snmpv3user authProto=SHA privProto=AES` (which succeeded, full
+  `securityName=<real-security-name> authProto=SHA privProto=AES` (which succeeded, full
   `sysInfo` returned) when run from a different collector — same device, same
   command, different result.
 
