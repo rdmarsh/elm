@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The same tooling's `snmp TIMEOUT` guidance only mentioned a wrong community string as the cause. In practice an SNMPv3-only device is likely the bigger cause and wasn't mentioned at all: the probe is hardcoded SNMPv2c/`public`, so it cannot succeed against v3 regardless of reachability, and gets no response either way (indistinguishable `TIMEOUT` for both causes). The failure-footer text (all three Groovy sources) and `examples/collector-readiness.md`'s "SNMP TIMEOUT" section now call out SNMPv3 explicitly and point at the collector debug console's `!snmpdiagnose version=v3 <host>` (documented in the new `collector-debug-notes.md`) to actually diagnose a specific device instead of guessing from a blind `TIMEOUT`.
 
+- That SNMPv3 hint (previous entry) never actually printed for the case it was meant to help: the failure-footer block in all three Groovy sources was gated on `if (failures)`, but `failures` only collects `result == "FAIL"` — an snmp `TIMEOUT` is a distinct result value, so a device with only an SNMP timeout (everything else passing) never touched `failures`, the whole block was skipped, and the script printed "All checks passed" instead. Added a separate `timeouts` list (populated on `result == "TIMEOUT"`) and gated the block on `failures || timeouts`; timed-out device/protocol pairs are now also listed explicitly, the same way `FAILURES` are. Verified with a real Groovy interpreter (not just PowerShell here-string syntax checks) against a synthetic TIMEOUT-only device.
+
 ## [1.8.9] - 2026-06-11
 
 ### Added

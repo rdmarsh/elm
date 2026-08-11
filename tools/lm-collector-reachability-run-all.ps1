@@ -469,21 +469,34 @@ def header = ["id", "device", "hostname"] + allProtos.collect { protoLabel[it] ?
 println header.join(",")
 
 def failures = []
+def timeouts = []
 futures.eachWithIndex { f, i ->
     def r = f.get()
     def row = [r.id, r.name, r.ip] + allProtos.collect { proto ->
         def result = r.res[proto]
-        if (result == "FAIL") failures << "${r.name}  ${protoLabel[proto] ?: proto}"
+        if (result == "FAIL")    failures << "${r.name}  ${protoLabel[proto] ?: proto}"
+        if (result == "TIMEOUT") timeouts << "${r.name}  ${protoLabel[proto] ?: proto}"
         result == "-" ? "" : result
     }
     println row.join(",")
 }
 
 println ""
-if (failures) {
-    println "FAILURES — investigate before adding this collector to the group:"
-    failures.each { println "  - $it" }
-    println ""
+// TIMEOUT is a distinct result from FAIL (see runTest()/snmpOk()), so a device with
+// ONLY snmp timeouts never touches `failures` -- gate this whole block on either list,
+// not just failures, or the SNMPv3 hint below silently never prints for exactly the
+// devices that need it most.
+if (failures || timeouts) {
+    if (failures) {
+        println "FAILURES — investigate before adding this collector to the group:"
+        failures.each { println "  - $it" }
+        println ""
+    }
+    if (timeouts) {
+        println "TIMEOUTS (${timeouts.size()}) — SNMP got no response:"
+        timeouts.each { println "  - $it" }
+        println ""
+    }
     println "snmp TIMEOUT may mean wrong community, OR an SNMPv3-only device -- this probe only speaks SNMPv2c/\"public\", so EVERY v3-only device will show TIMEOUT regardless of reachability. If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here, not a real network issue. Verify a specific device with the collector debug console: !snmpdiagnose version=v3 <host> (see collector-debug-notes.md)."
     println "135 pass only confirms TCP 135 (RPC endpoint mapper) is open, not that WMI/credentials work; WMI also uses dynamic high ports (49152-65535)."
 } else {
