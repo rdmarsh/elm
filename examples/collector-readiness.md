@@ -24,7 +24,7 @@ The standard workflow:
    * [Checking whether devices can move to a different group (-SourceCollector)](#checking-whether-devices-can-move-to-a-different-group--sourcecollector)
    * [Interpreting results](#interpreting-results)
       * [SNMP TIMEOUT](#snmp-timeout)
-      * [135 (WMI/DCOM endpoint mapper)](#135-wmidcom-endpoint-mapper)
+      * [WMI (tcp-135)](#wmi-tcp-135)
    * [meta](#meta)
 <!--te-->
 
@@ -88,28 +88,33 @@ AutoBalance: true
 Fetching devices in group 42...
 Devices found: 47
 
+Protocol legend: wmi=135, ssh=22, http=80, https=443 -- these are bare TCP
+connect checks, NOT credential/protocol verification. A pass only means the
+port accepted a connection, not that the named protocol/service works.
+
 Device                           IP/Hostname             Protocols
 -------------------------------- ----------------------  ---------
-server01                         10.0.1.10               ping, snmp, 22
-windows-box                      10.0.1.20               ping, 135
-api-device                       10.0.1.30               ping, 80, 443
+server01                         10.0.1.10               ping, snmp, ssh
+windows-box                      10.0.1.20               ping, wmi
+api-device                       10.0.1.30               ping, http, https
 ```
 
 Protocol detection uses `autoProperties` set by LM Active Discovery on each device.
 The IP/hostname used is the `name` field — the address LM uses to reach the device,
-not `displayName`. The `22`/`80`/`135`/`443` columns are bare TCP connect checks — no
-protocol handshake, no credentials — so they're labelled by port number rather than by
-a protocol name that would overclaim what was actually verified. `ping` and `snmp` are
-real protocol tests (ICMP, and an actual SNMP `GetRequest`), so they keep purpose names.
+not `displayName`. **`wmi`/`ssh`/`http`/`https` are bare TCP connect checks** — no
+protocol handshake, no credentials — named after the protocol that usually lives on
+that port, but a pass only confirms the port is open, not that the protocol/service
+actually works (the script prints a legend saying so, every run). `ping` and `snmp`
+are real protocol tests (ICMP, and an actual SNMP `GetRequest`).
 
-| autoProperty | Value | Test added |
-|---|---|---|
-| `auto.snmp.operational` | `true` | SNMP probe (UDP 161) |
-| `auto.network.listening_tcp_ports` | contains `22` | TCP port 22 open |
-| `auto.network.listening_tcp_ports` | contains `80` | TCP port 80 open |
-| `auto.network.listening_tcp_ports` contains `135`, or `auto.wmi.operational` | `135`, or `true` | TCP port 135 open (RPC endpoint mapper — necessary for WMI, not sufficient) |
-| `auto.network.listening_tcp_ports` | contains `443` | TCP port 443 open |
-| _(always)_ | — | Ping (ICMP) |
+| autoProperty | Value | Test added | Port |
+|---|---|---|---|
+| `auto.snmp.operational` | `true` | SNMP probe (UDP 161) | 161 |
+| `auto.network.listening_tcp_ports` | contains `22` | `ssh` (TCP connect only) | 22 |
+| `auto.network.listening_tcp_ports` | contains `80` | `http` (TCP connect only) | 80 |
+| `auto.network.listening_tcp_ports` contains `135`, or `auto.wmi.operational` | `135`, or `true` | `wmi` (TCP connect only — RPC endpoint mapper, necessary for WMI, not sufficient) | 135 |
+| `auto.network.listening_tcp_ports` | contains `443` | `https` (TCP connect only) | 443 |
+| _(always)_ | — | Ping (ICMP) | — |
 
 If a device has no Active Discovery data yet (no `auto.network.listening_tcp_ports`),
 only ping is tested. Run Active Discovery on the group in LM before using this tool
@@ -125,8 +130,11 @@ Example output:
 
 ```
 47 devices (pre-filled by elm)
+Protocol legend: wmi=135, ssh=22, http=80, https=443 -- these are bare TCP connect
+checks, NOT credential/protocol verification. A pass only means the port accepted
+a connection, not that the named protocol/service works.
 
-Device                           IP/Hostname          ping      snmp      22        135
+Device                           IP/Hostname          ping      snmp      ssh       wmi
 -------------------------------- -------------------- --------- --------- --------- ---------
 server01                         10.0.1.10            PASS      PASS      PASS      -
 windows-box                      10.0.1.20            PASS      -         -         PASS
@@ -135,7 +143,7 @@ unreachable-host                 10.0.2.99            FAIL      -         FAIL  
 
 FAILURES — investigate before adding this collector to the group:
   - unreachable-host  ping
-  - unreachable-host  22
+  - unreachable-host  ssh
 ```
 
 ## Automated run across all collectors (PowerShell)
@@ -169,7 +177,7 @@ lists only the rows where collectors disagree (e.g. one `pass`, another `FAIL`):
 -- Comparison: reachability gaps between collectors --
 
   api-device  [id=10293]
-      80         collectorA=pass  collectorB=FAIL
+      http       collectorA=pass  collectorB=FAIL
 
 3 device(s) differ between collectors; 26 agree.
 ```
@@ -211,8 +219,8 @@ already can't reach are not counted against the candidate.
 ```text
 == Candidate verdict: newedge02 ==
   2 gap(s) - the candidate would NOT reach these, but a group collector does:
-    443        windows-box  [id=10220]  candidate=FAIL, group reaches it
-    135        api-device   [id=10293]  candidate=FAIL, group reaches it
+    https      windows-box  [id=10220]  candidate=FAIL, group reaches it
+    wmi        api-device   [id=10293]  candidate=FAIL, group reaches it
   Fix routing/firewall for these before moving the candidate into the group.
 ```
 
@@ -264,7 +272,7 @@ BLOCKED: 1 device(s) - NO target collector reaches at least one expected protoco
 PARTIAL: 2 device(s) - SOME target collectors reach them, some don't.
          Risky if the target group is auto-balance: the device could land on a collector that fails it.
   - windows-box  [id=10220]  (from legacy02)
-      135   collectorA=pass  collectorB=FAIL
+      wmi   collectorA=pass  collectorB=FAIL
 ```
 
 `BLOCKED` means no collector in the target group can reach the device on an expected
@@ -308,14 +316,15 @@ real SNMP get/walk with the actual configured version/community/v3 credentials a
 gives a specific diagnosis (e.g. "Unknown security name — check `snmp.security`
 host property") instead of a blind `TIMEOUT`. See `collector-debug-notes.md`.
 
-### 135 (WMI/DCOM endpoint mapper)
+### WMI (tcp-135)
 
-TCP 135 is the WMI/DCOM endpoint mapper. A passing `135` check means the
+TCP 135 is the WMI/DCOM endpoint mapper. A passing `wmi` check means the
 Windows RPC endpoint is reachable from the new collector, which is the necessary
-precondition for WMI collection. It is a bare TCP connect test — it does not verify
-WMI credentials, and a pass does not mean WMI itself would actually work (see
-`collector-debug-notes.md` for `!wmi`, a real credentialed WMI test — with caveats
-about when it can and can't be used for this kind of pre-move check).
+precondition for WMI collection. It is a bare TCP connect test, **not** a WMI
+credential check — despite the name, a pass does not mean WMI itself would
+actually work (see `collector-debug-notes.md` for `!wmi`, a real credentialed
+WMI test — with caveats about when it can and can't be used for this kind of
+pre-move check).
 
 ## meta
 

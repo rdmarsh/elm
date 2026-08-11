@@ -24,8 +24,8 @@
          are KEPT -- the source collector is down but the device may still be
          reachable from the target group.
       3. Resolve the target collector group and its active collectors.
-      4. Build a per-device protocol list from autoProperties (ping/snmp/
-         135/22/80/443).
+      4. Build a per-device protocol list from autoProperties (ping/snmp/wmi/
+         ssh/http/https -- see the printed legend for what these actually test).
       5. Generate a Groovy reachability script and submit it to every active
          collector in the TARGET group via Collector Debug.
       6. Wait, retrieve each result, and save <hostname>.csv in OutputDir.
@@ -289,13 +289,14 @@ if ($dead.Count -gt 0) {
 if ($devices.Count -eq 0) { throw "No testable devices found on the given source collector(s) (none assigned, all dead, or all collector hosts)." }
 
 # ── Protocol detection from autoProperties (LM Active Discovery) ──────────────
-# 135/22/80/443 are bare TCP connect checks -- no protocol handshake or credentials --
-# so they're labelled by port number, not by the protocol that usually lives there.
-#   auto.snmp.operational == "true"                   -> snmp (real SNMP GetRequest)
-#   135 in tcp ports, or auto.wmi.operational == "true" -> 135
-#   22  in auto.network.listening_tcp_ports           -> 22
-#   80  in tcp ports, or HTTP- (not HTTPS) datasource -> 80
-#   443 in tcp ports, or HTTPS/SSL_ datasource        -> 443
+# wmi/ssh/http/https are bare TCP connect checks -- no protocol handshake or
+# credentials -- so a pass only means the port accepted a connection, not that the
+# named protocol/service actually works (printed as a legend at run time too).
+#   auto.snmp.operational == "true"                    -> snmp (real SNMP GetRequest)
+#   135 in tcp ports, or auto.wmi.operational == "true" -> wmi  (really: TCP 135 open)
+#   22  in auto.network.listening_tcp_ports            -> ssh  (really: TCP 22 open)
+#   80  in tcp ports, or HTTP- (not HTTPS) datasource  -> http (really: TCP 80 open)
+#   443 in tcp ports, or HTTPS/SSL_ datasource         -> https (really: TCP 443 open)
 function Get-DeviceProtocols {
     param([object]$Device)
 
@@ -344,11 +345,11 @@ $deviceObjs = foreach ($dev in $devices) {
 $deviceObjs = @($deviceObjs | Sort-Object displayName)
 
 # ── Summary table ─────────────────────────────────────────────────────────────
-# These are bare TCP connect checks -- no protocol handshake, no credentials -- so the
-# label says what was actually tested (the port), not what it might imply (the protocol
-# that usually lives there). 'ping' and 'snmp' stay purpose-named: ping is a real ICMP
-# test, and snmp sends an actual GetRequest payload, not just a socket connect.
-$protoLabel = @{ 'tcp-135' = '135'; 'tcp-22' = '22'; 'tcp-80' = '80'; 'tcp-443' = '443' }
+Write-Host "Protocol legend: wmi=135, ssh=22, http=80, https=443 -- these are bare TCP"
+Write-Host "connect checks, NOT credential/protocol verification. A pass only means the"
+Write-Host "port accepted a connection, not that the named protocol/service works."
+Write-Host ""
+$protoLabel = @{ 'tcp-135' = 'wmi'; 'tcp-22' = 'ssh'; 'tcp-80' = 'http'; 'tcp-443' = 'https' }
 $deviceObjs |
     Select-Object @{n='Device';e={$_.displayName}},
                   @{n='IP/Hostname';e={$_.ip}},
@@ -445,7 +446,7 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
 }
 
 def protoOrder = ["ping", "snmp", "tcp-135", "tcp-22", "tcp-80", "tcp-443"]
-def protoLabel = ["tcp-135": "135", "tcp-22": "22", "tcp-80": "80", "tcp-443": "443"]
+def protoLabel = ["tcp-135": "wmi", "tcp-22": "ssh", "tcp-80": "http", "tcp-443": "https"]
 def allProtos = devices.collectMany { it.protocols }.unique()
     .sort { a, b ->
         def ai = protoOrder.indexOf(a); def bi = protoOrder.indexOf(b)
@@ -453,6 +454,9 @@ def allProtos = devices.collectMany { it.protocols }.unique()
     }
 def collectorHost = java.net.InetAddress.getLocalHost().getHostName()
 println "Testing ${devices.size()} devices from ${collectorHost} (parallel)..."
+println "Protocol legend: wmi=135, ssh=22, http=80, https=443 -- these are bare TCP connect"
+println "checks, NOT credential/protocol verification. A pass only means the port accepted"
+println "a connection, not that the named protocol/service works."
 
 def pool    = Executors.newFixedThreadPool(Math.min(devices.size(), 20))
 def futures = devices.collect { d ->
@@ -502,7 +506,7 @@ if (failures || timeouts) {
         println ""
     }
     println "snmp TIMEOUT may mean wrong community, OR an SNMPv3-only device -- this probe only speaks SNMPv2c/\"public\", so EVERY v3-only device will show TIMEOUT regardless of reachability. If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here, not a real network issue. Verify a specific device with the collector debug console: !snmpdiagnose version=v3 <host> (see collector-debug-notes.md)."
-    println "135 pass only confirms TCP 135 (RPC endpoint mapper) is open, not that WMI/credentials work; WMI also uses dynamic high ports (49152-65535)."
+    println "wmi pass only confirms TCP 135 (RPC endpoint mapper) is open, not that WMI/credentials work; WMI also uses dynamic high ports (49152-65535)."
 } else {
     println "All checks passed. This collector can reach all tested devices."
 }
@@ -751,8 +755,8 @@ if ($results.Count -gt 0) {
         foreach ($p in $d.protocols) {
             # $d.protocols holds the raw internal tokens (tcp-135, tcp-22, tcp-80, tcp-443);
             # the CSV/Rows columns use the Groovy-side labels ($protoLabel, defined above for
-            # the device summary table) -- 135, 22, 80, 443. Without this translation $row.$p
-            # misses those four columns entirely and silently reads as "always absent".
+            # the device summary table) -- wmi, ssh, http, https. Without this translation
+            # $row.$p misses those four columns entirely and silently reads as "always absent".
             $colName = $protoLabel[$p] ?? $p
             $vals = foreach ($r in $results) {
                 $row = $rowsById[$id][$r.Hostname]

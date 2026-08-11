@@ -377,12 +377,15 @@ maintainer.
 
 ## [x] 17. Label reachability-check columns by what they actually test
 
-Done 2026-08-11. Squashed `tcp-135`/`wmi` into one signal and renamed the
-bare-TCP-connect checks from purpose names to port numbers (`wmi`→`135`,
-`ssh`→`22`, `http`→`80`, `https`→`443`) across all four files plus
-`examples/collector-readiness.md`. `ping`/`snmp` left purpose-named (real
-protocol tests, not bare socket connects). See CHANGELOG `[Unreleased]` →
-Fixed for the full explanation.
+Done 2026-08-11, revised same day. Squashed `tcp-135`/`wmi` into one signal
+(kept). Labels were briefly renamed to port numbers (`wmi`→`135`, `ssh`→`22`,
+`http`→`80`, `https`→`443`) to avoid overclaiming a real protocol test, then
+reverted back to `wmi`/`ssh`/`http`/`https` per maintainer preference — purpose
+names are easier to scan, and the "these are bare TCP connect checks, not
+credential verification" caveat is now a printed legend (once per run, in all
+four sources + the doc) instead of being baked into the label itself.
+`ping`/`snmp` were never renamed (real protocol tests, not bare socket
+connects). See CHANGELOG `[Unreleased]` → Fixed for the full explanation.
 
 ## [defer] 18. New idea: single-device WMI/WinRM/SNMPv3 diagnostic tool
 

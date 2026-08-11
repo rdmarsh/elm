@@ -40,6 +40,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Even fixed, that hint only reached the raw per-collector `.csv` files written to `OutputDir` (the Groovy's own footer text) — never the PowerShell scripts' own aggregate console output (the Comparison table, Move verdict, or Candidate verdict sections), which is what a user actually reads and where real runs showed `snmp TIMEOUT` repeatedly with no explanation anywhere on screen. Added the same hint directly to `lm-collector-reachability-run-all.ps1`'s Candidate verdict and `lm-collector-move-readiness-run-all.ps1`'s Move verdict, printed once at the end if any device shows `snmp`/`TIMEOUT` anywhere in that run's results. Verified with a synthetic PowerShell test reproducing the real scenario (SNMP timing out identically on every target collector).
 
+- The port-number relabelling from two entries above (`wmi`→`135`, `ssh`→`22`, `http`→`80`, `https`→`443`) is reverted, per maintainer preference: purpose names are easier to scan than bare port numbers, especially across a wide device list. The "these are bare TCP connect checks, not credential/protocol verification" caveat is kept, but now as a printed legend line (`Protocol legend: wmi=135, ssh=22, http=80, https=443 -- ...`) at the top of every run's output — all four sources (both `.ps1` runners' summary table and embedded Groovy, `elm-collector-readiness.sh`'s summary table, and the standalone `.groovy.j2`) plus `examples/collector-readiness.md`. The `tcp-135`/`wmi` signal squash from two entries above is unaffected — that stays merged into one `wmi` column.
+
 ## [1.8.9] - 2026-06-11
 
 ### Added

@@ -21,16 +21,17 @@
 # The rendered script tests device connections using the hostname or IP address
 # that LM uses to reach each device (the 'name' field, not 'displayName').
 #
-# Protocol detection (from device autoProperties set by LM Active Discovery). The 135/
-# 22/80/443 checks are bare TCP connect tests (no protocol handshake or credentials), so
-# they're labelled by port number, not by the protocol that usually lives there:
-#   ping - always included
-#   snmp - auto.snmp.operational == "true" (a real SNMP GetRequest, not just a socket test)
-#   135  - 135 in auto.network.listening_tcp_ports, OR auto.wmi.operational == "true"
-#          (both independently imply "test TCP 135"; merged into one check)
-#   22   - 22 in auto.network.listening_tcp_ports
-#   80   - 80 in auto.network.listening_tcp_ports, or HTTP- datasource in auto.activedatasources
-#   443  - 443 in auto.network.listening_tcp_ports, or HTTPS/SSL_ datasource in auto.activedatasources
+# Protocol detection (from device autoProperties set by LM Active Discovery). wmi/ssh/
+# http/https are bare TCP connect tests (no protocol handshake or credentials) -- a pass
+# only means the port accepted a connection, not that the named protocol/service works
+# (the rendered script prints a legend saying so; see also the ports each maps to below):
+#   ping  - always included
+#   snmp  - auto.snmp.operational == "true" (a real SNMP GetRequest, not just a socket test)
+#   wmi   - 135 in auto.network.listening_tcp_ports, OR auto.wmi.operational == "true"
+#           (both independently imply "test TCP 135"; merged into one check)
+#   ssh   - 22 in auto.network.listening_tcp_ports
+#   http  - 80 in auto.network.listening_tcp_ports, or HTTP- datasource in auto.activedatasources
+#   https - 443 in auto.network.listening_tcp_ports, or HTTPS/SSL_ datasource in auto.activedatasources
 #
 # Dead devices (hostStatus:dead) are skipped — the device itself is unreachable,
 # testing from a new collector adds no information. Devices with hostStatus:dead-collector
@@ -175,10 +176,13 @@ matrix=$(printf '%s' "$raw" | jq '
 
 # ── Summary table (stderr) ────────────────────────────────────────────────────
 {
+    printf 'Protocol legend: wmi=135, ssh=22, http=80, https=443 -- these are bare TCP\n'
+    printf 'connect checks, NOT credential/protocol verification. A pass only means the\n'
+    printf 'port accepted a connection, not that the named protocol/service works.\n\n'
     printf '%-32s %-22s %-16s %s\n' "Device" "IP/Hostname" "Status" "Protocols"
     printf '%-32s %-22s %-16s %s\n' "$(printf '%0.s-' {1..32})" "$(printf '%0.s-' {1..22})" "----------------" "---------"
     printf '%s' "$matrix" \
-        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.hostStatus)\t\(.protocols | map(if . == "tcp-135" then "135" elif . == "tcp-22" then "22" elif . == "tcp-80" then "80" elif . == "tcp-443" then "443" else . end) | join(", "))"' \
+        | jq -r '.[] | "\(.displayName)\t\(.ip)\t\(.hostStatus)\t\(.protocols | map(if . == "tcp-135" then "wmi" elif . == "tcp-22" then "ssh" elif . == "tcp-80" then "http" elif . == "tcp-443" then "https" else . end) | join(", "))"' \
         | while IFS=$'\t' read -r name ip status protos; do
               printf '%-32s %-22s %-16s %s\n' "${name:0:32}" "${ip:0:22}" "$status" "$protos"
           done

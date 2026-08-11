@@ -80,7 +80,7 @@ def runTest(proto, ip, pingMs, tcpMs, snmpMs) {
 // ── Run all devices in parallel ────────────────────────────────────────────────
 
 def protoOrder = ["ping", "snmp", "tcp-135", "tcp-22", "tcp-80", "tcp-443"]
-def protoLabel = ["tcp-135": "135", "tcp-22": "22", "tcp-80": "80", "tcp-443": "443"]
+def protoLabel = ["tcp-135": "wmi", "tcp-22": "ssh", "tcp-80": "http", "tcp-443": "https"]
 def allProtos = devices.collectMany { it.protocols }.unique()
     .sort { a, b ->
         def ai = protoOrder.indexOf(a); def bi = protoOrder.indexOf(b)
@@ -88,6 +88,9 @@ def allProtos = devices.collectMany { it.protocols }.unique()
     }
 def collectorHost = java.net.InetAddress.getLocalHost().getHostName()
 println "Testing ${devices.size()} devices from ${collectorHost} (parallel)..."
+println "Protocol legend: wmi=135, ssh=22, http=80, https=443 -- these are bare TCP connect"
+println "checks, NOT credential/protocol verification. A pass only means the port accepted"
+println "a connection, not that the named protocol/service works."
 
 def pool    = Executors.newFixedThreadPool(Math.min(devices.size(), 20))
 def futures = devices.collect { d ->
@@ -139,7 +142,7 @@ if (failures || timeouts) {
         println ""
     }
     println "snmp TIMEOUT may mean wrong community, OR an SNMPv3-only device -- this probe only speaks SNMPv2c/\"public\", so EVERY v3-only device will show TIMEOUT regardless of reachability. If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here, not a real network issue. Verify a specific device with the collector debug console: !snmpdiagnose version=v3 <host> (see collector-debug-notes.md)."
-    println "135 pass only confirms TCP 135 (RPC endpoint mapper) is open, not that WMI/credentials work; WMI also uses dynamic high ports (49152-65535)."
+    println "wmi pass only confirms TCP 135 (RPC endpoint mapper) is open, not that WMI/credentials work; WMI also uses dynamic high ports (49152-65535)."
 } else {
     println "All checks passed. Collector appears ready to join the auto-balance group."
 }
