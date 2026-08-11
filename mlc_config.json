@@ -1,12 +1,40 @@
 {
   "ignorePatterns": [
     {
+      "pattern": "^mailto:",
+      "comment": "mailto: links are not HTTP and the checker probes them as such, always returning 400"
+    },
+    {
       "pattern": "^https://www\\.logicmonitor\\.com",
       "comment": "logicmonitor.com returns 403 to automated checkers but links are valid"
     },
     {
       "pattern": "^https://www\\.gnu\\.org",
       "comment": "gnu.org intermittently times out in CI but links are valid"
+    },
+    {
+      "pattern": "^https://img\\.shields\\.io",
+      "comment": "shields.io badge endpoints 403 automated checkers but the badges render fine in a browser"
+    },
+    {
+      "pattern": "^https://www\\.contributor-covenant\\.org",
+      "comment": "contributor-covenant.org 403s automated checkers but links are valid"
+    },
+    {
+      "pattern": "^https://nvd\\.nist\\.gov",
+      "comment": "nvd.nist.gov (Akamai WAF) 403s automated checkers but links are valid"
+    },
+    {
+      "pattern": "^https://keepachangelog\\.com",
+      "comment": "keepachangelog.com 403s automated checkers but links are valid"
+    },
+    {
+      "pattern": "^https://docs\\.ansible\\.com",
+      "comment": "docs.ansible.com 403s automated checkers but links are valid"
     }
-  ]
+  ],
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 3,
+  "fallbackRetryDelay": "30s"
 }
