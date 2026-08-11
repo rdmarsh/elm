@@ -334,6 +334,10 @@ $deviceObjs = foreach ($dev in $devices) {
         protocols   = (Get-DeviceProtocols $dev)
     }
 }
+# Sorted once here (by displayName) so every downstream consumer -- the summary table,
+# the Groovy device list, and the CSV rows the collectors return -- is alphabetical
+# instead of "whatever order the LM API happened to return."
+$deviceObjs = @($deviceObjs | Sort-Object displayName)
 
 # ── Summary table ─────────────────────────────────────────────────────────────
 $protoLabel = @{ 'tcp-135' = 'port-135'; 'wmi' = 'wmi'; 'tcp-22' = 'ssh'; 'tcp-80' = 'http'; 'tcp-443' = 'https' }
