@@ -284,14 +284,29 @@ protocol that only some of them reach is a real risk even though *a* path exists
 
 ### SNMP TIMEOUT
 
-`TIMEOUT` on SNMP does **not** necessarily mean the device is unreachable. SNMP
-agents that enforce community strings silently drop probes with unknown communities
-instead of sending an error response. The probe uses community `public`; if the
-device uses a different community, you will see `TIMEOUT` even though the agent is
-running and the port is open.
+`TIMEOUT` on SNMP does **not** necessarily mean the device is unreachable. The probe
+is a hardcoded **SNMPv2c** `GetRequest` with community `public` — it cannot succeed
+against anything that isn't SNMPv2c with that exact community, for two distinct
+reasons that both present as the identical `TIMEOUT`:
+
+- **Wrong community.** SNMP agents that enforce community strings silently drop
+  probes with unknown communities instead of sending an error response. If the
+  device uses a different community, you get `TIMEOUT` even though the agent is
+  running and the port is open.
+- **SNMPv3-only device.** This is the bigger one in practice, and easy to miss: if
+  the device (or the whole portal) has moved to SNMPv3 — common for security/
+  compliance reasons — a v2c-formatted probe gets no response at all, same as the
+  above. If SNMPv3 is used anywhere in this portal, it is likely the **dominant**
+  source of `TIMEOUT` results here, not a real reachability problem. There is
+  currently no way for this probe to detect or test v3.
 
 If `ping` passes but `snmp` shows `TIMEOUT`, check the device's `snmp.community`
-property in LM and verify the collector can reach UDP 161 from the network level.
+property in LM (v2c) or whether it's configured for SNMPv3 at all, and verify the
+collector can reach UDP 161 from the network level. To check a specific device
+properly, use the collector debug console's `!snmpdiagnose` command — it runs a
+real SNMP get/walk with the actual configured version/community/v3 credentials and
+gives a specific diagnosis (e.g. "Unknown security name — check `snmp.security`
+host property") instead of a blind `TIMEOUT`. See `collector-debug-notes.md`.
 
 ### 135 (WMI/DCOM endpoint mapper)
 

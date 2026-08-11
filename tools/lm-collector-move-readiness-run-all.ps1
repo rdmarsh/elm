@@ -488,7 +488,7 @@ if (failures) {
     println "FAILURES — investigate before moving these devices to this collector:"
     failures.each { println "  - $it" }
     println ""
-    println "snmp TIMEOUT may mean wrong community rather than unreachable — check snmp.community in LM."
+    println "snmp TIMEOUT may mean wrong community, OR an SNMPv3-only device -- this probe only speaks SNMPv2c/\"public\", so EVERY v3-only device will show TIMEOUT regardless of reachability. If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here, not a real network issue. Verify a specific device with the collector debug console: !snmpdiagnose version=v3 <host> (see collector-debug-notes.md)."
     println "135 pass only confirms TCP 135 (RPC endpoint mapper) is open, not that WMI/credentials work; WMI also uses dynamic high ports (49152-65535)."
 } else {
     println "All checks passed. This collector can reach all tested devices."
