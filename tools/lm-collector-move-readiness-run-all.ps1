@@ -598,6 +598,16 @@ function Format-Cell {
     }
 }
 
+# A "hostname=value" cell, colour-coded by Format-Cell and padded to a fixed value
+# width (8 = length of "(absent)", the longest value that appears: pass/FAIL/
+# TIMEOUT/(absent)/-) so cells stay column-aligned across rows regardless of which
+# value lands in which row -- a plain join would ragged-edge as soon as one row
+# says TIMEOUT/(absent) and the next says pass.
+function Format-CollectorCell {
+    param([string]$Hostname, [string]$Value)
+    Format-Cell "$Hostname=$($Value.PadRight(8))" $Value
+}
+
 # ── Cross-collector comparison: do the target group's OWN collectors agree? ───
 # Not a textual file diff. For every device+protocol, gather the result from each
 # target collector that returned and flag the row when collectors disagree (e.g. one
@@ -633,14 +643,22 @@ if ($results.Count -ge 2) {
         $byCollector[$r.Hostname] = $map
     }
 
-    $disagree = 0
-    $agree    = 0
-    foreach ($id in $allIds) {
-        # Device label from the first collector that reported this id.
+    # Resolve a label per id, then sort by label so the printed order is alphabetical by
+    # device name instead of "whichever collector happened to report it first."
+    $idsByLabel = foreach ($id in $allIds) {
         $label = $id
         foreach ($r in $ordered) {
             if ($byCollector[$r.Hostname].ContainsKey($id)) { $label = $byCollector[$r.Hostname][$id].device; break }
         }
+        [PSCustomObject]@{ Id = $id; Label = $label }
+    }
+    $idsByLabel = @($idsByLabel | Sort-Object Label)
+
+    $disagree = 0
+    $agree    = 0
+    foreach ($entry in $idsByLabel) {
+        $id    = $entry.Id
+        $label = $entry.Label
 
         $diffs = [System.Collections.Generic.List[string]]::new()
         foreach ($p in $protoCols) {
@@ -652,7 +670,7 @@ if ($results.Count -ge 2) {
             }
             $distinct = @($cells.Value | Select-Object -Unique)
             if ($distinct.Count -gt 1) {
-                $detail = ($cells | ForEach-Object { Format-Cell "$($_.Collector)=$($_.Value)" $_.Value }) -join '  '
+                $detail = ($cells | ForEach-Object { Format-CollectorCell $_.Collector $_.Value }) -join '  '
                 $diffs.Add(("    {0,-10} {1}" -f $p, $detail))
             }
         }
@@ -703,25 +721,27 @@ if ($results.Count -gt 0) {
         $id = [string]$d.id
         if (-not $rowsById.ContainsKey($id)) { continue }   # no target collector reported this device at all
 
-        $protoIssues = [System.Collections.Generic.List[string]]::new()
+        $protoIssues = [System.Collections.Generic.List[object]]::new()
         $worst = 'ready'   # ready < partial < blocked
         foreach ($p in $d.protocols) {
+            # $d.protocols holds the raw internal tokens (tcp-135, tcp-22, tcp-80, tcp-443);
+            # the CSV/Rows columns use the Groovy-side labels ($protoLabel, defined above for
+            # the device summary table) -- port-135, ssh, http, https. Without this translation
+            # $row.$p misses those four columns entirely and silently reads as "always absent".
+            $colName = $protoLabel[$p] ?? $p
             $vals = foreach ($r in $results) {
                 $row = $rowsById[$id][$r.Hostname]
-                if ($row) { [string]$row.$p } else { '(absent)' }
+                if ($row) { [string]$row.$colName } else { '(absent)' }
             }
             $numPass = @($vals | Where-Object { $_ -eq 'pass' }).Count
             if ($numPass -eq $results.Count) {
                 continue   # this protocol is fine everywhere
             } elseif ($numPass -gt 0) {
                 if ($worst -ne 'blocked') { $worst = 'partial' }
-                $detail = (0..($results.Count - 1) | ForEach-Object { "$($results[$_].Hostname)=$($vals[$_])" }) -join '  '
-                $protoIssues.Add("${p}: $detail")
             } else {
                 $worst = 'blocked'
-                $detail = (0..($results.Count - 1) | ForEach-Object { "$($results[$_].Hostname)=$($vals[$_])" }) -join '  '
-                $protoIssues.Add("${p}: $detail")
             }
+            $protoIssues.Add([PSCustomObject]@{ Proto = $colName; Vals = $vals })
         }
 
         $entry = [PSCustomObject]@{ Device = $d.displayName; Id = $d.id; Source = $d.source; Issues = $protoIssues }
@@ -732,24 +752,38 @@ if ($results.Count -gt 0) {
         }
     }
 
+    # Two-pass print: measure the widest device label / id token / protocol name across
+    # ALL entries first, so every column lines up instead of each row wrapping ragged
+    # (matches the padding lm-collector-reachability-run-all.ps1 uses for its candidate
+    # verdict). Detail cells reuse Format-CollectorCell for the same colour + padding as
+    # the comparison table above.
+    function Write-MoveVerdictEntries {
+        param([object[]]$Entries)
+        $wLabel = ($Entries | ForEach-Object { $_.Device.Length } | Measure-Object -Maximum).Maximum
+        $wIdTok = ($Entries | ForEach-Object { "[id=$($_.Id)]".Length } | Measure-Object -Maximum).Maximum
+        $wProto = ($Entries.Issues | ForEach-Object { $_.Proto.Length } | Measure-Object -Maximum).Maximum
+        foreach ($e in ($Entries | Sort-Object Device)) {
+            $idTok = "[id=$($e.Id)]"
+            Write-Host ("  - {0}  {1}  (from {2})" -f $e.Device.PadRight($wLabel), $idTok.PadRight($wIdTok), $e.Source)
+            foreach ($i in $e.Issues) {
+                $detail = (0..($results.Count - 1) | ForEach-Object { Format-CollectorCell $results[$_].Hostname $i.Vals[$_] }) -join '  '
+                Write-Host ("      {0}  {1}" -f $i.Proto.PadRight($wProto), $detail)
+            }
+        }
+    }
+
     Write-Host ""
     Write-Host "READY:   $($ready.Count) device(s) - every target collector reaches them; safe to move."
     if ($blocked.Count -gt 0) {
         Write-Host ""
         Write-Host "BLOCKED: $($blocked.Count) device(s) - NO target collector reaches at least one expected protocol:"
-        foreach ($e in $blocked) {
-            Write-Host "  - $($e.Device)  [id=$($e.Id)]  (from $($e.Source))"
-            foreach ($i in $e.Issues) { Write-Host "      $i" }
-        }
+        Write-MoveVerdictEntries $blocked
     }
     if ($partial.Count -gt 0) {
         Write-Host ""
         Write-Host "PARTIAL: $($partial.Count) device(s) - SOME target collectors reach them, some don't."
         Write-Host "         Risky if the target group is auto-balance: the device could land on a collector that fails it."
-        foreach ($e in $partial) {
-            Write-Host "  - $($e.Device)  [id=$($e.Id)]  (from $($e.Source))"
-            foreach ($i in $e.Issues) { Write-Host "      $i" }
-        }
+        Write-MoveVerdictEntries $partial
     }
     if ($blocked.Count -eq 0 -and $partial.Count -eq 0) {
         Write-Host ""

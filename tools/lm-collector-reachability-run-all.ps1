@@ -641,14 +641,22 @@ if ($results.Count -ge 2) {
         $byCollector[$r.Hostname] = $map
     }
 
-    $disagree = 0
-    $agree    = 0
-    foreach ($id in $allIds) {
-        # Device label from the first collector that reported this id.
+    # Resolve a label per id, then sort by label so the printed order is alphabetical by
+    # device name instead of "whichever collector happened to report it first."
+    $idsByLabel = foreach ($id in $allIds) {
         $label = $id
         foreach ($r in $ordered) {
             if ($byCollector[$r.Hostname].ContainsKey($id)) { $label = $byCollector[$r.Hostname][$id].device; break }
         }
+        [PSCustomObject]@{ Id = $id; Label = $label }
+    }
+    $idsByLabel = @($idsByLabel | Sort-Object Label)
+
+    $disagree = 0
+    $agree    = 0
+    foreach ($entry in $idsByLabel) {
+        $id    = $entry.Id
+        $label = $entry.Label
 
         $diffs = [System.Collections.Generic.List[string]]::new()
         foreach ($p in $protoCols) {
@@ -717,8 +725,10 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
         Write-Host "== Candidate verdict: $($cand.Hostname) =="
 
         # First pass: collect the gap rows so column widths can be computed before printing.
+        # Rows are sorted by device name so gaps print alphabetically instead of in
+        # whatever order the collector happened to return them.
         $gaps = [System.Collections.Generic.List[object]]::new()
-        foreach ($row in $cand.Rows) {
+        foreach ($row in ($cand.Rows | Sort-Object device)) {
             $id = [string]$row.id
             if (-not $incPass.ContainsKey($id)) { continue }   # no incumbent baseline for this device
             foreach ($p in $protoCols) {
