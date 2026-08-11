@@ -18,15 +18,13 @@ The standard workflow:
 <!--ts-->
    * [Step 1 — Find the auto-balance group](#step-1--find-the-auto-balance-group)
    * [Step 2 — Discover devices and generate the test script](#step-2--discover-devices-and-generate-the-test-script)
-   * [Step 3 — Inject credentials (optional)](#step-3--inject-credentials-optional)
-   * [Step 4 — Run the test from the new collector](#step-4--run-the-test-from-the-new-collector)
+   * [Step 3 — Run the test from the new collector](#step-3--run-the-test-from-the-new-collector)
    * [Automated run across all collectors (PowerShell)](#automated-run-across-all-collectors-powershell)
       * [Vetting a new collector before adding it (-Candidate)](#vetting-a-new-collector-before-adding-it--candidate)
    * [Checking whether devices can move to a different group (-SourceCollector)](#checking-whether-devices-can-move-to-a-different-group--sourcecollector)
    * [Interpreting results](#interpreting-results)
       * [SNMP TIMEOUT](#snmp-timeout)
       * [WMI (tcp-135)](#wmi-tcp-135)
-   * [Mode C — LM API directly, no elm](#mode-c--lm-api-directly-no-elm)
    * [meta](#meta)
 <!--te-->
 
@@ -114,28 +112,7 @@ If a device has no Active Discovery data yet (no `auto.network.listening_tcp_por
 only ping is tested. Run Active Discovery on the group in LM before using this tool
 for best results.
 
-## Step 3 — Inject credentials (optional)
-
-By default the rendered script has blank credential fields; you fill them in manually
-in the LM debug console before running. If you want credentials pre-filled from elm's
-config, add `--creds`:
-
-```shell
-# Default elm profile (config.ini)
-tools/elm-collector-readiness.sh --id 42 --creds | pbcopy
-
-# Non-default profile
-tools/elm-collector-readiness.sh --id 42 --creds --profile prod > /tmp/check.groovy
-```
-
-> **Note:** the rendered script from `--creds` contains your LM API credentials.
-> Do not commit it to git or share it.
-
-With credentials injected, the script can also call the LM API directly from the
-collector to re-discover the device list — useful if you want to verify without
-trusting the workstation-side output.
-
-## Step 4 — Run the test from the new collector
+## Step 3 — Run the test from the new collector
 
 1. Open the LM portal and navigate to the new collector's device.
 2. Go to **Collector Debug → Script** tab.
@@ -318,23 +295,6 @@ property in LM and verify the collector can reach UDP 161 from the network level
 TCP 135 is the WMI/DCOM endpoint mapper. A passing TCP-135 check means the
 Windows RPC endpoint is reachable from the new collector, which is the necessary
 precondition for WMI collection. It does not test WMI credentials.
-
-## Mode C — LM API directly, no elm
-
-If elm is not available, open `tools/lm-collector-reachability-check.groovy.j2` in an
-editor, clear the `{{ devices_json | default('[]') }}` placeholder (leave `[]`), and
-fill in the credentials block:
-
-```groovy
-def ACCESS_ID    = "your-access-id"   // remove after use
-def ACCESS_KEY   = "your-access-key"  // remove after use
-def ACCOUNT_NAME = "acme"
-def GROUP_ID     = 42
-// DEVICES_JSON stays as []
-```
-
-The script calls the LM API directly to discover devices. Remove the credentials from
-the script after use — the LM debug console history may retain them.
 
 ## meta
 
