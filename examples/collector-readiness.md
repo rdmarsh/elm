@@ -22,6 +22,7 @@ The standard workflow:
    * [Step 4 — Run the test from the new collector](#step-4--run-the-test-from-the-new-collector)
    * [Automated run across all collectors (PowerShell)](#automated-run-across-all-collectors-powershell)
       * [Vetting a new collector before adding it (-Candidate)](#vetting-a-new-collector-before-adding-it--candidate)
+   * [Checking whether devices can move to a different group (-SourceCollector)](#checking-whether-devices-can-move-to-a-different-group--sourcecollector)
    * [Interpreting results](#interpreting-results)
       * [SNMP TIMEOUT](#snmp-timeout)
       * [WMI (tcp-135)](#wmi-tcp-135)
@@ -238,6 +239,59 @@ already can't reach are not counted against the candidate.
 If there are no gaps it prints "Reaches everything the group's collectors reach. Ready
 to add to the group." You can pass `-Candidate` more than once (or a comma-separated
 list) to vet several collectors in one run.
+
+## Checking whether devices can move to a different group (`-SourceCollector`)
+
+`-Candidate` above answers "would a new collector reach everything a group already
+monitors?" `tools/lm-collector-move-readiness-run-all.ps1` answers the mirror-image
+question: "the devices sitting on these specific collectors right now — could the
+group I'm about to move them into actually reach them?" Use it when retiring a
+collector, consolidating collectors into a group, or relocating devices between
+sites, and you want to know before the move whether every device would still be
+reachable.
+
+Device discovery is by `preferredCollectorId` against the named source
+collector(s) — **not** by group membership, so the source collectors don't need to
+belong to any group at all (they can be standalone, or the very collector being
+retired):
+
+```powershell
+# Would every device currently on legacy01/legacy02 be reachable from the active
+# collectors in "Consolidated Collectors"?
+./tools/lm-collector-move-readiness-run-all.ps1 -source legacy01,legacy02 -group "Consolidated Collectors"
+
+# by id
+./tools/lm-collector-move-readiness-run-all.ps1 -source 191,192 -id 42
+```
+
+The device summary table gets an extra `Source` column showing which source
+collector each device currently sits on. The Groovy reachability test itself, the
+per-collector CSVs, and the cross-collector comparison (are the *target* group's own
+collectors consistent with each other?) all work exactly as in the group-vs-group
+case above.
+
+After that, a **move verdict** classifies every device:
+
+```text
+== Move verdict: 47 device(s) from 2 source collector(s) -> Consolidated Collectors (id=42) ==
+
+READY:   44 device(s) - every target collector reaches them; safe to move.
+
+BLOCKED: 1 device(s) - NO target collector reaches at least one expected protocol:
+  - unreachable-host  [id=10299]  (from legacy01)
+      ping: collectorA=FAIL  collectorB=FAIL
+
+PARTIAL: 2 device(s) - SOME target collectors reach them, some don't.
+         Risky if the target group is auto-balance: the device could land on a collector that fails it.
+  - windows-box  [id=10220]  (from legacy02)
+      wmi: collectorA=pass  collectorB=FAIL
+```
+
+`BLOCKED` means no collector in the target group can reach the device on an expected
+protocol — fix routing/firewall before moving it. `PARTIAL` only matters if the
+target group is auto-balance: LM could place the device on either collector, so a
+protocol that only some of them reach is a real risk even though *a* path exists.
+`READY` devices are safe to move as-is.
 
 ## Interpreting results
 
