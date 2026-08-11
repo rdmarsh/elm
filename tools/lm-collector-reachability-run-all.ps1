@@ -744,6 +744,8 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
         }
     }
 
+    $anySnmpTimeout = $false   # printed once after the loop, not per-candidate -- see the hint below
+
     foreach ($cand in $candResults) {
         Write-Host ""
         Write-Host "== Candidate verdict: $($cand.Hostname) =="
@@ -760,6 +762,7 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
                     $v = [string]$row.$p
                     if ($v -ne 'pass') {
                         $lbl = if ($labels.ContainsKey($id)) { $labels[$id] } else { $id }
+                        if ($p -eq 'snmp' -and $v -eq 'TIMEOUT') { $anySnmpTimeout = $true }
                         $gaps.Add([PSCustomObject]@{
                             Proto = $p
                             Label = $lbl
@@ -786,6 +789,14 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
             }
             Write-Host "  Fix routing/firewall for these before moving the candidate into the group."
         }
+    }
+    if ($anySnmpTimeout) {
+        Write-Host ""
+        Write-Host "snmp TIMEOUT above may mean wrong community, OR an SNMPv3-only device -- this probe only"
+        Write-Host "speaks SNMPv2c/`"public`", so EVERY v3-only device shows TIMEOUT regardless of reachability."
+        Write-Host "If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here,"
+        Write-Host "not a real network issue. Verify a specific device with the collector debug console:"
+        Write-Host "  !snmpdiagnose version=v3 <host>   (see collector-debug-notes.md)"
     }
 }
 

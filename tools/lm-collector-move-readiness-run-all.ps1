@@ -737,9 +737,10 @@ if ($results.Count -gt 0) {
         foreach ($row in $r.Rows) { $rowsById[[string]$row.id] = $rowsById[[string]$row.id] ?? @{}; $rowsById[[string]$row.id][$r.Hostname] = $row }
     }
 
-    $ready   = [System.Collections.Generic.List[object]]::new()
-    $partial = [System.Collections.Generic.List[object]]::new()
-    $blocked = [System.Collections.Generic.List[object]]::new()
+    $ready          = [System.Collections.Generic.List[object]]::new()
+    $partial        = [System.Collections.Generic.List[object]]::new()
+    $blocked        = [System.Collections.Generic.List[object]]::new()
+    $anySnmpTimeout = $false   # printed once at the end, not per-device -- see the hint below
 
     foreach ($d in $deviceObjs) {
         $id = [string]$d.id
@@ -765,6 +766,7 @@ if ($results.Count -gt 0) {
             } else {
                 $worst = 'blocked'
             }
+            if ($colName -eq 'snmp' -and $vals -contains 'TIMEOUT') { $anySnmpTimeout = $true }
             $protoIssues.Add([PSCustomObject]@{ Proto = $colName; Vals = $vals })
         }
 
@@ -812,6 +814,14 @@ if ($results.Count -gt 0) {
     if ($blocked.Count -eq 0 -and $partial.Count -eq 0) {
         Write-Host ""
         Write-Host "All devices are reachable from every active collector in the target group. Safe to move."
+    }
+    if ($anySnmpTimeout) {
+        Write-Host ""
+        Write-Host "snmp TIMEOUT above may mean wrong community, OR an SNMPv3-only device -- this probe only"
+        Write-Host "speaks SNMPv2c/`"public`", so EVERY v3-only device shows TIMEOUT regardless of reachability."
+        Write-Host "If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here,"
+        Write-Host "not a real network issue. Verify a specific device with the collector debug console:"
+        Write-Host "  !snmpdiagnose version=v3 <host>   (see collector-debug-notes.md)"
     }
 }
 

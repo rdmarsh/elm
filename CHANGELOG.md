@@ -38,6 +38,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - That SNMPv3 hint (previous entry) never actually printed for the case it was meant to help: the failure-footer block in all three Groovy sources was gated on `if (failures)`, but `failures` only collects `result == "FAIL"` — an snmp `TIMEOUT` is a distinct result value, so a device with only an SNMP timeout (everything else passing) never touched `failures`, the whole block was skipped, and the script printed "All checks passed" instead. Added a separate `timeouts` list (populated on `result == "TIMEOUT"`) and gated the block on `failures || timeouts`; timed-out device/protocol pairs are now also listed explicitly, the same way `FAILURES` are. Verified with a real Groovy interpreter (not just PowerShell here-string syntax checks) against a synthetic TIMEOUT-only device.
 
+- Even fixed, that hint only reached the raw per-collector `.csv` files written to `OutputDir` (the Groovy's own footer text) — never the PowerShell scripts' own aggregate console output (the Comparison table, Move verdict, or Candidate verdict sections), which is what a user actually reads and where real runs showed `snmp TIMEOUT` repeatedly with no explanation anywhere on screen. Added the same hint directly to `lm-collector-reachability-run-all.ps1`'s Candidate verdict and `lm-collector-move-readiness-run-all.ps1`'s Move verdict, printed once at the end if any device shows `snmp`/`TIMEOUT` anywhere in that run's results. Verified with a synthetic PowerShell test reproducing the real scenario (SNMP timing out identically on every target collector).
+
 ## [1.8.9] - 2026-06-11
 
 ### Added
