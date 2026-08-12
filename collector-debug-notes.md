@@ -185,6 +185,38 @@ more diagnostic than the reachability tools' current hand-rolled UDP
 `GetRequest` probe (hardcoded SNMPv2c, community `public`, pass/FAIL/TIMEOUT
 only — see `tools/lm-collector-reachability-check.groovy.j2`).
 
+### `!healthCheckV2` — signed script only, not usable from the console
+
+```
+Usage:
+    !healthCheckV2 jsonObject
+Arguments:
+    jsonObject: Contains the script body for the healthcheck script and verification params
+example:
+   !healthCheckV2 {"signAlgorithm":"","region":"","signature":"","keyID":"","scriptBody":"","scriptName":""}
+```
+
+Captured live 2026-08 via `help !healthCheckV2`. The `jsonObject` argument
+wants a **signed payload**: `scriptBody`/`scriptName` carry the Groovy
+healthcheck script itself, while `signAlgorithm`/`signature`/`keyID` are a
+signature over that script, presumably checked against a key LM's own backend
+holds. That signature gate is almost certainly why the command is flagged
+"internal use only" in the `help` list — there's no way to construct a
+`scriptBody` that passes verification without LM's private signing key, so
+this is LM's own mechanism for pushing signed healthcheck scripts to
+collectors, not a customer-facing diagnostic. Not independently tried against
+a live collector (no way to produce a valid `signature`/`keyID`), but the
+help text alone is enough to explain the earlier `[object Object]` failures
+seen when calling it bare or with `help` as a positional arg — those weren't
+signature failures, just malformed-JSON-argument failures, and the console UI
+renders the resulting exception as an unstringified object instead of text.
+
+**If you actually want to run your own healthcheck-style script against a
+collector, use `!groovy` instead** (path to a script, absolute or relative to
+`<agentRoot>/bin`, no signature required) — or the existing
+`tools/lm-collector-run-groovy.ps1` wrapper, which already does this for
+`CollectorHealthCheck.groovy` (see `tools/README.md`).
+
 ### `!ping`
 
 ```
