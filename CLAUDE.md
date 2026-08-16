@@ -93,7 +93,7 @@ PyInstaller binary (_dist/elm/elm):
   they 403 and fail). Run it after any template change, but expect those lines
   to need LM. (The old claim that they "build the URL without sending it" is
   wrong — the request is sent first.)
-- `make testfmtcontent` asserts each output format really is that format.
+- `make testfmtcont` asserts each output format really is that format.
   The api/curl/wget assertions also send a real request (same reason as above);
   the rest hit LM via MetricsUsage.
 - Targets marked "(connects to LM)" (testfmts, testcount, testtotal, testverb,

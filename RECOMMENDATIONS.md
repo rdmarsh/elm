@@ -291,17 +291,28 @@ The existing `if 'items' not in obj:` block stays as-is beneath it.
 
 **Verify:** `make && make testbasic`, plus one live `MetricsUsage` call.
 
-## [ ] 12. Use mktemp in the Makefile `docs` target
+## [x] 12. Use mktemp in the Makefile `docs` target
 
-**Problem:** the `docs` target writes to fixed paths `/tmp/elm_help.txt` and
-`/tmp/README_tmp.md` — collision-prone on shared machines.
+Done 2026-08-16. Both temp files now come from `mktemp` and are removed by a
+shell `trap` on `EXIT`/`INT`/`TERM`, so they are cleaned up even when the
+target fails part-way.
 
-**Change:** in the `docs` recipe, generate both paths with `mktemp` into shell
-variables and use those. Remember Makefile recipes need `$$` for shell
-variables and each line runs in its own shell, so join the lines with `; \`.
+**Also fixed a data-loss bug found while verifying this.** The help text comes
+from the pipeline `$(testbin) --help | sed ...`, whose exit status is `sed`'s,
+not elm's. If the binary failed or printed nothing, the pipeline still
+"succeeded" with an empty file and the awk pass rewrote `README.md` with
+everything between the `elm-help-start`/`elm-help-end` markers replaced by an
+empty code fence — silently, exit 0. The recipe now greps the captured output
+for a `Usage:` line and aborts with `$(ER_STRING)` leaving README.md untouched,
+and chains the `mv` into place with `&&` so a failed awk pass cannot overwrite
+the file either.
 
-**Verify:** `make docs` still injects the help text into README.md
-(`git diff README.md` should show no change if help output is unchanged).
+Verified without rebuilding (a sandbox `make` would clobber the maintainer's
+macOS binary) by overriding `testbin` on the command line: a stub that replays
+the help block already in README.md round-trips to a byte-identical file
+(`git diff README.md` empty), and a stub that exits 1 makes the target fail
+with the red error and leaves README.md unchanged. Neither run leaves temp
+files behind.
 
 ## [ ] 13. URL-encode query parameter values — DO THIS ITEM LAST
 

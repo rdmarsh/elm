@@ -145,6 +145,13 @@ ER_STRING=$(ER_COLOR)[ERROR]$(NO_COLOR)
 # ---------------------------------------
 # do not change
 
+# If a recipe fails part-way, delete the target it was writing. Without this a
+# failed step leaves a truncated or empty file behind that is newer than its
+# prerequisites, so the next make treats the garbage as up to date and builds
+# on top of it (e.g. an empty _defs/commands.documented.json yields a binary
+# with none of the documented commands, and no error).
+.DELETE_ON_ERROR:
+
 .PHONY: all
 all: init ## Build everything except install (init, render, cfg, build)
 	$(MAKE) _render _build
@@ -347,10 +354,13 @@ hooks: ## Install git hooks (run once after cloning)
 
 .PHONY: docs
 docs: $(testbin) ## Inject elm --help output into README.md between marker comments
-	$(testbin) --help | sed 's|$(HOME)|/home/user|g' > /tmp/elm_help.txt
-	$(AWK) '/^<!-- elm-help-start -->$$/{print; print "```text"; while ((getline line < "/tmp/elm_help.txt") > 0) print line; print "```"; skip=1; next} /^<!-- elm-help-end -->$$/{skip=0} !skip{print}' README.md > /tmp/README_tmp.md
-	mv /tmp/README_tmp.md README.md
-	rm /tmp/elm_help.txt
+	@help=$$(mktemp /tmp/elm-help-XXXXXX.txt) ; \
+	readme=$$(mktemp /tmp/elm-readme-XXXXXX.md) ; \
+	trap 'rm -f "$$help" "$$readme"' EXIT INT TERM ; \
+	$(testbin) --help | sed 's|$(HOME)|/home/user|g' > $$help ; \
+	grep -q '^Usage:' $$help || { echo "$(ER_STRING) $(testbin) --help produced no usage output; README.md left unchanged" ; exit 1 ; } ; \
+	$(AWK) -v helpfile="$$help" '/^<!-- elm-help-start -->$$/{print; print "```text"; while ((getline line < helpfile) > 0) print line; print "```"; skip=1; next} /^<!-- elm-help-end -->$$/{skip=0} !skip{print}' README.md > $$readme && \
+	cp $$readme README.md
 	@echo "$(OK_STRING) $@"
 
 $(bindir)/$(name): $(pyidistdir)/$(name)/$(name) | $(bindir)
@@ -377,7 +387,7 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testbasic testfmts testfmtcontent testsqlite testverb testid ## Run quick and simple tests
+test: testbasic testfmts testfmtcont testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
@@ -437,8 +447,8 @@ testcount: ## Test 'non-required' commands with count flag  (connects to LM)
 		)
 	@echo "$(OK_STRING) $@"
 
-.PHONY: testcountdebug
-testcountdebug: ## Test count flag with verbose debug output (connects to LM)
+.PHONY: testcountdbg
+testcountdbg: ## Test count flag with verbose debug output (connects to LM)
 	@$(foreach cmd,$(NONREQTARGETS), \
 		echo testing: $(testbin) -vv $(cmd) -c ;\
 		$(testbin) -vv $(cmd) -c || exit 1 ;\
@@ -463,8 +473,8 @@ testfmts: ## Test a command with all formats               (connects to LM)
 # testfmts only checks exit 0; this asserts each format's output is actually
 # that format (catches a format silently producing the wrong structure or
 # being aliased to another). Anchored to MetricsUsage like the other targets.
-.PHONY: testfmtcontent
-testfmtcontent: | JQ-exists ## Assert each format's output really is that format (connects to LM)
+.PHONY: testfmtcont
+testfmtcont: | JQ-exists ## Assert each format's output really is that format (connects to LM)
 	@echo testing: csv is comma-delimited ; $(testbin) -f csv MetricsUsage 2>/dev/null | head -1 | grep -qE '^[A-Za-z].*,'
 	@echo testing: tsv contains a real tab ; $(testbin) -f tsv MetricsUsage 2>/dev/null | grep -q "$$(printf '\t')"
 	@echo testing: html is a minified table ; $(testbin) -f html MetricsUsage 2>/dev/null | grep -q '<table border=1'
@@ -613,7 +623,7 @@ copying: ## Copyright notice
 
 .PHONY: help
 help: ## Show this help
-	@$(AWK) 'BEGIN {FS = ":.*##"; printf "\nUsage: make [flags] [option]\n"} /^[$$()% \.0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36mmake %-12s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@$(AWK) 'BEGIN {FS = ":.*##"; printf "\nUsage: make [flags] [option]\n"} /^[$$()% \.0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36mmake %-14s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo
 	@echo 'Useful make flags:'
 	@echo '  make -n   : dry run'
