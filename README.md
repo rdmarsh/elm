@@ -128,11 +128,13 @@ Ensure the following software is installed (you can check some of these
 are present by running `make init`)
 
 * `make`
-* `curl`
 * `jq`
 * `awk`
 * `git` -- to initially clone the repo
 * `python3`
+* `curl` -- only needed for `make swagger` (refreshing the LogicMonitor spec).
+  The build itself never downloads anything, so `curl` is not required to
+  build, install or run elm.
 
 ### Clone the Repo
 
@@ -319,6 +321,7 @@ Commands:
   ActionChainById                 Get action chain by id
   ActionChainsList                Get action chains list
   ActionRuleById                  Get action rule
+  ActionRuleStatusById            Get action rule status
   ActionRulesList                 Get action rules list
   AdminById                       Get user
   AdminList                       Get user list
@@ -348,13 +351,18 @@ Commands:
                                   Get collector agent log level by component
   CollectorAgentLogLevels         Get collector agent log levels
   CollectorById                   Get collector
+  CollectorDownloadTokenById      Get collector download token
   CollectorEvents                 Get collector events
   CollectorGroupById              Get collector group
   CollectorGroupList              Get collector group list
   CollectorInstaller              Get collector installer
   CollectorList                   Get collector list
+  CollectorLogFileByName          Get collector log file
+  CollectorLogFiles               Get collector log files
   CollectorStatusCheck            Get collector status check
+  CollectorUpgradeHistory         Get collector upgrade history list
   CollectorVersionList            Get collector version list
+  CollectorsByGroupId             Get collectors by collector group id
   ConfigSourceById                Get config source by id
   ConfigSourceList                Get config source list
   ContractInfoByCompany           Get contract info by company
@@ -439,6 +447,7 @@ Commands:
   EventSourceById                 Get event source by id
   EventSourceList                 Get event source list
   ExternalApiStats                Get external api stats info
+  FocusCostUsage                  Focus cost and usage shaped usage export
   ImmediateDeviceListByDeviceGroupId
                                   Get immediate devices under group
   ImmediateWebsiteListByWebsiteGroupId
