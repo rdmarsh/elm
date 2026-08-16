@@ -28,7 +28,7 @@ EDITABLE ?= --editable
 
 # API VERSION
 # ---------------------------------------
-# set to '3' to use api v3, anything else will use v2
+# v3 only -- any other value is rejected (see the check further down)
 apiversion ?= 3
 
 # FILE EXTENSIONS
@@ -97,17 +97,15 @@ PYINSTFLAGS += --name $(name) --hidden-import=engine --collect-all=_cmds --colle
 # ---------------------------------------
 # do not change
 
-SWAGGER_V2_URL := https://www.logicmonitor.com/swagger-ui-master/dist/swagger.json
-SWAGGER_V3_URL := https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json
+lm_swagger_url := https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json
 
+# LM REST API v2 is no longer supported. Building against it selected a
+# different spec URL and emitted 'X-Version: 2', and it has not been exercised
+# in a long time. Fail loudly rather than silently producing a hybrid build
+# (a v3 spec sent with a v2 version header), which is what dropping the URL
+# alone would have done.
 ifneq ($(apiversion),3)
-apiversion = 2
-endif
-
-ifeq ($(apiversion),3)
-lm_swagger_url := $(SWAGGER_V3_URL)
-else
-lm_swagger_url := $(SWAGGER_V2_URL)
+$(error apiversion=$(apiversion) is not supported: elm builds against LM REST API v3 only)
 endif
 
 # BUILD VARIABLES
@@ -157,7 +155,7 @@ all: init ## Build everything except install (init, render, cfg, build)
 # do not change
  
 .PHONY: init
-init: $(defdir)/commands.$(JSN) upgrade ## Check prerequisites, initialise dirs, get swagger file, create definition files, install jinja2-cli
+init: $(defdir)/commands.$(JSN) upgrade ## Check prerequisites, initialise dirs, create definition files, install jinja2-cli
 	$(GREP) -m1 jinja2-cli $(REQUIREMENTS) | xargs -r $(PIP) $(PIPFLAGS)
 	@echo "$(OK_STRING) $@"
 
@@ -213,9 +211,33 @@ $(defdir)/commands.undocumented.$(JSN): ./swagger.undocumented.$(JSN) $(MAKEFILE
 	$(JQ) -c '.commands[] | (.command | if type == "number" then . else tostring | gsub("[^A-Za-z0-9-_]";"+") end), .' $@ | $(AWK) 'function fn(s) { sub(/^"/,"",s); sub(/"$$/,"",s); return "$(defdir)/" s ".$(JSN)"; } NR%2{f=fn($$0); next} {print > f; close(f);} '
 	@echo "$(OK_STRING) $@"
 
-$(defdir)/swagger.$(JSN): $(MAKEFILE_LIST) | $(defdir) CURL-exists
-	$(CURL) $(lm_swagger_url) $(OUTPUT_OPTION)
+# The documented spec is a committed snapshot (./swagger.documented.json),
+# not a live download. Builds are therefore reproducible and work offline, and
+# a change to the upstream spec arrives as a reviewable diff instead of
+# silently altering the generated commands. Refresh it deliberately with
+# 'make swagger'.
+$(defdir)/swagger.$(JSN): ./swagger.documented.$(JSN) $(MAKEFILE_LIST) | $(defdir)
+	cp $< $@
 	@echo "$(OK_STRING) $@"
+
+.PHONY: swagger
+swagger: | CURL-exists JQ-exists ## Re-download the LM swagger spec into ./swagger.documented.json
+	@tmp=$$(mktemp /tmp/elm-swagger-XXXXXX.json) ; \
+	trap 'rm -f "$$tmp"' EXIT INT TERM ; \
+	$(CURL) -fsSL --retry 2 --retry-delay 2 -o $$tmp $(lm_swagger_url) || { \
+	  echo "$(ER_STRING) could not download $(lm_swagger_url)" ; \
+	  echo "  LogicMonitor serves this URL behind a Cloudflare bot challenge, so" ; \
+	  echo "  curl cannot fetch it. Open the URL in a browser, save the JSON, and" ; \
+	  echo "  run: jq . <saved-file> > swagger.documented.$(JSN)" ; \
+	  echo "  See todo.md for the current status." ; \
+	  exit 1 ; } ; \
+	$(JQ) -e 'has("paths")' $$tmp >/dev/null 2>&1 || { \
+	  echo "$(ER_STRING) $(lm_swagger_url) did not return a swagger document" ; \
+	  echo "  got $$(wc -c < $$tmp | tr -d ' ') bytes starting: $$(head -c 60 $$tmp | tr -d '\n')" ; \
+	  echo "  swagger.documented.$(JSN) has been left as it was." ; \
+	  exit 1 ; } ; \
+	$(JQ) . $$tmp > swagger.documented.$(JSN)
+	@echo "$(OK_STRING) $@ (review with: git diff --stat swagger.documented.$(JSN))"
 
 .PHONY: cfg
 cfg: $(cfgdir)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
@@ -599,5 +621,5 @@ help: ## Show this help
 	@echo '  make -B   : force make target'
 	@echo
 	@echo 'You can override Makefile vars like so:'
-	@echo '  make apiversion=2'
+	@echo '  make PYTHON=python3.12'
 	@echo

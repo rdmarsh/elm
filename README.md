@@ -154,8 +154,7 @@ make
 This will:
 
 * Initialise needed dirs
-* Get json swagger file from LogicMonitor
-* Create json definition files
+* Create json definition files from the committed swagger snapshots
 * Create the python files from jinja templates
 * Create config dir
 * Copy example config file
@@ -198,6 +197,62 @@ cycle followed by `make docs` to keep the `elm --help` output in the
 ```shell
 make clean && make && make install && make docs
 ```
+
+### Swagger specs and generated commands
+
+Two swagger specs are committed at the repo root. Both are **raw swagger
+documents** — same shape, a top-level `paths` object:
+
+| File | What it is |
+| ---- | ---------- |
+| `swagger.documented.json` | Snapshot of LogicMonitor's official published spec |
+| `swagger.undocumented.json` | Hand-maintained endpoints missing from the official spec, plus re-declarations of endpoints the official spec gets wrong |
+
+Don't confuse these with the `commands.*.json` files the build derives from
+them: those are the *stripped* form, keeping only the fields elm needs
+(command name, path, summary, tag, options).
+
+```text
+swagger.documented.json   ─┐
+                           ├─→ _defs/commands.*.json ─→ _defs/<Command>.json ─→ _cmds/<Command>.py
+swagger.undocumented.json ─┘
+```
+
+As of the current snapshots that is 174 documented + 15 undocumented = 189
+commands, rendering to 176 modules. The gap is deliberate: 13 command names
+appear in *both* specs, and the undocumented one wins because it is written
+second. That is how the undocumented file patches the official spec — for
+example `ActionChainsList` and `ActionRulesList` are re-declared there to add
+the `size`/`offset`/`filter` parameters LogicMonitor's spec omits.
+
+`make` never downloads anything. `_defs/swagger.json` is just a copy of the
+committed snapshot, so builds are reproducible and work offline.
+
+elm targets **LM REST API v3 only** (sent as `X-Version: 3`); building with
+`make apiversion=` set to anything but `3` fails with an error.
+
+#### Refreshing the official spec
+
+```shell
+make swagger
+```
+
+**This currently fails.** LogicMonitor serves the spec from behind a
+Cloudflare bot challenge, which returns an HTML interstitial instead of JSON
+and cannot be answered by `curl`. Until that changes, refresh it by hand —
+fetch the URL in a browser, then:
+
+```shell
+jq . ~/Downloads/swagger.json > swagger.documented.json
+git diff --stat swagger.documented.json
+make clean && make && make install
+```
+
+The snapshot is stored **pretty-printed** for exactly this reason. Upstream
+serves it minified onto a single line, so committing it verbatim would make
+every refresh one unreadable ~800 KB diff. Pretty-printed, `git diff` shows
+precisely which endpoints and parameters LogicMonitor changed — and therefore
+which elm commands are about to change.
 
 ### Quick code testing loop
 

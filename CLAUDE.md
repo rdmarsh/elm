@@ -41,14 +41,16 @@ in the template instead.
     setup.py                   Package setup
     requirements.txt           Python dependencies
     Makefile                   Build orchestration -- source of truth for build steps
-    swagger.undocumented.json  Snapshot of LM Swagger spec (checked in)
+    swagger.documented.json    Snapshot of the official LM Swagger spec (checked in)
+    swagger.undocumented.json  Extra endpoints not in the official spec (checked in)
     config.example.ini         Example credentials config
 
 
 ## Build commands
 
     make            Full build (init + render + cfg)
-    make init       Download swagger, create _defs/
+    make init       Create _defs/ from the committed swagger snapshots
+    make swagger    Re-download the official spec into swagger.documented.json
     make render     Generate _cmds/ from _jnja/ templates
     make install    Build binary via PyInstaller into _dist/
     make clean      Remove all generated files
@@ -68,10 +70,9 @@ Sandbox note: in a Linux sandbox with the host tree mounted directly, running
 `engine.py`, `elm.py`, etc.). These are gitignored, so nothing is committed,
 but they overwrite the host's macOS build — `_dist/elm/elm` will then fail on
 macOS with "cannot execute binary file". Rebuild on the Mac (`make clean &&
-make && make install`) to restore it. Also note `make` re-downloads the
-documented swagger from logicmonitor.com; if that host is firewalled a 127-byte
-block page silently clobbers `_defs/swagger.json` and the build proceeds with
-only the ~15 undocumented commands. To build from source in a sandbox without
+make && make install`) to restore it. The build no longer downloads anything —
+both swagger specs are committed snapshots — so a firewalled sandbox is fine.
+To build from source in a sandbox without
 touching the host `venv/` (which is macOS-arch), point make at an isolated
 venv: `make VENV=/path/to/lxvenv JINJA=/path/to/lxvenv/bin/jinja2` (PyInstaller
 on Linux additionally needs `binutils` and a shared `libpython`).
@@ -148,10 +149,14 @@ At the start of any session involving live API calls:
 
 ## LM API
 
-- REST API v2 (v1 also supported via apiversion=1 make variable)
+- REST API v3 only (sent as the `X-Version: 3` header). Earlier API versions
+  are not supported: `make apiversion=<anything but 3>` fails with an error.
 - Auth: HMAC-SHA256 signed requests, not OAuth
 - Base URL: https://{account_name}.logicmonitor.com/santaba/rest
-- Swagger spec: fetched fresh by make init, snapshot in swagger.undocumented.json
+- Swagger spec: committed snapshots (`swagger.documented.json` +
+  `swagger.undocumented.json`), refreshed deliberately via `make swagger`.
+  Upstream is behind a Cloudflare bot challenge, so that target currently
+  fails and the file must be fetched with a browser — see todo.md.
 
 
 ## LM API quirks
