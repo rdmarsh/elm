@@ -72,3 +72,21 @@ Outcome:
 
 Context: same class as GitHub issue #47 (LM swagger omits paging params on
 several list endpoints).
+
+## Clean up stale scratch files in the repo root
+
+Found 2026-08-16 while auditing outstanding work. Both are gitignored, so
+neither is at risk of being committed — this is tidiness only, and each should
+be eyeballed before deletion in case it is still wanted:
+
+- ~~`dave.tmp`~~ — done, deleted 2026-08-16. It was 2.6 MB of raw `DeviceList`
+  API response (real per-device records from a live portal), left over from an
+  ad-hoc capture. Worth remembering that the `*.tmp` gitignore rule means the
+  pre-commit leak scan never sees files like this, so a bulk export can sit in
+  the working tree indefinitely without anything flagging it.
+- `temp.tmp` — 224 bytes, last written 2026-08-10, mode `0600`. The
+  restrictive mode suggests it may hold something sensitive; check before
+  deleting, and do not print its contents into a transcript.
+- `.pytest_cache/` — leftover from an experiment. This project has no
+  pytest/unittest suite (tests are Makefile-driven against the built binary,
+  see `CLAUDE.md` → Testing), so the directory is pure noise.

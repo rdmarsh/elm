@@ -40,21 +40,11 @@ Done 2026-07-09. `install` now depends on `init` and re-invokes
 `$(MAKE) _render _build _install`, matching the `all`/`build` pattern.
 See CHANGELOG `[Unreleased]` → Fixed for the full explanation.
 
-## [ ] 2. Add an HTTP timeout to the API request
+## [x] 2. Add an HTTP timeout to the API request
 
-**Problem:** `requests.get(...)` in `_jnja/engine.py.j2` (the line inside the
-`try:` block, currently `response = requests.get(url, data=data, ...)`) has no
-`timeout=` argument. If LogicMonitor or a proxy stops responding, elm hangs
-forever instead of erroring.
-
-**Change:** add `timeout=(10, 120)` (10 s to connect, 120 s to read) to that
-one `requests.get(...)` call in `_jnja/engine.py.j2`. Nothing else. A timeout
-raises `requests.exceptions.Timeout`, which is a subclass of
-`requests.RequestException`, so the existing `except` block already handles it
-— no new error handling needed.
-
-**Verify:** `make && make testbasic` (offline). Then one live call:
-`_dist/elm/elm MetricsUsage` must still return data.
+Done 2026-07 in commit `ef7f886`. `_jnja/engine.py.j2` now passes
+`timeout=(10, 120)` to `requests.get(...)`. See CHANGELOG `[Unreleased]` →
+Fixed. (This item was left marked `[ ]` by mistake; corrected 2026-08-16.)
 
 ## [ ] 3. Guard `response.json()` against non-JSON responses
 
@@ -178,9 +168,17 @@ goes stale every release.
 
 **Change (two parts):**
 
-1. In `SECURITY.md`, delete the whole "Supported Versions" markdown table and
-   keep just the existing sentence ("Only the latest release is supported...").
-   Nothing else in the file changes.
+1. **Done 2026-08-16, but not as originally written.** The original instruction
+   was to delete the table outright. Instead the table was kept (it is the
+   convention readers expect in a `SECURITY.md`) and rewritten as a rule with
+   **no version numbers in it**, so it can never go stale again:
+   `Latest release` = supported, `Anything older` = not. This also resolves a
+   contradiction nobody had spotted: the old table marked both 1.8.9 and 1.8.8
+   supported while the sentence directly above it said "Only the latest release
+   is supported. There is no backport policy." That sentence is unchanged and
+   is now what the table actually says. Maintainer's rationale: enumerating the
+   newest version adds nothing the sentence doesn't already say, and the file
+   should never need editing at release time.
 2. At the next release: rename `## [Unreleased]` to `## [1.8.10] - <date>` in
    `CHANGELOG.md` and add a fresh empty `## [Unreleased]` above it. (Do not do
    this part as routine cleanup — only when the maintainer says a release is
@@ -188,17 +186,12 @@ goes stale every release.
 
 **Verify:** proofread; no build needed for part 1.
 
-## [ ] 6. Rename the markdown link-check workflow file
+## [x] 6. Rename the markdown link-check workflow file
 
-**Problem:** `.github/workflows/action.yml` is the "Check Markdown links"
-workflow, but its generic filename says nothing about what it does.
-
-**Change:** `git mv .github/workflows/action.yml .github/workflows/markdown-link-check.yml`.
-No content changes. GitHub identifies workflows by the `name:` inside the
-file, so nothing else needs updating (the README badges reference
-`dependency-review.yml` and `makefile.yml`, not this file).
-
-**Verify:** after push, the "Check Markdown links" workflow still runs.
+Done 2026-08-16. `git mv .github/workflows/action.yml
+.github/workflows/markdown-link-check.yml`, no content changes. **Still to
+confirm after the next push:** that the "Check Markdown links" workflow
+actually runs from its new filename.
 
 ## [ ] 7. Add a scheduled pip-audit workflow
 
@@ -233,17 +226,12 @@ jobs:
 **Verify:** trigger it once via the Actions tab (workflow_dispatch) and check
 it completes. A finding makes the job fail — that's the alert mechanism.
 
-## [ ] 8. Ignore `_build/` and `_dist/` explicitly
+## [x] 8. Ignore `_build/` and `_dist/` explicitly
 
-**Problem:** `.gitignore` has no entry for `_build/` or `_dist/` — they are
-only ignored by luck, because the bare `elm` pattern happens to match the
-`elm/` subdirectory PyInstaller creates inside each. If PyInstaller ever
-changes its layout, build artefacts would show up as untracked files.
-
-**Change:** in `.gitignore`, in the `# ELM project compiled files` section,
-add two lines: `_build/` and `_dist/`.
-
-**Verify:** `git status` still shows a clean tree after a build.
+Done 2026-08-16. Added `_build/` and `_dist/` to the `# ELM project compiled
+files` section of `.gitignore`. Verified with `git check-ignore -v`: both
+directories (and `_dist/elm/elm`) now match the new explicit rules rather than
+the incidental bare `elm` pattern, and no tracked files live under either path.
 
 ## [ ] 9. Replace deprecated `datetime.utcnow()`
 
