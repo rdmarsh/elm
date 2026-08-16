@@ -38,12 +38,12 @@ pick up an item and complete it without further context.
 
 Done 2026-07-09. `install` now depends on `init` and re-invokes
 `$(MAKE) _render _build _install`, matching the `all`/`build` pattern.
-See CHANGELOG `[Unreleased]` → Fixed for the full explanation.
+See CHANGELOG `[1.8.10]` → Fixed for the full explanation.
 
 ## [x] 2. Add an HTTP timeout to the API request
 
 Done 2026-07 in commit `ef7f886`. `_jnja/engine.py.j2` now passes
-`timeout=(10, 120)` to `requests.get(...)`. See CHANGELOG `[Unreleased]` →
+`timeout=(10, 120)` to `requests.get(...)`. See CHANGELOG `[1.8.10]` →
 Fixed. (This item was left marked `[ ]` by mistake; corrected 2026-08-16.)
 
 ## [ ] 3. Guard `response.json()` against non-JSON responses
@@ -132,9 +132,15 @@ credentials into the runner's throwaway home directory gives the same safety
 with no test changes.
 
 Notes: `ubuntu-latest` already has `jq`, `curl`, `python3`, `binutils`
-(objdump, which PyInstaller needs on Linux) and a shared `libpython`; `make`
-downloads the LM swagger spec from logicmonitor.com, which works from GitHub
-runners. Expect the job to take several minutes (PyInstaller build).
+(objdump, which PyInstaller needs on Linux) and a shared `libpython`. Expect
+the job to take several minutes (PyInstaller build).
+
+**Updated 2026-08-16:** this item used to note that `make` downloads the
+swagger spec from logicmonitor.com "which works from GitHub runners". That is
+no longer true *and no longer relevant* — the spec is now a committed snapshot
+and `make` never touches the network, so CI needs no outbound access to build.
+That removes a whole class of flakiness this item would otherwise have
+inherited.
 
 **4b. Add a `testbasicoffline` target and call it from CI.** Split the LM-free
 assertions of `testbasic` into a new `make testbasicoffline` target: the first
@@ -159,7 +165,7 @@ it into this CI item.
 break something trivial in `_jnja/elm.py.j2` on a scratch branch and confirm
 the workflow goes red (delete the scratch branch afterwards).
 
-## [ ] 5. Version numbering cleanup
+## [x] 5. Version numbering cleanup
 
 **Problem:** `_version.py` says `1.8.10`, but `CHANGELOG.md`'s newest release
 heading is `[1.8.9]` (current work sits under `[Unreleased]`), and
@@ -179,12 +185,12 @@ goes stale every release.
    is now what the table actually says. Maintainer's rationale: enumerating the
    newest version adds nothing the sentence doesn't already say, and the file
    should never need editing at release time.
-2. At the next release: rename `## [Unreleased]` to `## [1.8.10] - <date>` in
-   `CHANGELOG.md` and add a fresh empty `## [Unreleased]` above it. (Do not do
-   this part as routine cleanup — only when the maintainer says a release is
-   happening.)
+2. **Done 2026-08-16.** `## [Unreleased]` was renamed to `## [1.8.10] -
+   2026-08-16` with a fresh empty `## [Unreleased]` above it, reconciling
+   `CHANGELOG.md` with `_version.py` (which already read 1.8.10). Both parts of
+   this item are now complete.
 
-**Verify:** proofread; no build needed for part 1.
+**Verify:** proofread; no build needed.
 
 ## [x] 6. Rename the markdown link-check workflow file
 
@@ -384,7 +390,7 @@ names are easier to scan, and the "these are bare TCP connect checks, not
 credential verification" caveat is now a printed legend (once per run, in all
 four sources + the doc) instead of being baked into the label itself.
 `ping`/`snmp` were never renamed (real protocol tests, not bare socket
-connects). See CHANGELOG `[Unreleased]` → Fixed for the full explanation.
+connects). See CHANGELOG `[1.8.10]` → Fixed for the full explanation.
 
 ## [defer] 18. New idea: single-device WMI/WinRM/SNMPv3 diagnostic tool
 

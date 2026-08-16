@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.10] - 2026-08-16
+
 ### Removed
 
 - `-x` / `--export` (export a query as a standalone Python script). It was a never-finished stub carried over from an older project: the handler referenced an `elm.flags` attribute that was never set on the context object, used `jinja2.FileSystemLoader`/`Environment` without importing them, and rendered a `save_query.py.j2` template that does not exist — so the advertised flag raised an exception on any use. The reproduce-a-request need it was meant to cover is already served by `-f api` (which prints the exact request URL and `Authorization` header) plus the standalone PyInstaller binary. Removed from `_jnja/elm.py.j2`, `_jnja/engine.py.j2`, and the README options list.
