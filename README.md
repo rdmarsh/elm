@@ -56,7 +56,7 @@ acme-db01.lan,acme-db01
       * [Quick code testing loop](#quick-code-testing-loop)
       * [Tools](#tools)
    * [Usage](#usage)
-      * [AdminById help](#adminbyid-help)
+      * [DeviceList help](#devicelist-help)
    * [Examples](#examples)
    * [Errors](#errors)
    * [Contributing](#contributing)
@@ -562,38 +562,71 @@ total, so `-C` shows a lower bound like `>50` with a warning; for those two
 only, `-c -s0` counts the rows actually fetched, which is accurate provided
 the true total is under 1000.
 
-### AdminById help
+### DeviceList help
 
-This is only one example, but other help messages are similar. The URL
-will take you directly to the swagger document relating to that command
+Every command has its own help, and they all share this shape: the API path it
+maps to, a Swagger URL that opens LogicMonitor's documentation for that exact
+endpoint, and the standard flags. List commands also print the full `-F`
+filter operator table, as below.
 
-`elm AdminById --help`
+`elm DeviceList --help`
 
+<!-- elm-cmd-help-start -->
 ```text
-Usage: elm AdminById [OPTIONS]
+Usage: elm DeviceList [OPTIONS]
 
-  Get user
+  Get device list
 
   API Path:
 
-  /setting/admins/{id}
+  /device/devices
 
   Swagger URL:
 
-  https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/Users/getAdminById
+  https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/#/Devices/getDeviceList
 
 Options:
-  --id INTEGER               [required]
-  -f, --fields FIELD,...     Only include the listed fields
-  -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
-  -c, --count                Count rows returned by this query (limited by -s,
-                             max 1000)
+  --end INTEGER
+  --netflowFilter TEXT
+  --start INTEGER
+  --includeDeletedResources / --dont-includeDeletedResources
+  -f, --fields FIELD,...          Only include the listed fields
+  -s, --size INTEGER              Quantity of results returned. [0-1000
+                                  inclusive, '0' returns all results (up to
+                                  1000)]  [default: 50]
 
-  -C, --total                Count all rows matching -F (LM's total; not
-                             limited by -s)
+  -o, --offset INTEGER            Display results starting from offset
+                                  [default: 0]
 
-  -h, --help                 Show this message and exit.
+  -F, --filter FIELD[>:,<:,>,<,!,:,~,!~]VALUE,...
+                                  Filter by field, operator and value.
+                                  Separate multiple filters with a comma.
+                                  Escape commas in field searches with a
+                                  backslash. Backslash and operators may need
+                                  escaping or quoting depending on the shell
+                                  used.
+                                  
+                                  Operators:
+                                  
+                                  >: - Greater than or equals
+                                  <: - Less than or equals
+                                  >  - Greater than
+                                  <  - Less than
+                                  !: - Does not equal
+                                  :  - Equals
+                                  ~  - Includes
+                                  !~ - Does not include
+
+  -S, --sort [+,-]FIELD,...       Sort by field; inc (+), dec (-)
+  -c, --count                     Count rows returned by this query (limited
+                                  by -s, max 1000)
+
+  -C, --total                     Count all rows matching -F (LM's total; not
+                                  limited by -s)
+
+  -h, --help                      Show this message and exit.
 ```
+<!-- elm-cmd-help-end -->
 
 ## Examples
 

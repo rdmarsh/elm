@@ -352,15 +352,25 @@ hooks: ## Install git hooks (run once after cloning)
 	git config core.hooksPath .githooks
 	@echo "$(OK_STRING) $@"
 
+# README blocks kept in sync by `make docs`, as <marker-name>:<elm args>.
+# Each maps to a <!-- NAME-start --> / <!-- NAME-end --> pair in README.md;
+# an empty args field means the top-level `elm --help`. Add a pair here and in
+# README.md to keep another block from going stale.
+DOCS_BLOCKS := elm-help: elm-cmd-help:DeviceList
+
 .PHONY: docs
 docs: $(testbin) ## Inject elm --help output into README.md between marker comments
 	@help=$$(mktemp /tmp/elm-help-XXXXXX.txt) ; \
 	readme=$$(mktemp /tmp/elm-readme-XXXXXX.md) ; \
 	trap 'rm -f "$$help" "$$readme"' EXIT INT TERM ; \
-	$(testbin) --help | sed 's|$(HOME)|/home/user|g' > $$help ; \
-	grep -q '^Usage:' $$help || { echo "$(ER_STRING) $(testbin) --help produced no usage output; README.md left unchanged" ; exit 1 ; } ; \
-	$(AWK) -v helpfile="$$help" '/^<!-- elm-help-start -->$$/{print; print "```text"; while ((getline line < helpfile) > 0) print line; print "```"; skip=1; next} /^<!-- elm-help-end -->$$/{skip=0} !skip{print}' README.md > $$readme && \
-	cp $$readme README.md
+	for block in $(DOCS_BLOCKS) ; do \
+	  name=$${block%%:*} ; args=$${block#*:} ; \
+	  grep -q -- "<!-- $$name-start -->" README.md || { echo "$(ER_STRING) marker <!-- $$name-start --> not found in README.md" ; exit 1 ; } ; \
+	  $(testbin) $$args --help | sed 's|$(HOME)|/home/user|g' > $$help ; \
+	  grep -q '^Usage:' $$help || { echo "$(ER_STRING) $(testbin) $$args --help produced no usage output; README.md left unchanged" ; exit 1 ; } ; \
+	  $(AWK) -v helpfile="$$help" -v start="<!-- $$name-start -->" -v end="<!-- $$name-end -->" '$$0 == start {print; print "```text"; while ((getline line < helpfile) > 0) print line; print "```"; skip=1; next} $$0 == end {skip=0} !skip{print}' README.md > $$readme || exit 1 ; \
+	  cp $$readme README.md ; \
+	done
 	@echo "$(OK_STRING) $@"
 
 $(bindir)/$(name): $(pyidistdir)/$(name)/$(name) | $(bindir)
