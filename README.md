@@ -551,12 +551,16 @@ Commands:
 ```
 <!-- elm-help-end -->
 
-**Counting records:** `-c` counts records returned in the current page;
-`-C` asks the LM API for the total. Most list endpoints return an exact count
-with `-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an
-exact total and elm shows a lower bound like `>50` with a warning. Use
-`-c -s0` to fetch all records and count them, accurate when the total is
-under 1000.
+**Counting records:** `-C` is almost always the one you want. It asks the LM
+API for the total number of records matching your filter, and is not limited
+by `-s`. `-c` counts only the rows the current request returned, so it is
+really `min(-s, matches)` -- with more matches than fit in a page it just
+echoes your page size, and a `-c` result equal to `-s` means "at least this
+many", not "exactly this many". Most list endpoints return an exact count with
+`-C`. For `AlertList` and `AuditLogList` the LM API cannot compute an exact
+total, so `-C` shows a lower bound like `>50` with a warning; for those two
+only, `-c -s0` counts the rows actually fetched, which is accurate provided
+the true total is under 1000.
 
 ### AdminById help
 
@@ -582,9 +586,13 @@ Options:
   --id INTEGER               [required]
   -f, --fields FIELD,...     Only include the listed fields
   -S, --sort [+,-]FIELD,...  Sort by field; inc (+), dec (-)
-  -c, --count                Return qty of query objects instead of query data
-  -C, --total                Return qty of ALL objects instead of query data
-  --help                     Show this message and exit.
+  -c, --count                Count rows returned by this query (limited by -s,
+                             max 1000)
+
+  -C, --total                Count all rows matching -F (LM's total; not
+                             limited by -s)
+
+  -h, --help                 Show this message and exit.
 ```
 
 ## Examples
