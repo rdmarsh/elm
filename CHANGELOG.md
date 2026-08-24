@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `elm --ai` and every command's `--help` claimed `-C`/`--total` "ignores -s and -F". The `-F` half is wrong: `-C` **respects** filters. Verified 2026-08-24 against a live portal -- `DeviceList -C` returns 1576 unfiltered and 1024 with a `-F` filter applied, and matches the exact row count on filters narrow enough to cross-check. Mechanically it could not be otherwise: `engine.py`'s `_output_only` set means `-c`/`-C` are never sent as query params, so the filter still reaches LogicMonitor and `-C` simply prints `obj['total']` for that filtered query. The "ignores -s" half is correct, since a total is independent of page size. Both help strings now say `respects -F, ignores -s`.
+- The same mistake made `elm-notes.yaml` recommend a workaround that returns a wrong answer. It suggested `-c -s0` for a "real count", but `-c` counts the rows actually fetched and a page caps at 1000 -- so for the filtered set above it reports 1000 instead of 1024, silently under-reporting rather than erroring. The note now scopes that workaround to the only case it is needed (`AlertList`/`AuditLogList`, which return LM's negative sentinel instead of a total, and only when the true count is under 1000), and `--ai` now tells the reader to prefer `-C` for counting.
+
 ## [1.8.10] - 2026-08-16
 
 ### Removed

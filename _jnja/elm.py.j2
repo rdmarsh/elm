@@ -139,7 +139,10 @@ KEY SUBCOMMAND FLAGS (most commands support these)
   -F, --filter F   Filter expression; multiple -F flags are AND'd
   -S, --sort F     Sort field (+field asc, -field desc)
   -c, --count      Count matching results (respects -F)
-  -C, --total      Count ALL objects (ignores -s and -F)
+  -C, --total      Total matching results from LM (ignores -s, RESPECTS -F)
+                   Prefer -C for counting: -c counts the rows actually
+                   fetched, so it caps at 1000 and silently under-reports
+                   anything larger. -C is LM's server-side total.
 
 OUTPUT FORMAT
   Responses are wrapped: {"CommandName": [{...}, ...]}

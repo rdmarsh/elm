@@ -60,7 +60,7 @@ import engine
                help="Only include the listed fields")
 {%- endif %}
 @click.option("--count", "-c", "count", is_flag=True, help="Return qty of query objects instead of query data")
-@click.option("--total", "-C", "total", is_flag=True, help="Return qty of ALL objects instead of query data")
+@click.option("--total", "-C", "total", is_flag=True, help="Return LM's total qty of matching objects instead of query data (respects -F, ignores -s)")
 @click.pass_obj
 def {{ command }}(elm, **kwargs):
     """{{ summary | capitalize }}
