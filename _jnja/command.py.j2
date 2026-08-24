@@ -59,8 +59,8 @@ import engine
 @click.option("--fields", "fields", "-f", type=str, nargs=1, metavar="FIELD,...", \
                help="Only include the listed fields")
 {%- endif %}
-@click.option("--count", "-c", "count", is_flag=True, help="Return qty of query objects instead of query data")
-@click.option("--total", "-C", "total", is_flag=True, help="Return LM's total qty of matching objects instead of query data (respects -F, ignores -s)")
+@click.option("--count", "-c", "count", is_flag=True, help="Count rows returned by this query (limited by -s, max 1000)")
+@click.option("--total", "-C", "total", is_flag=True, help="Count all rows matching -F (LM's total; not limited by -s)")
 @click.pass_obj
 def {{ command }}(elm, **kwargs):
     """{{ summary | capitalize }}

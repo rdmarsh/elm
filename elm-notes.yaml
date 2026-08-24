@@ -239,7 +239,7 @@ _standard_list_options:
   fields: "-f/--fields FIELD,... — server-side field projection (comma-separated)"
   filter: "-F/--filter FIELD[op]VALUE,... — server-side filter; see operators in --help"
   sort:   "-S/--sort [+,-]FIELD,... — server-side sort; + ascending, - descending"
-  count:  "-c/--count — return count of records actually fetched, i.e. the current page (respects -F). Because a page is capped at 1000, '-c -s0' silently returns 1000 for any larger set — it under-reports rather than erroring. Use -C for counts unless you specifically want the page size."
+  count:  "-c/--count — returns min(-s, matching rows), i.e. how many records this request actually fetched (respects -F). Verified 2026-08-24: -c with the default -s50 returns 50, -c -s7 returns 7, -c -s0 returns 1000 — it is echoing the page size, not counting matches. So a -c result EQUAL to -s means 'at least this many', never 'exactly this many', and it is only a true count when it comes back smaller than -s. Use -C for counting."
   total:  "-C/--total — return LM's server-side total for the query. RESPECTS -F (verified 2026-08-24 against a live portal: DeviceList -C = 1576 unfiltered vs 1024 with a -F filter, and exact on narrow filters where the row count could be cross-checked). Ignores -s, since the total is independent of page size. Mechanically: engine.py's _output_only set means -C/-c are never sent as query params, so the filter still reaches LM and -C just prints obj['total'] for that filtered query. Most list endpoints return an exact total. AlertList and AuditLogList instead return LM's negative sentinel (elm shows '>N' with a warning); for those two only, and only when the true count is ≤ 1000, '-c -s0' is a workaround."
 
 # ---
