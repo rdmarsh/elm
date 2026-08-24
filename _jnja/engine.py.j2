@@ -224,9 +224,15 @@ def engine(elm, **kwargs):
 
         if returned:
             #give a warning if there are more records not shown
-            if 'size' in flags and (obj['total'] > flags['size'] or obj['total'] < 0):
-                click.secho('Warning: results truncated by size limit',
-                            fg='yellow', err=True)
+            if 'size' in flags:
+                # compare against what this page actually reached, not the raw
+                # total: with --offset the earlier pages already covered
+                # everything below it, so total > size is not truncation.
+                # ben magic drops offset=0, hence the .get() default.
+                shown = int(flags.get('offset', 0)) + len(obj['items'])
+                if obj['total'] < 0 or shown < obj['total']:
+                    click.secho('Warning: results truncated by size limit',
+                                fg='yellow', err=True)
 
             #warn if any requested fields were not returned by the API
             if 'fields' in flags:
@@ -303,7 +309,9 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
         elif format == 'json':
             output = json.dumps({command: items})
         elif format == 'jsonl':
-            output = df.to_json(orient='records', lines=True)
+            #to_json(lines=True) terminates the last record too, and click.echo
+            #adds its own newline - strip it so the stream has no blank last line
+            output = df.to_json(orient='records', lines=True)[:-1]
         elif format == 'prettyjson':
             formatted_json=json.dumps({command: items}, sort_keys=True, indent=2)
             colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
@@ -317,7 +325,8 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="github", floatfmt='.0f')
         elif format == 'latex':
-            output = df.to_latex(header=not noheader, index=index)
+            #to_latex also ends with a newline; same trailing blank line as jsonl
+            output = df.to_latex(header=not noheader, index=index)[:-1]
         elif format == 'md':
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="simple", floatfmt='.0f')
         elif format == 'pipe':

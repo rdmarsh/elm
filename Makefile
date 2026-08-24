@@ -397,7 +397,7 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testbasic testfmts testfmtcont testsqlite testverb testid ## Run quick and simple tests
+test: testbasic testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
@@ -508,6 +508,25 @@ testfmtcont: | JQ-exists ## Assert each format's output really is that format (c
 	@echo testing: wget prints a wget command ; $(testbin) -f wget MetricsUsage 2>/dev/null | grep -q '^wget '
 	@echo testing: values single-field is a bare value with no header ; $(testbin) -f values MetricsUsage -f numberOfDevices 2>/dev/null | grep -qE '^[0-9]+$$'
 	@echo testing: values multi-field is tab-separated with no header ; out=$$($(testbin) -f values MetricsUsage -f numberOfDevices,numberOfStandardDevices 2>/dev/null) ; echo "$$out" | grep -q "$$(printf '\t')" && ! echo "$$out" | grep -qi 'numberOfDevices'
+	@echo "$(OK_STRING) $@"
+
+# Pagination regressions: jsonl used to emit a trailing blank line (to_json
+# already newline-terminates the last record and click.echo added another),
+# so every page counted one row over; and the truncation warning compared
+# total against size while ignoring offset, so it fired on the last page too.
+# Note the line-count check must not go through $$(...) - that strips the
+# trailing newlines the bug produced.
+.PHONY: testpage
+testpage: ## Assert jsonl line count and the offset-aware truncation warning (connects to LM)
+	@echo testing: jsonl emits exactly one line per record ; \
+		n=$$($(testbin) -f jsonl DeviceList -s 3 -f id 2>/dev/null | wc -l) ; \
+		[ "$$n" -eq 3 ] || { echo "expected 3 lines, got $$n" ; exit 1 ; }
+	@echo testing: truncation warning fires when more records remain ; \
+		$(testbin) -f jsonl DeviceList -s 1 -f id 2>&1 >/dev/null | grep -q 'truncated by size limit'
+	@echo testing: no truncation warning on the last page ; \
+		total=$$($(testbin) DeviceList -C 2>/dev/null) ; \
+		$(testbin) -f jsonl DeviceList -s 1 -o $$((total - 1)) -f id 2>&1 >/dev/null \
+		| grep -q 'truncated by size limit' && { echo "spurious truncation warning at offset $$((total - 1))" ; exit 1 ; } || true
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testsqlite

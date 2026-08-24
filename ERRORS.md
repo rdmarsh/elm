@@ -31,10 +31,17 @@ To fix manually:
 None of the fields selected by the fields option (`--fields FIELD,...`)
 are valid fields
 
-## Warning: size limit is less than total records
+## Warning: results truncated by size limit
 
-There is a valid size limit option (`--size INTEGER`, defaults to 50),
-but there are more results returned by the query that aren't displayed
+The query matches more records than this page returned, so some results
+aren't displayed. Raise `--size INTEGER` (defaults to 50, max 1000) or
+page through the rest with `--offset INTEGER`.
+
+The check accounts for `--offset`: it compares `offset + rows returned`
+against LogicMonitor's total for the query, so the final page of a
+paginated fetch does not warn even when the total exceeds `--size`. It
+also fires when LM cannot compute an exact total (a negative `total`),
+since that means the result set may be incomplete.
 
 ## Warning: no data found
 
