@@ -19,6 +19,7 @@ These apply across all commands and resource types.
    * [Use --format api to debug the API call](#use---format-api-to-debug-the-api-call)
    * [Output formats for tables and documents](#output-formats-for-tables-and-documents)
    * [Add header and footer custom text](#add-header-and-footer-custom-text)
+   * [Publish to a Confluence page with mark](#publish-to-a-confluence-page-with-mark)
    * [meta](#meta)
 <!--te-->
 
@@ -215,9 +216,10 @@ elm -f rst      DeviceList -s5 -f id,displayName   # reStructuredText grid table
 elm -f latex    DeviceList -s5 -f id,displayName   # LaTeX tabular environment
 ```
 
-Note: `md` and `tab` both use tabulate `simple` format internally and currently produce
-identical output — verify with `-H` (noheader) if you need to rely on that. Use `gfm` or
-`pipe` for Markdown you intend to paste into GitHub or a wiki.
+Note: `md` is an alias for `gfm` — both emit a Markdown pipe table, so either is safe
+to paste into GitHub or a wiki. `pipe` is the same table with alignment markers. `tab`
+is the space-aligned plain table, which is what `md` used to produce (see issue #55);
+if you want that look, ask for `tab` by name.
 
 ## Add header and footer custom text
 
@@ -228,6 +230,37 @@ with any output format. The example below is in jira markup:
 ```shell
 elm --head "{warning}This information is automatically generated. Changes may be overwritten!{warning}" --foot "_above extracted at $(date "+%Y-%m-%d %H:%M")_" --format jira MetricsUsage
 ```
+
+## Publish to a Confluence page with mark
+
+[`mark`](https://github.com/kovetskiy/mark) publishes Markdown to Confluence, and needs
+a block of HTML comments at the top of the file to say where the page goes. elm has no
+Confluence format and does not need one — `--head` supplies that block:
+
+```shell
+elm --head '<!-- Space: OPS -->
+<!-- Parent: Monitoring -->
+<!-- Title: Collector inventory -->' -f md CollectorList -s0 -f id,hostname,description > page.md
+mark -f page.md
+```
+
+`mark` reads **files, not stdin** (`-f` takes paths and globs), so a pipe will not work —
+but a process substitution will, which keeps it to one command:
+
+```shell
+mark --title-from-h1 --drop-h1 -f <(
+  printf '<!-- Space: OPS -->\n<!-- Parent: Monitoring -->\n\n# Collector inventory\n\n'
+  elm -f md CollectorList -s0 -f id,hostname,description
+)
+```
+
+`--title-from-h1` takes the page title from the leading `# H1` and `--drop-h1` keeps that
+heading out of the body, so no `<!-- Title: -->` is needed — but bare elm output has no
+H1, which is why one is printed above. Add `--compile-only` to see what would be uploaded
+without publishing anything.
+
+Use `-f md` or `-f gfm`. With `-f tab` the dashes under the header become an `<hr />` and
+the rows collapse into a single paragraph.
 
 ## meta
 
