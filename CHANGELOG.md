@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-09-12
+
 ### Fixed
 
 - `make swagger` works again. LogicMonitor served the spec from behind a Cloudflare bot challenge from 2026-08-16 (HTTP 403 and a "Just a moment..." interstitial instead of JSON, reproduced from two networks); as of 2026-09-11 it returns HTTP 200 and ~833 KB of `application/json`, confirmed from two independent networks, and the download is byte-identical to the committed snapshot — so upstream has not changed the spec in that time either. The docs that said the target "currently fails" (`README.md`, `CLAUDE.md`) now describe it as the normal path, with `make swaggerfile` as the fallback, and the `todo.md` item tracking the block is closed (the outcome is recorded under CLAUDE.md's Resolved list so it is not re-investigated).
@@ -570,7 +572,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/rdmarsh/elm/compare/v1.8.10...v1.9.0
 [1.7.0]: https://github.com/rdmarsh/elm/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/rdmarsh/elm/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/rdmarsh/elm/compare/v1.4.0...v1.5.0
