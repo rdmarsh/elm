@@ -17,6 +17,7 @@ script also responds to `-h`/`--help`.
 
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
+- [Change advice](#change-advice) — `tools/elm-change-advice.py`
 - [Collector health check](#collector-health-check) — `tools/lm-collector-run-groovy.ps1`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
@@ -380,3 +381,58 @@ API drops), so row selection and ordering have to happen client-side — here, o
 in `jq`. The same legend is
 printed at the foot of every Markdown report. Upgrading is done in the portal —
 elm is read-only.
+
+## Change advice
+
+`tools/elm-change-advice.py` drafts the change notice for a LogicModule
+upgrade — what is changing, when, who is affected, what to expect and what
+happens if it goes wrong — with the impact filled in from the live portal
+instead of guessed. It pairs with the [module updates](#module-updates) report:
+that one tells you what needs upgrading, this one writes the notice.
+
+**It drafts only.** Nothing is sent, no mail is configured, no ticket is
+raised, and it never performs the upgrade it describes. The notice goes to
+stdout for a human to read, edit and send.
+
+```shell
+# straight from the update report
+tools/elm-module-updates.py --csv | head -20 > batch.csv
+tools/elm-change-advice.py --date 2026-10-02 --from batch.csv
+
+# or by id, all three formats at once
+tools/elm-change-advice.py --date 2026-10-02 --window '19:00-20:00 AEST' \
+  --id 28,107 --ref CHG0012345 --contact monitoring@example.com --format all
+```
+
+`--format` picks the shape: `email` (default — plain text wrapped to 72
+columns with a suggested subject line), `itsm` (field-per-line for a change
+record: summary, risk, impact, implementation plan, backout plan, test plan),
+`md` (Markdown for a wiki page or ticket), or `all`.
+
+Filled in from the API: module names, installed versions and publish dates,
+collection method and interval, whether each module is locally customised or
+deprecated, the instances actually collected, and the devices each module
+applies to. Left to you as `<ANGLE BRACKET>` placeholders so an unedited draft
+is obviously unfinished: the window, approver, change reference and contact.
+
+**Two counts, never merged.** "Collected" is real instances; "applies to" is
+the appliesTo match, which can be far larger — one module here collects 2
+instances but applies to 1205 devices. The device names come from
+`AssociatedDeviceListByDataSourceId`, which caps at 1000 rows per page, so the
+count comes from `-C` (LM's true total) while the names are treated as a
+sample; `--max-devices N` caps how many are listed (default 25) and the notice
+says when the sample is incomplete.
+
+**Ids are only unique within a type.** In one test portal 329 ids belonged to
+several types at once and id 28 to six of them, so a bare `--id 28` means
+"`--type`'s id 28" (default `DATASOURCE`) and anything else needs `TYPE:ID`,
+e.g. `TOPOLOGYSOURCE:28`. An id that exists under a different type is skipped
+with a message naming the types that do have it. The `--csv`/`--json` output of
+`elm-module-updates.py` always carries a `type` column for exactly this reason,
+so `--from` is never ambiguous.
+
+Risk is derived, not asserted, and `--risk` overrides it: a **deprecated**
+module makes it High (it cannot be upgraded at all — it is replaced by a
+different module on LM's timetable, so the change is a migration), a locally
+customised module makes it Medium (upgrading overwrites the local edits), and a
+wide blast radius is called out with the numbers behind it.
