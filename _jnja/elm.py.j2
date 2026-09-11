@@ -122,8 +122,22 @@ elm is a READ-ONLY CLI for extracting data from LogicMonitor via the REST API.
 Source, docs, and examples: https://github.com/rdmarsh/elm
 
 CRITICAL: global flags must come BEFORE the subcommand name.
-  elm -f csv DeviceList -s0    # correct
-  elm DeviceList -f csv -s0    # wrong: -f here is --fields, not --format
+Three short flags mean something different on each side of it, so position
+is not cosmetic:
+
+  flag   before COMMAND (global)   after COMMAND (subcommand)
+  -f     --format FORMAT           --fields FIELD,...
+  -o     --filename FILE           --offset N
+  -s     --proxy <HOST PORT>       --size N
+
+  elm -f csv DeviceList -s 1000 -o 2000   # correct
+  elm DeviceList -f csv -s0               # error: -f here is --fields
+  elm -s 1000 DeviceList                  # error, but it names --proxy, not --size
+  elm -o 2000 DeviceList                  # NO ERROR -- the dangerous one: writes a
+                                          # file named "2000" and returns page 1
+
+Only -o fails silently. If you are paginating, keep -s and -o after the
+command name and check that the rows differ between pages.
 
 KEY GLOBAL FLAGS
   -l, --list          List available credential profiles and exit

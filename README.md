@@ -551,6 +551,27 @@ Commands:
 ```
 <!-- elm-help-end -->
 
+**Flag position matters.** Global flags go **before** the command name,
+per-command flags after it. Three short flags are reused on both sides with
+different meanings, so position changes what the flag does:
+
+| Flag | Before COMMAND (global) | After COMMAND (per-command) | If misplaced |
+|------|-------------------------|-----------------------------|--------------|
+| `-f` | `--format FORMAT` | `--fields FIELD,...` | Errors both ways (`invalid choice` / `no valid fields selected`) |
+| `-s` | `--proxy <HOST PORT>` | `--size N` | Errors, but names `--proxy` and complains the *command name* is not an integer -- `-s` takes two values |
+| `-o` | `--filename FILE` | `--offset N` | **Silent.** Exits 0, writes a file named after the offset, returns page 1 |
+
+```shell
+elm -f csv DeviceList -s 1000 -o 2000   # correct: format global, size/offset per-command
+elm DeviceList -f csv -s0               # error: -f here is --fields
+elm -o 2000 DeviceList                  # no error, wrong result
+```
+
+Only `-o` fails silently, which makes it the one to guard: a pagination loop
+with `-o` on the wrong side re-fetches page 1 every iteration and leaves a
+trail of files named after the offsets. `-F`, `-S`, `-c` and `-C` are
+per-command only; `-H`, `-I` and `-p` are global only, so those never collide.
+
 **Counting records:** `-C` is almost always the one you want. It asks the LM
 API for the total number of records matching your filter, and is not limited
 by `-s`. `-c` counts only the rows the current request returned, so it is

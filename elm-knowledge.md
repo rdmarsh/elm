@@ -12,12 +12,30 @@ A living document. Add entries as new patterns, gotchas, and findings are confir
 elm [GLOBAL FLAGS] COMMAND [COMMAND FLAGS]
 ```
 
-Global flags (format, config, head, foot, etc.) **must come before the subcommand name**. Putting them after will fail silently or error.
+Global flags (format, config, head, foot, etc.) **must come before the subcommand name**.
+
+Three short flags are reused on both sides of the command name with different
+meanings, so position changes what the flag does — it is not cosmetic:
+
+| Flag | Before COMMAND (global) | After COMMAND (subcommand) | If misplaced |
+|------|-------------------------|----------------------------|--------------|
+| `-f` | `--format FORMAT` | `--fields FIELD,...` | Errors both ways (`invalid choice` / `no valid fields selected`) |
+| `-s` | `--proxy <HOST PORT>` | `--size N` | Errors, but the message names `--proxy` and complains the *command name* is not an integer — `-s` takes two values |
+| `-o` | `--filename FILE` | `--offset N` | **Silent.** `elm -o 2000 DeviceList` writes a file named `2000` containing page 1 and exits 0 |
 
 ```shell
-elm -f csv DeviceList -s0    # correct
-elm DeviceList -f csv -s0    # -f csv is a field selector here, not format
+elm -f csv DeviceList -s 1000 -o 2000   # correct: format global, size/offset per-command
+elm DeviceList -f csv -s0               # error: -f here is --fields
+elm -o 2000 DeviceList                  # no error, wrong result: file named "2000", page 1
 ```
+
+Only `-o` fails silently, which makes it the one worth guarding: a pagination
+loop that puts `-o` before the command name re-fetches page 1 every iteration
+and leaves a trail of files named after the offsets. Verified against a live
+portal 2026-08-27.
+
+`-F` (filter), `-S` (sort), `-c`, `-C` are subcommand-only; `-H` (noheader),
+`-I` (index), `-p` (profile) are global-only. Those do not collide.
 
 ### Key global flags
 
