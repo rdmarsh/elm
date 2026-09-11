@@ -75,12 +75,14 @@ _formats:
   tab:
     description: Tabulate 'simple' format — headers + separator line + aligned columns
     pipeable: false
-    note: "Identical output to md"
+    note: "Plain text, NOT Markdown. This is what md produced before issue #55"
 
   md:
-    description: Tabulate 'simple' format — same as tab
+    description: Markdown pipe table — alias for gfm (issue #55)
     pipeable: false
-    note: "Identical output to tab — may be a bug or historical alias"
+    note: "Was tabulate 'simple' (identical to tab) until issue #55, which is
+      why older notes call it a historical alias. It now emits a real Markdown
+      table; use tab if you want the plain-text one."
 
   txt:
     description: Plain text — headers + aligned columns, no separator line under headers

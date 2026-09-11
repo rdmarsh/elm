@@ -543,7 +543,7 @@ testfmtcont: | JQ-exists ## Assert each format's output really is that format (c
 	@echo testing: prettyxml is indented ; $(testbin) -f prettyxml MetricsUsage 2>/dev/null | grep -q '^  <row>'
 	@echo testing: gfm has a markdown separator row ; $(testbin) -f gfm MetricsUsage 2>/dev/null | grep -q '^|-'
 	@echo testing: latex has a tabular environment ; $(testbin) -f latex MetricsUsage 2>/dev/null | grep -q 'begin{tabular}'
-	@echo testing: md has a separator line ; $(testbin) -f md MetricsUsage 2>/dev/null | grep -q -- '-----'
+	@echo testing: md is a markdown table, not the old simple style ; $(testbin) -f md MetricsUsage 2>/dev/null | grep -q '^|-'
 	@echo testing: pipe has alignment colons ; $(testbin) -f pipe MetricsUsage 2>/dev/null | grep -q -- '-:'
 	@echo testing: rst is a grid table ; $(testbin) -f rst MetricsUsage 2>/dev/null | grep -q '==='
 	@echo testing: tab has a separator line ; $(testbin) -f tab MetricsUsage 2>/dev/null | grep -q -- '-----'
