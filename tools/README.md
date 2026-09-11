@@ -277,7 +277,7 @@ tools/elm-module-updates.py
 # another portal, saved as Markdown
 tools/elm-module-updates.py -p prod > module-updates.md
 
-# flat CSV of both sections, with in_use / customised / upgrade / origin_status
+# flat CSV of both sections, with status / in_use / customised / upgrade
 tools/elm-module-updates.py --csv
 
 # other module types — one, several, or all
@@ -362,6 +362,12 @@ module, so a single template covers every module type
 on purpose: the only ways to get it out of elm are `-f api`, which also prints
 the Authorization header, and `-vv`, which prints a truncated access key
 fingerprint — neither is something a tool should capture just to build a URL.
+
+A **status** column (the module's `originStatus`) appears in the Markdown report
+whenever the selection contains more than one — with `--status ALL`, say, or a
+deprecated listing. When every row has the same status the column is dropped and
+the `Selected:` line above the table names it instead, the same way `type` is
+dropped from a single-type report. `--csv`/`--json` always carry it.
 
 **Deprecated modules never appear in this report**, and the tool says so on
 stderr with a count. They are replaced rather than updated, so they never carry

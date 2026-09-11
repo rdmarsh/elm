@@ -238,7 +238,7 @@ def row(i, now_ms, url_template=None, portal=None):
             i.get("installationStatuses") or ()) else "no",
         "upgrade": "yes" if "CAN_UPGRADE" in set(
             i.get("installationStatuses") or ()) else "no",
-        "origin_status": i.get("originStatus") or "",
+        "status": i.get("originStatus") or "",
         "in_use": "yes" if i.get("isInUse") else "no",
     }
 
@@ -263,8 +263,8 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None):
 
 # `type` is dropped from the output unless more than one module type is
 # selected -- a single-type report repeats it on every row for nothing.
-COLUMNS = ("published", "age", "type", "version", "id", "name", "group",
-           "tags", "usage", "usage_of")
+COLUMNS = ("published", "age", "type", "status", "version", "id", "name",
+           "group", "tags", "usage", "usage_of")
 # `url` is appended to CSV/JSON only when a template is configured; in Markdown
 # it becomes a link on the name instead of a column of its own.
 
@@ -340,7 +340,7 @@ def main(argv=None):
                    help="also list modules that are already up to date")
     p.add_argument("--csv", action="store_true",
                    help="emit one flat CSV of both sections (with in_use, "
-                        "customised, upgrade and origin_status columns) "
+                        "customised and upgrade columns) "
                         "instead of the GFM report")
     p.add_argument("--json", action="store_true",
                    help="emit the report rows as JSON, in report order")
@@ -445,7 +445,7 @@ def main(argv=None):
 
     if args.csv:
         cols = COLUMNS + ("devices", "active", "in_use", "customised",
-                          "upgrade", "origin_status")
+                          "upgrade")
         if linked:
             cols += ("url",)
         # type/usage/usage_of stay in CSV and JSON even for a single-type
@@ -476,7 +476,13 @@ def main(argv=None):
     # type and the usage unit are constant within a table. Both are dropped as
     # columns: the type is in the heading, and the unit becomes the `usage`
     # header. (`--csv`/`--json` keep them as real columns instead.)
-    cols = tuple(c for c in COLUMNS if c not in ("type", "usage_of"))
+    # `status` earns a column only when it can differ between rows. The default
+    # report is all CORE, and the "Selected:" line above already says so, which
+    # is the same reason `type` and `usage_of` are dropped when constant.
+    varies = len({r["status"] for r in unused + inuse}) > 1
+    cols = tuple(c for c in COLUMNS
+                 if c not in ("type", "usage_of")
+                 and (c != "status" or varies))
     if args.devices:
         cols += ("devices", "active")
     for heading, rows in (("Not in use", unused), ("In use", inuse)):
@@ -501,6 +507,13 @@ def main(argv=None):
           "start around 2017-05, so anything older bunches up there and cannot "
           "be ranked against its peers.")
     print("- **version** -- the installed version, not the available one.")
+    if varies:
+        print("- **status** -- the module's `originStatus`: `CORE` is LM "
+              "official, `DEPRECATED` means it is replaced rather than "
+              "updated (so it can never carry an upgrade), and `COMMUNITY` / "
+              "`SECURITY_REVIEW` are the other published states. Shown only "
+              "when the selection contains more than one -- the \"Selected:\" "
+              "line above names it when they are all the same.")
     print("- **tags** -- the module's own tags, first three shown; "
           "`--csv`/`--json` carry the full list, and `--tag` filters on them.")
     print("- **usage** (headed `instances`, `hosts` or `modules`) -- how widely "
