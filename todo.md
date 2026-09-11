@@ -77,5 +77,15 @@ Outcome:
   genuine LM API limitation in `elm-notes.yaml` and consider whether
   `tools/elm-backup.sh` needs a client-side `>1000` truncation guard.
 
+**Test method (proven 2026-09-11 on `V4Metadata`):** declare the params in the
+endpoint's definition, rebuild, then compare `-c` across `-s 5` / `-s 100` /
+`-o <big>` / `-F <field>:<value>`. If the count never moves, the API is ignoring
+them — check `-vv` to confirm elm really sent them before concluding anything.
+That test settled `/setting/logicmodules/metadata` as a **confirmed no**: it
+ignores all three, so the override was deliberately not added there (see
+`elm-knowledge.md` → LogicModule versions and updates). It is the same class of
+question as this item, so the same method applies once a portal with action
+chains/rules data is available.
+
 Context: same class as GitHub issue #47 (LM swagger omits paging params on
 several list endpoints).

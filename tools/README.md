@@ -20,6 +20,7 @@ script also responds to `-h`/`--help`.
 - [Collector health check](#collector-health-check) — `tools/lm-collector-run-groovy.ps1`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
+- [Module updates](#module-updates) — `tools/elm-module-updates.py`
 
 ## API speed test
 
@@ -248,3 +249,95 @@ Rows are sorted active-first, then by `FROM`. `--active` limits output to
 currently-active SDTs; `--exact` switches host matching from contains
 (`displayName~`) to exact (`displayName:`); `-p`/`--profile` selects the portal
 (defaults to `config`). Requires `elm`, `jq`, and `column`.
+
+## Module updates
+
+`tools/elm-module-updates.py` lists LogicModules that have a newer version
+waiting in the LM Exchange — by default, **DataSources** that are LM official
+(`originStatus` `CORE`), **not** customised locally, and upgradable — split into
+two sections, *not in use* then *in use*, each sorted **most out of date first**.
+`-t`/`--type` switches to any other module type, several comma-separated, or
+`ALL` — the same single call already carries propertysources, configsources,
+eventsources, logsources, topologysources, SNMP sysOID maps and appliesTo
+functions, so other types cost nothing extra; with more than one type each
+section gets a table per type.
+
+It costs **one API call** regardless of portal size: `elm V4Metadata`
+(`GET /setting/logicmodules/metadata`), the feed behind the portal's module
+toolbox. That one response carries every installed module *and* everything
+installable from the Exchange, with per-module `installationStatuses`
+(`IS_INSTALLED`, `CAN_UPGRADE`, `IS_CUSTOMIZED`, `CAN_INSTALL`), `originStatus`,
+`isInUse`, the installed `originVersion`, and `originPublishedAtMS`.
+
+```shell
+# the default report: official, uncustomised, upgradable datasources
+tools/elm-module-updates.py
+
+# another portal, saved as Markdown
+tools/elm-module-updates.py -p prod > module-updates.md
+
+# flat CSV of both sections, with in_use / customised / upgrade / origin_status
+tools/elm-module-updates.py --csv
+
+# other module types — one, several, or all
+tools/elm-module-updates.py -t PROPERTYSOURCE
+tools/elm-module-updates.py -t DATASOURCE,PROPERTYSOURCE
+tools/elm-module-updates.py -t ALL
+
+# widen the selection
+tools/elm-module-updates.py --status ALL --include-customised
+tools/elm-module-updates.py --include-current      # up-to-date ones too
+```
+
+Example output (trimmed):
+
+```text
+## Not in use (746)
+
+| published | age | version | id  | name                | group | instances |
+|---|---|---|---|---|---|---|
+| 2017-06-06 | 9.3 | 1.1.0 | 877 | HP_MSA_GlobalStatus |       | 0         |
+| 2017-11-27 | 8.8 | 1.4.0 | 544 | AWS_SQS             |       | 0         |
+
+## In use (106)
+
+| published | age | version | id | name           | group | instances |
+|---|---|---|---|---|---|---|
+| 2018-07-09 | 8.2 | 2.0.0 | 28 | NetSNMPdiskIO- | Disks | 767       |
+```
+
+With `-t ALL` (or any comma list) each section is split by type instead:
+
+```text
+## Not in use (884)
+
+### DATASOURCE (746)
+...
+### PROPERTYSOURCE (48)
+...
+```
+
+**How the ordering works, and what it does not tell you.** LM exposes an
+`upgradeableRegistryId` pointing at the newer registry entry but no v3 endpoint
+resolves it, so the version you would upgrade *to* is not available. Ranking is
+therefore by how old the version you are **running** is — `originPublishedAtMS`
+ascending — and `version`/`age` describe the installed version, not the
+available one. Registry publish timestamps only begin around 2017-05, so
+anything older bunches up at that floor and cannot be ranked against its peers;
+a handful of modules carry no publish date at all and are listed last.
+The usage column is **not one field**: `associatedHostsCount` is hard-wired to
+`0` for DataSources and ConfigSources, so those use `associatedInstancesCount`,
+while every other type has a real host count and appliesTo functions use
+`useInModulesCount`. The Markdown column is therefore headed with its unit —
+`instances`, `hosts` or `modules` — and `--csv`/`--json` carry both a `usage`
+number and a `usage_of` label so the schema stays stable. A module can be in use
+with a count of `0`. "In use" is LM's own `isInUse` flag: something
+references the module, not that anyone reads the data. `-p`/`--profile` selects
+the portal (default `config`), or `-c`/`--config` takes a full path to an
+`.ini`; `--json` emits the report rows instead of tables. **This report cannot
+be produced by elm alone:** `V4Metadata` takes no `-F`, and the `-S` it does
+accept is silently ignored by that endpoint (elm sends it as a query param the
+API drops), so row selection and ordering have to happen client-side — here, or
+in `jq`. The same legend is
+printed at the foot of every Markdown report. Upgrading is done in the portal —
+elm is read-only.

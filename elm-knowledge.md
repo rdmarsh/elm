@@ -514,6 +514,94 @@ The `contacts` array contains names, email addresses, and phone numbers of porta
 
 ---
 
+## LogicModule versions and updates (V4Metadata)
+
+`V4Metadata` (`GET /setting/logicmodules/metadata`) is the feed behind the
+portal's module toolbox, and the only place the API reports **update status**
+for LogicModules. One unpaginated call returns every installed module *and*
+everything installable from the LM Exchange — datasources, propertysources,
+configsources, eventsources, logsources, topologysources, SNMP sysOID maps and
+appliesTo functions — around 5000 records / ~13 MB on a mature portal. It takes
+no `-s`/`-o`/`-F`, so filtering is client-side.
+
+`-S` (sort) *is* offered on the command but is a **no-op** here: elm sends it as
+a `sort` query param and this endpoint ignores it (verified — `-S
++originPublishedAtMS` returns the records in API order). `-f` (fields) does
+work, because elm also projects fields client-side.
+
+**Do not add `size`/`offset`/`filter` to this endpoint in
+`swagger.undocumented.json`.** That override trick works for several list
+endpoints whose params the official spec omits (`/setting/action/chains`,
+`/setting/logsources`, `/setting/oids`, …) — but it was tested here on
+2026-09-11 and this endpoint **ignores all three**. With the params declared and
+demonstrably sent (confirmed in `-vv` debug output), every one of `-s 5`,
+`-s 100`, `-o 5000`, `-F type:DATASOURCE` and `-F isInUse:true` returned the
+full 5147 records. Declaring them would therefore make elm lie: `-s 5` would
+look like it worked, and `-F` would silently return unfiltered data. The test
+worth reusing on any candidate endpoint is simply to compare `-c` across
+variants — if the count never moves, the API is ignoring the param. So with elm alone you can
+trim columns but not select or order rows — the selection needs `jq` or
+`tools/elm-module-updates.py`. One more `-f` wrinkle: pandas renders
+`originPublishedAtMS` as a float (`1596141359861.0`) because the column has
+gaps, and output column order does not follow the order you list them in.
+
+### It returns a bare JSON array, not the usual envelope
+
+The body is `[{...}, {...}]` with no `{total, items, ...}`. `ContractInfoByCompany`
+(`/usage/contractInfo`) is the only other endpoint known to do this. Do not confuse
+it with `MetricsSummary` / `MetricsUsage`, which return a bare JSON **object** —
+a single record, which elm has always handled. Three shapes, in other words:
+
+| Response body | Endpoints | elm's `items` |
+|---------------|-----------|---------------|
+| `{total, items: [...]}` | almost everything | the list, as sent |
+| `{...}` (bare object) | `MetricsSummary`, `MetricsUsage`, all `...ById` | `[the object]` — 1 record |
+| `[...]` (bare array) | `V4Metadata`, `ContractInfoByCompany` | the list, as sent |
+
+elm handles all three (see CHANGELOG `[Unreleased]` — before that fix the bare
+array was wrapped as a single record, so `-c`/`-C` reported `1` and the table
+formats rendered one row headed `0,1,2,...`). Anything parsing the **raw**
+response must not expect `.items`.
+
+### The fields that matter
+
+| Field | Meaning |
+|-------|---------|
+| `installationStatuses` | list containing `IS_INSTALLED` (present in this portal), `CAN_UPGRADE` (a newer version is published), `IS_CUSTOMIZED` (locally edited — upgrading overwrites the edits), `CAN_INSTALL` (Exchange-only, not installed), `CAN_SKIP` |
+| `originStatus` | `CORE` = LM official. Also `DEPRECATED`, `COMMUNITY`, `SECURITY_REVIEW` |
+| `isInUse` | LM's own in-use flag (absent on Exchange-only records) |
+| `originVersion` | the version **installed**, e.g. `2.0.0` |
+| `originPublishedAtMS` | epoch ms when *that* version was published |
+| `upgradeableRegistryId` | registry entry of the newer version — differs from `originRegistryId` whenever `CAN_UPGRADE` is set |
+| `associatedCounts` | usage counts, **not uniform across types**: `associatedHostsCount` is hard-wired to 0 for `DATASOURCE`/`CONFIGSOURCE` (use `associatedInstancesCount` there) but real for every other type; `APPLIESTO_FUNCTION` has `useInModulesCount`/`useInHostGroupsCount` instead |
+| `type` / `source` | module type; `source: LOCAL` marks an installed record |
+
+### There is no way to see the version you would upgrade TO
+
+`upgradeableRegistryId` names the newer registry entry, but no v3 endpoint
+resolves a registry id (`/setting/logicmodules/metadata` is the only
+`logicmodules` path in either swagger spec). So "how out of date is this
+module" can only be answered as *how old is the version I am running* —
+`originPublishedAtMS` ascending. Registry timestamps only begin around
+2017-05, so anything published before that bunches at the floor, and a few
+modules carry no publish date at all.
+
+### Recipe: official, uncustomised datasources with an upgrade waiting
+
+```shell
+elm -f json V4Metadata | jq -r '
+  .V4Metadata[]
+  | select(.type == "DATASOURCE")
+  | select(.originStatus == "CORE")
+  | select(.installationStatuses | index("CAN_UPGRADE"))
+  | select(.installationStatuses | index("IS_CUSTOMIZED") | not)
+  | [.originPublishedAtMS, .isInUse, .originVersion, .id, .name] | @tsv' |
+  sort -n
+```
+
+`tools/elm-module-updates.py` does this and renders it as a report split by
+`isInUse`, sorted most out of date first.
+
 ## Known false positive alerts
 
 ### hrStorage — Cached memory and Shared memory at 100% on Linux
