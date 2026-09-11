@@ -668,6 +668,62 @@ more than one type, and id 28 to six of them (a DataSource, an EventSource, a
 LogSource, a PropertySource, an SNMP sysOID map and a TopologySource). Always
 carry the `type` alongside the `id`.
 
+## Publishing elm output to Confluence with `mark`
+
+[`mark`](https://github.com/kovetskiy/mark) publishes Markdown to Confluence.
+Nothing needs to be added to elm for this — `--head` supplies the metadata
+block mark expects and `-f md` supplies the table. Verified against mark
+16.19.0 on 2026-09-11.
+
+### It reads files, not stdin — but process substitution works
+
+`-f`/`--files` takes file paths (with glob patterns); the only thing mark reads
+from stdin is `--password -`. A pipe therefore does not work, but a process
+substitution does — mark opened `/dev/fd/63` without complaint:
+
+```shell
+mark --title-from-h1 --drop-h1 -f <(
+  printf '<!-- Space: OPS -->\n<!-- Parent: Monitoring -->\n\n'
+  tools/elm-module-updates.py --tag linux
+)
+```
+
+Use `--compile-only` to see the Confluence storage format it would upload,
+without publishing anything. It is the cheapest way to check a page before it
+is real.
+
+### Use `-f md` (or `gfm`), never `tab`
+
+This is where the old `md` format bit hardest (issue #55). Same query, piped
+through `mark --compile-only`:
+
+```html
+-f md   ->  <table><thead><tr><th>id</th><th>hostname</th>...
+-f tab  ->  <p>id  hostname</p><hr /><p>128  collector-a  2  collector-b</p>
+```
+
+The plain-text table is not merely unstyled: the dashes under the header become
+an `<hr />` and every row collapses into one paragraph, so the data is mangled.
+
+### Titles
+
+`--title-from-h1` takes the page title from a leading `# H1` and `--drop-h1`
+keeps that heading out of the body, since Confluence displays the title itself.
+`<!-- Space: KEY -->` is still required either way.
+
+Bare elm output has **no H1** — `-f md` emits just a table — so with
+`--title-from-h1` mark falls back to needing `<!-- Title: ... -->`. Either give
+it one:
+
+```shell
+elm --head '<!-- Space: OPS -->
+<!-- Title: Collector inventory -->' -f md CollectorList -s0
+```
+
+or emit an H1 in the `--head` block and let mark lift it. The report tools in
+`tools/` already start with one (`# Upgradable datasources`,
+`# Monitoring change - <date>`), so they pair with `--title-from-h1` directly.
+
 ## Known false positive alerts
 
 ### hrStorage — Cached memory and Shared memory at 100% on Linux
