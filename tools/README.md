@@ -325,6 +325,25 @@ ascending — and `version`/`age` describe the installed version, not the
 available one. Registry publish timestamps only begin around 2017-05, so
 anything older bunches up at that floor and cannot be ranked against its peers;
 a handful of modules carry no publish date at all and are listed last.
+**Instances are not devices.** For datasources and configsources the usage
+column counts *instances* — discovered objects — and the feed has no device
+count for them at all. `--devices` adds two more columns at the cost of one
+`AssociatedDeviceListByDataSourceId` call per module: `devices` (how many the
+module's appliesTo matches) and `active` (how many of those are actually
+collecting, from `hasActiveInstance`). The three genuinely differ — one module
+here collects **2 instances**, applies to **1205 devices**, and is collecting on
+**2** of them — so none of them is a substitute for the others. A trailing `+`
+on `active` means the module applies to more than 1000 devices, the API's
+per-page cap, so the count is a floor. `--max-device-calls` (default 100)
+refuses a run that would make too many calls; narrow it with `--tag`, `-t` or
+`--status` first.
+
+**Tags** come from the module itself and are shown three-at-a-time in the
+Markdown table (`+N` for the rest), in full in `--csv`/`--json`. `--tag
+linux,windows` keeps modules carrying at least one of the given tags, which is
+the easy way to scope both a report and a change: 3303 of 3906 installed
+modules in one test portal are tagged, across 1383 distinct tags.
+
 The usage column is **not one field**: `associatedHostsCount` is hard-wired to
 `0` for DataSources and ConfigSources, so those use `associatedInstancesCount`,
 while every other type has a real host count and appliesTo functions use
@@ -332,7 +351,27 @@ while every other type has a real host count and appliesTo functions use
 `instances`, `hosts` or `modules` — and `--csv`/`--json` carry both a `usage`
 number and a `usage_of` label so the schema stays stable. A module can be in use
 with a count of `0`. "In use" is LM's own `isInUse` flag: something
-references the module, not that anyone reads the data. `-p`/`--profile` selects
+references the module, not that anyone reads the data. `--portal NAME` turns each module name into a link
+to that module in the portal's toolbox. The REST API exposes no UI link, but
+the feed supplies both halves of one: `model` (`exchangeDataSources`,
+`exchangePropertySources`, …) is the toolbox path segment and `id` is the
+module, so a single template covers every module type
+(`.../santaba/uiv4/modules/toolbox/{model}/edit/{id}`) — override it with
+`--url-template` if your portal differs. The subdomain is **not** auto-detected
+on purpose: the only ways to get it out of elm are `-f api`, which also prints
+the Authorization header, and `-vv`, which prints a truncated access key
+fingerprint — neither is something a tool should capture just to build a URL.
+
+**Deprecated modules never appear in this report**, and the tool says so on
+stderr with a count. They are replaced rather than updated, so they never carry
+`CAN_UPGRADE` — in one test portal 371 installed datasources were deprecated
+and 88 of those were in use, invisible to every run of the default report. List
+them with `--status DEPRECATED --include-current` (without `--include-current`
+you get an empty report, and the tool explains why), and look up the
+replacement and end-of-support date in [LogicMonitor's deprecated LogicModules
+list](https://www.logicmonitor.com/support/logicmodules/about-logicmodules/deprecated-logicmodules).
+
+`-p`/`--profile` selects
 the portal (default `config`), or `-c`/`--config` takes a full path to an
 `.ini`; `--json` emits the report rows instead of tables. **This report cannot
 be produced by elm alone:** `V4Metadata` takes no `-F`, and the `-S` it does

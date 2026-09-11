@@ -602,6 +602,64 @@ elm -f json V4Metadata | jq -r '
 `tools/elm-module-updates.py` does this and renders it as a report split by
 `isInUse`, sorted most out of date first.
 
+### Instances, devices applied, and devices collecting are three numbers
+
+For `DATASOURCE`/`CONFIGSOURCE` the metadata feed's `associatedInstancesCount`
+counts **instances**, and its `associatedHostsCount` is hard-wired to 0 — there
+is no device count in the feed at all. Devices come from
+`AssociatedDeviceListByDataSourceId`, whose rows carry `hasActiveInstance`, so
+one call yields both remaining figures:
+
+| number | where from | example (`HTTP_Page-`) |
+|--------|-----------|------------------------|
+| instances collected | feed `associatedInstancesCount` | 2 |
+| devices applied to | `-C` on the associated-device call | 1205 |
+| devices collecting | `hasActiveInstance` true in those rows | 2 |
+
+They diverge wildly — a module can match 1205 devices by `appliesTo` and
+collect on 2 — so never present one as the other. Note the `instance` array in
+each row is NOT a count of active instances (every row carries one entry
+regardless); `hasActiveInstance` is the flag to trust. The row list caps at
+1000, so the collecting count is a floor once `-C` exceeds that.
+
+### Deprecated modules are invisible to an "upgrade" query
+
+`originStatus: DEPRECATED` modules are **replaced**, not updated, so they never
+carry `CAN_UPGRADE` — a query for upgradable modules can never return one. In
+the sandbox portal that hid 371 installed deprecated datasources, 88 of them in
+use, including `snmp64_If-` with 1294 instances. Query them on their own terms:
+
+```shell
+elm -f json V4Metadata | jq -r '
+  .V4Metadata[] | select(.originStatus == "DEPRECATED")
+  | select(.installationStatuses | index("IS_INSTALLED"))
+  | select(.isInUse) | [.type, .name] | @tsv'
+```
+
+The replacement module and end-of-support date are not in the API. They are
+published at
+<https://www.logicmonitor.com/support/logicmodules/about-logicmodules/deprecated-logicmodules>
+as a table of deprecated module -> replacement -> reason -> end-of-support date.
+
+### Portal UI links
+
+No endpoint returns a deep link, but the feed carries both halves of one:
+`model` is the toolbox path segment and `id` is the module, so
+
+    https://{portal}.logicmonitor.com/santaba/uiv4/modules/toolbox/{model}/edit/{id}
+
+resolves for every module type (`exchangeDataSources`,
+`exchangePropertySources`, `exchangeConfigSources`, `exchangeEventSources`,
+`exchangeLogSources`, `exchangeTopologySources`, `exchangeSNMPSysOIDMaps`,
+`exchangeAppliesToFunctions`). Confirmed against two module types 2026-09-11.
+
+### Module ids are only unique WITHIN a type
+
+There is no portal-wide module id. In the sandbox portal 329 ids belonged to
+more than one type, and id 28 to six of them (a DataSource, an EventSource, a
+LogSource, a PropertySource, an SNMP sysOID map and a TopologySource). Always
+carry the `type` alongside the `id`.
+
 ## Known false positive alerts
 
 ### hrStorage — Cached memory and Shared memory at 100% on Linux

@@ -48,6 +48,10 @@ Caveats worth knowing before acting on the output:
   - Registry publish timestamps only go back to about 2017-05. Modules older
     than that all bunch up around the same date and cannot be ranked against
     each other.
+  - The usage column counts INSTANCES for datasources and configsources, never
+    devices. Device figures need one API call per module, which `--devices`
+    opts into: it adds `devices` (how many the module applies to) and `active`
+    (how many are actually collecting). All three are different numbers.
   - The usage count is not one field. `associatedHostsCount` is hard-wired to 0
     for DataSources and ConfigSources (so their column uses
     `associatedInstancesCount`) but is a real number for every other type;
@@ -80,6 +84,13 @@ TYPES = ("DATASOURCE", "PROPERTYSOURCE", "CONFIGSOURCE", "EVENTSOURCE",
 
 MS_PER_YEAR = 365.2425 * 24 * 60 * 60 * 1000
 
+# Deprecated modules are REPLACED, not updated, so they never carry CAN_UPGRADE
+# and can never appear in the default report -- you could run it forever and not
+# learn that in-use modules are deprecated with an end-of-support date. The
+# report therefore counts them separately and says so on stderr.
+DEPRECATION_URL = ("https://www.logicmonitor.com/support/logicmodules/"
+                   "about-logicmodules/deprecated-logicmodules")
+
 # Which `associatedCounts` field actually measures usage, per module type, and
 # what it counts. The feed reports several counts per module and the useful one
 # differs: `associatedHostsCount` is a real number for most types but is
@@ -91,6 +102,29 @@ USAGE = {
     "APPLIESTO_FUNCTION": ("useInModulesCount", "modules"),
 }
 USAGE_DEFAULT = ("associatedHostsCount", "hosts")
+
+# Types whose devices can be counted. For these the feed's usage number counts
+# INSTANCES, not devices -- their associatedHostsCount is hard-wired to 0 --
+# and the device figures need one AssociatedDeviceListByDataSourceId call each,
+# which is what --devices opts into.
+DEVICE_LISTABLE = ("DATASOURCE", "CONFIGSOURCE")
+
+# Portal UI link. No API field carries one -- no endpoint returns a deep link,
+# and the route belongs to the LM web UI, not the REST API -- but the feed
+# happens to supply both halves of it: `model` (exchangeDataSources,
+# exchangePropertySources, ...) is the toolbox path segment, and `id` is the
+# module id, so one template covers every module type.
+#
+# Pass `--portal NAME` to switch links on. The subdomain is deliberately NOT
+# auto-detected: the only ways to get it out of elm are `-f api` (which also
+# prints the Authorization header) and `-vv` (which prints a truncated
+# access_id/access_key fingerprint under a SENSITIVE INFORMATION banner).
+# Neither is something a tool should capture just to build a URL.
+#
+# Override with `--url-template`; the placeholders are {portal} {model} {id}
+# {name}.
+DEFAULT_URL_TEMPLATE = ("https://{portal}.logicmonitor.com"
+                        "/santaba/uiv4/modules/toolbox/{model}/edit/{id}")
 
 
 def err(*args):
@@ -118,8 +152,41 @@ def fetch_metadata(elm, profile, config):
     return items
 
 
-def select(items, types, statuses, include_customised, include_current):
-    """Apply the four criteria and return the matching module records.
+def device_counts(elm, profile, config, module_id):
+    """{applied, active} devices for one datasource/configsource.
+
+    Three different numbers get confused here, so they are kept apart:
+      instances  what the feed's usage column counts -- discovered objects
+      applied    devices the module's appliesTo matches, from `-C` (LM's true
+                 total; the row list itself caps at 1000 per page)
+      active     of the devices returned, those with hasActiveInstance -- i.e.
+                 actually collecting. Only exact while applied <= 1000, since
+                 beyond that the rows are capped; reported as a floor otherwise.
+    One module here matches 1205 devices but collects 2 instances on 2 of them.
+    """
+    cmd = [elm]
+    cmd += ["--config", config] if config else ["--profile", profile]
+    base = cmd + ["AssociatedDeviceListByDataSourceId", "--id", str(module_id)]
+    total = subprocess.run(base + ["-C"], capture_output=True, text=True).stdout.strip()
+    rows = subprocess.run(cmd + ["-f", "json", "AssociatedDeviceListByDataSourceId",
+                                 "--id", str(module_id), "-s0"],
+                          capture_output=True, text=True).stdout
+    try:
+        devs = json.loads(rows)["AssociatedDeviceListByDataSourceId"]
+    except Exception:
+        devs = []
+    try:
+        applied = int(total)
+    except ValueError:
+        applied = len(devs)
+    active = sum(1 for d in devs if d.get("hasActiveInstance"))
+    return {"applied": applied, "active": active,
+            "capped": applied > len(devs)}
+
+
+def select(items, types, statuses, include_customised, include_current,
+           tags=None):
+    """Apply the criteria and return the matching module records.
 
     `types` and `statuses` are each a set of accepted values, or the string
     "ALL" to accept any.
@@ -137,15 +204,20 @@ def select(items, types, statuses, include_customised, include_current):
             continue
         if statuses != "ALL" and i.get("originStatus") not in statuses:
             continue
+        if tags and not (tags & {t.lower() for t in (i.get("tags") or ())}):
+            continue
         out.append(i)
     return out
 
 
-def row(i, now_ms):
+def row(i, now_ms, url_template=None, portal=None):
     """Flatten one module record into the report's columns."""
     pub = i.get("originPublishedAtMS")
     counts = i.get("associatedCounts") or {}
     field, label = USAGE.get(i.get("type"), USAGE_DEFAULT)
+    url = (url_template.format(id=i.get("id", ""), name=i.get("name", ""),
+                               model=i.get("model", ""), portal=portal or "")
+           if url_template else "")
     return {
         "published": (datetime.datetime.fromtimestamp(
             pub / 1000, datetime.timezone.utc).strftime("%Y-%m-%d")
@@ -158,6 +230,10 @@ def row(i, now_ms):
         "group": i.get("group") or "",
         "usage": counts.get(field, ""),
         "usage_of": label,
+        "tags": ";".join(i.get("tags") or ()),
+        "devices": "",
+        "active": "",
+        "url": url,
         "customised": "yes" if "IS_CUSTOMIZED" in set(
             i.get("installationStatuses") or ()) else "no",
         "upgrade": "yes" if "CAN_UPGRADE" in set(
@@ -167,25 +243,49 @@ def row(i, now_ms):
     }
 
 
-def ordered(mods, now_ms):
+def ordered(mods, now_ms, url_template=None, portal=None, counted=None):
     """Rows oldest-published first; undated ones last, by name."""
     dated = sorted((m for m in mods if m.get("originPublishedAtMS")),
                    key=lambda m: m["originPublishedAtMS"])
     undated = sorted((m for m in mods if not m.get("originPublishedAtMS")),
                      key=lambda m: (m.get("name") or "").lower())
-    return [row(m, now_ms) for m in dated + undated]
+    out = []
+    for m in dated + undated:
+        r = row(m, now_ms, url_template, portal)
+        c = (counted or {}).get((m.get("type"), str(m["id"])))
+        if c:
+            r["devices"] = c["applied"]
+            r["active"] = ("{}+".format(c["active"]) if c["capped"]
+                           else c["active"])
+        out.append(r)
+    return out
 
 
 # `type` is dropped from the output unless more than one module type is
 # selected -- a single-type report repeats it on every row for nothing.
 COLUMNS = ("published", "age", "type", "version", "id", "name", "group",
-           "usage", "usage_of")
+           "tags", "usage", "usage_of")
+# `url` is appended to CSV/JSON only when a template is configured; in Markdown
+# it becomes a link on the name instead of a column of its own.
+
+
+
+def cell(r, c):
+    """One table cell. The name carries the portal link when there is one."""
+    if c == "name" and r.get("url"):
+        return f"[{r['name']}]({r['url']})"
+    if c == "tags" and r["tags"]:
+        # Modules carry up to a dozen tags; a table is not the place for all
+        # of them. CSV/JSON keep the full list.
+        t = r["tags"].split(";")
+        return ", ".join(t[:3]) + (f" +{len(t) - 3}" if len(t) > 3 else "")
+    return str(r[c])
 
 
 def gfm_table(rows, cols=COLUMNS, headers=None):
     head = ("| " + " | ".join((headers or {}).get(c, c) for c in cols) + " |\n"
             "|" + "|".join("---" for _ in cols) + "|")
-    body = "\n".join("| " + " | ".join(str(r[c]) for c in cols) + " |"
+    body = "\n".join("| " + " | ".join(cell(r, c) for c in cols) + " |"
                      for r in rows)
     return head + ("\n" + body if body else "")
 
@@ -224,6 +324,18 @@ def main(argv=None):
     p.add_argument("--include-customised", action="store_true",
                    help="also list locally customised modules (upgrading one "
                         "overwrites the local edits)")
+    p.add_argument("--tag", metavar="TAG,...",
+                   help="keep only modules carrying at least one of these tags "
+                        "(case-insensitive), e.g. --tag linux,windows")
+    p.add_argument("--devices", action="store_true",
+                   help="add devices/active columns. For datasources and "
+                        "configsources the feed counts INSTANCES, not devices, "
+                        "so this costs one extra API call per module: "
+                        "`devices` is how many the module applies to, `active` "
+                        "how many are actually collecting")
+    p.add_argument("--max-device-calls", type=int, default=100, metavar="N",
+                   help="refuse --devices above N modules (default: 100, "
+                        "0 = no limit)")
     p.add_argument("--include-current", action="store_true",
                    help="also list modules that are already up to date")
     p.add_argument("--csv", action="store_true",
@@ -232,6 +344,15 @@ def main(argv=None):
                         "instead of the GFM report")
     p.add_argument("--json", action="store_true",
                    help="emit the report rows as JSON, in report order")
+    p.add_argument("--portal", metavar="NAME",
+                   help="portal subdomain (the bit before .logicmonitor.com). "
+                        "Giving it turns each module name into a link to that "
+                        "module in the portal's toolbox. Not auto-detected -- "
+                        "see the note in the source")
+    p.add_argument("--url-template", metavar="URL",
+                   help="override the link format. Placeholders: {portal} "
+                        "{model} {id} {name}. Default: "
+                        + DEFAULT_URL_TEMPLATE.replace("%", "%%"))
     p.add_argument("--elm", default="elm", metavar="PATH",
                    help="elm executable to call (default: elm on PATH)")
     args = p.parse_args(argv)
@@ -258,30 +379,84 @@ def main(argv=None):
         return 1
     err(f"{len(items)} module records returned")
 
+    tags = ({t.strip().lower() for t in args.tag.split(",") if t.strip()}
+            if args.tag else None)
     mods = select(items, types, statuses, args.include_customised,
-                  args.include_current)
+                  args.include_current, tags)
+
+    # Deprecated modules of the same type(s), whatever the status filter is.
+    dep = [i for i in items
+           if "IS_INSTALLED" in set(i.get("installationStatuses") or ())
+           and i.get("originStatus") == "DEPRECATED"
+           and (types == "ALL" or i.get("type") in types)]
+    dep_used = [i for i in dep if i.get("isInUse")]
+
     if not mods:
         err("nothing matches those criteria")
+        if statuses != "ALL" and "DEPRECATED" in statuses and not args.include_current:
+            err("DEPRECATED modules are replaced rather than updated, so they "
+                "never carry CAN_UPGRADE. Add --include-current to list them.")
         return 0
 
     multi = types == "ALL" or len(types) > 1
     now_ms = datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
-    unused = ordered([m for m in mods if not m.get("isInUse")], now_ms)
-    inuse = ordered([m for m in mods if m.get("isInUse")], now_ms)
+
+    counted = {}
+    if args.devices:
+        listable = [m for m in mods if m.get("type") in DEVICE_LISTABLE]
+        if args.max_device_calls and len(listable) > args.max_device_calls:
+            err(f"--devices needs one API call per module and {len(listable)} "
+                f"match, over --max-device-calls ({args.max_device_calls}).")
+            err("Narrow with --tag / -t / --status, or raise the limit "
+                "(0 = no limit).")
+            return 1
+        err(f"counting devices for {len(listable)} module(s) "
+            f"({len(listable)} call(s)) ...")
+        for n, m in enumerate(listable, 1):
+            counted[(m.get("type"), str(m["id"]))] = device_counts(
+                args.elm, args.profile, args.config, m["id"])
+            if n % 25 == 0:
+                err(f"  {n}/{len(listable)}")
+    template = args.url_template or (DEFAULT_URL_TEMPLATE if args.portal else None)
+    if template and "{portal}" in template and not args.portal:
+        err("that link template needs {portal}: pass --portal NAME")
+        return 1
+    linked = bool(template)
+    unused = ordered([m for m in mods if not m.get("isInUse")], now_ms,
+                     template, args.portal, counted)
+    inuse = ordered([m for m in mods if m.get("isInUse")], now_ms,
+                    template, args.portal, counted)
     err(f"{len(mods)} match: {len(unused)} not in use, {len(inuse)} in use")
+    if dep and (statuses == "ALL" or "DEPRECATED" not in statuses):
+        err(f"note: {len(dep)} installed module(s) of this type are DEPRECATED "
+            f"({len(dep_used)} in use) and are NOT in the report above -- "
+            "deprecated modules are replaced, not upgraded, so they never "
+            "carry CAN_UPGRADE.")
+        err("      list them:  --status DEPRECATED --include-current")
+        err(f"      replacements and end-of-support dates: {DEPRECATION_URL}")
 
     if args.json:
-        json.dump(unused + inuse, sys.stdout, indent=2)
+        rows = unused + inuse
+        if not linked:
+            rows = [{k: v for k, v in r.items() if k != "url"} for r in rows]
+        json.dump(rows, sys.stdout, indent=2)
         print()
         return 0
 
     if args.csv:
-        cols = COLUMNS + ("in_use", "customised", "upgrade", "origin_status")
-        if not multi:
-            cols = tuple(c for c in cols if c != "type")
-        # usage/usage_of stay in CSV and JSON even for one type, so downstream
-        # consumers get a stable schema and never have to guess the unit.
-        w = csv.DictWriter(sys.stdout, fieldnames=cols)
+        cols = COLUMNS + ("devices", "active", "in_use", "customised",
+                          "upgrade", "origin_status")
+        if linked:
+            cols += ("url",)
+        # type/usage/usage_of stay in CSV and JSON even for a single-type
+        # report: downstream consumers get a stable schema, never have to guess
+        # the unit, and -- since module ids are only unique WITHIN a type (329
+        # ids in one test portal belong to several types, id 28 to six) -- an id
+        # without its type is ambiguous. elm-change-advice.py reads this back.
+        # extrasaction="ignore": every row carries `url` whether or not links
+        # are configured, and `type` is dropped from some views, so the row
+        # dicts are deliberately wider than the selected columns.
+        w = csv.DictWriter(sys.stdout, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         w.writerows(unused + inuse)
         return 0
@@ -302,6 +477,8 @@ def main(argv=None):
     # columns: the type is in the heading, and the unit becomes the `usage`
     # header. (`--csv`/`--json` keep them as real columns instead.)
     cols = tuple(c for c in COLUMNS if c not in ("type", "usage_of"))
+    if args.devices:
+        cols += ("devices", "active")
     for heading, rows in (("Not in use", unused), ("In use", inuse)):
         print(f"## {heading} ({len(rows)})\n")
         if multi:
@@ -324,6 +501,8 @@ def main(argv=None):
           "start around 2017-05, so anything older bunches up there and cannot "
           "be ranked against its peers.")
     print("- **version** -- the installed version, not the available one.")
+    print("- **tags** -- the module's own tags, first three shown; "
+          "`--csv`/`--json` carry the full list, and `--tag` filters on them.")
     print("- **usage** (headed `instances`, `hosts` or `modules`) -- how widely "
           "the module is used, from `associatedCounts`. Which count that is depends "
           "on the module type, because the feed's counts are not uniform: "
@@ -333,6 +512,14 @@ def main(argv=None):
           "uses `associatedHostsCount`. `--csv`/`--json` always carry both a "
           "`usage` number and a `usage_of` label. A module can be in use with a "
           "count of 0.")
+    if args.devices:
+        print("- **devices** / **active** -- devices the module *applies to* "
+              "(its appliesTo match), and how many of those are actually "
+              "collecting (`hasActiveInstance`). These are not the same as "
+              "`instances`: one module in this portal applies to 1205 devices "
+              "and collects 2 instances on 2 of them. A trailing `+` on "
+              "`active` means the module applies to more than 1000 devices, "
+              "the API's per-page cap, so the figure is a floor.")
     print("- **in use** -- LM's own `isInUse` flag: something references the "
           "module. It does not mean anyone reads the data.")
     print("\nUpgrade from the portal's module toolbox -- elm is read-only.")
