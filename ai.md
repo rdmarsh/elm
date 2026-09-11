@@ -210,27 +210,6 @@ AI tools tend toward impressive-looking solutions. Push back on complexity that 
 
 Prefer consistency with the existing codebase over introducing theoretically cleaner but unfamiliar patterns.
 
-## Track skills you personally develop in SKILLS_USED.md
-
-AI tools can mask your own skill development if you are not deliberate about it.
-
-Maintain a private `SKILLS_USED.md` file alongside the project. Add concise dated entries for:
-- skills you actively built
-- things you understood, debugged, designed, or decided yourself
-- investigations and debugging work you drove
-- tests and validation you personally performed
-- decisions you made and why they mattered
-- outcomes that could later become resume bullets
-
-A task where the AI generated code and you approved it is not the same as a skill you genuinely hold. Be honest about the distinction.
-
-This record is useful for:
-- resume and portfolio evidence
-- performance reviews
-- understanding what you can credibly explain and defend in an interview
-
-Do not commit or expose this file if it is intended as private.
-
 ## Instruction precedence
 
 When instructions conflict, use this priority order:
@@ -597,7 +576,6 @@ Assume a cold start every time and let the files provide continuity.
 ```text
 project/
 ├── CLAUDE.md
-├── SKILLS_USED.md
 ├── journal.md
 ├── memory/
 │   ├── user.md

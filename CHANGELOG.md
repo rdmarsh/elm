@@ -32,6 +32,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `make testpage` — a regression target for the two pagination fixes above: asserts `-f jsonl` writes exactly one line per record (piping to `wc -l` rather than through `$(...)`, which strips the very trailing newlines the bug produced), that the truncation warning still fires when records remain, and that it does *not* fire on the last page (`-o $((total - 1))`). Added to the `test` aggregate; connects to LM.
 
+### Removed
+
+- `ai.md`: the "Track skills you personally develop in SKILLS_USED.md" principle, and `SKILLS_USED.md` from the recommended project structure. The advice was aimed at the human reader — keep a private, dated record of what you personally built, debugged and decided, so AI assistance does not quietly stand in for your own skill development — but `ai.md` is read mostly by AI assistants, which consistently misread it as an instruction to maintain the file themselves. A principle that reliably produces the opposite of its intent is worse than no principle. `SKILLS_USED.md` is gitignored and unaffected; keeping one is still a fine idea, it just is not something to ask an assistant to do.
+
 ## [1.8.10] - 2026-08-16
 
 ### Removed
