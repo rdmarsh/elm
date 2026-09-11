@@ -172,8 +172,22 @@ def engine(elm, **kwargs):
     obj = response.json()
     #obj = response.content.decode('utf-8')
 
+    #not every endpoint returns the usual {total, items, ...} envelope
+    if isinstance(obj, list):
+        # a bare JSON array: /setting/logicmodules/metadata (V4Metadata) is the
+        # known case. Wrapping it the same way as a single record would bury the
+        # whole list one level deeper ([[{...}]]), which breaks everything
+        # downstream -- -c/-C report 1, the table formats render a single row of
+        # column numbers, and the post-output field check crashes on list.keys().
+        logging.debug('obj is a bare list, using it as items')
+        obj = {
+            "total": len(obj),
+            "items": obj,
+            "searchId": None,
+            "isMin": False
+        }
     #used for queries by id, which only return one item
-    if 'items' not in obj:
+    elif 'items' not in obj:
         logging.debug('items not in obj, setting to defaults')
         obj = {
             "total": 1,

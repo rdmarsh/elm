@@ -1054,14 +1054,14 @@ _no_param_commands:
     AllLogPartitions:      "/log/partitions — no -s option; returns log partitions with tenant/contract info (verified)"
     AwsAccountId:          "/aws/accountId — returns {accountId: string} (AWS account number) (verified)"
     AwsExternalId:         "/aws/externalId — 403 Forbidden with read-only token (verified)"
-    ContractInfoByCompany: "/usage/contractInfo — CSV output broken: column headers are numeric (0,1,2,...) instead of field names; use prettyjson (verified)"
+    ContractInfoByCompany: "/usage/contractInfo — returns a bare JSON array (no {total,items} envelope), like V4Metadata. The numeric-header CSV and -c/-C reporting 1 were an elm bug, fixed: -c now reports the real row count and CSV emits field names (verified 2026-09-11)"
     ExternalApiStats:      "/apiStats/externalApis — returns per-endpoint request stats: totalRequests, totNanoTime, maxNanoTime, api path, tags, summary (verified)"
     LogAlerts:             /logpipelines/processors
     MetricsSummary:        "/metrics/summary — richer than MetricsUsage: includes hostGroupsInfo (dynamic/static group counts + property counts), kubernetes breakdown, numOfSavedMaps; no -s option (verified)"
     MetricsUsage:          /metrics/usage
     PortalInfo:            "/setting/companySetting — same path as CompanySetting; returns portal/account info. Quick health snapshot: elm PortalInfo -f companyDisplayName,numberOfDevices,numberOfOpenAlerts,numberOfApiUsers,numberOfSessionUsers,numOfAWSDevices,numOfAzureDevices. Note: numberOfUsers and numberOfHosts do NOT exist — use numberOfApiUsers+numberOfSessionUsers and numberOfDevices (verified)"
     RetentionList:         "/setting/loganalytics/retentions — standard list (-s/-o/-F/-f all work); returns data retention options: {default, value (days), label, isDefault} (verified)"
-    V4Metadata:            "/setting/logicmodules/metadata — no -s option; returns nested [[...]] array — CSV output broken (numeric headers); use prettyjson (verified)"
+    V4Metadata:            "/setting/logicmodules/metadata — LogicModule update status for the whole portal in one unpaginated call (~5k records): installationStatuses (IS_INSTALLED/CAN_UPGRADE/IS_CUSTOMIZED/CAN_INSTALL), originStatus, isInUse, originVersion, originPublishedAtMS. Returns a bare JSON array, not the {total,items} envelope — the [[...]] nesting and broken CSV headers were an elm bug, now fixed. No -s/-o/-F, and do NOT add them via swagger.undocumented.json: tested, the endpoint ignores all three (every variant returns all 5147 rows). -S is accepted but is a no-op. -f works (client-side projection). See tools/elm-module-updates.py (verified 2026-09-11)"
     IntegrationAuditLogs:  "/setting/integrations/auditlogs — unique: --format TEXT (LM API param — see gotcha)"
 
 # ---
