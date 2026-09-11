@@ -239,22 +239,49 @@ elm targets **LM REST API v3 only** (sent as `X-Version: 3`); building with
 make swagger
 ```
 
-**This currently fails.** LogicMonitor serves the spec from behind a
-Cloudflare bot challenge, which returns an HTML interstitial instead of JSON
-and cannot be answered by `curl`. Until that changes, refresh it by hand —
-fetch the URL in a browser, then:
+That downloads the spec, checks it really is a swagger document, and
+pretty-prints it over the snapshot. Review and rebuild:
 
 ```shell
-jq . ~/Downloads/swagger.json > swagger.documented.json
 git diff --stat swagger.documented.json
 make clean && make && make install
 ```
 
-The snapshot is stored **pretty-printed** for exactly this reason. Upstream
+An empty diff means upstream has not changed since the snapshot was taken.
+
+**If the download fails**, LogicMonitor is serving the spec from behind a
+Cloudflare bot challenge again — it returns an HTML interstitial instead of
+JSON, and only a real browser can complete the check (a browser `User-Agent`
+does not help; it is a JavaScript challenge). This blocked `make swagger`
+between 2026-08-16 and some point before 2026-09-11. Should it return, fetch
+<https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/swagger.json> in a
+browser, save the JSON, and install it with:
+
+```shell
+make swaggerfile FILE=~/Downloads/swagger.json
+```
+
+`make swaggerfile` is the second half of `make swagger` without the download,
+and it needs no network at all. It validates and pretty-prints the file into
+place, refusing anything that is not the spec you meant rather than
+overwriting the snapshot with it: a saved Cloudflare interstitial (not JSON —
+and it says so), JSON with no `paths`, a spec that is not API v3, or a file
+that has lost more than a quarter of its endpoints, which is what a truncated
+or partial save looks like. It prints the endpoint-count delta
+(`paths: 220 -> 221   added 1, removed 0`) before writing, and replaces the
+snapshot only once every check passes.
+
+The snapshot is stored **pretty-printed** so that diff is readable. Upstream
 serves it minified onto a single line, so committing it verbatim would make
 every refresh one unreadable ~800 KB diff. Pretty-printed, `git diff` shows
 precisely which endpoints and parameters LogicMonitor changed — and therefore
 which elm commands are about to change.
+
+Committing the result needs `LEAK_SCAN_SKIP=1`. LogicMonitor's spec documents
+a private (RFC 1918) address range as the example value for the netscan
+`subnet` field, and the pre-commit leak scan cannot tell that from a real
+internal range. The snapshot must stay a verbatim copy of upstream — edit it to
+please the scanner and you have defeated the point of diffing it.
 
 ### Quick code testing loop
 

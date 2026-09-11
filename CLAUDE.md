@@ -51,6 +51,9 @@ in the template instead.
     make            Full build (init + render + cfg)
     make init       Create _defs/ from the committed swagger snapshots
     make swagger    Re-download the official spec into swagger.documented.json
+    make swaggerfile FILE=path
+                    Validate and install a browser-saved spec as the snapshot
+                    (fallback for when the download is blocked; needs no network)
     make render     Generate _cmds/ from _jnja/ templates
     make install    Build binary via PyInstaller into _dist/
     make clean      Remove all generated files
@@ -155,8 +158,11 @@ At the start of any session involving live API calls:
 - Base URL: https://{account_name}.logicmonitor.com/santaba/rest
 - Swagger spec: committed snapshots (`swagger.documented.json` +
   `swagger.undocumented.json`), refreshed deliberately via `make swagger`.
-  Upstream is behind a Cloudflare bot challenge, so that target currently
-  fails and the file must be fetched with a browser — see todo.md.
+  A Cloudflare bot challenge blocked that target from 2026-08-16 until some
+  point before 2026-09-11; it works again now. If it is ever blocked again,
+  fetch the spec with a browser and install it with `make swaggerfile
+  FILE=<saved file>`, which validates it (real JSON, has paths, is v3, not
+  obviously truncated) before replacing the snapshot.
 
 
 ## LM API quirks
@@ -234,6 +240,14 @@ Environment notes:
   `py_modules=['elm', 'engine', '_version']` (not `find_packages()`).
 
 Resolved (kept here so the history is not re-investigated):
+- `make swagger` blocked by a Cloudflare bot challenge (found 2026-08-16,
+  reproduced from two networks; HTTP 403 + a "Just a moment..." interstitial
+  instead of JSON). **Cleared by 2026-09-11** — it now returns HTTP 200 and
+  ~833 KB of `application/json`, confirmed from two independent networks, and
+  the download is byte-identical to the committed snapshot. `make swagger` is
+  the normal path again; do not re-investigate unless it actually fails. If it
+  ever comes back, `make swaggerfile FILE=<browser-saved file>` is the
+  fallback and needs no network.
 - Slow startup — fixed in v1.8.0 via LazyGroup + deferred heavy imports
   (`--version` now loads in ~0.2s).
 - `make -n` infinite recursion / duplicated build from a recursive

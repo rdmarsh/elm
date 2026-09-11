@@ -229,14 +229,16 @@ $(defdir)/swagger.$(JSN): ./swagger.documented.$(JSN) $(MAKEFILE_LIST) | $(defdi
 
 .PHONY: swagger
 swagger: | CURL-exists JQ-exists ## Re-download the LM swagger spec into ./swagger.documented.json
+	@echo "$(IN_STRING) fetching $(lm_swagger_url)"
 	@tmp=$$(mktemp /tmp/elm-swagger-XXXXXX.json) ; \
 	trap 'rm -f "$$tmp"' EXIT INT TERM ; \
 	$(CURL) -fsSL --retry 2 --retry-delay 2 -o $$tmp $(lm_swagger_url) || { \
 	  echo "$(ER_STRING) could not download $(lm_swagger_url)" ; \
-	  echo "  LogicMonitor serves this URL behind a Cloudflare bot challenge, so" ; \
-	  echo "  curl cannot fetch it. Open the URL in a browser, save the JSON, and" ; \
-	  echo "  run: jq . <saved-file> > swagger.documented.$(JSN)" ; \
-	  echo "  See todo.md for the current status." ; \
+	  echo "  If you are online, the likely cause is the Cloudflare bot challenge" ; \
+	  echo "  LogicMonitor has served this URL from before (it returns an HTML" ; \
+	  echo "  interstitial, and only a real browser can answer it). Either way," ; \
+	  echo "  fetch that URL in a browser, save the JSON, then run:" ; \
+	  echo "    make swaggerfile FILE=~/Downloads/swagger.$(JSN)" ; \
 	  exit 1 ; } ; \
 	$(JQ) -e 'has("paths")' $$tmp >/dev/null 2>&1 || { \
 	  echo "$(ER_STRING) $(lm_swagger_url) did not return a swagger document" ; \
@@ -244,7 +246,51 @@ swagger: | CURL-exists JQ-exists ## Re-download the LM swagger spec into ./swagg
 	  echo "  swagger.documented.$(JSN) has been left as it was." ; \
 	  exit 1 ; } ; \
 	$(JQ) . $$tmp > swagger.documented.$(JSN)
-	@echo "$(OK_STRING) $@ (review with: git diff --stat swagger.documented.$(JSN))"
+	@echo "$(OK_STRING) $@ ($$($(JQ) '.paths | length' swagger.documented.$(JSN)) paths, $$(wc -c < swagger.documented.$(JSN) | tr -d ' ') bytes written)"
+	@echo "  review with: git diff --stat swagger.documented.$(JSN)"
+
+.PHONY: swaggerfile
+swaggerfile: | JQ-exists ## Install a browser-saved spec: make swaggerfile FILE=~/Downloads/swagger.json
+	@[ -n "$(FILE)" ] || { \
+	  echo "$(ER_STRING) no FILE= given" ; \
+	  echo "  This target installs a spec you already have as the snapshot:" ; \
+	  echo "    make swaggerfile FILE=~/Downloads/swagger.$(JSN)" ; \
+	  echo "  To download and install in one step, use: make swagger" ; \
+	  exit 1 ; }
+	@[ -r "$(FILE)" ] || { echo "$(ER_STRING) cannot read $(FILE)" ; exit 1 ; }
+	@echo "$(IN_STRING) reading $(FILE)"
+	@$(JQ) -e . "$(FILE)" >/dev/null 2>&1 || { \
+	  echo "$(ER_STRING) $(FILE) is not valid JSON" ; \
+	  echo "  got $$(wc -c < "$(FILE)" | tr -d ' ') bytes starting: $$(head -c 60 "$(FILE)" | tr -d '\n')" ; \
+	  echo "  If that looks like HTML you saved the Cloudflare interstitial, not" ; \
+	  echo "  the spec -- let the browser finish the check, then save the JSON." ; \
+	  exit 1 ; }
+	@$(JQ) -e '(.paths | length) > 0' "$(FILE)" >/dev/null 2>&1 || { \
+	  echo "$(ER_STRING) $(FILE) is JSON but has no paths -- not a swagger document" ; \
+	  exit 1 ; }
+	@$(JQ) -e '.info.version | startswith("3.")' "$(FILE)" >/dev/null 2>&1 || { \
+	  echo "$(ER_STRING) $(FILE) is not the v3 spec (info.version = $$($(JQ) -r '.info.version // "absent"' "$(FILE)"))" ; \
+	  echo "  elm is v3-only. Fetch the api-v3 spec: $(lm_swagger_url)" ; \
+	  exit 1 ; }
+	@$(JQ) -e '.basePath == "/santaba/rest"' "$(FILE)" >/dev/null 2>&1 || \
+	  echo "  warning: basePath is $$($(JQ) -r '.basePath // "absent"' "$(FILE)"), expected /santaba/rest"
+	@if [ -r swagger.documented.$(JSN) ] ; then \
+	  $(JQ) -rn --slurpfile old swagger.documented.$(JSN) --slurpfile new "$(FILE)" '($$old[0].paths|keys) as $$o | ($$new[0].paths|keys) as $$n | "  paths: \($$o|length) -> \($$n|length)   added \(($$n-$$o)|length), removed \(($$o-$$n)|length)"' ; \
+	  $(JQ) -e -n --slurpfile old swagger.documented.$(JSN) --slurpfile new "$(FILE)" '($$new[0].paths|length) >= (($$old[0].paths|length) * 3 / 4)' >/dev/null || { \
+	    echo "$(ER_STRING) that is more than a quarter fewer paths than the current spec" ; \
+	    echo "  a partial or truncated save is the usual cause. swagger.documented.$(JSN)" ; \
+	    echo "  has been left as it was. Re-save and try again, or if upstream really" ; \
+	    echo "  did shrink, overwrite it by hand." ; \
+	    exit 1 ; } ; \
+	fi
+	@tmp=$$(mktemp ./swagger.documented.XXXXXX) ; \
+	trap 'rm -f "$$tmp"' EXIT INT TERM ; \
+	$(JQ) . "$(FILE)" > "$$tmp" && mv "$$tmp" swagger.documented.$(JSN)
+	@echo "$(OK_STRING) $@ (imported $(FILE))"
+	@echo "  review with: git diff --stat swagger.documented.$(JSN)"
+	@echo "  then rebuild: make clean && make && make install"
+	@echo "  note: committing needs LEAK_SCAN_SKIP=1 -- the spec's documented"
+	@echo "  netscan example subnet trips the leak scan's private-IP check"
 
 .PHONY: cfg
 cfg: $(cfgdir)/config.example.ini ## Create config dir, copy example file and set permissions of all config files
