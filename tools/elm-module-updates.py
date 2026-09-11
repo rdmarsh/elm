@@ -239,6 +239,11 @@ def row(i, now_ms, url_template=None, portal=None):
         "tags": ";".join(i.get("tags") or ()),
         "devices": "",
         "active": "",
+        # `active` stays a plain number so a spreadsheet or jq can use it. The
+        # ">1000 devices so this is a floor" caveat rides alongside in
+        # active_capped rather than turning the number into "2+", which would
+        # make the whole column non-numeric for every consumer.
+        "active_capped": "",
         "url": url,
         "customised": "yes" if "IS_CUSTOMIZED" in set(
             i.get("installationStatuses") or ()) else "no",
@@ -261,8 +266,8 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None):
         c = (counted or {}).get((m.get("type"), str(m["id"])))
         if c:
             r["devices"] = c["applied"]
-            r["active"] = ("{}+".format(c["active"]) if c["capped"]
-                           else c["active"])
+            r["active"] = c["active"]
+            r["active_capped"] = "yes" if c["capped"] else "no"
         out.append(r)
     return out
 
@@ -281,10 +286,11 @@ def cell(r, c):
     if c == "name" and r.get("url"):
         return f"[{r['name']}]({r['url']})"
     if c == "tags" and r["tags"]:
-        # Modules carry up to a dozen tags; a table is not the place for all
-        # of them. CSV/JSON keep the full list.
-        t = r["tags"].split(";")
-        return ", ".join(t[:3]) + (f" +{len(t) - 3}" if len(t) > 3 else "")
+        return ", ".join(r["tags"].split(";"))
+    if c == "active" and r["active"] != "" and r["active_capped"] == "yes":
+        # Only the rendered table carries the "more than this" marker -- see
+        # the note on active_capped in row().
+        return f"{r['active']}+"
     return str(r[c])
 
 
@@ -453,8 +459,8 @@ def main(argv=None):
         return 0
 
     if args.csv:
-        cols = COLUMNS + ("devices", "active", "in_use", "customised",
-                          "upgrade")
+        cols = COLUMNS + ("devices", "active", "active_capped", "in_use",
+                          "customised", "upgrade")
         if linked:
             cols += ("url",)
         # type/usage/usage_of stay in CSV and JSON even for a single-type
@@ -526,8 +532,7 @@ def main(argv=None):
               "`SECURITY_REVIEW` are the other published states. Shown only "
               "when the selection contains more than one -- the \"Selected:\" "
               "line above names it when they are all the same.")
-    print("- **tags** -- the module's own tags, first three shown; "
-          "`--csv`/`--json` carry the full list, and `--tag` filters on them.")
+    print("- **tags** -- the module's own tags. `--tag` filters on them.")
     print("- **usage** (headed `instances`, `hosts` or `modules`) -- how widely "
           "the module is used, from `associatedCounts`. Which count that is depends "
           "on the module type, because the feed's counts are not uniform: "
@@ -544,7 +549,9 @@ def main(argv=None):
               "`instances`: one module in this portal applies to 1205 devices "
               "and collects 2 instances on 2 of them. A trailing `+` on "
               "`active` means the module applies to more than 1000 devices, "
-              "the API's per-page cap, so the figure is a floor.")
+              "the API's per-page cap, so the figure is a floor. In "
+              "`--csv`/`--json` that marker is a separate `active_capped` "
+              "column, leaving `active` a plain number.")
     print("- **in use** -- LM's own `isInUse` flag: something references the "
           "module. It does not mean anyone reads the data.")
     print("\nUpgrade from the portal's module toolbox -- elm is read-only.")

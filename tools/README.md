@@ -339,13 +339,14 @@ module's appliesTo matches) and `active` (how many of those are actually
 collecting, from `hasActiveInstance`). The three genuinely differ — one module
 here collects **2 instances**, applies to **1205 devices**, and is collecting on
 **2** of them — so none of them is a substitute for the others. A trailing `+`
-on `active` means the module applies to more than 1000 devices, the API's
-per-page cap, so the count is a floor. `--max-device-calls` (default 100)
+on `active` in the Markdown table means the module applies to more than 1000
+devices, the API's per-page cap, so the count is a floor. `--csv`/`--json` keep
+`active` a plain number and carry that caveat in a separate `active_capped`
+column, so the column stays sortable. `--max-device-calls` (default 100)
 refuses a run that would make too many calls; narrow it with `--tag`, `-t` or
 `--status` first.
 
-**Tags** come from the module itself and are shown three-at-a-time in the
-Markdown table (`+N` for the rest), in full in `--csv`/`--json`. `--tag
+**Tags** come from the module itself and are shown in full. `--tag
 linux,windows` keeps modules carrying at least one of the given tags, which is
 the easy way to scope both a report and a change: 3303 of 3906 installed
 modules in one test portal are tagged, across 1383 distinct tags.
