@@ -253,10 +253,15 @@ currently-active SDTs; `--exact` switches host matching from contains
 
 ## Module updates
 
-`tools/elm-module-updates.py` lists LogicModules that have a newer version
-waiting in the LM Exchange — by default, **DataSources** that are LM official
-(`originStatus` `CORE`), **not** customised locally, and upgradable — split into
-two sections, *not in use* then *in use*, each sorted **most out of date first**.
+`tools/elm-module-updates.py` lists LogicModules that need attention — by
+default, **DataSources** that are LM official (`originStatus` `CORE` or
+`DEPRECATED`), **not** customised locally, and either upgradable **or
+deprecated** — split into two sections, *not in use* then *in use*, each sorted
+**most out of date first**. Deprecated modules are included because they can
+never be upgraded (they are replaced by a different module on LM's timetable),
+so requiring an upgrade would hide the ones that most need looking at: in one
+test portal that was 371 installed deprecated datasources, 88 of them in use.
+`--status CORE` drops them again, and says how many it dropped.
 `-t`/`--type` switches to any other module type, several comma-separated, or
 `ALL` — the same single call already carries propertysources, configsources,
 eventsources, logsources, topologysources, SNMP sysOID maps and appliesTo
@@ -369,14 +374,11 @@ deprecated listing. When every row has the same status the column is dropped and
 the `Selected:` line above the table names it instead, the same way `type` is
 dropped from a single-type report. `--csv`/`--json` always carry it.
 
-**Deprecated modules never appear in this report**, and the tool says so on
-stderr with a count. They are replaced rather than updated, so they never carry
-`CAN_UPGRADE` — in one test portal 371 installed datasources were deprecated
-and 88 of those were in use, invisible to every run of the default report. List
-them with `--status DEPRECATED --include-current` (without `--include-current`
-you get an empty report, and the tool explains why), and look up the
-replacement and end-of-support date in [LogicMonitor's deprecated LogicModules
-list](https://www.logicmonitor.com/support/logicmodules/about-logicmodules/deprecated-logicmodules).
+The run summary says how many of the matches are deprecated, and points at
+[LogicMonitor's deprecated LogicModules
+list](https://www.logicmonitor.com/support/logicmodules/about-logicmodules/deprecated-logicmodules)
+for the replacement module and end-of-support date, which are not in the API.
+`--status DEPRECATED` on its own lists only those.
 
 `-p`/`--profile` selects
 the portal (default `config`), or `-c`/`--config` takes a full path to an

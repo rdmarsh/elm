@@ -6,8 +6,10 @@ version of, and does anything actually use them?" -- by default, DataSources
 that are
 
   1. NOT customised locally,
-  2. have a newer version available in the LM Exchange,
-  3. are LM official ("core") modules,
+  2. either have a newer version available in the LM Exchange, or are
+     deprecated -- both mean "this needs attention", and a deprecated module
+     can never have an upgrade because it is replaced rather than updated,
+  3. are LM official (originStatus CORE or DEPRECATED),
 
 split into two sections -- not in use, then in use -- each sorted from the most
 out of date to the least. `-t`/`--type` reports any other module type, several
@@ -198,7 +200,11 @@ def select(items, types, statuses, include_customised, include_current,
             continue                                  # Exchange-only entry
         if types != "ALL" and i.get("type") not in types:
             continue
-        if not include_current and "CAN_UPGRADE" not in st:
+        # A deprecated module can never carry CAN_UPGRADE -- it is replaced,
+        # not updated -- so requiring an upgrade would silently exclude every
+        # one of them. Both mean "this needs attention", so either qualifies.
+        deprecated = i.get("originStatus") == "DEPRECATED"
+        if not include_current and "CAN_UPGRADE" not in st and not deprecated:
             continue
         if not include_customised and "IS_CUSTOMIZED" in st:
             continue
@@ -317,9 +323,10 @@ def main(argv=None):
                         "type the Markdown report gets a table per type inside "
                         "each section, and a `type` column appears in --csv / "
                         "--json. Choices: " + ", ".join(TYPES) + ", ALL")
-    p.add_argument("--status", default="CORE", metavar="S,...",
-                   help="keep only these originStatus values (default: CORE, "
-                        "i.e. LM official). Try DEPRECATED, COMMUNITY, "
+    p.add_argument("--status", default="CORE,DEPRECATED", metavar="S,...",
+                   help="keep only these originStatus values (default: "
+                        "CORE,DEPRECATED -- LM official modules that are "
+                        "either behind or on their way out). Try COMMUNITY, "
                         "SECURITY_REVIEW, or ALL")
     p.add_argument("--include-customised", action="store_true",
                    help="also list locally customised modules (upgrading one "
@@ -393,9 +400,6 @@ def main(argv=None):
 
     if not mods:
         err("nothing matches those criteria")
-        if statuses != "ALL" and "DEPRECATED" in statuses and not args.include_current:
-            err("DEPRECATED modules are replaced rather than updated, so they "
-                "never carry CAN_UPGRADE. Add --include-current to list them.")
         return 0
 
     multi = types == "ALL" or len(types) > 1
@@ -426,13 +430,18 @@ def main(argv=None):
                      template, args.portal, counted)
     inuse = ordered([m for m in mods if m.get("isInUse")], now_ms,
                     template, args.portal, counted)
-    err(f"{len(mods)} match: {len(unused)} not in use, {len(inuse)} in use")
-    if dep and (statuses == "ALL" or "DEPRECATED" not in statuses):
+    dep_shown = sum(1 for m in mods if m.get("originStatus") == "DEPRECATED")
+    err(f"{len(mods)} match: {len(unused)} not in use, {len(inuse)} in use"
+        + (f" ({dep_shown} deprecated)" if dep_shown else ""))
+    if dep and statuses != "ALL" and "DEPRECATED" not in statuses:
         err(f"note: {len(dep)} installed module(s) of this type are DEPRECATED "
-            f"({len(dep_used)} in use) and are NOT in the report above -- "
-            "deprecated modules are replaced, not upgraded, so they never "
-            "carry CAN_UPGRADE.")
-        err("      list them:  --status DEPRECATED --include-current")
+            f"({len(dep_used)} in use) and your --status excludes them. They "
+            "cannot be upgraded -- they are replaced -- so they are in the "
+            "report by default. Add DEPRECATED back to --status to see them.")
+    elif dep_shown:
+        err(f"note: {dep_shown} of the modules above are DEPRECATED -- they "
+            "are replaced by a different module rather than upgraded, on LM's "
+            "timetable.")
         err(f"      replacements and end-of-support dates: {DEPRECATION_URL}")
 
     if args.json:
@@ -467,9 +476,12 @@ def main(argv=None):
     print(f"Profile: `{args.config or args.profile}`  |  "
           f"generated {datetime.date.today():%Y-%m-%d}  |  "
           f"{len(mods)} module(s)\n")
+    deprecated_in = statuses == "ALL" or "DEPRECATED" in statuses
     print(f"Selected: origin status {args.status.upper()}"
           + ("" if args.include_customised else ", not locally customised")
-          + ("" if args.include_current else ", upgrade available")
+          + ("" if args.include_current else
+             (", upgrade available or deprecated" if deprecated_in
+              else ", upgrade available"))
           + ". Sorted most out of date first.\n")
     # Every Markdown table covers exactly one type -- one per section when a
     # single type is selected, one per `### TYPE` heading otherwise -- so the
