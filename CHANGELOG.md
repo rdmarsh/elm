@@ -574,6 +574,19 @@ API support, and the initial release.
 
 [Unreleased]: https://github.com/rdmarsh/elm/compare/v1.9.0...HEAD
 [1.9.0]: https://github.com/rdmarsh/elm/compare/v1.8.10...v1.9.0
+[1.8.10]: https://github.com/rdmarsh/elm/compare/v1.8.9...v1.8.10
+[1.8.9]: https://github.com/rdmarsh/elm/compare/v1.8.8...v1.8.9
+[1.8.8]: https://github.com/rdmarsh/elm/compare/v1.8.7...v1.8.8
+[1.8.7]: https://github.com/rdmarsh/elm/compare/v1.8.6...v1.8.7
+[1.8.6]: https://github.com/rdmarsh/elm/compare/v1.8.5...v1.8.6
+[1.8.5]: https://github.com/rdmarsh/elm/compare/v1.8.4...v1.8.5
+[1.8.4]: https://github.com/rdmarsh/elm/compare/v1.8.3...v1.8.4
+[1.8.3]: https://github.com/rdmarsh/elm/compare/v1.8.2...v1.8.3
+[1.8.2]: https://github.com/rdmarsh/elm/compare/v1.8.1...v1.8.2
+[1.8.1]: https://github.com/rdmarsh/elm/compare/v1.8.0...v1.8.1
+[1.7.5]: https://github.com/rdmarsh/elm/compare/v1.7.4...v1.7.5
+[1.7.4]: https://github.com/rdmarsh/elm/compare/v1.7.3...v1.7.4
+[1.7.1]: https://github.com/rdmarsh/elm/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/rdmarsh/elm/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/rdmarsh/elm/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/rdmarsh/elm/compare/v1.4.0...v1.5.0
