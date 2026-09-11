@@ -40,6 +40,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `ai.md`: the "Track skills you personally develop in SKILLS_USED.md" principle, and `SKILLS_USED.md` from the recommended project structure. The advice was aimed at the human reader — keep a private, dated record of what you personally built, debugged and decided, so AI assistance does not quietly stand in for your own skill development — but `ai.md` is read mostly by AI assistants, which consistently misread it as an instruction to maintain the file themselves. A principle that reliably produces the opposite of its intent is worse than no principle. `SKILLS_USED.md` is gitignored and unaffected; keeping one is still a fine idea, it just is not something to ask an assistant to do.
 
+### Changed
+
+- **`-f md` now emits a real Markdown pipe table** (issue #55). It was tabulate's `simple` style — space-aligned columns under a row of dashes — which renders as a preformatted block rather than a table anywhere the Markdown is parsed: a wiki page, a PR body, a Confluence page via `mark`. It was also byte-identical to `-f tab`, so the name bought nothing. `md` is now an alias for `gfm`, sharing its branch so the two cannot drift apart again (and picking up the pipe-escaping `gfm` needs and `simple` did not — an unescaped `|` in a value breaks a pipe table). **This changes the output of `-f md`**: if you were relying on the old format, it is unchanged under its accurate name, `-f tab`. There was a historical defence — tabulate's `simple` is Pandoc's `simple_tables` — but nothing that parses CommonMark or GFM renders it as a table.
+
 ## [1.8.10] - 2026-08-16
 
 ### Removed

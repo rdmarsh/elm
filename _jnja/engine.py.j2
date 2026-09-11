@@ -334,15 +334,18 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             output = df.to_xml(pretty_print=False)
         elif format == 'prettyxml':
             output = df.to_xml(pretty_print=True)
-        elif format == 'gfm':
+        elif format in ('gfm', 'md'):
+            # md is an alias for gfm: it used to be tabulate's "simple" style,
+            # which is not a Markdown table at all (and was byte-identical to
+            # -f tab). See issue #55. They share a branch so they cannot drift
+            # apart again -- note "simple" needed no pipe escaping, a real pipe
+            # table does.
             #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
             df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
             output = tabulate(df, headers=colheads, showindex=index, tablefmt="github", floatfmt='.0f')
         elif format == 'latex':
             #to_latex also ends with a newline; same trailing blank line as jsonl
             output = df.to_latex(header=not noheader, index=index)[:-1]
-        elif format == 'md':
-            output = tabulate(df, headers=colheads, showindex=index, tablefmt="simple", floatfmt='.0f')
         elif format == 'pipe':
             #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
             df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)

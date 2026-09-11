@@ -84,20 +84,13 @@ gid=$(elm -f values DeviceGroupList -f id -F name:"Linux Devices")
 elm DeviceList -s0 -F hostGroupIds~${gid}
 ```
 
-`md` is **not** a Markdown pipe table. It is tabulate's `simple` style —
-space-aligned columns under a row of dashes — which renders as a preformatted
-block, not a table, anywhere that parses Markdown. For a real pipe table use
-`gfm` (or `pipe`, same thing with alignment markers). Verified 2026-09-11:
+`md`, `gfm` and `pipe` are all real Markdown pipe tables — `md` is an alias for
+`gfm`, and `pipe` is the same with alignment markers. `tab` (and `txt`) are
+space-aligned plain tables, not Markdown.
 
-```text
--f md                        -f gfm
-  id  hostname               |   id | hostname |
-----  ----------             |------|----------|
- 128  collector-a            |  128 | collector-a |
-```
-
-This matters whenever the destination parses the Markdown — a wiki page, a PR
-body, a Confluence page via `mark`. Reach for `gfm`, not `md`.
+Before the fix for issue #55, `md` was tabulate's `simple` style and was
+byte-identical to `tab`, so it rendered as a preformatted block rather than a
+table anywhere the Markdown was parsed. If you meet an older elm, use `gfm`.
 
 `api` format: prints the encoded API request URL. The request IS made; `response.url` is the source. The HMAC signature expires in minutes — not suitable for sharing or reuse.
 
