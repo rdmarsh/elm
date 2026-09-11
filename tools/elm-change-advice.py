@@ -33,6 +33,9 @@ What is filled in from the API, and what is left for you:
   flagged a DEPRECATED module is called out loudly: it cannot be upgraded at
           all, only replaced by a different module, on LM's timetable
 
+  linked  --portal NAME links each module to itself in the portal: a Markdown
+          link on the name, a URL on its own line in the plain-text formats
+
   yours   the change window time, the approver, the change reference, the
           contact, and anything site-specific. These appear as <ANGLE BRACKET>
           placeholders so an unedited draft is obviously unfinished.
@@ -75,6 +78,14 @@ USAGE_DEFAULT = ("associatedHostsCount", "hosts")
 # publishes the replacement and the end-of-support date per module here.
 DEPRECATION_URL = ("https://www.logicmonitor.com/support/logicmodules/"
                    "about-logicmodules/deprecated-logicmodules")
+
+# Link each module to itself in the portal. The REST API exposes no deep link,
+# but the metadata feed supplies both halves of one: `model` is the toolbox
+# path segment and `id` is the module, so one template covers every type.
+# Same flags and default as tools/elm-module-updates.py -- see the longer note
+# there on why the subdomain is not auto-detected.
+DEFAULT_URL_TEMPLATE = ("https://{portal}.logicmonitor.com"
+                        "/santaba/uiv4/modules/toolbox/{model}/edit/{id}")
 
 
 def err(*args):
@@ -169,7 +180,8 @@ def parse_id_arg(spec, default_type):
     return (default_type, spec.strip())
 
 
-def collect(mods, elm, profile, config, want_devices):
+def collect(mods, elm, profile, config, want_devices, url_template=None,
+            portal=None):
     """Build one record per module, with live impact detail."""
     out = []
     for m in mods:
@@ -198,6 +210,11 @@ def collect(mods, elm, profile, config, want_devices):
             "unit": unit,
             "devices": devices["names"],
             "device_total": devices["total"],
+            "url": (url_template.format(id=m.get("id", ""),
+                                        name=m.get("name", ""),
+                                        model=m.get("model", ""),
+                                        portal=portal or "")
+                    if url_template else ""),
         })
     return out
 
@@ -272,6 +289,9 @@ def module_lines(recs, marker="  - "):
         if r["deprecated"]:
             detail += " -- DEPRECATED, needs replacing rather than upgrading"
         lines.append(fill(detail, " " * len(marker)))
+        if r["url"]:
+            # Plain text has no inline links, so the URL gets its own line.
+            lines.append(fill(r["url"], " " * len(marker)))
     return lines
 
 
@@ -415,8 +435,9 @@ def render_md(recs, args, level, reasons):
              "applies to | customised |")
     o.append("|---|---|---|---|---|---|---|")
     for r in sorted(recs, key=lambda x: x["name"].lower()):
+        name = f"[{r['name']}]({r['url']})" if r["url"] else r["name"]
         o.append("| {} | {} | {} | {} | {} {} | {} | {} |".format(
-            r["name"], r["type"].lower(), r["version"], r["published"],
+            name, r["type"].lower(), r["version"], r["published"],
             r["usage"], r["unit"], r["device_total"] or "-",
             "**yes**" if r["customised"] else "no"))
     o.append("")
@@ -481,6 +502,14 @@ def main(argv=None):
                    help="who to contact about the change")
     p.add_argument("--risk", choices=("Low", "Medium", "High"),
                    help="override the derived risk level")
+    p.add_argument("--portal", metavar="NAME",
+                   help="portal subdomain (the bit before .logicmonitor.com). "
+                        "Giving it links each module to itself in the portal: "
+                        "a Markdown link on the name, a URL on its own line in "
+                        "the plain-text formats")
+    p.add_argument("--url-template", metavar="URL",
+                   help="override the link format. Placeholders: {portal} "
+                        "{model} {id} {name}")
     p.add_argument("--max-devices", type=int, default=25, metavar="N",
                    help="how many device names to list (default: 25, 0 = all). "
                         "The API caps its own list at 1000 per module")
@@ -552,8 +581,12 @@ def main(argv=None):
     listable = sum(1 for m in mods if m.get("type") in DEVICE_LISTABLE)
     if not args.no_devices and listable:
         err(f"looking up affected devices ({listable} call(s)) ...")
+    template = args.url_template or (DEFAULT_URL_TEMPLATE if args.portal else None)
+    if template and "{portal}" in template and not args.portal:
+        err("that link template needs {portal}: pass --portal NAME")
+        return 1
     recs = collect(mods, args.elm, args.profile, args.config,
-                   not args.no_devices)
+                   not args.no_devices, template, args.portal)
     level, reasons = derive_risk(recs)
     if args.risk:
         level = args.risk

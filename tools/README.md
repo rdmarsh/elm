@@ -431,6 +431,13 @@ with a message naming the types that do have it. The `--csv`/`--json` output of
 `elm-module-updates.py` always carries a `type` column for exactly this reason,
 so `--from` is never ambiguous.
 
+`--portal NAME` links each module to itself in the portal, exactly as in the
+[module updates](#module-updates) report and with the same `--url-template`
+override: a Markdown link on the module name in `md`, and the URL on its own
+line beneath each module in `email` and `itsm`, since plain text has no inline
+links. Worth setting — the point of the notice is that someone reads it and
+goes and looks.
+
 Risk is derived, not asserted, and `--risk` overrides it: a **deprecated**
 module makes it High (it cannot be upgraded at all — it is replaced by a
 different module on LM's timetable, so the change is a migration), a locally
