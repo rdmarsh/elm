@@ -100,6 +100,12 @@ def run_elm(elm, profile, config, *args):
     cmd += ["--config", config] if config else ["--profile", profile]
     cmd += ["-f", "json", *args]
     out = subprocess.run(cmd, capture_output=True, text=True)
+    if out.returncode == 0 and not out.stdout.strip():
+        # A query that matches nothing gives empty stdout, exit 0, and
+        # "Warning: no data found" on stderr. That is a normal result here --
+        # most modules are applied to no devices at all -- so it must not be
+        # reported as a failure the way a real error is.
+        return {}
     try:
         return json.loads(out.stdout)
     except Exception:
@@ -109,7 +115,8 @@ def run_elm(elm, profile, config, *args):
 
 def fetch_metadata(elm, profile, config):
     d = run_elm(elm, profile, config, "V4Metadata")
-    if d is None:
+    if not d:
+        err("no module metadata returned")
         return None
     items = d["V4Metadata"]
     # Tolerate the pre-fix double-wrapped shape from an older elm binary.
@@ -503,6 +510,10 @@ def main(argv=None):
     p.add_argument("--url-template", metavar="URL",
                    help="override the link format. Placeholders: {portal} "
                         "{model} {id} {name}")
+    p.add_argument("--max-device-calls", type=int, default=100, metavar="N",
+                   help="refuse the device lookups above N API calls "
+                        "(default: 100; two calls per module, 0 = no limit). "
+                        "Guards against piping a whole report in")
     p.add_argument("--list-devices-under", type=int, default=10, metavar="N",
                    help="name the affected devices under any module that has "
                         "at most N of them (default: 10, 0 = never name them). "
@@ -576,7 +587,21 @@ def main(argv=None):
 
     listable = sum(1 for m in mods if m.get("type") in DEVICE_LISTABLE)
     if not args.no_devices and listable:
-        err(f"looking up affected devices ({listable} call(s)) ...")
+        # Two calls per module (-C for the true total, -s0 for the names), so
+        # this is where an unnarrowed pipe from elm-module-updates.py turns
+        # into thousands of requests and half an hour of waiting.
+        if args.max_device_calls and listable * 2 > args.max_device_calls:
+            err(f"{listable} module(s) would need {listable * 2} API calls to "
+                f"look up affected devices, over --max-device-calls "
+                f"({args.max_device_calls}).")
+            err("A change notice is meant for the modules you are actually "
+                "changing on the day, not a whole report. Narrow the input "
+                "(--id, or filter the report with --tag / -t / --status), "
+                "pass --no-devices to skip the lookups, or raise the limit "
+                "(0 = no limit).")
+            return 1
+        err(f"looking up affected devices for {listable} module(s) "
+            f"({listable * 2} call(s)) ...")
     template = args.url_template or (DEFAULT_URL_TEMPLATE if args.portal else None)
     if template and "{portal}" in template and not args.portal:
         err("that link template needs {portal}: pass --portal NAME")

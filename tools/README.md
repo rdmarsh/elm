@@ -424,6 +424,13 @@ deprecated, the instances actually collected, and the devices each module
 applies to. Left to you as `<ANGLE BRACKET>` placeholders so an unedited draft
 is obviously unfinished: the window, approver, change reference and contact.
 
+**Give it a shortlist, not a whole report.** The notice is for the modules you
+are actually changing on the day. Piping an unnarrowed
+`elm-module-updates.py --json` in means a device lookup for every match — two
+API calls each — so `--max-device-calls` (default 100) refuses the run and says
+how to narrow it. Filter the report first (`--tag`, `-t`, `--status`), name the
+modules with `--id`, or pass `--no-devices` to skip the lookups entirely.
+
 **Devices are named under the module they affect**, not pooled into one list at
 the end: what a reader needs is who is hit by this change to *this* module.
 They are named only when there are few enough to be worth reading —

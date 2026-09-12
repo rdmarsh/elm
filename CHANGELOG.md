@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `tools/elm-change-advice.py` reported elm's `Warning: no data found` as an error, once per module. A module applied to no devices returns empty stdout, exit 0, and that warning on stderr — a normal result, since most modules are applied to nothing — but the JSON parse failed and the handler printed elm's stderr as though the call had failed, producing a wall of warnings during a long run. Empty stdout with a zero exit is now read as "no records"; real failures (non-zero exit, or unparseable output that is not empty) still report as before.
+- `tools/elm-change-advice.py` had no guard on the volume of device lookups, so piping a whole `elm-module-updates.py --json` report in — the obvious thing to try — silently began 2392 API calls for 1196 modules, around 40 minutes of work for a notice that would have claimed every module in the portal was being changed on one day. `--max-device-calls` (default 100, two calls per module) now refuses before making any of them and says how to narrow the input. `elm-module-updates.py` has had the same guard since its device columns were added.
+
 ### Changed
 
 - `tools/elm-change-advice.py` names the affected devices **under the module they belong to**, instead of pooling every module's devices into one list at the end of the notice. With several modules in one change, a single pooled list cannot answer the question a reader actually has — who is affected by this change to *this* module. Names appear only where there are few enough to read: `--list-devices-under N`, default 10, replacing `--max-devices` (which capped the pooled list at 25 names). Past the threshold the device count already on the module's line stands on its own; raise it to name more, or pass `0` to never name them. In the Markdown format the per-module lists become a `## Devices` section, since they will not fit in the table.
