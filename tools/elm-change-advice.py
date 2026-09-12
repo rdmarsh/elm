@@ -81,6 +81,12 @@ USAGE_DEFAULT = ("associatedHostsCount", "hosts")
 DEPRECATION_URL = ("https://www.logicmonitor.com/support/logicmodules/"
                    "about-logicmodules/deprecated-logicmodules")
 
+# LM's own write-up of what an update can cost you. The historical-data risks
+# below are taken from it, and the notice cites it so an approver can read the
+# source rather than take this tool's word for it.
+UPDATE_RISK_URL = ("https://www.logicmonitor.com/support/logicmodules/"
+                   "about-logicmodules/keeping-your-datasources-up-to-date")
+
 # Link each module to itself in the portal. The REST API exposes no deep link,
 # but the metadata feed supplies both halves of one: `model` is the toolbox
 # path segment and `id` is the module, so one template covers every type.
@@ -207,6 +213,10 @@ def collect(mods, elm, profile, config, want_devices, url_template=None,
             "display": m.get("displayName") or m.get("name") or "",
             "type": m.get("type") or "",
             "version": m.get("originVersion") or "unknown",
+            # The Exchange lookup key. The API cannot tell you the version an
+            # upgrade goes TO, so this is what makes that a manual lookup
+            # rather than a search.
+            "locator": m.get("originLocator") or "",
             "published": (datetime.datetime.fromtimestamp(
                 pub / 1000, datetime.timezone.utc).strftime("%Y-%m-%d")
                 if pub else "unknown"),
@@ -287,8 +297,10 @@ def module_lines(recs, marker="  - ", list_under=10):
     enough to be worth reading; past that the count above already says it."""
     lines = []
     for r in sorted(recs, key=lambda x: x["name"].lower()):
-        bits = ["{} {} (v{}, published {})".format(
-            r["type"].lower(), r["name"], r["version"], r["published"])]
+        ver = "v{}, published {}".format(r["version"], r["published"])
+        if r["locator"]:
+            ver += ", locator {}".format(r["locator"])
+        bits = ["{} {} ({})".format(r["type"].lower(), r["name"], ver)]
         if r["method"]:
             bits.append("collected by {}".format(r["method"].lower()))
         if r["interval"]:
@@ -317,17 +329,44 @@ def named_devices(r, list_under):
             and 0 < r["device_total"] <= list_under)
 
 
+def expectations():
+    """What an update can actually cost, per LogicMonitor's own documentation.
+
+    The historical-data cases are the ones worth spelling out in a notice: they
+    are permanent, they are not obvious from "we are upgrading a module", and
+    an approver who only hears "brief interruption" has not been told the truth.
+    """
+    return [
+        "Monitoring for the affected modules is briefly interrupted while each "
+        "module is replaced. A short gap in graphed data is normal.",
+
+        "Historical data can be lost permanently. LogicMonitor documents three "
+        "cases: a datapoint renamed or removed in the new version; Active "
+        "Discovery changing so instances are rediscovered under different "
+        "names; and a change to the AppliesTo expression that stops the module "
+        "applying to a device, even temporarily, which discards all history "
+        "for that module on those devices. Review the diff the Exchange shows "
+        "before importing, and check the AppliesTo change in particular.",
+
+        "Alert thresholds you have set at device or device group level are "
+        "preserved. Thresholds, datapoints, graphs and polling intervals set "
+        "on the module itself are replaced by the new version's.",
+
+        "LogicMonitor's own summary of these risks: " + UPDATE_RISK_URL,
+    ]
+
+
 def backout_lines(recs):
     """The backout plan, which depends on what is actually in scope.
 
     An uncustomised official module is a published registry version, so the
     version you upgraded from can simply be reinstalled from the module
-    toolbox -- nothing needs exporting first. That is only true while the
+    Exchange -- nothing needs exporting first. That is only true while the
     module is unmodified: a customised module's local edits exist nowhere but
     this portal, so for those an export beforehand is the only way back.
     """
     custom = sorted(r["name"] for r in recs if r["customised"])
-    lines = ["Reinstall the previous version from the module toolbox. Each "
+    lines = ["Reinstall the previous version from LogicMonitor Exchange. Each "
              "module in scope is an unmodified published version, so the "
              "version listed against it above is the one to go back to. "
              "Backout is per module and does not require the whole change to "
@@ -379,12 +418,10 @@ def render_email(recs, args, level, reasons):
     o.append(fill(impact_summary(recs)))
     o.append("")
     o.append("WHAT TO EXPECT")
-    o.append(fill("Monitoring for the affected modules is briefly interrupted "
-                  "while each module is replaced. A short gap in graphed data "
-                  "is normal. Alert thresholds you have set at device or group "
-                  "level are preserved; thresholds shipped with the module may "
-                  "change if the new version changed them, so alerting "
-                  "behaviour can differ after the upgrade."))
+    for line in expectations():
+        o.append(fill(line))
+        o.append("")
+    o = o[:-1]
     o.append("")
     o.append("RISK: " + level)
     for r in reasons:
@@ -431,7 +468,11 @@ def render_itsm(recs, args, level, reasons):
           "upgrading replaces them and their edits are not recoverable from "
           "the registry."]) +
         [
-        "Upgrade each module from the portal's module toolbox.",
+        "Look each module up in LogicMonitor Exchange by its locator (shown "
+        "against it above) to see the version it will be upgraded to and to "
+        "review the diff. The API does not expose the target version, so this "
+        "is the step that establishes what is actually changing.",
+        "Upgrade each module from LogicMonitor Exchange.",
         "Confirm each module reports data on a sample device before moving to "
         "the next.",
     ]):
@@ -457,19 +498,25 @@ def render_md(recs, args, level, reasons):
     o.append("")
     o.append("## What is changing")
     o.append("")
-    o.append("| module | type | installed | published | collected | "
+    o.append("| module | type | locator | installed | published | collected | "
              "applies to | customised |")
-    o.append("|---|---|---|---|---|---|---|")
+    o.append("|---|---|---|---|---|---|---|---|")
     for r in sorted(recs, key=lambda x: x["name"].lower()):
         name = f"[{r['name']}]({r['url']})" if r["url"] else r["name"]
-        o.append("| {} | {} | {} | {} | {} {} | {} | {} |".format(
-            name, r["type"].lower(), r["version"], r["published"],
+        o.append("| {} | {} | {} | {} | {} | {} {} | {} | {} |".format(
+            name, r["type"].lower(), r["locator"] or "-", r["version"],
+            r["published"],
             r["usage"], r["unit"], r["device_total"] or "-",
             "**yes**" if r["customised"] else "no"))
     o.append("")
     o.append("## Why")
     o.append("")
     o.append(args.reason)
+    o.append("")
+    o.append("## What to expect")
+    o.append("")
+    for line in expectations():
+        o.append("- " + line)
     o.append("")
     o.append("## Impact")
     o.append("")

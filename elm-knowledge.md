@@ -525,7 +525,7 @@ The `contacts` array contains names, email addresses, and phone numbers of porta
 ## LogicModule versions and updates (V4Metadata)
 
 `V4Metadata` (`GET /setting/logicmodules/metadata`) is the feed behind the
-portal's module toolbox, and the only place the API reports **update status**
+portal's LogicMonitor Exchange, and the only place the API reports **update status**
 for LogicModules. One unpaginated call returns every installed module *and*
 everything installable from the LM Exchange — datasources, propertysources,
 configsources, eventsources, logsources, topologysources, SNMP sysOID maps and

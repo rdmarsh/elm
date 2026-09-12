@@ -360,7 +360,7 @@ def main(argv=None):
     p.add_argument("--portal", metavar="NAME",
                    help="portal subdomain (the bit before .logicmonitor.com). "
                         "Giving it turns each module name into a link to that "
-                        "module in the portal's toolbox. Not auto-detected -- "
+                        "module in LogicMonitor Exchange. Not auto-detected -- "
                         "see the note in the source")
     p.add_argument("--url-template", metavar="URL",
                    help="override the link format. Placeholders: {portal} "
@@ -554,7 +554,7 @@ def main(argv=None):
               "column, leaving `active` a plain number.")
     print("- **in use** -- LM's own `isInUse` flag: something references the "
           "module. It does not mean anyone reads the data.")
-    print("\nUpgrade from the portal's module toolbox -- elm is read-only.")
+    print("\nUpgrade from LogicMonitor Exchange -- elm is read-only.")
     return 0
 
 

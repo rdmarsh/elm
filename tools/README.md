@@ -270,7 +270,7 @@ section gets a table per type.
 
 It costs **one API call** regardless of portal size: `elm V4Metadata`
 (`GET /setting/logicmodules/metadata`), the feed behind the portal's module
-toolbox. That one response carries every installed module *and* everything
+Exchange. That one response carries every installed module *and* everything
 installable from the Exchange, with per-module `installationStatuses`
 (`IS_INSTALLED`, `CAN_UPGRADE`, `IS_CUSTOMIZED`, `CAN_INSTALL`), `originStatus`,
 `isInUse`, the installed `originVersion`, and `originPublishedAtMS`.
@@ -359,7 +359,7 @@ while every other type has a real host count and appliesTo functions use
 number and a `usage_of` label so the schema stays stable. A module can be in use
 with a count of `0`. "In use" is LM's own `isInUse` flag: something
 references the module, not that anyone reads the data. `--portal NAME` turns each module name into a link
-to that module in the portal's toolbox. The REST API exposes no UI link, but
+to that module in LogicMonitor Exchange. The REST API exposes no UI link, but
 the feed supplies both halves of one: `model` (`exchangeDataSources`,
 `exchangePropertySources`, …) is the toolbox path segment and `id` is the
 module, so a single template covers every module type
@@ -460,6 +460,22 @@ override: a Markdown link on the module name in `md`, and the URL on its own
 line beneath each module in `email` and `itsm`, since plain text has no inline
 links. Worth setting — the point of the notice is that someone reads it and
 goes and looks.
+
+Each module carries its **locator** (e.g. `FJJGMW`), the LogicMonitor Exchange
+lookup key. The API does not expose the version an upgrade goes *to*, so the
+implementation plan's first step is to look each module up by locator, read the
+target version and review the diff — that is the step that establishes what is
+actually changing.
+
+**What to expect** is taken from LogicMonitor's own
+[LogicModule Updates](https://www.logicmonitor.com/support/logicmodules/about-logicmodules/keeping-your-datasources-up-to-date)
+page rather than invented, and the notice cites it. It names the case an
+approver most needs to hear and would not otherwise be told: historical data
+can be lost **permanently** — when a datapoint is renamed or removed, when
+Active Discovery rediscovers instances under new names, or when an AppliesTo
+change stops the module applying to a device even temporarily, which discards
+all history for that module on those devices. Thresholds set at device or
+device group level survive; anything set on the module itself does not.
 
 The backout plan follows what is in scope. An unmodified official module is a
 published registry version, so the plan is to reinstall the version listed
