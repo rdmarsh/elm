@@ -283,8 +283,15 @@ def row(i, now_ms, url_template=None, portal=None):
     }
 
 
-def ordered(mods, now_ms, url_template=None, portal=None, counted=None):
-    """Rows oldest-published first; undated ones last, by name."""
+def ordered(mods, now_ms, url_template=None, portal=None, counted=None,
+            sort="age"):
+    """Rows in the requested order.
+
+    `age` (default) is oldest-published first, undated last by name -- the
+    "most out of date" reading. `impact` is highest blast radius first, with
+    age as the tie-break, since a row's impact says nothing about how far
+    behind it is. `name` is alphabetical.
+    """
     dated = sorted((m for m in mods if m.get("originPublishedAtMS")),
                    key=lambda m: m["originPublishedAtMS"])
     undated = sorted((m for m in mods if not m.get("originPublishedAtMS")),
@@ -303,6 +310,12 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None):
         breadth = (c["active"] or c["applied"]) if c else 0
         r["impact"] = impact(r["usage"] or 0, breadth)
         out.append(r)
+    if sort == "impact":
+        # `out` is already in age order, and sorted() is stable, so equal
+        # impacts keep it -- the tie-break is free.
+        out.sort(key=lambda r: -float(r["impact"] or 0))
+    elif sort == "name":
+        out.sort(key=lambda r: r["name"].lower())
     return out
 
 
@@ -374,6 +387,11 @@ def main(argv=None):
     p.add_argument("--tag", metavar="TAG,...",
                    help="keep only modules carrying at least one of these tags "
                         "(case-insensitive), e.g. --tag linux,windows")
+    p.add_argument("--sort", default="age", choices=("age", "impact", "name"),
+                   help="row order within each section: age (default, most out "
+                        "of date first), impact (widest blast radius first, "
+                        "age breaking ties), or name. Sorting by impact "
+                        "without --devices ranks on instances alone")
     p.add_argument("--devices", action="store_true",
                    help="add devices/active columns. For datasources and "
                         "configsources the feed counts INSTANCES, not devices, "
@@ -467,9 +485,9 @@ def main(argv=None):
         return 1
     linked = bool(template)
     unused = ordered([m for m in mods if not m.get("isInUse")], now_ms,
-                     template, args.portal, counted)
+                     template, args.portal, counted, args.sort)
     inuse = ordered([m for m in mods if m.get("isInUse")], now_ms,
-                    template, args.portal, counted)
+                    template, args.portal, counted, args.sort)
     dep_shown = sum(1 for m in mods if m.get("originStatus") == "DEPRECATED")
     err(f"{len(mods)} match: {len(unused)} not in use, {len(inuse)} in use"
         + (f" ({dep_shown} deprecated)" if dep_shown else ""))
@@ -522,7 +540,9 @@ def main(argv=None):
           + ("" if args.include_current else
              (", upgrade available or deprecated" if deprecated_in
               else ", upgrade available"))
-          + ". Sorted most out of date first.\n")
+          + {"age": ". Sorted most out of date first.",
+             "impact": ". Sorted widest blast radius first.",
+             "name": ". Sorted by name."}[args.sort] + "\n")
     # Every Markdown table covers exactly one type -- one per section when a
     # single type is selected, one per `### TYPE` heading otherwise -- so the
     # type and the usage unit are constant within a table. Both are dropped as

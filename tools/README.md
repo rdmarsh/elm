@@ -285,6 +285,9 @@ tools/elm-module-updates.py -p prod > module-updates.md
 # flat CSV of both sections, with status / in_use / customised / upgrade
 tools/elm-module-updates.py --csv
 
+# worst blast radius first, with device counts
+tools/elm-module-updates.py --tag linux --devices --sort impact
+
 # other module types — one, several, or all
 tools/elm-module-updates.py -t PROPERTYSOURCE
 tools/elm-module-updates.py -t DATASOURCE,PROPERTYSOURCE
@@ -331,6 +334,12 @@ ascending — and `version`/`age` describe the installed version, not the
 available one. Registry publish timestamps only begin around 2017-05, so
 anything older bunches up at that floor and cannot be ranked against its peers;
 a handful of modules carry no publish date at all and are listed last.
+`--sort` picks the row order within each section: `age` (default, most out of
+date first), `impact` (widest blast radius first), or `name`. Impact sorting
+uses age as the tie-break, since a row's blast radius says nothing about how
+far behind it is — and sorting by impact without `--devices` ranks on instances
+alone, for the reason below.
+
 An **impact** column scores blast radius 0-10: if this upgrade goes wrong, how
 much is wrong. Both inputs are log-scaled — the step from 1 to 10 devices
 matters far more than 900 to 1000 — and **breadth counts about twice depth**,
