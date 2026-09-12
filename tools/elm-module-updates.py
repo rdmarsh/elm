@@ -130,31 +130,35 @@ DEFAULT_URL_TEMPLATE = ("https://{portal}.logicmonitor.com"
                         "/santaba/uiv4/modules/toolbox/{model}/edit/{id}")
 
 
-def impact(instances, devices):
-    """A 0-10 blast-radius score. Breadth counts about twice depth.
+def risk(instances, devices, years):
+    """A 0-10 score for "how much should I worry about this upgrade?".
 
-    The question it answers is "if this upgrade goes wrong, how much is
-    wrong?", and the two inputs are not equivalent. 1 instance on 1000 devices
-    scores 6.9; 1000 instances on 1 device scores 4.0 -- deliberately, because
-    breadth hurts more than depth:
+    Two different things go in, and they are different kinds of thing:
 
-      - LogicMonitor's own documented worst case, an AppliesTo change that
-        stops a module applying, destroys history *per device*. Breadth is
-        exactly the multiplier on permanent data loss.
-      - An alert storm scales with devices: 1000 hosts alerting is an incident,
-        1000 instances on one host is one noisy host.
-      - Breadth usually means more services, teams and customers touched;
-        depth usually means one system monitored thoroughly.
+    CONSEQUENCE -- how much breaks if it goes wrong. Breadth counts about twice
+    depth, so 1 instance on 1000 devices outranks 1000 instances on 1 device.
+    LogicMonitor's worst documented outcome, an AppliesTo change that stops a
+    module applying, destroys history *per device*, so breadth is the
+    multiplier on permanent data loss; alert storms scale with devices too.
+    Depth is the volume of history at stake on one host, so it carries about
+    half the weight rather than none.
 
-    Depth is not nothing -- it is the volume of history at stake on that host --
-    so it carries roughly half the weight rather than none. Both are log-scaled:
-    the step from 1 to 10 devices matters far more than 900 to 1000.
+    LIKELIHOOD -- how probable that is. The further behind you are, the more
+    released change is folded into one jump, and the more chance it contains a
+    renamed datapoint, a restructured Active Discovery or an AppliesTo change.
+    Age is a proxy for the size of the diff, not a measure of it: the API
+    cannot tell us the target version, let alone what changed between here and
+    there, so this is the best available stand-in and it is weighted modestly.
 
-    Tune the two coefficients if your environment disagrees; the inputs stay
-    visible in their own columns so the score is always auditable.
+    Age contributes at most about 1.4 of the 10, so it nudges the order rather
+    than driving it: a nine-year-old module on one device still scores 2.3,
+    while a six-month-old one on 300 devices scores 8.0. All three inputs stay
+    visible in their own columns, so the number is always auditable.
     """
-    return round(min(10.0, 2.2 * math.log10(1 + max(devices, 0))
-                     + 1.1 * math.log10(1 + max(instances, 0))), 1)
+    return round(min(10.0,
+                     2.0 * math.log10(1 + max(devices, 0))
+                     + 1.0 * math.log10(1 + max(instances, 0))
+                     + 0.15 * max(years, 0)), 1)
 
 
 def err(*args):
@@ -264,7 +268,7 @@ def row(i, now_ms, url_template=None, portal=None):
         "group": i.get("group") or "",
         "usage": counts.get(field, ""),
         "usage_of": label,
-        "impact": "",
+        "risk": "",
         "tags": ";".join(i.get("tags") or ()),
         "devices": "",
         "active": "",
@@ -288,9 +292,8 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None,
     """Rows in the requested order.
 
     `age` (default) is oldest-published first, undated last by name -- the
-    "most out of date" reading. `impact` is highest blast radius first, with
-    age as the tie-break, since a row's impact says nothing about how far
-    behind it is. `name` is alphabetical.
+    "most out of date" reading. `risk` is highest-scoring first, with age as
+    the tie-break. `name` is alphabetical.
     """
     dated = sorted((m for m in mods if m.get("originPublishedAtMS")),
                    key=lambda m: m["originPublishedAtMS"])
@@ -308,12 +311,12 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None,
         # devices the module applies to, and to 0 when --devices was not used,
         # in which case the score reflects depth alone and says so.
         breadth = (c["active"] or c["applied"]) if c else 0
-        r["impact"] = impact(r["usage"] or 0, breadth)
+        r["risk"] = risk(r["usage"] or 0, breadth, float(r["age"] or 0))
         out.append(r)
-    if sort == "impact":
+    if sort == "risk":
         # `out` is already in age order, and sorted() is stable, so equal
-        # impacts keep it -- the tie-break is free.
-        out.sort(key=lambda r: -float(r["impact"] or 0))
+        # scores keep it -- the tie-break is free.
+        out.sort(key=lambda r: -float(r["risk"] or 0))
     elif sort == "name":
         out.sort(key=lambda r: r["name"].lower())
     return out
@@ -322,7 +325,7 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None,
 # `type` is dropped from the output unless more than one module type is
 # selected -- a single-type report repeats it on every row for nothing.
 COLUMNS = ("published", "age", "type", "status", "version", "id", "name",
-           "group", "tags", "usage", "usage_of", "impact")
+           "group", "tags", "usage", "usage_of", "risk")
 # `url` is appended to CSV/JSON only when a template is configured; in Markdown
 # it becomes a link on the name instead of a column of its own.
 
@@ -387,11 +390,12 @@ def main(argv=None):
     p.add_argument("--tag", metavar="TAG,...",
                    help="keep only modules carrying at least one of these tags "
                         "(case-insensitive), e.g. --tag linux,windows")
-    p.add_argument("--sort", default="age", choices=("age", "impact", "name"),
+    p.add_argument("--sort", default="age", choices=("age", "risk", "name"),
                    help="row order within each section: age (default, most out "
-                        "of date first), impact (widest blast radius first, "
-                        "age breaking ties), or name. Sorting by impact "
-                        "without --devices ranks on instances alone")
+                        "of date first), risk (highest score first), or name. "
+                        "--sort risk turns on --devices by itself when the "
+                        "lookups are affordable, since the score is only "
+                        "trustworthy with a device count")
     p.add_argument("--devices", action="store_true",
                    help="add devices/active columns. For datasources and "
                         "configsources the feed counts INSTANCES, not devices, "
@@ -464,6 +468,18 @@ def main(argv=None):
     now_ms = datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
 
     counted = {}
+    if args.sort == "risk" and not args.devices:
+        # The score is only trustworthy with a device count, so asking for it
+        # asks for the lookups -- but silently spending 2400 calls is worse
+        # than a weaker score, so this only happens when it is affordable.
+        n = sum(1 for m in mods if m.get("type") in DEVICE_LISTABLE)
+        if not args.max_device_calls or n <= args.max_device_calls:
+            args.devices = True
+        else:
+            err(f"note: --sort risk would need {n} device lookups, over "
+                f"--max-device-calls ({args.max_device_calls}), so the score "
+                "rests on instances alone. Narrow the report, or raise the "
+                "limit, for a device-aware ranking.")
     if args.devices:
         listable = [m for m in mods if m.get("type") in DEVICE_LISTABLE]
         if args.max_device_calls and len(listable) > args.max_device_calls:
@@ -473,7 +489,7 @@ def main(argv=None):
                 "(0 = no limit).")
             return 1
         err(f"counting devices for {len(listable)} module(s) "
-            f"({len(listable)} call(s)) ...")
+            f"({len(listable) * 2} call(s), two each) ...")
         for n, m in enumerate(listable, 1):
             counted[(m.get("type"), str(m["id"]))] = device_counts(
                 args.elm, args.profile, args.config, m["id"])
@@ -541,7 +557,7 @@ def main(argv=None):
              (", upgrade available or deprecated" if deprecated_in
               else ", upgrade available"))
           + {"age": ". Sorted most out of date first.",
-             "impact": ". Sorted widest blast radius first.",
+             "risk": ". Sorted highest risk first.",
              "name": ". Sorted by name."}[args.sort] + "\n")
     # Every Markdown table covers exactly one type -- one per section when a
     # single type is selected, one per `### TYPE` heading otherwise -- so the
@@ -606,16 +622,18 @@ def main(argv=None):
               "the API's per-page cap, so the figure is a floor. In "
               "`--csv`/`--json` that marker is a separate `active_capped` "
               "column, leaving `active` a plain number.")
-    print("- **impact** -- 0-10 blast radius: how much is wrong if this "
-          "upgrade goes wrong. Both inputs are log-scaled and **breadth counts "
-          "about twice depth**, so 1 instance on 1000 devices (6.9) outranks "
-          "1000 instances on 1 device (4.0). Breadth is the multiplier on the "
-          "worst documented outcome -- an AppliesTo change destroys history "
-          "per device -- and on alert storms; depth is the volume of history "
-          "at stake on one host."
-          + ("" if args.devices else " **Without `--devices` there is no "
-             "device count, so this reflects instances alone and understates "
-             "wide, shallow modules.**"))
+    print("- **risk** -- 0-10, combining how much breaks with how likely that "
+          "is. Consequence: breadth counts about twice depth (both "
+          "log-scaled), so 1 instance on 1000 devices outranks 1000 instances "
+          "on 1 device -- an AppliesTo change destroys history per device, and "
+          "alert storms scale with devices. Likelihood: every year behind adds "
+          "0.15, because a bigger version gap folds in more released change "
+          "and more chance of a renamed datapoint or restructured discovery. "
+          "Age contributes at most ~1.4 of the 10, so it nudges rather than "
+          "drives: a nine-year-old module on one device still scores 2.3."
+          + ("" if args.devices else " **No device count was fetched, so the "
+             "consequence half rests on instances alone and understates wide, "
+             "shallow modules -- run with --devices or --sort risk.**"))
     print("- **in use** -- LM's own `isInUse` flag: something references the "
           "module. It does not mean anyone reads the data.")
     print("\nUpgrade from LogicMonitor Exchange -- elm is read-only.")

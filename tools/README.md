@@ -285,8 +285,8 @@ tools/elm-module-updates.py -p prod > module-updates.md
 # flat CSV of both sections, with status / in_use / customised / upgrade
 tools/elm-module-updates.py --csv
 
-# worst blast radius first, with device counts
-tools/elm-module-updates.py --tag linux --devices --sort impact
+# riskiest first (fetches device counts by itself)
+tools/elm-module-updates.py --tag linux --sort risk
 
 # other module types — one, several, or all
 tools/elm-module-updates.py -t PROPERTYSOURCE
@@ -335,26 +335,34 @@ available one. Registry publish timestamps only begin around 2017-05, so
 anything older bunches up at that floor and cannot be ranked against its peers;
 a handful of modules carry no publish date at all and are listed last.
 `--sort` picks the row order within each section: `age` (default, most out of
-date first), `impact` (widest blast radius first), or `name`. Impact sorting
-uses age as the tie-break, since a row's blast radius says nothing about how
-far behind it is — and sorting by impact without `--devices` ranks on instances
-alone, for the reason below.
+date first), `risk` (highest score first, age breaking ties), or `name`.
+`--sort risk` turns `--devices` on by itself when the lookups fit inside
+`--max-device-calls`, since the score is only trustworthy with a device count —
+and says so on stderr when they do not fit, rather than silently ranking on
+half the picture.
 
-An **impact** column scores blast radius 0-10: if this upgrade goes wrong, how
-much is wrong. Both inputs are log-scaled — the step from 1 to 10 devices
-matters far more than 900 to 1000 — and **breadth counts about twice depth**,
-so 1 instance on 1000 devices scores 6.9 while 1000 instances on 1 device
-scores 4.0. That ordering is deliberate: LogicMonitor's own worst documented
-outcome, an AppliesTo change that stops a module applying, destroys history
-*per device*, so breadth is the multiplier on permanent data loss; alert storms
-scale with devices too. Depth still counts for something — it is the volume of
-history at stake on that host — which is why it carries half the weight rather
-than none. Breadth uses devices actually collecting where known, falling back
-to devices applied. **Without `--devices` there is no device count at all**, so
-the score reflects instances alone and understates wide, shallow modules; the
-legend says so on every report. The inputs stay in their own columns, so the
-score is always auditable, and the two coefficients are a one-line change if
-your environment disagrees.
+A **risk** column scores 0-10, combining how much breaks with how likely that
+is.
+
+*Consequence* is breadth and depth, both log-scaled, with breadth counting
+about twice depth — so 1 instance on 1000 devices outranks 1000 instances on 1
+device. That ordering is deliberate: LogicMonitor's worst documented outcome,
+an AppliesTo change that stops a module applying, destroys history *per
+device*, and alert storms scale with devices too. Depth is the volume of
+history at stake on one host, so it carries half the weight rather than none.
+
+*Likelihood* is age: every year behind adds 0.15. The further behind you are,
+the more released change is folded into a single jump, and the more chance it
+contains a renamed datapoint, restructured Active Discovery or an AppliesTo
+change. Age is a **proxy for the size of the diff, not a measure of it** — the
+API cannot tell us the target version, let alone what changed on the way — so
+it is weighted modestly: at most ~1.4 of the 10. A nine-year-old module on one
+device still scores 2.3, while a six-month-old one on 300 devices scores 8.0.
+
+All three inputs stay in their own columns, so the score is auditable, and the
+coefficients are a one-line change. Breadth uses devices actually collecting
+where known, falling back to devices applied; with no device count the
+consequence half rests on instances alone, and the legend says so.
 
 **Instances are not devices.** For datasources and configsources the usage
 column counts *instances* — discovered objects — and the feed has no device
