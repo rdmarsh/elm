@@ -317,6 +317,33 @@ def named_devices(r, list_under):
             and 0 < r["device_total"] <= list_under)
 
 
+def backout_lines(recs):
+    """The backout plan, which depends on what is actually in scope.
+
+    An uncustomised official module is a published registry version, so the
+    version you upgraded from can simply be reinstalled from the module
+    toolbox -- nothing needs exporting first. That is only true while the
+    module is unmodified: a customised module's local edits exist nowhere but
+    this portal, so for those an export beforehand is the only way back.
+    """
+    custom = sorted(r["name"] for r in recs if r["customised"])
+    lines = ["Reinstall the previous version from the module toolbox. Each "
+             "module in scope is an unmodified published version, so the "
+             "version listed against it above is the one to go back to. "
+             "Backout is per module and does not require the whole change to "
+             "be reversed."]
+    if custom:
+        lines[0] = lines[0].replace("Each module in scope is an unmodified "
+                                    "published version, so the", "For the "
+                                    "unmodified modules the")
+        lines.append("EXPORT THESE BEFORE YOU START -- they are locally "
+                     "customised, so their current content exists nowhere but "
+                     "this portal and reinstalling a published version will "
+                     "not bring the local edits back: {}."
+                     .format(", ".join(custom)))
+    return lines
+
+
 def impact_summary(recs):
     """Impact in the terms that mean something, with the two kept apart.
 
@@ -366,10 +393,10 @@ def render_email(recs, args, level, reasons):
         o.append(bullet("No customised modules and a limited blast radius."))
     o.append("")
     o.append("IF SOMETHING GOES WRONG")
-    o.append(fill("Each module is exported from the portal before it is "
-                  "upgraded, so the previous version can be re-imported to "
-                  "restore the prior behaviour. Report anything unexpected to "
-                  "{}.".format(args.contact)))
+    for line in backout_lines(recs):
+        o.append(fill(line))
+        o.append("")
+    o.append(fill("Report anything unexpected to {}.".format(args.contact)))
     o.append("")
     o.append("Change reference: {}".format(args.ref))
     o.append("Contact: {}".format(args.contact))
@@ -398,19 +425,21 @@ def render_itsm(recs, args, level, reasons):
         o.append(bullet(r))
     o.append("")
     o.append("Implementation plan:")
-    for line in [
-        "Export the current version of each module in scope, so it can be "
-        "re-imported if needed.",
+    for line in (
+        ([] if not any(r["customised"] for r in recs) else
+         ["Export the locally customised modules listed under Backout -- "
+          "upgrading replaces them and their edits are not recoverable from "
+          "the registry."]) +
+        [
         "Upgrade each module from the portal's module toolbox.",
         "Confirm each module reports data on a sample device before moving to "
         "the next.",
-    ]:
+    ]):
         o.append(bullet(line))
     o.append("")
     o.append("Backout plan:")
-    o.append(bullet("Re-import the exported previous version of any module "
-                    "that misbehaves. Backout is per module and does not "
-                    "require the whole change to be reversed."))
+    for line in backout_lines(recs):
+        o.append(bullet(line))
     o.append("")
     o.append("Test plan:")
     o.append(bullet("For each module, confirm data is collected on at least "
@@ -461,8 +490,9 @@ def render_md(recs, args, level, reasons):
     o.append("")
     o.append("## Backout")
     o.append("")
-    o.append("Each module is exported before upgrade; re-import the previous "
-             "version of any module that misbehaves. Backout is per module.")
+    for line in backout_lines(recs):
+        o.append(line)
+        o.append("")
     o.append("")
     o.append("Contact: {}".format(args.contact))
     return "\n".join(o)

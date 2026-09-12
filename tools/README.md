@@ -461,6 +461,13 @@ line beneath each module in `email` and `itsm`, since plain text has no inline
 links. Worth setting — the point of the notice is that someone reads it and
 goes and looks.
 
+The backout plan follows what is in scope. An unmodified official module is a
+published registry version, so the plan is to reinstall the version listed
+against it — no export needed, and the notice carries that version number for
+exactly this reason. Only **locally customised** modules get the "export this
+first" step, named individually, because their content exists nowhere but the
+portal and reinstalling a published version will not bring the local edits back.
+
 Risk is derived, not asserted, and `--risk` overrides it: a **deprecated**
 module makes it High (it cannot be upgraded at all — it is replaced by a
 different module on LM's timetable, so the change is a migration), a locally
