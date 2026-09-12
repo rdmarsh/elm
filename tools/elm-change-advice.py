@@ -29,7 +29,9 @@ What is filled in from the API, and what is left for you:
   filled  module names, installed versions and their publish dates, module
           type, collection method and interval, whether each module is locally
           customised, the number of instances/hosts affected, and -- for
-          datasources and configsources -- the actual device names
+          datasources and configsources -- the affected devices, named under
+          the module they belong to when there are few enough to read
+          (--list-devices-under, default 10)
   flagged a DEPRECATED module is called out loudly: it cannot be upgraded at
           all, only replaced by a different module, on LM's timetable
 
@@ -271,7 +273,11 @@ def bullet(text, marker="  - "):
     return fill(text, marker, " " * len(marker))
 
 
-def module_lines(recs, marker="  - "):
+def module_lines(recs, marker="  - ", list_under=10):
+    """One block per module. Devices are named under the module they affect
+    rather than pooled into one list at the end -- a reader wants to know who
+    is hit by *this* change to *this* module. Named only when there are few
+    enough to be worth reading; past that the count above already says it."""
     lines = []
     for r in sorted(recs, key=lambda x: x["name"].lower()):
         bits = ["{} {} (v{}, published {})".format(
@@ -292,7 +298,16 @@ def module_lines(recs, marker="  - "):
         if r["url"]:
             # Plain text has no inline links, so the URL gets its own line.
             lines.append(fill(r["url"], " " * len(marker)))
+        if named_devices(r, list_under):
+            lines.append(fill("devices: " + ", ".join(r["devices"]),
+                              " " * len(marker)))
     return lines
+
+
+def named_devices(r, list_under):
+    """Whether this module's devices are few enough to name."""
+    return (r["devices"] and list_under
+            and 0 < r["device_total"] <= list_under)
 
 
 def impact_summary(recs):
@@ -311,24 +326,7 @@ def impact_summary(recs):
     return s
 
 
-def device_block(recs, limit):
-    """Sampled device names, capped, with the truncation stated when it bites."""
-    names = sorted({d for r in recs for d in r["devices"]})
-    if not names:
-        return None
-    capped = any(r["device_total"] > len(r["devices"]) for r in recs)
-    shown = names if limit <= 0 else names[:limit]
-    text = ", ".join(shown)
-    if len(shown) < len(names):
-        text += ", ... and {} more".format(len(names) - len(shown))
-    if capped:
-        text += (" (the device list the API returns is capped at 1000 per "
-                 "module, so this sample is incomplete)")
-    return text
-
-
 def render_email(recs, args, level, reasons):
-    devices = device_block(recs, args.max_devices)
     o = []
     o.append("Subject: Monitoring change {} - {} LogicMonitor module(s) upgraded"
              .format(args.date, len(recs)))
@@ -338,16 +336,13 @@ def render_email(recs, args, level, reasons):
                   .format(args.date, args.window)))
     o.append("")
     o.append("WHAT IS CHANGING")
-    o += module_lines(recs)
+    o += module_lines(recs, list_under=args.list_devices_under)
     o.append("")
     o.append("WHY")
     o.append(fill(args.reason))
     o.append("")
     o.append("WHO IS AFFECTED")
     o.append(fill(impact_summary(recs)))
-    if devices:
-        o.append("")
-        o.append(fill("Devices the modules apply to: " + devices))
     o.append("")
     o.append("WHAT TO EXPECT")
     o.append(fill("Monitoring for the affected modules is briefly interrupted "
@@ -375,7 +370,6 @@ def render_email(recs, args, level, reasons):
 
 
 def render_itsm(recs, args, level, reasons):
-    devices = device_block(recs, args.max_devices)
     o = []
     o.append("Summary: Upgrade {} LogicMonitor module(s) to current published "
              "versions".format(len(recs)))
@@ -388,11 +382,8 @@ def render_itsm(recs, args, level, reasons):
     o.append(fill(args.reason, "  "))
     o.append("")
     o.append("Modules in scope:")
-    o += module_lines(recs)
-    if devices:
-        o.append("")
-        o.append("Devices in scope:")
-        o.append(fill(devices, "  "))
+    o += module_lines(recs, list_under=args.list_devices_under)
+
     o.append("")
     o.append("Risk factors:")
     for r in (reasons or ["None identified beyond routine monitoring "
@@ -424,7 +415,6 @@ def render_itsm(recs, args, level, reasons):
 
 
 def render_md(recs, args, level, reasons):
-    devices = device_block(recs, args.max_devices)
     o = ["# Monitoring change - {}".format(args.date), ""]
     o.append("**Window:** {}  |  **Risk:** {}  |  **Reference:** {}"
              .format(args.window, level, args.ref))
@@ -448,11 +438,14 @@ def render_md(recs, args, level, reasons):
     o.append("## Impact")
     o.append("")
     o.append(impact_summary(recs))
-    if devices:
+    named = [r for r in sorted(recs, key=lambda x: x["name"].lower())
+             if named_devices(r, args.list_devices_under)]
+    if named:
         o.append("")
-        o.append("<details><summary>devices the modules apply to</summary>\n")
-        o.append(devices)
-        o.append("\n</details>")
+        o.append("## Devices")
+        o.append("")
+        for r in named:
+            o.append("- **{}** — {}".format(r["name"], ", ".join(r["devices"])))
     o.append("")
     o.append("## Risk")
     o.append("")
@@ -510,9 +503,12 @@ def main(argv=None):
     p.add_argument("--url-template", metavar="URL",
                    help="override the link format. Placeholders: {portal} "
                         "{model} {id} {name}")
-    p.add_argument("--max-devices", type=int, default=25, metavar="N",
-                   help="how many device names to list (default: 25, 0 = all). "
-                        "The API caps its own list at 1000 per module")
+    p.add_argument("--list-devices-under", type=int, default=10, metavar="N",
+                   help="name the affected devices under any module that has "
+                        "at most N of them (default: 10, 0 = never name them). "
+                        "Past that the count alone is more readable; raise it "
+                        "to name more. The API caps its own device list at "
+                        "1000 per module")
     p.add_argument("--no-devices", action="store_true",
                    help="skip the per-module device lookups (one API call each) "
                         "and report counts only")

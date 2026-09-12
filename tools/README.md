@@ -424,13 +424,20 @@ deprecated, the instances actually collected, and the devices each module
 applies to. Left to you as `<ANGLE BRACKET>` placeholders so an unedited draft
 is obviously unfinished: the window, approver, change reference and contact.
 
+**Devices are named under the module they affect**, not pooled into one list at
+the end: what a reader needs is who is hit by this change to *this* module.
+They are named only when there are few enough to be worth reading —
+`--list-devices-under N`, default 10 — and past that the count alone stands.
+Raise it to name more (`--list-devices-under 50`), or pass `0` to never name
+them.
+
 **Two counts, never merged.** "Collected" is real instances; "applies to" is
 the appliesTo match, which can be far larger — one module here collects 2
 instances but applies to 1205 devices. The device names come from
 `AssociatedDeviceListByDataSourceId`, which caps at 1000 rows per page, so the
 count comes from `-C` (LM's true total) while the names are treated as a
-sample; `--max-devices N` caps how many are listed (default 25) and the notice
-says when the sample is incomplete.
+sample; The names are treated as a sample when
+that cap bites.
 
 **Ids are only unique within a type.** In one test portal 329 ids belonged to
 several types at once and id 28 to six of them, so a bare `--id 28` means

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `tools/elm-change-advice.py` names the affected devices **under the module they belong to**, instead of pooling every module's devices into one list at the end of the notice. With several modules in one change, a single pooled list cannot answer the question a reader actually has — who is affected by this change to *this* module. Names appear only where there are few enough to read: `--list-devices-under N`, default 10, replacing `--max-devices` (which capped the pooled list at 25 names). Past the threshold the device count already on the module's line stands on its own; raise it to name more, or pass `0` to never name them. In the Markdown format the per-module lists become a `## Devices` section, since they will not fit in the table.
+
 ## [1.9.0] - 2026-09-12
 
 ### Fixed
