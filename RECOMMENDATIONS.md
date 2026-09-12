@@ -272,18 +272,25 @@ via `click.secho(..., fg='red', err=True)`, close the connection, and
 `-f sqlite -o /tmp/t.sqlite MetricsUsage -f numberOfDevices` (fewer columns)
 — expect the new red error, not a traceback.
 
-## [ ] 11. Guard against bare-array API responses
+## [x] 11. Guard against bare-array API responses
 
-**Problem:** in `_jnja/engine.py.j2`, the block `if 'items' not in obj:`
-assumes `obj` is a dict. If an endpoint ever returns a bare JSON array
-(`[...]`), `'items' not in obj` is a membership test over the list and the
-code then misrenders the whole array as a single item.
+Done 2026-09-12 in commit `7b0dad1`, exactly as specified. See CHANGELOG
+`[1.9.0]` → Fixed.
 
-**Change:** before that block, add: if `isinstance(obj, list)`, set
-`obj = {"total": len(obj), "items": obj, "searchId": None, "isMin": False}`.
-The existing `if 'items' not in obj:` block stays as-is beneath it.
+Worth recording that this was not hypothetical. The item said "if an endpoint
+ever returns a bare JSON array" — two do: `V4Metadata`
+(`/setting/logicmodules/metadata`) and `ContractInfoByCompany`
+(`/usage/contractInfo`). Both were unusable in every format but `json` and
+crashed with an `AttributeError` even then, after their output had already been
+printed, so they exited 1 on data that was fine. `-c`/`-C` reported `1` instead
+of 5147 and 6, and the table formats rendered a single row headed with the
+column *numbers*.
 
-**Verify:** `make && make testbasic`, plus one live `MetricsUsage` call.
+Note `MetricsSummary`/`MetricsUsage` were never affected and were the wrong
+thing to verify against: they return a bare JSON **object**, which the
+`...ById` fallback beneath has always handled correctly. Three response shapes
+exist, and they are now documented in `elm-knowledge.md` → LogicModule versions
+and updates.
 
 ## [x] 12. Use mktemp in the Makefile `docs` target
 
