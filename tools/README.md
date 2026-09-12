@@ -285,8 +285,8 @@ tools/elm-module-updates.py -p prod > module-updates.md
 # flat CSV of both sections, with status / in_use / customised / upgrade
 tools/elm-module-updates.py --csv
 
-# riskiest first (fetches device counts by itself)
-tools/elm-module-updates.py --tag linux --sort risk
+# the running order: least risky first, work down the list
+tools/elm-module-updates.py --devices
 
 # other module types — one, several, or all
 tools/elm-module-updates.py -t PROPERTYSOURCE
@@ -334,12 +334,20 @@ ascending — and `version`/`age` describe the installed version, not the
 available one. Registry publish timestamps only begin around 2017-05, so
 anything older bunches up at that floor and cannot be ranked against its peers;
 a handful of modules carry no publish date at all and are listed last.
-`--sort` picks the row order within each section: `age` (default, most out of
-date first), `risk` (highest score first, age breaking ties), or `name`.
-`--sort risk` turns `--devices` on by itself when the lookups fit inside
-`--max-device-calls`, since the score is only trustworthy with a device count —
-and says so on stderr when they do not fit, rather than silently ranking on
-half the picture.
+**With `--devices` the report is a running order, least risky first.** That is
+the main way to use it: work down the list, doing the safe changes before the
+ones that can hurt, with age breaking ties so equally-risky modules come
+oldest-first. Without `--devices` the order falls back to most out of date
+first, because the risk score cannot be trusted without a device count. There
+is no sort option — these are the only two orderings that mean anything.
+
+The device lookups are **not capped by default** (`--max-device-calls 0`): the
+full list is worth waiting for. Only **in-use** modules are looked up, which is
+what makes that practical — a module nothing is collecting has no history to
+lose, so its risk is already near zero however many devices its appliesTo
+matches, and the lookup cannot change where it lands in the order. On one test
+portal that is 186 lookups rather than 1196, minutes rather than half an hour,
+for the same running order. The estimate is printed before it starts.
 
 A **risk** column scores 0-10, combining how much breaks with how likely that
 is.

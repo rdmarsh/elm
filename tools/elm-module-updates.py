@@ -11,8 +11,12 @@ that are
      can never have an upgrade because it is replaced rather than updated,
   3. are LM official (originStatus CORE or DEPRECATED),
 
-split into two sections -- not in use, then in use -- each sorted from the most
-out of date to the least. `-t`/`--type` reports any other module type, several
+split into two sections -- not in use, then in use.
+
+With `--devices` the report becomes a running order: rows come back LEAST risky
+first, so you work down the list doing the safe changes before the ones that
+can hurt. Without it the order falls back to most out of date first, since the
+risk score cannot be trusted without a device count. `-t`/`--type` reports any other module type, several
 comma-separated, or ALL: the same one call already carries propertysources,
 configsources, eventsources, logsources, topologysources, SNMP sysOID maps and
 appliesTo functions, so other types cost nothing extra. With more than one type
@@ -288,12 +292,18 @@ def row(i, now_ms, url_template=None, portal=None):
 
 
 def ordered(mods, now_ms, url_template=None, portal=None, counted=None,
-            sort="age"):
-    """Rows in the requested order.
+            by_risk=False):
+    """Rows in the order you should work through them.
 
-    `age` (default) is oldest-published first, undated last by name -- the
-    "most out of date" reading. `risk` is highest-scoring first, with age as
-    the tie-break. `name` is alphabetical.
+    With device counts (--devices) the score is trustworthy, so rows come back
+    LEAST risky first: the list is a running order, and you want the safe
+    changes done first, building confidence before the ones that can hurt.
+    Without them the consequence half rests on instances alone, so the order
+    falls back to oldest-published first -- the "most out of date" reading --
+    rather than pretending to a ranking it cannot support.
+
+    Age breaks ties either way, which is free: the list is built in age order
+    and Python's sort is stable.
     """
     dated = sorted((m for m in mods if m.get("originPublishedAtMS")),
                    key=lambda m: m["originPublishedAtMS"])
@@ -313,12 +323,8 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None,
         breadth = (c["active"] or c["applied"]) if c else 0
         r["risk"] = risk(r["usage"] or 0, breadth, float(r["age"] or 0))
         out.append(r)
-    if sort == "risk":
-        # `out` is already in age order, and sorted() is stable, so equal
-        # scores keep it -- the tie-break is free.
-        out.sort(key=lambda r: -float(r["risk"] or 0))
-    elif sort == "name":
-        out.sort(key=lambda r: r["name"].lower())
+    if by_risk:
+        out.sort(key=lambda r: float(r["risk"] or 0))
     return out
 
 
@@ -390,21 +396,15 @@ def main(argv=None):
     p.add_argument("--tag", metavar="TAG,...",
                    help="keep only modules carrying at least one of these tags "
                         "(case-insensitive), e.g. --tag linux,windows")
-    p.add_argument("--sort", default="age", choices=("age", "risk", "name"),
-                   help="row order within each section: age (default, most out "
-                        "of date first), risk (highest score first), or name. "
-                        "--sort risk turns on --devices by itself when the "
-                        "lookups are affordable, since the score is only "
-                        "trustworthy with a device count")
     p.add_argument("--devices", action="store_true",
                    help="add devices/active columns. For datasources and "
                         "configsources the feed counts INSTANCES, not devices, "
                         "so this costs one extra API call per module: "
                         "`devices` is how many the module applies to, `active` "
                         "how many are actually collecting")
-    p.add_argument("--max-device-calls", type=int, default=100, metavar="N",
-                   help="refuse --devices above N modules (default: 100, "
-                        "0 = no limit)")
+    p.add_argument("--max-device-calls", type=int, default=0, metavar="N",
+                   help="refuse the device lookups above N calls. Default 0, "
+                        "no limit: the full list is worth waiting for")
     p.add_argument("--include-current", action="store_true",
                    help="also list modules that are already up to date")
     p.add_argument("--csv", action="store_true",
@@ -468,28 +468,28 @@ def main(argv=None):
     now_ms = datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
 
     counted = {}
-    if args.sort == "risk" and not args.devices:
-        # The score is only trustworthy with a device count, so asking for it
-        # asks for the lookups -- but silently spending 2400 calls is worse
-        # than a weaker score, so this only happens when it is affordable.
-        n = sum(1 for m in mods if m.get("type") in DEVICE_LISTABLE)
-        if not args.max_device_calls or n <= args.max_device_calls:
-            args.devices = True
-        else:
-            err(f"note: --sort risk would need {n} device lookups, over "
-                f"--max-device-calls ({args.max_device_calls}), so the score "
-                "rests on instances alone. Narrow the report, or raise the "
-                "limit, for a device-aware ranking.")
     if args.devices:
-        listable = [m for m in mods if m.get("type") in DEVICE_LISTABLE]
-        if args.max_device_calls and len(listable) > args.max_device_calls:
-            err(f"--devices needs one API call per module and {len(listable)} "
-                f"match, over --max-device-calls ({args.max_device_calls}).")
-            err("Narrow with --tag / -t / --status, or raise the limit "
-                "(0 = no limit).")
+        # Only in-use modules are looked up. A module nothing is collecting has
+        # no history to lose, so its risk is already near zero however many
+        # devices its appliesTo happens to match -- the lookup cannot change
+        # where it lands in the order. On the test portal that is 186 calls
+        # instead of 1196, minutes instead of half an hour, for the same
+        # running order.
+        listable = [m for m in mods
+                    if m.get("type") in DEVICE_LISTABLE and m.get("isInUse")]
+        skipped = sum(1 for m in mods if m.get("type") in DEVICE_LISTABLE
+                      and not m.get("isInUse"))
+        calls = len(listable) * 2
+        if args.max_device_calls and calls > args.max_device_calls:
+            err(f"device lookups would need {calls} API calls, over "
+                f"--max-device-calls ({args.max_device_calls}).")
             return 1
-        err(f"counting devices for {len(listable)} module(s) "
-            f"({len(listable) * 2} call(s), two each) ...")
+        if listable:
+            err(f"counting devices for {len(listable)} in-use module(s) "
+                f"({calls} call(s), two each, roughly "
+                f"{max(1, round(len(listable) * 1.8 / 60))} min)"
+                + (f"; {skipped} not-in-use module(s) skipped -- nothing is "
+                   "collecting, so their risk cannot change" if skipped else ""))
         for n, m in enumerate(listable, 1):
             counted[(m.get("type"), str(m["id"]))] = device_counts(
                 args.elm, args.profile, args.config, m["id"])
@@ -501,9 +501,9 @@ def main(argv=None):
         return 1
     linked = bool(template)
     unused = ordered([m for m in mods if not m.get("isInUse")], now_ms,
-                     template, args.portal, counted, args.sort)
+                     template, args.portal, counted, args.devices)
     inuse = ordered([m for m in mods if m.get("isInUse")], now_ms,
-                    template, args.portal, counted, args.sort)
+                    template, args.portal, counted, args.devices)
     dep_shown = sum(1 for m in mods if m.get("originStatus") == "DEPRECATED")
     err(f"{len(mods)} match: {len(unused)} not in use, {len(inuse)} in use"
         + (f" ({dep_shown} deprecated)" if dep_shown else ""))
@@ -556,9 +556,8 @@ def main(argv=None):
           + ("" if args.include_current else
              (", upgrade available or deprecated" if deprecated_in
               else ", upgrade available"))
-          + {"age": ". Sorted most out of date first.",
-             "risk": ". Sorted highest risk first.",
-             "name": ". Sorted by name."}[args.sort] + "\n")
+          + (". Ordered least risky first -- work down the list."
+             if args.devices else ". Sorted most out of date first.") + "\n")
     # Every Markdown table covers exactly one type -- one per section when a
     # single type is selected, one per `### TYPE` heading otherwise -- so the
     # type and the usage unit are constant within a table. Both are dropped as
