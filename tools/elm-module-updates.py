@@ -72,6 +72,7 @@ import argparse
 import csv
 import datetime
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -127,6 +128,33 @@ DEVICE_LISTABLE = ("DATASOURCE", "CONFIGSOURCE")
 # {name}.
 DEFAULT_URL_TEMPLATE = ("https://{portal}.logicmonitor.com"
                         "/santaba/uiv4/modules/toolbox/{model}/edit/{id}")
+
+
+def impact(instances, devices):
+    """A 0-10 blast-radius score. Breadth counts about twice depth.
+
+    The question it answers is "if this upgrade goes wrong, how much is
+    wrong?", and the two inputs are not equivalent. 1 instance on 1000 devices
+    scores 6.9; 1000 instances on 1 device scores 4.0 -- deliberately, because
+    breadth hurts more than depth:
+
+      - LogicMonitor's own documented worst case, an AppliesTo change that
+        stops a module applying, destroys history *per device*. Breadth is
+        exactly the multiplier on permanent data loss.
+      - An alert storm scales with devices: 1000 hosts alerting is an incident,
+        1000 instances on one host is one noisy host.
+      - Breadth usually means more services, teams and customers touched;
+        depth usually means one system monitored thoroughly.
+
+    Depth is not nothing -- it is the volume of history at stake on that host --
+    so it carries roughly half the weight rather than none. Both are log-scaled:
+    the step from 1 to 10 devices matters far more than 900 to 1000.
+
+    Tune the two coefficients if your environment disagrees; the inputs stay
+    visible in their own columns so the score is always auditable.
+    """
+    return round(min(10.0, 2.2 * math.log10(1 + max(devices, 0))
+                     + 1.1 * math.log10(1 + max(instances, 0))), 1)
 
 
 def err(*args):
@@ -236,6 +264,7 @@ def row(i, now_ms, url_template=None, portal=None):
         "group": i.get("group") or "",
         "usage": counts.get(field, ""),
         "usage_of": label,
+        "impact": "",
         "tags": ";".join(i.get("tags") or ()),
         "devices": "",
         "active": "",
@@ -268,6 +297,11 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None):
             r["devices"] = c["applied"]
             r["active"] = c["active"]
             r["active_capped"] = "yes" if c["capped"] else "no"
+        # Devices actually collecting is the truest breadth; fall back to the
+        # devices the module applies to, and to 0 when --devices was not used,
+        # in which case the score reflects depth alone and says so.
+        breadth = (c["active"] or c["applied"]) if c else 0
+        r["impact"] = impact(r["usage"] or 0, breadth)
         out.append(r)
     return out
 
@@ -275,7 +309,7 @@ def ordered(mods, now_ms, url_template=None, portal=None, counted=None):
 # `type` is dropped from the output unless more than one module type is
 # selected -- a single-type report repeats it on every row for nothing.
 COLUMNS = ("published", "age", "type", "status", "version", "id", "name",
-           "group", "tags", "usage", "usage_of")
+           "group", "tags", "usage", "usage_of", "impact")
 # `url` is appended to CSV/JSON only when a template is configured; in Markdown
 # it becomes a link on the name instead of a column of its own.
 
@@ -360,7 +394,7 @@ def main(argv=None):
     p.add_argument("--portal", metavar="NAME",
                    help="portal subdomain (the bit before .logicmonitor.com). "
                         "Giving it turns each module name into a link to that "
-                        "module in LogicMonitor Exchange. Not auto-detected -- "
+                        "module in My Module Toolbox. Not auto-detected -- "
                         "see the note in the source")
     p.add_argument("--url-template", metavar="URL",
                    help="override the link format. Placeholders: {portal} "
@@ -552,6 +586,16 @@ def main(argv=None):
               "the API's per-page cap, so the figure is a floor. In "
               "`--csv`/`--json` that marker is a separate `active_capped` "
               "column, leaving `active` a plain number.")
+    print("- **impact** -- 0-10 blast radius: how much is wrong if this "
+          "upgrade goes wrong. Both inputs are log-scaled and **breadth counts "
+          "about twice depth**, so 1 instance on 1000 devices (6.9) outranks "
+          "1000 instances on 1 device (4.0). Breadth is the multiplier on the "
+          "worst documented outcome -- an AppliesTo change destroys history "
+          "per device -- and on alert storms; depth is the volume of history "
+          "at stake on one host."
+          + ("" if args.devices else " **Without `--devices` there is no "
+             "device count, so this reflects instances alone and understates "
+             "wide, shallow modules.**"))
     print("- **in use** -- LM's own `isInUse` flag: something references the "
           "module. It does not mean anyone reads the data.")
     print("\nUpgrade from LogicMonitor Exchange -- elm is read-only.")

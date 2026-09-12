@@ -270,7 +270,7 @@ section gets a table per type.
 
 It costs **one API call** regardless of portal size: `elm V4Metadata`
 (`GET /setting/logicmodules/metadata`), the feed behind the portal's module
-Exchange. That one response carries every installed module *and* everything
+Toolbox and the Exchange. That one response carries every installed module *and* everything
 installable from the Exchange, with per-module `installationStatuses`
 (`IS_INSTALLED`, `CAN_UPGRADE`, `IS_CUSTOMIZED`, `CAN_INSTALL`), `originStatus`,
 `isInUse`, the installed `originVersion`, and `originPublishedAtMS`.
@@ -331,6 +331,22 @@ ascending — and `version`/`age` describe the installed version, not the
 available one. Registry publish timestamps only begin around 2017-05, so
 anything older bunches up at that floor and cannot be ranked against its peers;
 a handful of modules carry no publish date at all and are listed last.
+An **impact** column scores blast radius 0-10: if this upgrade goes wrong, how
+much is wrong. Both inputs are log-scaled — the step from 1 to 10 devices
+matters far more than 900 to 1000 — and **breadth counts about twice depth**,
+so 1 instance on 1000 devices scores 6.9 while 1000 instances on 1 device
+scores 4.0. That ordering is deliberate: LogicMonitor's own worst documented
+outcome, an AppliesTo change that stops a module applying, destroys history
+*per device*, so breadth is the multiplier on permanent data loss; alert storms
+scale with devices too. Depth still counts for something — it is the volume of
+history at stake on that host — which is why it carries half the weight rather
+than none. Breadth uses devices actually collecting where known, falling back
+to devices applied. **Without `--devices` there is no device count at all**, so
+the score reflects instances alone and understates wide, shallow modules; the
+legend says so on every report. The inputs stay in their own columns, so the
+score is always auditable, and the two coefficients are a one-line change if
+your environment disagrees.
+
 **Instances are not devices.** For datasources and configsources the usage
 column counts *instances* — discovered objects — and the feed has no device
 count for them at all. `--devices` adds two more columns at the cost of one
@@ -359,7 +375,7 @@ while every other type has a real host count and appliesTo functions use
 number and a `usage_of` label so the schema stays stable. A module can be in use
 with a count of `0`. "In use" is LM's own `isInUse` flag: something
 references the module, not that anyone reads the data. `--portal NAME` turns each module name into a link
-to that module in LogicMonitor Exchange. The REST API exposes no UI link, but
+to that module in My Module Toolbox. The REST API exposes no UI link, but
 the feed supplies both halves of one: `model` (`exchangeDataSources`,
 `exchangePropertySources`, …) is the toolbox path segment and `id` is the
 module, so a single template covers every module type
