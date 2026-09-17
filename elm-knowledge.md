@@ -8,7 +8,8 @@ Rules that apply across commands. Kept short on purpose: AI assistants (and
 - Longer recipes and background: [`examples/`](examples/).
 
 Add a finding here only if it holds for more than one command. Otherwise add it
-to the command's entry in `elm-notes.yaml`, where `--info` shows it.
+to the command's entry in `elm-notes.yaml`, where `--info` shows it. The budget
+is 8,000 characters (`make testdocs`): replace or delete, don't just append.
 
 ---
 
@@ -94,7 +95,8 @@ literal comma with `\,`.
   [examples/health-checks.md](examples/health-checks.md).
 - **Not every "device" is a device.** DeviceList includes cloud resources,
   services, Kubernetes objects and synthetic checks; real devices are
-  `deviceType` 0 or 1 (`elm DeviceList --info` has the table).
+  `deviceType` 0 (`elm DeviceList --info` has the table and the open question
+  about type 1).
 - **Operating system:** `system.sysinfo` can report the collector's OS, not the
   device's (seen on Linux and Windows collectors: HTTP endpoints, network
   appliances, out-of-band hardware), and OS-named groups can hold other

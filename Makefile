@@ -458,11 +458,16 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testbasic testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
+test: testdocs testbasic testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
 testlong: testhelp testcount testtotal testtext ## Tests that take a long time to complete
+	@echo "$(OK_STRING) $@"
+
+.PHONY: testdocs
+testdocs: _info ## Check AI-facing docs stay within their size budgets (offline; see mkinfo.py)
+	$(INFOPY) mkinfo.$(PY) --check
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testbasic

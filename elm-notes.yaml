@@ -4,9 +4,15 @@
 # real response structure, what filters actually work, and gotchas.
 #
 # `elm COMMAND --info` shows the entry for COMMAND (built in by mkinfo.py at make
-# time), so a change here needs `make` before it appears there. Keep entries to
-# what is tested or different from the swagger: --info already lists every
-# documented field, so key_fields only needs fields whose comment adds meaning.
+# time), so a change here needs `make` before it appears there. AI assistants
+# read that output, so every line costs tokens each time the command is used:
+# - Keep entries to what is tested or different from the swagger. --info already
+#   lists every documented field, so key_fields only needs fields whose comment
+#   adds meaning.
+# - One fact once: fix or delete a wrong note rather than adding a correction.
+# - Say how and when a claim was verified.
+# - Duplicate keys fail the build; `make testdocs` fails if a command's --info
+#   passes 16,000 characters. See "AI-facing docs" in CLAUDE.md.
 #
 # WARNING: This file is partially AI-assisted and may contain inaccuracies.
 # Entries should be verified against the live API before being relied upon.
@@ -358,14 +364,15 @@ DeviceList:
       Combine them, and sanity-check results against device and datasource names."
     - "alertDisableStatus is a string '<group>-<device>-<instance>', each part 'disable' or 'none' (verified 2026-09-17). The middle part matches the device's own disableAlerting exactly; the first part is alerting disabled by a group the device is in or inherits from, which is usually far more devices (one portal: 39 by their own setting, 744 in total). Not filterable: -F alertDisableStatus~disable returns 0 and !: returns everything; fetch and filter with jq (recipe: examples/health-checks.md)."
     - "hostStatus values: normal, dead, dead-collector."
-    - "DeviceList includes things that are not devices. Real devices are deviceType 0 or 1; see deviceType_values. To keep only real devices, fetch the non-device ids with -F 'deviceType!:0' -F 'deviceType!:1' (!: works on DeviceList, verified: count is exactly total - type0 - type1) and drop them client-side. deviceType is not returned by AssociatedDeviceListByDataSourceId."
+    - "DeviceList includes things that are not devices. Real devices are deviceType 0 (the swagger calls 1 an APPGROUP device; tools/elm-datasource-matrix.py also keeps 1, and no type-1 devices were on the test portal to check). To keep only real devices, fetch the non-device ids with -F 'deviceType!:0' (add -F 'deviceType!:1' to keep type 1 as well; !: works on DeviceList, verified: count is exactly total - type0 - type1) and drop them client-side. deviceType is not returned by AssociatedDeviceListByDataSourceId."
     - "A device that is itself a collector host: match its id against CollectorList collectorDeviceId. Names need not match."
   deviceType_values:
     "0": "standard device (the normal case), confirmed"
-    "1": "device (rare; treat as a real device), per LM; not seen on the test portal"
+    "1": "APPGROUP device, per the swagger; not seen on the test portal"
     "2": "AWS account / cloud resource, confirmed by naming"
     "4": "Azure account / cloud resource, confirmed by naming"
-    "6": "LM Service / Service Insight (incl. APM traces), confirmed by naming"
+    "3": "service device, per the swagger; not seen on the test portal"
+    "6": "biz_service device (LM Service / Service Insight, incl. APM traces), swagger + naming"
     "7": "GCP, per LM; not seen on the test portal"
     "8": "Kubernetes resource (nodes, pods, services), confirmed by naming"
     "9": "Push Metrics / custom-metric device, observed (names often end ...pushmetric)"

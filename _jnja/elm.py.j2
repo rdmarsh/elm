@@ -204,8 +204,8 @@ CRITICAL: flag position matters.
 
 Global flags (before COMMAND):  -p -l -f -o -s -H -I -v -i -k -a -V
                                 --config --head --foot --cacert --ai
-Command flags (after COMMAND):  -s -o -f -F -S -c -C  plus the command's own
-                                parameters (--id, --deviceId, ...)
+Command flags (after COMMAND):  -s -o -f -F -S -c -C --info  plus the command's
+                                own parameters (--id, --deviceId, ...)
 
 Three short flags exist on both sides with different meanings:
 
@@ -225,11 +225,17 @@ A misplaced flag prints "Hint: ... put it before/after the command name".
 Read the hint and move the flag; do not drop it.
 
 BEFORE USING A COMMAND: elm COMMAND --info
-  Prints its parameters, the verified notes (known API bugs, filters that are
-  silently ignored, corrected field meanings), example commands and every
-  response field with a one-line description. Needs no credentials and makes
-  no API call. Where the notes and the field descriptions disagree, the notes
-  are right.
+  Prints its parameters, notes from live testing (known API bugs, filters that
+  are silently ignored, corrected field meanings), example commands and every
+  response field with its description. Needs no credentials and makes no API
+  call. Where the notes and the field descriptions disagree, prefer the notes,
+  but they can be wrong too: if real results contradict either, say so.
+
+KEEP TOKEN USE DOWN
+  -f FIELD,...        fetch only the fields you need
+  -c / -C             count instead of fetching rows to count them
+  -f jsonl, csv, values  compact output; avoid prettyjson, html and xml
+  elm COMMAND --info  instead of reading elm-notes.yaml or the swagger
 
 KEY GLOBAL FLAGS
   -l, --list          List available credential profiles and exit
@@ -250,8 +256,11 @@ KEY SUBCOMMAND FLAGS (most commands support these)
                    Exception: AlertList and AuditLogList don't return a real
                    total (-C prints a warning and ">N"); use -c -s0 there.
 
-OUTPUT FORMAT
-  Responses are wrapped: {"CommandName": [{...}, ...]}
+OUTPUT SHAPE
+  json, prettyjson:  wrapped in the command name: {"DeviceList": [{...}, ...]}
+  jsonl:             one bare record per line, no wrapper: {"id": 4}
+  csv, tsv, tables:  a header row, then one row per record (-H hides it)
+  values:            bare values, no header
   Default size is 50 -- pass -s0 to get all results (up to 1000).
 
 FILTER OPERATORS
@@ -265,17 +274,19 @@ FILTER OPERATORS
 
 OUTPUT FORMATS
   json  prettyjson  jsonl  csv  tsv  xml  prettyxml  html  prettyhtml
-  gfm   pipe        md     rst  latex  jira  tab  values  raw  txt  api  curl  wget
+  gfm   pipe        md     rst  latex  jira  tab  values  raw  txt  api  curl  wget  sqlite
   values: bare values one per line (single field) or TSV no-header (multi-field) -- ideal for shell variable assignment and piping
   md/gfm/pipe are Markdown pipe tables (md is an alias for gfm); tab and txt are plain aligned text, NOT Markdown
 
 PROFILES
-  Run: elm --list    to see available credential profiles.
-  The default profile (config) points to a safe sandbox/test environment.
-  Use --profile NAME to select a non-default profile.
+  Run: elm --list    to see available credential profiles (* = the default).
+  Which portal each profile points to is the user's own setup: do not assume
+  the default is a test portal. If it is not clear which profile to use, ask.
+  Use --profile NAME to select another. Never read the .ini files: they hold
+  credentials.
 
 FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
-  elm-notes.yaml      per-command notes, required params, filter gotchas
+  elm-notes.yaml      per-command notes (source of --info)
   elm-knowledge.md    rules that hold across commands (short; read it first)
   examples/           topic files with recipes and background
   README.md           full usage, output format reference, install notes

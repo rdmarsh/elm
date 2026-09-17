@@ -14,10 +14,15 @@ them: the swagger descriptions are LogicMonitor's and are sometimes incomplete
 or wrong.
 
 The text is written to be read by people and by AI assistants, so it is kept
-short: one line per field, descriptions trimmed, no repeated boilerplate.
+compact: one line per field, no repeated boilerplate.
 
 A definition file is only rewritten when its info text changes, so editing one
 command's notes re-renders only that command.
+
+`mkinfo.py --check` (make testdocs) enforces size budgets on what AI assistants
+read, so the notes and the knowledge base cannot quietly grow back into
+something too long to read or keep consistent. A duplicate key in
+elm-notes.yaml always fails, because YAML would silently drop one copy.
 """
 
 import json
@@ -29,9 +34,16 @@ import yaml
 
 DEFS = Path("_defs")
 NOTES = Path("elm-notes.yaml")
+KNOWLEDGE = Path("elm-knowledge.md")
+
+# Budgets for AI-facing text (characters). elm-knowledge.md is read before every
+# question; one command's --info is read each time that command is used. Raise
+# a budget only after trimming has been tried: move recipes to examples/,
+# delete what the swagger already says, merge overlapping notes.
+KNOWLEDGE_BUDGET = 8000
+INFO_BUDGET = 16000
 SWAGGERS = [Path("swagger.documented.json"), Path("swagger.undocumented.json")]
 
-MAX_DESCRIPTION = 90          # characters of a swagger field description
 PAGING = {"fields", "size", "offset", "filter"}
 STANDARD_FLAGS = "[-s N] [-o N] [-f FIELD,...] [-F FILTER] [-S SORT] [-c] [-C]"
 
@@ -39,11 +51,6 @@ STANDARD_FLAGS = "[-s N] [-o N] [-f FIELD,...] [-F FILTER] [-S SORT] [-c] [-C]"
 def clean(text):
     """Collapse whitespace; None becomes ''."""
     return " ".join(str(text or "").split())
-
-
-def trim(text, limit=MAX_DESCRIPTION):
-    text = clean(text)
-    return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
 
 
 # --- swagger -----------------------------------------------------------------
@@ -92,10 +99,39 @@ def response_fields(api_path, paths, definitions):
     items = props.get("items", {})
     if items.get("type") == "array" and set(props) <= {"total", "searchId", "items", "isMin"}:
         props = schema_properties(items.get("items", {}), definitions)   # a page: describe one item
-    return {name: (field_type(p), trim(p.get("description"))) for name, p in props.items()}
+    # Descriptions are kept whole: the long ones are usually the ones that list
+    # what the values mean (e.g. deviceType, awsState), so cutting them loses
+    # exactly the useful part.
+    return {name: (field_type(p), clean(p.get("description"))) for name, p in props.items()}
 
 
 # --- elm-notes.yaml ------------------------------------------------------------
+
+class _NoDuplicatesLoader(yaml.SafeLoader):
+    """SafeLoader that refuses repeated keys instead of keeping the last one."""
+
+
+def _construct_mapping(loader, node, deep=False):
+    seen = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in seen:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"duplicate key {key!r} (the earlier copy would be silently ignored)",
+                key_node.start_mark)
+        seen.add(key)
+    return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+
+_NoDuplicatesLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+
+
+def load_notes(text):
+    try:
+        return yaml.load(text, Loader=_NoDuplicatesLoader) or {}
+    except yaml.YAMLError as error:
+        sys.exit(f"mkinfo: {NOTES}: {error}")
+
 
 def note_blocks(text):
     """{command: raw text of its top-level block}, to recover YAML comments."""
@@ -228,10 +264,30 @@ def build_info(definition, note, block, fields):
     return "\n".join(out).rstrip() + "\n"
 
 
+def check():
+    """Fail if AI-facing text is over budget. Run after the info has been built."""
+    problems = []
+    size = len(KNOWLEDGE.read_text())
+    print(f"{KNOWLEDGE}: {size} chars (budget {KNOWLEDGE_BUDGET})")
+    if size > KNOWLEDGE_BUDGET:
+        problems.append(f"{KNOWLEDGE} is {size} chars, over its {KNOWLEDGE_BUDGET} budget")
+    sizes = sorted(((len(json.loads(f.read_text()).get("info", "")), f.stem)
+                    for f in DEFS.glob("[A-Z]*.json")), reverse=True)
+    if not sizes or sizes[0][0] == 0:
+        problems.append("no --info text found in _defs/: run make _info first")
+    else:
+        print("largest --info: " + ", ".join(f"{name} {n}" for n, name in sizes[:3]) + f" (budget {INFO_BUDGET})")
+        problems += [f"{name} --info is {n} chars, over its {INFO_BUDGET} budget"
+                     for n, name in sizes if n > INFO_BUDGET]
+    for problem in problems:
+        print(f"mkinfo: {problem}", file=sys.stderr)
+    sys.exit(1 if problems else 0)
+
+
 def main():
     paths, definitions = load_swagger()
     notes_text = NOTES.read_text() if NOTES.exists() else ""
-    notes = yaml.safe_load(notes_text) or {}
+    notes = load_notes(notes_text)
     blocks = note_blocks(notes_text)
 
     changed = 0
@@ -248,4 +304,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--check" in sys.argv[1:]:
+        check()
     main()
