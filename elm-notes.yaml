@@ -302,8 +302,6 @@ DeviceList:
     start:        "--start INTEGER (int64) — purpose unverified; co-occurs with netflowFilter on all netflow-capable endpoints; no visible effect on DeviceList in testing"
     end:          "--end INTEGER (int64) — same caveat as start"
     netflowFilter: "--netflowFilter TEXT — co-occurs with start/end on netflow endpoints; no visible effect on DeviceList in testing; LM swagger has no description"
-  gotchas:
-    - "-f/--fields may be ignored for some device types (e.g. deviceType:18 synthetic checks return full schema regardless of -f)"
   key_fields:
     id:           integer
     name:         string # hostname or IP
@@ -346,6 +344,7 @@ DeviceList:
     - "displayName~foo,preferredCollectorGroupName\\!~foo  # ! must be escaped in bash"
   gotchas:
     - "hostGroupIds is a comma-separated string, not an array — use ~ not : to match"
+    - "-f/--fields may be ignored for some device types (e.g. deviceType:18 synthetic checks return full schema regardless of -f)"
     - "To list devices assigned to a collector group, filter on preferredCollectorGroupId (the assigned group). autoBalancedCollectorGroupId is only populated once LM has actually placed the device, so it can be empty for a group whose devices are assigned but not yet balanced — filtering on it may return 0 devices (e.g. CollectorGroupList -F 'autoBalancedCollectorGroupId:N' found nothing while preferredCollectorGroupId:N found the members)"
     - "There is no way to effectively filter by effective property (per LM community)"
     - "Device groups (e.g. 'Linux Servers') may contain non-Linux devices — prefer
@@ -1681,18 +1680,6 @@ DeviceGroupDatasourceById:
     deviceGroupId: integer
     id:            integer  # use dataSourceId from DeviceGroupDatasourceList (no separate id field there)
   note: "Verified: --deviceGroupId 19 --id 21883980 works where 21883980 is dataSourceId from DeviceGroupDatasourceList."
-
-DeviceGroupPropertyByName:
-  path: /device/groups/{gid}/properties/{name}
-  required_params:
-    gid:  integer
-    name: string
-
-DevicePropertyByName:
-  path: /device/devices/{deviceId}/properties/{name}
-  required_params:
-    deviceId: integer
-    name:     string
 
 DeviceConfigSourceConfigById:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{instanceId}/config/{id}
