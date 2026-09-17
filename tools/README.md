@@ -16,6 +16,7 @@ script also responds to `-h`/`--help`.
 ## Contents
 
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
+- [Ask in plain English](#ask-in-plain-english) — `tools/elm-ask/`
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Change advice](#change-advice) — `tools/elm-change-advice.py`
 - [Collector health check](#collector-health-check) — `tools/lm-collector-run-groovy.ps1`
@@ -46,6 +47,14 @@ Available list endpoints:
 `DeviceList` `EscalationChainList` `EventSourceList` `IntegrationList`
 `NetscanList` `RecipientGroupList` `ReportGroupList` `ReportList` `RoleList`
 `SDTList` `WebsiteGroupList` `WebsiteList`
+
+## Ask in plain English
+
+`tools/elm-ask/` is a prototype web page, packaged as a Docker container, where
+people who don't use elm can ask questions such as "what devices have alerting
+disabled?". Claude answers using read-only elm queries and shows the queries it
+ran. Setup, the safety model and settings are in
+[`tools/elm-ask/README.md`](elm-ask/README.md).
 
 ## Backups
 

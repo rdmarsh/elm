@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>elm ask</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e3de;
+    --accent: #2f5bd3; --accent-ink: #ffffff; --warn-bg: #fff4e0; --warn-ink: #7a4b00; --err: #b3261e;
+    --code: #f0f0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514; --panel: #1f1f1d; --ink: #ecece8; --muted: #9c9c96; --line: #34342f;
+      --accent: #7c9cff; --accent-ink: #0d0d0c; --warn-bg: #3a2a0c; --warn-ink: #ffd28a; --err: #ff8a80;
+      --code: #2a2a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 120px; }
+  header { text-align: center; margin: 8vh 0 24px; transition: margin .2s; }
+  body.has-results header { margin: 0 0 16px; text-align: left; }
+  h1 { font-size: 2rem; margin: 0; letter-spacing: -.02em; }
+  body.has-results h1 { font-size: 1.2rem; }
+  header p { color: var(--muted); margin: 4px 0 0; }
+  body.has-results header p { display: none; }
+
+  form { display: flex; gap: 8px; }
+  #q { flex: 1; min-width: 0; font: inherit; font-size: 1.05rem; padding: 12px 16px;
+       border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); }
+  #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { font: inherit; border: 0; border-radius: 999px; padding: 0 20px; cursor: pointer;
+           background: var(--accent); color: var(--accent-ink); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
+
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+  body.has-results .examples { display: none; }
+  .examples button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); padding: 6px 14px; font-size: .9rem; }
+
+  #banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
+  #banner code { background: transparent; }
+
+  .turn { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-top: 16px; }
+  .turn .question { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; }
+  .status { color: var(--muted); font-size: .9rem; display: flex; gap: 8px; align-items: center; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin 1s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { color: var(--err); }
+  .answer p { margin: .5em 0; }
+  .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
+
+  details.steps { margin-top: 12px; font-size: .85rem; color: var(--muted); }
+  details.steps summary { cursor: pointer; }
+  details.steps ol { padding-left: 20px; margin: 6px 0 0; }
+  details.steps li { margin: 2px 0; overflow-wrap: anywhere; }
+  details.steps code { color: var(--ink); }
+
+  .table-block { margin: 14px 0; }
+  .table-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .table-head strong { font-size: .95rem; }
+  .table-scroll { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--panel); cursor: pointer; user-select: none; }
+  tr:last-child td { border-bottom: 0; }
+  .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 32px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>elm ask</h1>
+    <p>Ask about your LogicMonitor portal in plain English. Read-only.</p>
+  </header>
+
+  <form id="form">
+    <input id="q" autocomplete="off" placeholder="e.g. which Windows servers have open alerts?" autofocus>
+    <button id="go" type="submit">Ask</button>
+  </form>
+
+  <div class="examples">
+    <button type="button">Show me all the Windows devices that have alerts</button>
+    <button type="button">Show me SNMP errors older than 1 week</button>
+    <button type="button">What devices have alerting disabled?</button>
+    <button type="button">How many critical alerts are open right now?</button>
+  </div>
+
+  <div id="banner" hidden></div>
+  <div id="results"></div>
+  <footer id="footer"></footer>
+</main>
+
+<script>
+const $ = (sel, el = document) => el.querySelector(sel);
+const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
+let conversationId = null;
+
+document.querySelectorAll(".examples button").forEach(b =>
+  b.addEventListener("click", () => { input.value = b.textContent; form.requestSubmit(); }));
+
+fetch("/api/health").then(r => r.json()).then(h => {
+  const problems = [];
+  if (!h.claude_key) problems.push("No Claude API key is set. Start the container with <code>-e ANTHROPIC_API_KEY=...</code>.");
+  if (h.profile_problem) problems.push(esc(h.profile_problem));
+  if (problems.length) { $("#banner").innerHTML = problems.join("<br>"); $("#banner").hidden = false; }
+  const scope = h.restricted ? `${h.allowed_count} allowed commands` : "all commands";
+  $("#footer").textContent = `Profile: ${h.profile} (${scope}) · Model: ${h.model} · Answers can be wrong — check "How I worked this out".`;
+}).catch(() => {});
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// Small Markdown subset: headings, bullets, numbered lists, bold, italic, code.
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|\W)_([^_]+)_(?=\W|$)/g, "$1<em>$2</em>");
+}
+function markdown(text) {
+  const out = []; let list = null;
+  const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  for (const line of text.split("\n")) {
+    let m;
+    if ((m = line.match(/^#{1,4}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); }
+    else if ((m = line.match(/^\s*[-*]\s+(.*)/))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if (!line.trim()) { close(); }
+    else { close(); out.push(`<p>${inline(line)}</p>`); }
+  }
+  close();
+  return out.join("");
+}
+
+function csvCell(v) {
+  const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function renderTable(ev) {
+  const block = document.createElement("div");
+  block.className = "table-block";
+  block.innerHTML = `
+    <div class="table-head"><strong>${esc(ev.title)}</strong>
+      <button class="secondary" type="button">Download CSV</button></div>
+    <div class="table-scroll"><table><thead><tr>${ev.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody></tbody></table></div>
+    <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > ev.rows.length ? ` (showing first ${ev.rows.length})` : ""} · click a heading to sort</div>`;
+  const tbody = $("tbody", block);
+  const draw = rows => tbody.innerHTML = rows.map(r =>
+    `<tr>${r.map(v => `<td>${esc(v && typeof v === "object" ? JSON.stringify(v) : v)}</td>`).join("")}</tr>`).join("");
+  let rows = ev.rows.slice(), sortCol = -1, dir = 1;
+  draw(rows);
+  block.querySelectorAll("th").forEach((th, i) => th.addEventListener("click", () => {
+    dir = sortCol === i ? -dir : 1; sortCol = i;
+    rows.sort((a, b) => {
+      const x = a[i], y = b[i];
+      if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
+      return String(x ?? "").localeCompare(String(y ?? ""), undefined, { numeric: true }) * dir;
+    });
+    draw(rows);
+  }));
+  $("button", block).addEventListener("click", () => {
+    const csv = [ev.columns, ...ev.rows].map(r => r.map(csvCell).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = ev.title.replace(/[^\w-]+/g, "_").slice(0, 60) + ".csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  return block;
+}
+
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+  document.body.classList.add("has-results");
+  input.value = ""; go.disabled = true;
+
+  const turn = document.createElement("section");
+  turn.className = "turn";
+  turn.innerHTML = `<div class="question">${esc(question)}</div>
+    <div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
+    <div class="tables"></div><div class="answer"></div>
+    <details class="steps" hidden><summary>Queries run (0)</summary><ol></ol></details>`;
+  results.prepend(turn);
+  const statusText = $(".status-text", turn), steps = $(".steps", turn);
+  let stepCount = 0;
+
+  const handle = ev => {
+    switch (ev.type) {
+      case "conversation": conversationId = ev.id; break;
+      case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;
+      case "step":
+        steps.hidden = false;
+        $("ol", steps).insertAdjacentHTML("beforeend", `<li><code>${esc(ev.command)}</code> → ${esc(ev.result)}</li>`);
+        $("summary", steps).textContent = `Queries run (${++stepCount})`;
+        break;
+      case "table": $(".tables", turn).append(renderTable(ev)); break;
+      case "answer": $(".answer", turn).innerHTML = markdown(ev.markdown); break;
+      case "error": $(".answer", turn).insertAdjacentHTML("beforeend", `<p class="error">${esc(ev.text)}</p>`); break;
+    }
+  };
+
+  try {
+    const resp = await fetch("/api/ask", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, conversation_id: conversationId }),
+    });
+    if (!resp.ok) throw new Error((await resp.json()).error || resp.statusText);
+    const reader = resp.body.getReader(), decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        if (line.trim()) handle(JSON.parse(line));
+      }
+    }
+  } catch (err) {
+    handle({ type: "error", text: `Request failed: ${err.message}` });
+  } finally {
+    $(".status", turn).remove();
+    go.disabled = false; input.focus();
+  }
+});
+</script>
+</body>
+</html>

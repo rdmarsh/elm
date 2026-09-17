@@ -1,0 +1,14 @@
+# Allow-list: only what tools/elm-ask/Dockerfile needs. Keeps credentials
+# (*.ini, *.tmp), venv/ and build output out of the build context.
+*
+!Makefile
+!requirements.txt
+!swagger.documented.json
+!swagger.undocumented.json
+!_version.py
+!_jnja/
+!elm-knowledge.md
+!elm-notes.yaml
+!mkinfo.py
+!tools/elm-ask/
+tools/elm-ask/__pycache__

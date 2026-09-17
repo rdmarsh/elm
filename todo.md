@@ -41,9 +41,18 @@ endpoint's definition, rebuild, then compare `-c` across `-s 5` / `-s 100` /
 them — check `-vv` to confirm elm really sent them before concluding anything.
 That test settled `/setting/logicmodules/metadata` as a **confirmed no**: it
 ignores all three, so the override was deliberately not added there (see
-`elm-knowledge.md` → LogicModule versions and updates). It is the same class of
+`examples/logicmodules.md` and `elm V4Metadata --info`). It is the same class of
 question as this item, so the same method applies once a portal with action
 chains/rules data is available.
 
 Context: same class as GitHub issue #47 (LM swagger omits paging params on
 several list endpoints).
+
+## elm-ask: one page for several portals (parked 2026-09-18)
+
+`tools/elm-ask` answers from one profile (`ai` by default), so one container
+talks to one portal; the workaround is one container per portal on different
+ports. Idea, not started: take a list such as `ELM_PROFILES=ai-prod,ai-preprod`,
+require every listed profile to set `allowed_commands`, let the model choose a
+profile only from that list (never an arbitrary `--profile`/`--config`), and say
+in each answer which portal it came from. Parked until there is a real need.

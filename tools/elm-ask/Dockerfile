@@ -1,0 +1,52 @@
+# elm-ask: plain-English LogicMonitor questions in a local web page.
+# Build from the repository root (elm itself is rendered from _jnja/ in stage 1):
+#   docker build -f tools/elm-ask/Dockerfile -t elm-ask .
+# No apt-get: jq comes from its official image as a static binary, and the
+# full python image already has make and awk.
+
+ARG PYTHON_VERSION=3.13
+ARG JQ_IMAGE=ghcr.io/jqlang/jq:1.8.1
+
+FROM ${JQ_IMAGE} AS jq
+
+# --- Stage 1: render elm from the committed swagger snapshots and templates ---
+FROM python:${PYTHON_VERSION} AS render
+COPY --from=jq /jq /usr/local/bin/jq
+WORKDIR /src
+COPY requirements.txt ./
+RUN grep -E '^(jinja2-cli|Jinja2|PyYAML)' requirements.txt | xargs pip install --no-cache-dir
+COPY Makefile swagger.documented.json swagger.undocumented.json _version.py mkinfo.py elm-notes.yaml ./
+COPY _jnja/ _jnja/
+# Separate make calls, as in the Makefile's own init: each re-reads the Makefile
+# so it sees the per-command defs and their updated timestamps.
+RUN make _defs/commands.json && make _info INFOPY=python && make _render JINJA=jinja2
+
+# --- Stage 2: runtime ---
+FROM python:${PYTHON_VERSION}-slim
+COPY --from=jq /jq /usr/local/bin/jq
+RUN useradd --create-home --uid 1000 app && chmod 755 /home/app
+COPY requirements.txt /tmp/requirements.txt
+COPY tools/elm-ask/requirements.txt /tmp/elm-ask-requirements.txt
+# Runtime dependencies only: everything above "# Build-time only" in requirements.txt.
+RUN sed '/^# Build-time only/,$d' /tmp/requirements.txt > /tmp/runtime.txt \
+ && pip install --no-cache-dir -r /tmp/runtime.txt -r /tmp/elm-ask-requirements.txt
+
+WORKDIR /opt/elm
+COPY --from=render /src/elm.py /src/engine.py /src/_version.py ./
+COPY --from=render /src/_cmds/ _cmds/
+COPY --from=render /src/_defs/commands.json _defs/commands.json
+COPY elm-knowledge.md ./
+COPY tools/elm-ask/app.py tools/elm-ask/agent.py tools/elm-ask/elm_tools.py tools/elm-ask/system_prompt.md tools/elm-ask/index.html tools/elm-ask/
+# Host file modes are copied as-is (e.g. 0600); make everything readable by the app user.
+RUN chmod -R a+rX /opt/elm
+
+# HOME is fixed so the credentials path is the same when run as another uid
+# (docker run --user "$(id -u)", needed to read a 0600 config.ini).
+ENV HOME=/home/app \
+    ELM_HOME=/opt/elm \
+    ELM_ASK_HOST=0.0.0.0 \
+    ELM_ASK_PORT=8080 \
+    PYTHONUNBUFFERED=1
+USER app
+EXPOSE 8080
+CMD ["python", "/opt/elm/tools/elm-ask/app.py"]
