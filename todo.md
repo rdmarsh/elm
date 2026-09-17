@@ -56,3 +56,16 @@ ports. Idea, not started: take a list such as `ELM_PROFILES=ai-prod,ai-preprod`,
 require every listed profile to set `allowed_commands`, let the model choose a
 profile only from that list (never an arbitrary `--profile`/`--config`), and say
 in each answer which portal it came from. Parked until there is a real need.
+
+## elm-ask: a checked question set (next session)
+
+Build a small evaluation set for `tools/elm-ask`: 10-20 questions people really
+ask, each with an answer confirmed by hand against a known portal and how it was
+confirmed (e.g. open critical alerts = `elm AlertList -c -s0 -F
+cleared:false,severity:4`; devices with alerting disabled, counting group-level
+disables via `alertDisableStatus`). Include questions that have tripped it up:
+severity numbers, alerting disabled by group, "SNMP" alerts, OS detection,
+AlertList filters the API ignores. Re-run the set after changing the prompt,
+`elm-notes.yaml`, `elm-knowledge.md` or the model, and compare. Answers change as
+the portal changes, so record the check command, not only the number.
+
