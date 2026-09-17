@@ -2,6 +2,18 @@ import logging
 import click
 import engine
 
+# Shown by --info: parameters, notes from elm-notes.yaml and the documented
+# response fields. Built by mkinfo.py; see the Makefile's _info target.
+INFO = {{ (info or '') | tojson }}
+
+
+def _show_info(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(INFO or 'No info was built for this command (run make).', nl=False)
+    ctx.exit()
+
+
 {%- set opt_names = options | map(attribute='name') | list %}
 @click.command(short_help='{{ summary | capitalize | replace("'", "") }}')
 {%- for option in options %}
@@ -61,6 +73,7 @@ import engine
 {%- endif %}
 @click.option("--count", "-c", "count", is_flag=True, help="Count rows returned by this query (limited by -s, max 1000)")
 @click.option("--total", "-C", "total", is_flag=True, help="Count all rows matching -F (LM's total; not limited by -s)")
+@click.option("--info", is_flag=True, is_eager=True, expose_value=False, callback=_show_info, help="Show fields, verified notes and example commands, then exit")
 @click.pass_obj
 def {{ command }}(elm, **kwargs):
     """{{ summary | capitalize }}

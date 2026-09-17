@@ -63,6 +63,7 @@ CURL ?= curl
 JQ ?= jq
 AWK ?= awk
 JINJA ?= venv/bin/jinja2
+INFOPY ?= venv/bin/python3
 
 # for testing non-required commands
 GREP ?= grep
@@ -164,6 +165,20 @@ all: init ## Build everything except install (init, render, cfg, build)
 .PHONY: init
 init: $(defdir)/commands.$(JSN) upgrade ## Check prerequisites, initialise dirs, create definition files, install jinja2-cli
 	$(GREP) -m1 jinja2-cli $(REQUIREMENTS) | xargs -r $(PIP) $(PIPFLAGS)
+	$(GREP) -m1 PyYAML $(REQUIREMENTS) | xargs -r $(PIP) $(PIPFLAGS)
+	$(MAKE) _info
+	@echo "$(OK_STRING) $@"
+
+# Add the 'elm COMMAND --info' text to each _defs/COMMAND.json (see mkinfo.py).
+# Its own make invocation, from init, so that the _render that follows sees the
+# updated definition files' timestamps. mkinfo.py only rewrites files whose info
+# changed, so editing one command's notes re-renders only that command.
+.PHONY: _info
+_info: $(defdir)/info.stamp
+
+$(defdir)/info.stamp: $(defdir)/commands.$(JSN) mkinfo.$(PY) elm-notes.yaml swagger.documented.$(JSN) swagger.undocumented.$(JSN)
+	$(INFOPY) mkinfo.$(PY)
+	touch $@
 	@echo "$(OK_STRING) $@"
 
 # REQ FOR COMPILE
@@ -478,6 +493,10 @@ testbasic: ## Test basic flags
 	@echo testing: global flag after command gets a hint ; $(testbin) DeviceList -H 2>&1 | grep -q 'Hint: -H is a global option: put it before'
 	@echo testing: -o after command hints at --filename ; $(testbin) DeviceList -o out.csv 2>&1 | grep -q 'for --filename put it before'
 	@echo testing: format name as --fields gets a hint ; $(testbin) DeviceList -f csv 2>&1 | grep -q 'for --format put it before'
+	@echo testing: --info shows path, notes and fields ; $(testbin) AlertList --info | grep -q '^GET /alert/alerts' && $(testbin) AlertList --info | grep -q '^Notes' && $(testbin) AlertList --info | grep -q '^  severity: integer'
+	@echo testing: --info needs no id for a command that requires one ; $(testbin) DeviceDatasourceList --info | grep -q -- '--deviceId integer (required)'
+	@echo testing: --info and --help need no credentials ; h=$$(mktemp -d) && HOME=$$h $(testbin) AlertList --info | grep -q '^GET ' && HOME=$$h $(testbin) AlertList --help | grep -q 'Usage:' ; rc=$$? ; rm -rf $$h ; exit $$rc
+	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
 	@$(foreach cmd,$(TSTTARGETS), \
 		echo testing: $(testbin) $(cmd) --help ;\
 		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\

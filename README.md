@@ -217,7 +217,8 @@ them: those are the *stripped* form, keeping only the fields elm needs
 ```text
 swagger.documented.json   ─┐
                            ├─→ _defs/commands.*.json ─→ _defs/<Command>.json ─→ _cmds/<Command>.py
-swagger.undocumented.json ─┘
+swagger.undocumented.json ─┘                                    ↑
+                              elm-notes.yaml + swaggers ─→ mkinfo.py (adds the --info text)
 ```
 
 As of the current snapshots that is 174 documented + 15 undocumented = 189
@@ -591,13 +592,15 @@ different meanings, so position changes what the flag does:
 ```shell
 elm -f csv DeviceList -s 1000 -o 2000   # correct: format global, size/offset per-command
 elm DeviceList -f csv -s0               # error: -f here is --fields
-elm -o 2000 DeviceList                  # no error, wrong result
+elm -o 2000 DeviceList                  # runs, with a warning: page 1 goes to a file named 2000
 ```
 
-Only `-o` fails silently, which makes it the one to guard: a pagination loop
-with `-o` on the wrong side re-fetches page 1 every iteration and leaves a
-trail of files named after the offsets. `-F`, `-S`, `-c` and `-C` are
-per-command only; `-H`, `-I` and `-p` are global only, so those never collide.
+A misplaced flag fails with a `Hint:` line saying which side of the command
+name it belongs on. The exception is `-o` with a number before the command
+name: that is valid syntax for writing to a file, so elm only warns. A
+pagination loop with `-o` on the wrong side re-fetches page 1 every iteration,
+so keep `-s` and `-o` after the command name. `-F`, `-S`, `-c` and `-C` are
+per-command only; `-H`, `-I` and `-p` are global only.
 
 **Counting records:** `-C` is almost always the one you want. It asks the LM
 API for the total number of records matching your filter, and is not limited
@@ -609,6 +612,28 @@ many", not "exactly this many". Most list endpoints return an exact count with
 total, so `-C` shows a lower bound like `>50` with a warning; for those two
 only, `-c -s0` counts the rows actually fetched, which is accurate provided
 the true total is under 1000.
+
+### Command info
+
+`elm COMMAND --info` describes one command without calling the API or needing
+credentials:
+
+- its path, usage and parameters
+- notes from [`elm-notes.yaml`](elm-notes.yaml): tested behaviour, known API
+  bugs (for example filters the API silently ignores), corrected field meanings
+  and example commands
+- every response field with its type and a one-line description from the
+  swagger
+
+```shell
+elm AlertList --info
+elm DeviceDatasourceList --info     # works without the required --deviceId
+```
+
+Where a note and a swagger description disagree, the note is the tested one.
+The text is built into each command at `make` time (by `mkinfo.py`), so the
+installed binary needs no extra files. It is written to be short, so it is also
+the cheapest way to give an AI assistant what it needs about a command.
 
 ### DeviceList help
 
@@ -671,6 +696,9 @@ Options:
 
   -C, --total                     Count all rows matching -F (LM's total; not
                                   limited by -s)
+
+  --info                          Show fields, verified notes and example
+                                  commands, then exit
 
   -h, --help                      Show this message and exit.
 ```

@@ -78,6 +78,12 @@ class LazyGroup(click.Group):
 
     def invoke(self, ctx):
         try:
+            # 'elm COMMAND --info' and 'elm COMMAND --help' describe the command
+            # and exit. Parse the command's own options first so they work
+            # before cli() insists on credentials.
+            args = ctx.protected_args + ctx.args
+            if args and args[0] in self.lazy_subcommands and {'--info', '--help', '-h'} & set(args[1:]):
+                self.get_command(ctx, args[0]).make_context(args[0], list(args[1:]), parent=ctx)
             return super().invoke(ctx)
         except click.UsageError as e:
             if e.ctx is not None and e.ctx.command is not self:
@@ -218,6 +224,13 @@ Three short flags exist on both sides with different meanings:
 A misplaced flag prints "Hint: ... put it before/after the command name".
 Read the hint and move the flag; do not drop it.
 
+BEFORE USING A COMMAND: elm COMMAND --info
+  Prints its parameters, the verified notes (known API bugs, filters that are
+  silently ignored, corrected field meanings), example commands and every
+  response field with a one-line description. Needs no credentials and makes
+  no API call. Where the notes and the field descriptions disagree, the notes
+  are right.
+
 KEY GLOBAL FLAGS
   -l, --list          List available credential profiles and exit
   -p, --profile NAME  Select a credentials profile
@@ -267,7 +280,8 @@ FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
   examples/           topic files with working command patterns
   README.md           full usage, output format reference, install notes
 
-  Read elm-notes.yaml before running unfamiliar commands.\
+  elm COMMAND --info shows a command's elm-notes.yaml entry, so there is no
+  need to read the file directly.\
 """)
     ctx.exit()
 

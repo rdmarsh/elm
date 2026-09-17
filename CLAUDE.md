@@ -23,6 +23,11 @@ The build pipeline is:
 4. elm.py uses LazyGroup to defer _cmds/ module imports until a subcommand
    is actually invoked -- --version, --help, and --list load without
    importing any _cmds/ module or heavy library (pandas, requests, etc.)
+5. make init also runs mkinfo.py (the _info target), which adds an "info"
+   text to each _defs/<Command>.json from elm-notes.yaml and the swagger
+   response schemas. command.py.j2 renders it into the module, and
+   `elm COMMAND --info` prints it. `elm COMMAND --info` and `--help` are
+   handled before the credentials check, so neither needs a config.
 
 The source of truth for command logic is _jnja/ (templates) and
 _defs/ (per-endpoint JSON definitions). If you fix a bug in a _cmds/
@@ -38,6 +43,8 @@ in the template instead.
     _build/                    PyInstaller build artefacts (DO NOT EDIT)
     _dist/                     Compiled binary output (DO NOT EDIT)
     elm.py                     Main entry point -- imports from _cmds/
+    mkinfo.py                  Build step: the text behind `elm COMMAND --info`
+    elm-notes.yaml             Per-command tested notes (source for --info)
     setup.py                   Package setup
     requirements.txt           Python dependencies
     Makefile                   Build orchestration -- source of truth for build steps

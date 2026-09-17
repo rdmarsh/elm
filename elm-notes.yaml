@@ -3,6 +3,11 @@
 # Supplements the swagger — focuses on what the swagger doesn't tell you:
 # real response structure, what filters actually work, and gotchas.
 #
+# `elm COMMAND --info` shows the entry for COMMAND (built in by mkinfo.py at make
+# time), so a change here needs `make` before it appears there. Keep entries to
+# what is tested or different from the swagger: --info already lists every
+# documented field, so key_fields only needs fields whose comment adds meaning.
+#
 # WARNING: This file is partially AI-assisted and may contain inaccuracies.
 # Entries should be verified against the live API before being relied upon.
 # Correct errors in place and remove this warning from individual entries once verified.
