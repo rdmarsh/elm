@@ -302,6 +302,23 @@ Alerts for a specific device:
 elm AlertListByDeviceId --id <deviceId> -s0 -F cleared:false -f severity,dataPointName,alertValue
 ```
 
+Alerts by collection method (e.g. "SNMP alerts"):
+
+Alert display names (`resourceTemplateName`) do not say how the data is
+collected, so `-F resourceTemplateName~SNMP` misses almost everything. Look up
+the datasources by `collectMethod` and match on `resourceTemplateId`:
+
+```shell
+elm -f jsonl DatasourceList -s0 -F collectMethod:snmp -f id > snmp-ds.jsonl
+elm -f jsonl AlertList -s0 -F cleared:false \
+  -f id,monitorObjectName,resourceTemplateId,resourceTemplateType,resourceTemplateName,severity,startEpoch > alerts.jsonl
+jq -s --slurpfile ds <(jq -s 'map(.id)' snmp-ds.jsonl) \
+  'map(select(.resourceTemplateType == "DS" and (.resourceTemplateId as $i | $ds[0] | index($i))))' alerts.jsonl
+```
+
+Only compare `resourceTemplateId` when `resourceTemplateType` is `DS`: EventSource
+and other module types have their own id spaces.
+
 ### Time-series data from a datasource instance
 
 Three steps: find the device-datasource ID, find the instance ID, then fetch data.
@@ -466,6 +483,14 @@ Known false positives observed:
 - Demo/test environments
 
 **Better approach:** Scope to a device group containing only real Linux servers, in addition to or instead of the sysinfo filter.
+
+### The same applies to Windows
+
+`systemProperties.name:system.sysinfo,systemProperties.value~Windows` also
+returns non-Windows devices. Observed: out-of-band hardware management devices
+whose only alerts were from the "Oracle Platform: Sensor LED" SNMP datasource.
+Sanity-check OS-based results against device names and the datasources that
+are alerting before reporting them.
 
 ### Linux coverage — standard datasource set
 
