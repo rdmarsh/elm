@@ -171,11 +171,12 @@ You will need the following items to run the program after building:
   * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
 
-See `config.example.ini` for a documented example config file
+See `config.example.ini` for a documented example config file, and
+`ai.example.ini` for a suggested restricted profile for AI assistants.
 
 ### Restricting a profile to some commands
 
-A profile can allow only the commands it is meant for. Add `allow_commands` to
+A profile can allow only the commands it is meant for. Add `allowed_commands` to
 its `.ini`:
 
 ```ini
@@ -183,7 +184,7 @@ its `.ini`:
 access_id = '...'
 access_key = '...'
 account_name = 'example'
-allow_commands = ['MetricsUsage']            # or e.g. ['DeviceList', 'Alert*']
+allowed_commands = ['MetricsUsage']            # or e.g. ['DeviceList', 'Alert*']
 ```
 
 Anyone using that profile, whether a person, a script or an AI assistant, can
@@ -193,7 +194,7 @@ inside automation cannot wander off to other endpoints:
 
 ```text
 $ elm -p metricsusage AdminList -s0
-Error: AdminList is not allowed. Profile 'metricsusage' allows only: MetricsUsage (allow_commands in ~/.config/logicmonitor/credentials/metricsusage.ini).
+Error: AdminList is not allowed. Profile 'metricsusage' allows only: MetricsUsage (allowed_commands in ~/.config/logicmonitor/credentials/metricsusage.ini).
 No request was sent.
 ...
 ```
@@ -201,9 +202,25 @@ No request was sent.
 `elm -p NAME --help` lists only the allowed commands, `--info` and `--help` are
 refused for the others, and `elm --list` shows `(allows: ...)` next to
 restricted profiles. Patterns are shell-style (`Device*`) and case-sensitive;
-`AlertList` does not also match `AlertListByDeviceId`. A profile without
-`allow_commands` allows everything. A value elm cannot read stops elm rather
-than being ignored.
+`AlertList` does not also match `AlertListByDeviceId`.
+
+| In the `.ini` | Allowed |
+|---------------|---------|
+| no `allowed_commands` line | every command |
+| `allowed_commands = ['MetricsUsage', 'Device*']` | only those |
+| `allowed_commands = 'MetricsUsage'` | only that one |
+| `allowed_commands = []` | nothing (a locked profile) |
+| `None`, `''`, an empty name, a number, or anything unparseable | elm stops with an error rather than guessing |
+
+The list has to stay on one line: the `.ini` format elm uses has no multi-line
+values.
+
+[`ai.example.ini`](ai.example.ini) is a suggested profile for AI assistants:
+44 commands for everyday questions about devices, alerts, SDTs, collectors and
+websites, leaving out anything that exposes users, API tokens, contact details,
+integration secrets or device configurations, with the reasons in comments.
+Copy it to `~/.config/logicmonitor/credentials/ai.ini` and adjust. `elm --list`
+ignores any `*.example.ini` copied into that directory.
 
 This is a guard rail, not a security boundary: someone with a shell can use a
 different profile. What limits access is the API token's role in LogicMonitor,

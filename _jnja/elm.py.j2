@@ -57,7 +57,7 @@ class LazyGroup(click.Group):
         self.lazy_subcommands = lazy_subcommands or {}
 
     def list_commands(self, ctx):
-        # A restricted profile only lists the commands it allows (see allow_commands).
+        # A restricted profile only lists the commands it allows (see allowed_commands).
         patterns = _allow_patterns()
         return sorted(c for c in self.lazy_subcommands if _is_allowed(c, patterns))
 
@@ -193,13 +193,18 @@ def _capture_config_path(ctx, param, value):
 # ALLOWED COMMANDS
 # A profile can limit which commands may be run with it, in its .ini:
 #
-#   allow_commands = ['MetricsUsage']                  # just this one
-#   allow_commands = ['DeviceList', 'Alert*', 'SDTList']  # shell-style wildcards
+#   allowed_commands = ['MetricsUsage']                     # just this one
+#   allowed_commands = ['DeviceList', 'Alert*', 'SDTList']  # shell-style wildcards
+#   allowed_commands = []                                   # none (a locked profile)
+#
+# No allowed_commands line means no restriction. None, '' or a non-string entry
+# is an error, never a silent "allow all". The list must fit on one line: the
+# unrepr .ini format does not accept multi-line values.
 #
 # It applies to everyone using the profile -- people, scripts and AI assistants
 # -- so a typo or a wrong guess inside automation cannot reach other endpoints.
 # Refused commands exit with NOT_ALLOWED_EXIT and send no request; --help and
-# --info respect it too. With no allow_commands key every command is allowed.
+# --info respect it too. With no allowed_commands key every command is allowed.
 # This is a guard rail, not a security boundary: the API token's role in
 # LogicMonitor is what actually limits access.
 
@@ -207,23 +212,29 @@ NOT_ALLOWED_EXIT = 3
 
 
 def _allow_patterns(path=None):
-    """The profile's allow_commands patterns, or None if it does not restrict commands."""
+    """The profile's allowed_commands patterns, or None if it does not restrict commands."""
     path = path or _resolved_config_file
     if not os.path.isfile(path):
         return None
     try:
         from configobj import ConfigObj
-        patterns = ConfigObj(path, unrepr=True).get('allow_commands')
+        profile = ConfigObj(path, unrepr=True)
     except Exception as e:
         # Fail closed: an unreadable restriction must not become no restriction.
-        raise click.ClickException(f'cannot read allow_commands from {path}: {e}')
-    if patterns is None:
+        raise click.ClickException(f'cannot read allowed_commands from {path}: {e}')
+    if 'allowed_commands' not in profile:
         return None
+    patterns = profile['allowed_commands']
     if isinstance(patterns, str):
         patterns = [patterns]
-    if not isinstance(patterns, (list, tuple)) or not all(isinstance(p, str) for p in patterns):
-        raise click.ClickException(f"allow_commands in {path} must be a list of command names, e.g. ['DeviceList', 'Alert*']")
-    return list(patterns)
+    if (not isinstance(patterns, (list, tuple))
+            or not all(isinstance(p, str) and p.strip() for p in patterns)):
+        # None and '' are refused rather than guessed at: "None" reads as "no
+        # commands" but would otherwise mean "no restriction".
+        raise click.ClickException(
+            f"allowed_commands in {path} must be a list of command names, e.g. ['DeviceList', 'Alert*']. "
+            f"Use [] to allow no commands, or remove the line to allow all.")
+    return [p.strip() for p in patterns]
 
 
 def _is_allowed(command, patterns):
@@ -234,10 +245,19 @@ def _profile_name(path=None):
     return os.path.splitext(os.path.basename(path or _resolved_config_file))[0]
 
 
+def _allowed_text(patterns, profile):
+    """'MetricsUsage, Device*', or a count when the list is too long to read in one line."""
+    if not patterns:
+        return 'no commands'
+    if len(patterns) > 6:
+        return f"{len(patterns)} commands ('elm -p {profile} --help' lists them)"
+    return ', '.join(patterns)
+
+
 def _restriction_summary(patterns):
-    allowed = ', '.join(patterns) if patterns else 'no commands'
+    allowed = _allowed_text(patterns, _profile_name())
     path = _resolved_config_file.replace(os.path.expanduser('~'), '~', 1)
-    return f"Profile '{_profile_name()}' allows only: {allowed} (allow_commands in {path})"
+    return f"Profile '{_profile_name()}' allows only: {allowed} (allowed_commands in {path})"
 
 
 class _NotAllowed(click.ClickException):
@@ -259,7 +279,7 @@ def _list_profiles_callback(ctx, param, value):
     try:
         names = sorted(
             f[:-4] for f in os.listdir(_creds_dir)
-            if f.endswith('.ini') and f != 'config.example.ini'
+            if f.endswith('.ini') and not f.endswith('.example.ini')
         )
     except OSError as e:
         click.echo(f'Cannot read credentials directory: {e}', err=True)
@@ -269,9 +289,9 @@ def _list_profiles_callback(ctx, param, value):
         prefix = '* ' if name == active else '  '
         try:
             patterns = _allow_patterns(os.path.join(_creds_dir, name + '.ini'))
-            note = '' if patterns is None else f"  (allows: {', '.join(patterns) or 'no commands'})"
+            note = '' if patterns is None else f"  (allows: {_allowed_text(patterns, name)})"
         except click.ClickException:
-            note = '  (allow_commands unreadable)'
+            note = '  (allowed_commands unreadable)'
         click.echo(prefix + name + note)
     ctx.exit()
 

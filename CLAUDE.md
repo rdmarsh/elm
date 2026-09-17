@@ -51,6 +51,7 @@ in the template instead.
     swagger.documented.json    Snapshot of the official LM Swagger spec (checked in)
     swagger.undocumented.json  Extra endpoints not in the official spec (checked in)
     config.example.ini         Example credentials config
+    ai.example.ini             Suggested restricted profile for AI assistants (allowed_commands)
 
 
 ## Build commands
@@ -133,7 +134,7 @@ elm supports multiple credential profiles:
 - `--config PATH` accepts a full path to any .ini file in any directory
 - `elm --list` (or `elm -l`) lists all available profiles and exits, marking
   the active one with `*`. Use this instead of reading the credentials directory.
-- A profile may set `allow_commands` (see README "Restricting a profile to
+- A profile may set `allowed_commands` (see README "Restricting a profile to
   some commands"). Other commands exit 3 with no request sent. Never work
   round it by switching profiles: tell the user and show the command instead.
 
@@ -142,7 +143,8 @@ Profile naming convention:
   environment (sandbox/test). Do not put production credentials here.
 - Non-default environments get explicit names (e.g. `preprod.ini`, `prod.ini`)
   and must be selected deliberately with `--profile`.
-- `config.example.ini` is not a real profile — it is skipped by `elm --list`.
+- `config.example.ini` and `ai.example.ini` are not real profiles — `elm --list`
+  skips any `*.example.ini`.
 
 At the start of any session involving live API calls:
 
