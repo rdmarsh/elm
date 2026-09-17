@@ -472,6 +472,12 @@ testbasic: ## Test basic flags
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
 	@echo testing: sqlite format requires -o flag ; $(testbin) -f sqlite MetricsUsage 2>&1 | grep -q 'requires -o'
+	@echo testing: command flag before command gets a hint ; $(testbin) -c DeviceList 2>&1 | grep -q 'Hint: -c is a command option: put it after'
+	@echo testing: -s before command hints at --size ; $(testbin) -s 5 DeviceList 2>&1 | grep -q 'for --size put it after'
+	@echo testing: -f before command hints at --fields ; $(testbin) -f id DeviceList 2>&1 | grep -q 'for --fields put it after'
+	@echo testing: global flag after command gets a hint ; $(testbin) DeviceList -H 2>&1 | grep -q 'Hint: -H is a global option: put it before'
+	@echo testing: -o after command hints at --filename ; $(testbin) DeviceList -o out.csv 2>&1 | grep -q 'for --filename put it before'
+	@echo testing: format name as --fields gets a hint ; $(testbin) DeviceList -f csv 2>&1 | grep -q 'for --format put it before'
 	@$(foreach cmd,$(TSTTARGETS), \
 		echo testing: $(testbin) $(cmd) --help ;\
 		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\

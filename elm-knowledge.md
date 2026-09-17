@@ -12,30 +12,42 @@ A living document. Add entries as new patterns, gotchas, and findings are confir
 elm [GLOBAL FLAGS] COMMAND [COMMAND FLAGS]
 ```
 
-Global flags (format, config, head, foot, etc.) **must come before the subcommand name**.
+Global flags go **before** the command name; command flags go **after** it.
 
-Three short flags are reused on both sides of the command name with different
-meanings, so position changes what the flag does — it is not cosmetic:
+| Side | Flags |
+|------|-------|
+| Global only | `-p` `-l` `-H` `-I` `-v` `-i` `-k` `-a` `-V` `--config` `--head` `--foot` `--cacert` `--halt-on-api-error` `--ai` |
+| Command only | `-F` (filter), `-S` (sort), `-c` (count), `-C` (total), and the command's own parameters (`--id`, `--deviceId`, ...) |
+| Both, with different meanings | `-f`, `-o`, `-s` (below) |
 
-| Flag | Before COMMAND (global) | After COMMAND (subcommand) | If misplaced |
-|------|-------------------------|----------------------------|--------------|
-| `-f` | `--format FORMAT` | `--fields FIELD,...` | Errors both ways (`invalid choice` / `no valid fields selected`) |
-| `-s` | `--proxy <HOST PORT>` | `--size N` | Errors, but the message names `--proxy` and complains the *command name* is not an integer — `-s` takes two values |
-| `-o` | `--filename FILE` | `--offset N` | **Silent.** `elm -o 2000 DeviceList` writes a file named `2000` containing page 1 and exits 0 |
+| Flag | Before COMMAND (global) | After COMMAND (command) |
+|------|-------------------------|-------------------------|
+| `-f` | `--format FORMAT` | `--fields FIELD,...` |
+| `-o` | `--filename FILE` | `--offset N` |
+| `-s` | `--proxy <HOST PORT>` | `--size N` |
 
 ```shell
-elm -f csv DeviceList -s 1000 -o 2000   # correct: format global, size/offset per-command
-elm DeviceList -f csv -s0               # error: -f here is --fields
-elm -o 2000 DeviceList                  # no error, wrong result: file named "2000", page 1
+elm -f csv DeviceList -s 1000 -o 2000 -c   # correct
+elm -c DeviceList                          # error: -c is a command flag
+elm DeviceList -H                          # error: -H is a global flag
+elm DeviceList -f csv                      # error: csv is a format, not a field
+elm -o 2000 DeviceList                     # runs, with a warning: page 1 goes to a file named "2000"
 ```
 
-Only `-o` fails silently, which makes it the one worth guarding: a pagination
-loop that puts `-o` before the command name re-fetches page 1 every iteration
-and leaves a trail of files named after the offsets. Verified against a live
-portal 2026-08-27.
+A misplaced flag fails with a `Hint:` line naming the fix, e.g.
 
-`-F` (filter), `-S` (sort), `-c`, `-C` are subcommand-only; `-H` (noheader),
-`-I` (index), `-p` (profile) are global-only. Those do not collide.
+```text
+Error: no such option: -c
+Hint: -c is a command option: put it after the command name, e.g. elm DeviceList -c
+```
+
+Move the flag as the hint says; don't drop it.
+
+The one mix-up that still runs is `-o` with a number before the command name
+(`elm -o 2000 DeviceList`): that is valid syntax for writing to a file named
+`2000`, so elm only warns. A pagination loop written that way re-fetches page 1
+every time, so keep `-s` and `-o` after the command name and check that pages
+differ.
 
 ### Key global flags
 
@@ -281,7 +293,7 @@ elm AlertList -s0 -F cleared:false,severity:4   # warning only
 Count active alerts by severity:
 
 ```shell
-elm -c AlertList -F cleared:false,severity:2   # count of active critical alerts
+elm AlertList -c -s0 -F cleared:false,severity:2   # count of active critical alerts (-c goes after the command)
 ```
 
 Alerts for a specific device:

@@ -31,6 +31,16 @@ def engine(elm, **kwargs):
     flags = {k: v for k, v in kwargs.items() if v}
     logging.debug('passed flags: %s', flags)
 
+    # After the command name -f is --fields, so 'elm DeviceList -f csv' asks for a
+    # field called csv. Catch it before sending the request.
+    if 'fields' in flags:
+        root = click.get_current_context().find_root()
+        formats = next((p.type.choices for p in root.command.params if p.name == 'format'), [])
+        if flags['fields'] in formats:
+            raise click.UsageError(
+                f"-f after the command name is --fields, and '{flags['fields']}' is an output format.\n"
+                f"Hint: for --format put it before the command name, e.g. elm -f {flags['fields']} {elm.command}")
+
     #set size to max (1000) if size is 0
     #0 values are removed by ben magic above
     if 'size' in kwargs and kwargs['size'] == 0:

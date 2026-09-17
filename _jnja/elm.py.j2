@@ -63,6 +63,78 @@ class LazyGroup(click.Group):
             return getattr(module, cmd_name)
         return super().get_command(ctx, cmd_name)
 
+    # Global options go before the command name, command options after it, and
+    # -f/-o/-s mean different things on each side. Click's own errors ("no such
+    # option: -c") don't say that, so add the fix to the message.
+
+    def parse_args(self, ctx, args):
+        original = list(args)  # the parser consumes args in place
+        try:
+            return super().parse_args(ctx, args)
+        except click.UsageError as e:
+            command_name = next((a for a in original if a in self.lazy_subcommands), None)
+            _add_position_hint(e, self, ctx, command_name, before_command=True)
+            raise
+
+    def invoke(self, ctx):
+        try:
+            return super().invoke(ctx)
+        except click.UsageError as e:
+            if e.ctx is not None and e.ctx.command is not self:
+                _add_position_hint(e, self, ctx, e.ctx.info_name, before_command=False)
+            raise
+
+
+def _options_by_flag(command):
+    """Map every flag spelling (-c, --count) of a command to its parameter."""
+    return {flag: p for p in command.params for flag in p.opts + p.secondary_opts}
+
+
+def _long_flag(param):
+    return max(param.opts, key=len)
+
+
+def _flag_usage(flag, param):
+    """'-p NAME', '-c': the flag plus a short placeholder for its value, if it takes one."""
+    if getattr(param, 'is_flag', False) or getattr(param, 'count', False):
+        return flag
+    metavar = param.metavar
+    if not metavar or len(metavar) > 12 or metavar in ('INTEGER', 'TEXT'):
+        metavar = param.name.upper()
+    return f'{flag} {metavar}'
+
+
+def _add_position_hint(error, group, ctx, command_name, before_command):
+    """Append 'put it before/after the command name' to a misplaced-flag error."""
+    try:
+        command = group.get_command(ctx, command_name) if command_name else None
+    except Exception:
+        command = None
+    if command is None:
+        return
+    there = _options_by_flag(command) if before_command else _options_by_flag(group)
+    side = 'after' if before_command else 'before'
+
+    def placed(flag):
+        usage = _flag_usage(flag, there[flag])
+        return f'elm {command_name} {usage}' if before_command else f'elm {usage} {command_name}'
+
+    hint = None
+    if isinstance(error, click.NoSuchOption) and error.option_name in there:
+        flag = error.option_name
+        kind = 'a command' if before_command else 'a global'
+        hint = f'{flag} is {kind} option: put it {side} the command name, e.g. {placed(flag)}'
+    elif isinstance(error, click.BadParameter) and error.param is not None:
+        shared = [flag for flag in error.param.opts if flag in there]
+        if shared:
+            flag = shared[0]
+            position = 'before' if before_command else 'after'
+            hint = (f'{flag} {position} the command name is {_long_flag(error.param)}; '
+                    f'for {_long_flag(there[flag])} put it {side} the command name, '
+                    f'e.g. {placed(flag)}')
+    if hint:
+        error.message = f'{error.message}\nHint: {hint}'
+
 logger = logging.getLogger()
 FORMAT = "%(levelname)07s %(asctime)s %(filename)s:%(lineno)s %(funcName)s %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -121,23 +193,30 @@ elm -- quick-start guide for AI assistants
 elm is a READ-ONLY CLI for extracting data from LogicMonitor via the REST API.
 Source, docs, and examples: https://github.com/rdmarsh/elm
 
-CRITICAL: global flags must come BEFORE the subcommand name.
-Three short flags mean something different on each side of it, so position
-is not cosmetic:
+CRITICAL: flag position matters.
+  elm [GLOBAL FLAGS] COMMAND [COMMAND FLAGS]
 
-  flag   before COMMAND (global)   after COMMAND (subcommand)
+Global flags (before COMMAND):  -p -l -f -o -s -H -I -v -i -k -a -V
+                                --config --head --foot --cacert --ai
+Command flags (after COMMAND):  -s -o -f -F -S -c -C  plus the command's own
+                                parameters (--id, --deviceId, ...)
+
+Three short flags exist on both sides with different meanings:
+
+  flag   before COMMAND (global)   after COMMAND (command)
   -f     --format FORMAT           --fields FIELD,...
   -o     --filename FILE           --offset N
   -s     --proxy <HOST PORT>       --size N
 
-  elm -f csv DeviceList -s 1000 -o 2000   # correct
-  elm DeviceList -f csv -s0               # error: -f here is --fields
-  elm -s 1000 DeviceList                  # error, but it names --proxy, not --size
-  elm -o 2000 DeviceList                  # NO ERROR -- the dangerous one: writes a
-                                          # file named "2000" and returns page 1
+  elm -f csv DeviceList -s 1000 -o 2000 -c   # correct
+  elm -c DeviceList                          # error: -c is a command flag
+  elm DeviceList -H                          # error: -H is a global flag
+  elm DeviceList -f csv                      # error: csv is a format, not a field
+  elm -o 2000 DeviceList                     # runs, with a warning: writes page 1
+                                             # to a file named "2000"
 
-Only -o fails silently. If you are paginating, keep -s and -o after the
-command name and check that the rows differ between pages.
+A misplaced flag prints "Hint: ... put it before/after the command name".
+Read the hint and move the flag; do not drop it.
 
 KEY GLOBAL FLAGS
   -l, --list          List available credential profiles and exit
@@ -152,11 +231,11 @@ KEY SUBCOMMAND FLAGS (most commands support these)
   -f, --fields F   Comma-separated field names to return
   -F, --filter F   Filter expression; multiple -F flags are AND'd
   -S, --sort F     Sort field (+field asc, -field desc)
-  -c, --count      Count matching results (respects -F)
-  -C, --total      Total matching results from LM (ignores -s, RESPECTS -F)
-                   Prefer -C for counting: -c counts the rows actually
-                   fetched, so it caps at 1000 and silently under-reports
-                   anything larger. -C is LM's server-side total.
+  -c, --count      Count the rows fetched (respects -F and -s: use -s0)
+  -C, --total      LM's server-side total (ignores -s, RESPECTS -F)
+                   Prefer -C: -c caps at 1000 and under-reports anything larger.
+                   Exception: AlertList and AuditLogList don't return a real
+                   total (-C prints a warning and ">N"); use -c -s0 there.
 
 OUTPUT FORMAT
   Responses are wrapped: {"CommandName": [{...}, ...]}
@@ -289,6 +368,12 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
         logger.setLevel(logging.INFO)
     else:
         logger.setLevel(logging.WARNING)
+
+    # 'elm -o 2000 DeviceList' is valid syntax but almost never what was meant:
+    # before the command name -o is --filename, so page 1 goes to a file named 2000.
+    if filename and filename.isdigit():
+        click.secho(f"Warning: -o before the command name is --filename, so output is going to a file named '{filename}'. "
+                    f"For --offset, put -o after the command name, e.g. elm {ctx.invoked_subcommand or 'COMMAND'} -o {filename}", fg='yellow', err=True)
 
     #Check if specified directory exists, if provided in filename
     if filename:

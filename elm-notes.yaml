@@ -164,8 +164,8 @@ _formats:
       The file is created on first run; subsequent runs append to the existing file/table.
     use_for: "Building a local queryable cache across multiple elm runs; replacing ad-hoc JSON file collections"
     example: |
-      elm DeviceList -s0 -f sqlite -o lm.sqlite
-      elm AlertList  -s0 -f sqlite -o lm.sqlite
+      elm -f sqlite -o lm.sqlite DeviceList -s0
+      elm -f sqlite -o lm.sqlite AlertList -s0
       sqlite3 lm.sqlite "SELECT displayName, hostStatus FROM device_list LIMIT 5"
       duckdb lm.sqlite "SELECT * FROM alert_list WHERE fetched_at > '2026-05-28'"
 

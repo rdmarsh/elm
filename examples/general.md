@@ -118,8 +118,8 @@ as its first column so you can tell how old each row is.
 
 ```shell
 # Accumulate snapshots over time — re-run daily, weekly, whenever
-elm DeviceList -s0 -f sqlite -o lm.sqlite
-elm AlertList  -s0 -f sqlite -o lm.sqlite
+elm -f sqlite -o lm.sqlite DeviceList -s0
+elm -f sqlite -o lm.sqlite AlertList -s0
 ```
 
 elm prints a confirmation to stderr and produces no stdout output:
