@@ -215,6 +215,23 @@ elm CollectorList -F build\<37000 -S build  # filter by numeric comparison
 elm AdminList -F apiTokens.status:2         # filter on nested field
 ```
 
+### "None found" is only true for the range you fetched
+
+A page holds at most 1000 rows and some lists come back newest first, so an
+empty or capped result says nothing about what was not fetched. Before
+answering "never" or "none": check whether the result hit the cap, page with
+`-o` or filter on the time field, and say what range was covered. On a busy
+portal 1000 AuditLogList entries can cover only a few days.
+
+### Always pass -f on collector queries
+
+CollectorList responses include fields that can hold secrets: `bearerToken`,
+`collectorConf`, `wrapperConf`, `watchdogConf`, `sbproxyConf`, `websiteConf`,
+`encodedConfigData`, `config`, `downloadUrl`, `copyUrl`. A read-only token gets
+them empty (`{}` or `""`); a token with write permission on the collector
+(`userPermission`) gets the real contents. Request only the fields you need, and
+never paste raw CollectorList output into tickets, chats or AI tools.
+
 ### Use name: exact match on DatasourceList
 
 There are 1000+ datasources. Always use `name:` (exact) not `name~` (contains) to avoid fetching everything:

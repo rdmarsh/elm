@@ -712,8 +712,13 @@ AuditLogList:
       rather than applying the exclusion. Use positive operators (: and ~) and filter
       client-side with jq for exclusions:
         elm -f json AuditLogList -s0 | jq '.AuditLogList[] | select(.username != \"foo\")'"
-    - "Max 1000 records. Without a filter you get the 1000 most recent; with a positive
-      filter (~, :) you get up to 1000 matching records from the full history."
+    - "Newest first, at most 1000 per page. Without a filter you get the 1000 most recent;
+      with a positive filter (~, :) up to 1000 matching records from the full history.
+      -o pages back through older entries (verified: -o 5000 reached entries two weeks
+      older than -o 0). To reach a date directly, filter on the epoch:
+      -F happenedOn<:EPOCH or -F happenedOn>:EPOCH."
+    - "-C gives no real total (prints a warning and >50). Count with -c -s0, which is
+      only exact below 1000."
   key_fields:
     id:             integer
     username:       string
@@ -1345,6 +1350,9 @@ CollectorList:
     - "hostname and description are usually the 'DOMAIN\\HOSTNAME' form (e.g. 'CORP\\NEWEDGE03') or an FQDN, not the bare host label -- matching a collector by an exact bare name fails. Match by numeric id, or substring/partial. The tools/lm-collector-reachability-run-all.ps1 -Candidate flag resolves id -> exact hostname/description -> unambiguous substring for this reason."
     - "tools/lm-collector-reachability-run-all.ps1 -Candidate <id|name> tests a collector NOT yet in a group against that group's device list (pre-add vetting): submits the group's device list to the candidate via Collector Debug and reports device+protocol combos the candidate fails to reach but an in-group collector does. Requires the candidate to already be installed and connected to LM (just not in the group)."
     - "status is always 1 for all collectors including DOWN ones -- use isDown for real health status"
+    - "build is a STRING holding the version as major*1000+minor, e.g. \"40001\" = 40.001 (matches CollectorVersionList majorVersion 40, minorVersion 1). There is no collectorVersion field. -F 'build<37000' and -S build work because builds are all 5 digits; use tonumber before comparing in jq."
+    - "DOWN collectors (isDown: true) still report numberOfHosts. For \"in use\" or \"oldest version running\" questions filter -F isDown:false, and report down collectors and their host counts separately."
+    - "Besides the *Conf fields, bearerToken, encodedConfigData, config, downloadUrl and copyUrl can carry secrets; a read-only token gets them empty (\"\"). Always pass -f so they are never fetched."
     - "numberOfInstances is 0 for non-auto-balance collectors -- it only tracks auto-balance load distribution"
     - "backupAgentId is a single value -- a collector can only have one backup; no chain failover"
     - "enableFailBack only takes effect if backupAgentId is set; harmless but meaningless when 0"
@@ -1560,9 +1568,13 @@ CollectorVersionList:
     mandatory:      boolean
     releaseEpoch:   integer  # epoch seconds; 0 if not set
     stable:         boolean
+    patch:          boolean  # null unless a patch release
+    feature:        boolean  # null unless a feature/test track entry
   gotchas:
     - "No 'id' field — cannot filter by id. Filter by majorVersion or minorVersion."
     - "No isGD/isEA fields in actual response despite swagger suggestions"
+    - "Lists versions offered for upgrade, not the ones installed (installed versions are CollectorList build)."
+    - "Entries with feature: true (seen: majorVersion 10000) are not real releases; ignore them when finding the latest version. releaseEpoch is 0 for versions not yet generally released. The latest release is the highest stable: true entry."
 
 CollectorInstaller:
   path: /setting/collector/collectors/{collectorId}/installers/{osAndArch}
