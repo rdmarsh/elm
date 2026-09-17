@@ -9,8 +9,10 @@ See [../EXAMPLES.md](../EXAMPLES.md) for the full index.
 | [filtering.md](filtering.md) | Using `-F`/`--filter`: operators, `~` substring search, combining filters, gotchas |
 | [devices.md](devices.md) | Devices and device groups: OS filtering, custom/system properties, group membership |
 | [collectors.md](collectors.md) | Collectors and collector groups: build versions, auto-balance, group mismatches |
-| [alerts.md](alerts.md) | Alerts and SDTs: long SDTs, oldest alerts, time-related alerts |
-| [datasources.md](datasources.md) | Datasource coverage: finding devices without a datasource applied |
+| [alerts.md](alerts.md) | Alerts and SDTs: counts by severity, one device's alerts, SNMP alerts, long SDTs, oldest alerts |
+| [datasources.md](datasources.md) | Datasource coverage, standard-set checks, time-series data, how some datasources collect |
+| [logicmodules.md](logicmodules.md) | LogicModule versions and upgrade status from V4Metadata |
+| [health-checks.md](health-checks.md) | Health and security one-liners: alerting disabled, active SDTs, unused tokens, failed API requests |
 | [users.md](users.md) | User accounts: export by id, status checks, offboarding |
 | [websites.md](websites.md) | Websites: group hierarchy queries, missing required properties |
 | [dashboards-reports.md](dashboards-reports.md) | Dashboards and reports: filtering by resource group or hostsVal |

@@ -352,8 +352,25 @@ DeviceList:
     - "-f/--fields may be ignored for some device types (e.g. deviceType:18 synthetic checks return full schema regardless of -f)"
     - "To list devices assigned to a collector group, filter on preferredCollectorGroupId (the assigned group). autoBalancedCollectorGroupId is only populated once LM has actually placed the device, so it can be empty for a group whose devices are assigned but not yet balanced — filtering on it may return 0 devices (e.g. CollectorGroupList -F 'autoBalancedCollectorGroupId:N' found nothing while preferredCollectorGroupId:N found the members)"
     - "There is no way to effectively filter by effective property (per LM community)"
-    - "Device groups (e.g. 'Linux Servers') may contain non-Linux devices — prefer
-      system.sysinfo filter over group membership for OS-based queries"
+    - "Neither OS signal is reliable alone. Device groups (e.g. 'Linux Servers') can contain other
+      devices, and system.sysinfo can report the COLLECTOR's OS rather than the device's (seen for
+      HTTP endpoints, network appliances and out-of-band hardware, on Linux and Windows collectors).
+      Combine them, and sanity-check results against device and datasource names."
+    - "alertDisableStatus is a string '<group>-<device>-<instance>', each part 'disable' or 'none' (verified 2026-09-17). The middle part matches the device's own disableAlerting exactly; the first part is alerting disabled by a group the device is in or inherits from, which is usually far more devices (one portal: 39 by their own setting, 744 in total). Not filterable: -F alertDisableStatus~disable returns 0 and !: returns everything; fetch and filter with jq (recipe: examples/health-checks.md)."
+    - "hostStatus values: normal, dead, dead-collector."
+    - "DeviceList includes things that are not devices. Real devices are deviceType 0 or 1; see deviceType_values. To keep only real devices, fetch the non-device ids with -F 'deviceType!:0' -F 'deviceType!:1' (!: works on DeviceList, verified: count is exactly total - type0 - type1) and drop them client-side. deviceType is not returned by AssociatedDeviceListByDataSourceId."
+    - "A device that is itself a collector host: match its id against CollectorList collectorDeviceId. Names need not match."
+  deviceType_values:
+    "0": "standard device (the normal case), confirmed"
+    "1": "device (rare; treat as a real device), per LM; not seen on the test portal"
+    "2": "AWS account / cloud resource, confirmed by naming"
+    "4": "Azure account / cloud resource, confirmed by naming"
+    "6": "LM Service / Service Insight (incl. APM traces), confirmed by naming"
+    "7": "GCP, per LM; not seen on the test portal"
+    "8": "Kubernetes resource (nodes, pods, services), confirmed by naming"
+    "9": "Push Metrics / custom-metric device, observed (names often end ...pushmetric)"
+    "11": "synthetic / web check (auth checks, Selenium tests), observed"
+    "18": "synthetic check (returns full schema regardless of -f), observed"
 
 DeviceGroupList:
   path: /device/groups
@@ -469,6 +486,9 @@ AssociatedDeviceListByDataSourceId:
     dropping those ids. NOTE the filter operator for not-equals is `!:` (not `!`).
     "Used" = the live applied set (this endpoint), NOT the 24h-stale
     auto.activedatasources property — see DeviceDatasourceList.finding_active_datasources.
+  gotchas:
+    - "Caps at 1000 rows. If a datasource applies to more devices, check per device instead: elm DeviceDatasourceList --deviceId N -s0 -f id -F dataSourceName:NAME."
+    - "Rows carry hasActiveInstance: devices APPLIED to (-C) and devices actually COLLECTING (hasActiveInstance true) can differ enormously (seen: 1205 vs 2). The instance array in each row is not a count of active instances."
 
 # ---
 # Users / Roles / Tokens
@@ -486,6 +506,8 @@ AdminList:
     twoFAEnabled: boolean
     adminGroupIds: array   # list of group IDs the user belongs to
     roles:        array    # list of role objects with id, name, privileges
+  gotchas:
+    - "apiTokens.status: 2 = active, 1 = disabled, for both LMv1 and bearer tokens (apiTokens.type tells them apart). Filters natively on the nested field: -F apiTokens.status:2."
 
 ApiTokenList:
   path: /setting/admins/apitokens
@@ -507,6 +529,8 @@ ApiTokenList:
   patterns:
     never_used:    "elm ApiTokenList -s0 -F lastUsedOn:0 -f id,adminName,note,createdOn,status   # tokens created but never used"
     active_tokens: "elm ApiTokenList -s0 -F status:2 -f id,adminName,note,lastUsedOn             # all active tokens"
+  gotchas:
+    - "status: 2 = active, 1 = disabled. lastUsedOn 0 = created but never used."
 
 RoleList:
   path: /setting/roles
@@ -792,6 +816,9 @@ DeviceDatasourceInstanceList:
     alertStatus:  string
     stopMonitoring: boolean
     lastCollectedTime: integer # epoch seconds; unreliable for some collection types — do NOT use as proxy for "not collecting"
+  gotchas:
+    - "lastCollectedTime returns 0 for many datasources that ARE collecting and alerting (confirmed for SNMP batchscript and Groovy script datasources). Do not read lastCollectedTime == 0 as 'not collecting'; use alertStatus != 'none' instead."
+    - "alertStatus format: [confirmationState]-[severity]-[anomalyState], e.g. none (no alert), unconfirmed-warn-none, warn-none (confirmed warning), error-none."
 
 DeviceDatasourceInstanceGroupList:
   path: /device/devices/{deviceId}/devicedatasources/{deviceDsId}/instancegroups
@@ -1208,7 +1235,7 @@ AlertList:
     - "Without a cleared filter only active (uncleared) alerts are returned; -F cleared:true returns
       cleared ones instead (verified: same device, no filter 13, cleared:true 1000+)."
     - "-C does not return an exact total — LM API returns a negative sentinel; elm shows '>N' with a warning. Use '-c -s0' to count all active alerts (accurate when total ≤ 1000)"
-    - "alertDisableStatus field on DeviceList (not AlertList): value 1 = alerting disabled on that device"
+    - "To find devices with alerting disabled, see DeviceList alertDisableStatus (a device's own setting is only part of it)."
   patterns:
     active_by_severity: "elm AlertList -s0 -F cleared:false -f id,severity | jq '[.AlertList[].severity] | group_by(.) | map({severity:.[0], count:length})'"
     count_all: "elm AlertList -c -s0 -F cleared:false   # real count when ≤ 1000"
@@ -1888,6 +1915,8 @@ DatasourceById:
     id: integer
   unique_options:
     format: "--format TEXT — LM API format param; same gotcha as AuditLogList"
+  gotchas:
+    - "Returns an array even for one result: jq '.DatasourceById[0].collectMethod'."
 
 # ---
 # Log / log pipeline
@@ -1952,3 +1981,39 @@ RecommendationById:
   path: /cost-optimization/recommendations/{id}
   required_params:
     id: string  # recommendation ID is a string
+
+PortalInfo:
+  path: /setting/companySetting
+  note: "Snapshot of the account; verified field names (numberOfUsers and numberOfHosts do NOT exist)."
+  gotchas:
+    - "The contacts array holds names, email addresses and phone numbers of portal contacts. Do not share PortalInfo output or commit it. MetricsSummary gives cloud and Kubernetes device breakdowns without the contacts."
+  key_fields:
+    companyDisplayName:          string   # the portal's display name
+    numberOfDevices:             integer  # total monitored devices
+    numberOfOpenAlerts:          integer  # active alerts
+    numberOfApiUsers:            integer  # users with API tokens
+    numberOfSessionUsers:        integer  # interactive (web/SSO) users
+    numOfAWSDevices:             integer
+    numOfAzureDevices:           integer
+    numOfGcpDevices:             integer
+    numberOfDatasourceInstances: integer  # instances being collected
+    numberOfDashboards:          integer
+    numberOfWidgets:             integer
+    hostGroupsInfo:              object   # dynamic vs static groups and their property counts
+    alertTotalIncludeInAck:      boolean  # whether acknowledged alerts count toward totals
+    alertTotalIncludeInSdt:      boolean  # whether SDT'd alerts count toward totals
+  patterns:
+    overview: "elm PortalInfo -f companyDisplayName,numberOfDevices,numberOfOpenAlerts,numberOfApiUsers,numberOfSessionUsers,numOfAWSDevices,numOfAzureDevices"
+
+V4Metadata:
+  path: /setting/logicmodules/metadata
+  note: "Every installed and installable LogicModule with update status; ~5000 records / ~13 MB in one unpaginated call. Background and recipes: examples/logicmodules.md."
+  gotchas:
+    - "Returns a bare JSON array, not {total, items}; elm normalises it, but raw consumers must not expect .items."
+    - "-s, -o, -F and -S are all ignored (verified: every variant returned all 5147 records), so select and sort client-side. -f works because elm projects fields itself. Do not add size/offset/filter for this path to swagger.undocumented.json: elm would then look like it filters when it does not."
+    - "installationStatuses: IS_INSTALLED, CAN_UPGRADE (newer version published), IS_CUSTOMIZED (upgrading overwrites local edits), CAN_INSTALL (Exchange only), CAN_SKIP. originStatus CORE = LM official; also DEPRECATED, COMMUNITY, SECURITY_REVIEW."
+    - "No endpoint shows the version you would upgrade TO; age of the installed version (originPublishedAtMS, epoch ms) is the only 'how out of date' signal."
+    - "DEPRECATED modules never carry CAN_UPGRADE (they are replaced, not updated), so an upgrade query cannot find them; query originStatus DEPRECATED separately."
+    - "associatedHostsCount is always 0 for DATASOURCE and CONFIGSOURCE; use associatedInstancesCount there, and AssociatedDeviceListByDataSourceId for devices."
+    - "Module ids are unique only within a type (one id was shared by six types); always carry type with id."
+    - "originPublishedAtMS comes out as a float in table formats because the column has gaps."

@@ -16,6 +16,8 @@ own quotes around it. These apply across all `*List` commands.
    * [No OR server-side](#no-or-server-side)
    * [Filtering comma-separated string fields](#filtering-comma-separated-string-fields)
    * [Gotchas](#gotchas)
+   * [No "is empty" operator](#no-is-empty-operator)
+   * [Filters the API silently ignores](#filters-the-api-silently-ignores)
    * [meta](#meta)
 <!--te-->
 
@@ -106,6 +108,43 @@ elm DeviceList -F 'hostGroupIds~42'    # device is a member of group 42
 
 - **Backslashes and quotes inside a VALUE are escaped automatically** (v1.8.9+) —
   just type the literal value you want.
+
+## No "is empty" operator
+
+There is no server-side "is empty" operator for array fields. Filter with jq:
+
+```shell
+elm WebsiteList -s0 | jq '.WebsiteList[] | select(.properties | length == 0) | .name'
+```
+
+## Filters the API silently ignores
+
+Some filters are accepted and then ignored: the API returns every record, with
+no error, so the result looks like a valid answer. Known cases:
+
+- `!:` and `!~` on AlertList and AuditLogList (issue #48). They do work on
+  DeviceList.
+- Most ID fields on AlertList: `monitorObjectId`, `instanceId`,
+  `resourceTemplateId` and others (issue #56). Use `monitorObjectName` or
+  `AlertListByDeviceId --id N` for one device.
+- Every filter on V4Metadata.
+- `alertDisableStatus` on DeviceList (positive matches return nothing).
+
+`elm COMMAND --info` lists the known cases for a command. To test any filter,
+compare counts with and without it; if the count does not move, it is ignored:
+
+```shell
+elm AlertList -c -s0 -F severity:4
+elm AlertList -c -s0 -F severity:4,monitorObjectId:123    # same count: ignored
+```
+
+Where a not-equals filter is ignored, fetch with a positive filter (or none) and
+exclude client-side:
+
+```shell
+# Instead of: elm AuditLogList -F username!:foo
+elm -f json AuditLogList -s0 | jq '.AuditLogList[] | select(.username != "foo")'
+```
 
 ## meta
 
