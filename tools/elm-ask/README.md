@@ -80,14 +80,40 @@ docker run --rm -p 127.0.0.1:8080:8080 `
   elm-ask
 ```
 
-`--user "$(id -u)"` runs the container as you, so it can read your `config.ini`
-(elm keeps it at mode 0600). Without it the page says the credentials were not
-found.
+`--user "$(id -u)"` runs the container as you, so it can read your profile
+(elm keeps credentials at mode 0600). Without it the page says the profile was
+not found.
 
 Then open <http://localhost:8080>.
 
-This uses the `ai` profile. To use another, add `-e ELM_PROFILE=NAME`; it must
-still set `allowed_commands` unless you also add `-e ELM_ASK_ALLOW_UNRESTRICTED=1`.
+### Choosing the profile
+
+This uses the `ai` profile (`ai.ini`). To use a different one:
+
+- **Another profile in your credentials folder**, e.g.
+  `~/.config/logicmonitor/credentials/ai-preprod.ini`: pass its name, without
+  `.ini`, as `ELM_PROFILE`.
+
+  ```shell
+  docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
+    -e ANTHROPIC_API_KEY -e ELM_PROFILE=ai-preprod \
+    -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
+    elm-ask
+  ```
+
+- **A profile file somewhere else**: mount that one file, and pass its path
+  *inside the container* as `ELM_CONFIG`.
+
+  ```shell
+  docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
+    -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/preprod.ini \
+    -v ~/somewhere/preprod.ini:/creds/preprod.ini:ro \
+    elm-ask
+  ```
+
+If both are set, `ELM_CONFIG` wins. Either way the profile must set
+`allowed_commands`, unless you also add `-e ELM_ASK_ALLOW_UNRESTRICTED=1`. The
+page footer shows which profile is in use and how many commands it allows.
 
 One elm-ask talks to one portal. For several, run one container per profile on
 different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
@@ -141,6 +167,11 @@ Keep `elm-knowledge.md` short, because it is sent with every question.
 
 ## Limitations
 
+- It is built to run on one person's machine for that person: no login, the
+  port bound to localhost, the user's own Claude key and LogicMonitor token.
+  Hosting it for other people needs more first: authentication, TLS, a shared
+  key with spend limits, a record of who asked what, and agreement on where
+  portal data may be sent.
 - A single elm query returns at most 1000 rows. The model is told to page, but
   very large portals make questions slower and more expensive.
 - Conversations are kept in memory and dropped after an hour idle or when the
