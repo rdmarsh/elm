@@ -20,6 +20,7 @@ script also responds to `-h`/`--help`.
 - [Change advice](#change-advice) — `tools/elm-change-advice.py`
 - [Collector health check](#collector-health-check) — `tools/lm-collector-run-groovy.ps1`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
+- [Group paths](#group-paths) — `tools/elm-group-paths.sh`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
 - [Module updates](#module-updates) — `tools/elm-module-updates.py`
 
@@ -205,6 +206,30 @@ and this is not configurable. Datasources with no remaining devices are dropped
 (empty columns), and only devices using at least one matching datasource appear
 as rows. "Applied" is the live device→datasource association, not the daily
 `auto.activedatasources` property.
+
+## Group paths
+
+`tools/elm-group-paths.sh` prints the full path of every device group, or every
+website group with `--website`, one per line and sorted. It pages through groups
+1000 at a time using `-C` for the total, and leaves out the root group (whose
+path is empty). Useful for comparing group trees between portals.
+
+```shell
+# device groups on the default profile
+tools/elm-group-paths.sh
+
+# website groups on another portal
+tools/elm-group-paths.sh --website -p prod
+
+# what differs between two portals
+diff <(tools/elm-group-paths.sh -p preprod) <(tools/elm-group-paths.sh -p prod)
+
+# one file per portal: out/device-group-paths-<profile>.txt
+tools/elm-group-paths.sh -p preprod -p prod -d out/
+```
+
+With several profiles and no `-d`, each line is prefixed with the profile name
+and a tab.
 
 ## Host SDTs
 
