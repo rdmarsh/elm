@@ -1165,7 +1165,7 @@ AlertList:
   key_fields:
     id:              string   # string ID, e.g. "DS395142385"
     type:            string   # "dataSourceAlert", "websiteAlert", etc.
-    severity:        integer  # 2=critical, 3=error, 4=warning (verified live — lower number = more severe)
+    severity:        integer  # 2=warning, 3=error, 4=critical (higher = more severe; matches the swagger)
     startEpoch:      integer  # epoch seconds
     endEpoch:        integer  # epoch seconds; 0 if still active
     cleared:         boolean
@@ -1188,6 +1188,16 @@ AlertList:
     suppressDesc:    string
     tenant:          string
   gotchas:
+    - "severity is 2=warning, 3=error, 4=critical. An earlier version of this file had it reversed.
+      Verified 2026-09-17 by comparing alertValue with the three-level threshold (warning error
+      critical) on every open alert whose three thresholds differ: all matched, e.g. '>= 90 95 98'
+      with value 93.6 is severity 2, '> 3600 7200 10800' with value 415947 is severity 4."
+    - "-F monitorObjectId:N is silently ignored (so is resourceId:N): the result is every alert on
+      the portal, including website alerts. Filter by device name (-F monitorObjectName:NAME) or use
+      AlertListByDeviceId --id N. Verified: monitorObjectId:N,severity:2 returned the portal-wide
+      count; monitorObjectName and AlertListByDeviceId both returned the device's own alerts."
+    - "Without a cleared filter only active (uncleared) alerts are returned; -F cleared:true returns
+      cleared ones instead (verified: same device, no filter 13, cleared:true 1000+)."
     - "-C does not return an exact total — LM API returns a negative sentinel; elm shows '>N' with a warning. Use '-c -s0' to count all active alerts (accurate when total ≤ 1000)"
     - "alertDisableStatus field on DeviceList (not AlertList): value 1 = alerting disabled on that device"
   patterns:

@@ -299,21 +299,22 @@ Find all currently active alerts:
 elm AlertList -s0 -F cleared:false -f id,severity,monitorObjectName,dataPointName,alertValue
 ```
 
-Filter by severity (lower number = more severe):
+Filter by severity (higher number = more severe):
 
 ```shell
-elm AlertList -s0 -F cleared:false,severity:2   # critical only
+elm AlertList -s0 -F cleared:false,severity:4   # critical only
 elm AlertList -s0 -F cleared:false,severity:3   # error only
-elm AlertList -s0 -F cleared:false,severity:4   # warning only
+elm AlertList -s0 -F cleared:false,severity:2   # warning only
 ```
 
 Count active alerts by severity:
 
 ```shell
-elm AlertList -c -s0 -F cleared:false,severity:2   # count of active critical alerts (-c goes after the command)
+elm AlertList -c -s0 -F cleared:false,severity:4   # count of active critical alerts (-c goes after the command)
 ```
 
-Alerts for a specific device:
+Alerts for a specific device (AlertList silently ignores `-F monitorObjectId:N`
+and returns every alert, so use the device-scoped command or the device name):
 
 ```shell
 elm AlertListByDeviceId --id <deviceId> -s0 -F cleared:false -f severity,dataPointName,alertValue
@@ -886,7 +887,7 @@ To find which devices in a group are themselves collector hosts, match a device 
 ### AlertList
 
 - `type`: `dataSourceAlert` (threshold), `websiteAlert`, etc.
-- `severity`: numeric — **lower number = more severe**: 2=critical, 3=error, 4=warning (verified live)
+- `severity`: numeric — **higher number = more severe**: 2=warning, 3=error, 4=critical, as the swagger says. Verified by comparing `alertValue` with the three-level `threshold` (warning error critical) on alerts whose thresholds differ, e.g. `>= 90 95 98` with value 93.6 is severity 2.
 - `alertValue`: the actual collected value that triggered the alert
 - `threshold`: the threshold expression (e.g. `> 95`)
 - `cleared`: boolean — false means still active
