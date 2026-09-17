@@ -458,7 +458,7 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testdocs testbasic testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
+test: testdocs testbasic testallow testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
@@ -468,6 +468,21 @@ testlong: testhelp testcount testtotal testtext ## Tests that take a long time t
 .PHONY: testdocs
 testdocs: _info ## Check AI-facing docs stay within their size budgets (offline; see mkinfo.py)
 	$(INFOPY) mkinfo.$(PY) --check
+	@echo "$(OK_STRING) $@"
+
+# A throwaway HOME holding one profile, 'limited', that allows only some commands.
+# Dummy credentials: every assertion below must pass without contacting LM.
+ALLOWHOME = h=$$(mktemp -d) && c=$$h/.config/logicmonitor/credentials && mkdir -p $$c && chmod 700 $$c && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\nallow_commands = ['MetricsUsage', 'Device*']\n" > $$c/limited.ini && chmod 600 $$c/limited.ini && export HOME=$$h
+ALLOWDONE = rc=$$? ; rm -rf $$h ; exit $$rc
+
+.PHONY: testallow
+testallow: ## Test allow_commands in a profile (offline)
+	@echo testing: a command the profile does not allow exits 3 ; $(ALLOWHOME) && { $(testbin) -p limited AdminList -s1 >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
+	@echo testing: the refusal names the profile and the command to run ; $(ALLOWHOME) && $(testbin) -p limited AdminList -s1 2>&1 | grep -q "Profile 'limited' allows only" && $(testbin) -p limited AdminList -s1 2>&1 | grep -q 'elm -p limited AdminList -s1' ; $(ALLOWDONE)
+	@echo testing: --info and --help are refused for it too ; $(ALLOWHOME) && { $(testbin) -p limited AdminList --info >/dev/null 2>&1 ; test $$? -eq 3 ; } && { $(testbin) -p limited AdminList --help >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
+	@echo testing: allowed and wildcard-matched commands still work ; $(ALLOWHOME) && $(testbin) -p limited MetricsUsage --info | grep -q '^GET ' && $(testbin) -p limited DeviceById --info | grep -q '^GET ' ; $(ALLOWDONE)
+	@echo testing: elm --help lists only allowed commands ; $(ALLOWHOME) && $(testbin) -p limited --help | grep -q '^  MetricsUsage' && ! $(testbin) -p limited --help | grep -q '^  AdminList' ; $(ALLOWDONE)
+	@echo testing: elm --list shows what a profile allows ; $(ALLOWHOME) && $(testbin) --list | grep -q 'limited  (allows: MetricsUsage, Device\*)' ; $(ALLOWDONE)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testbasic

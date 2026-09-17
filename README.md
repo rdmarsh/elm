@@ -173,6 +173,42 @@ You will need the following items to run the program after building:
 
 See `config.example.ini` for a documented example config file
 
+### Restricting a profile to some commands
+
+A profile can allow only the commands it is meant for. Add `allow_commands` to
+its `.ini`:
+
+```ini
+# ~/.config/logicmonitor/credentials/metricsusage.ini
+access_id = '...'
+access_key = '...'
+account_name = 'example'
+allow_commands = ['MetricsUsage']            # or e.g. ['DeviceList', 'Alert*']
+```
+
+Anyone using that profile, whether a person, a script or an AI assistant, can
+then run only those commands. Anything else stops before a request is sent,
+with exit code 3 and the command that was attempted, so a typo or a wrong guess
+inside automation cannot wander off to other endpoints:
+
+```text
+$ elm -p metricsusage AdminList -s0
+Error: AdminList is not allowed. Profile 'metricsusage' allows only: MetricsUsage (allow_commands in ~/.config/logicmonitor/credentials/metricsusage.ini).
+No request was sent.
+...
+```
+
+`elm -p NAME --help` lists only the allowed commands, `--info` and `--help` are
+refused for the others, and `elm --list` shows `(allows: ...)` next to
+restricted profiles. Patterns are shell-style (`Device*`) and case-sensitive;
+`AlertList` does not also match `AlertListByDeviceId`. A profile without
+`allow_commands` allows everything. A value elm cannot read stops elm rather
+than being ignored.
+
+This is a guard rail, not a security boundary: someone with a shell can use a
+different profile. What limits access is the API token's role in LogicMonitor,
+so give a restricted profile a token whose role matches.
+
 ### Install in PATH
 
 Run `make install` to build the binary and copy it to `~/bin`. If `~/bin` is

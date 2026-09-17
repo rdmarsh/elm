@@ -31,6 +31,10 @@ A misplaced flag fails with a `Hint:` naming the fix: move the flag, don't drop
 it. The one exception runs: `elm -o 2000 DeviceList` writes page 1 to a file
 named `2000`, with a warning.
 
+**Exit code 3 means the profile doesn't allow that command** (`allow_commands`;
+`elm --list` shows it). Nothing was sent. Don't switch profiles to get round
+it: tell the person and show the command.
+
 - **Before using a command, run `elm COMMAND --info`.** No credentials, no API call.
 - **Paging:** 50 rows by default; `-s0` gives up to 1000, the API's maximum per
   page. Beyond that page with `-o 1000`, `-o 2000`, ... and check pages differ.

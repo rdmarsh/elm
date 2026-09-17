@@ -47,6 +47,8 @@ import truststore
 truststore.inject_into_ssl()
 
 import importlib
+import fnmatch
+import shlex
 
 class LazyGroup(click.Group):
     """Click Group that defers command module imports until the command is invoked."""
@@ -55,7 +57,16 @@ class LazyGroup(click.Group):
         self.lazy_subcommands = lazy_subcommands or {}
 
     def list_commands(self, ctx):
-        return sorted(self.lazy_subcommands.keys())
+        # A restricted profile only lists the commands it allows (see allow_commands).
+        patterns = _allow_patterns()
+        return sorted(c for c in self.lazy_subcommands if _is_allowed(c, patterns))
+
+    def format_commands(self, ctx, formatter):
+        super().format_commands(ctx, formatter)
+        patterns = _allow_patterns()
+        if patterns is not None:
+            with formatter.section('Restricted profile'):
+                formatter.write_text(_restriction_summary(patterns))
 
     def get_command(self, ctx, cmd_name):
         if cmd_name in self.lazy_subcommands:
@@ -77,11 +88,18 @@ class LazyGroup(click.Group):
             raise
 
     def invoke(self, ctx):
+        args = ctx.protected_args + ctx.args
+        # Checked before anything else, including --help, --info and the
+        # credentials check, so a refused command sends no request and a
+        # restricted profile does not describe commands it cannot run.
+        if args and args[0] in self.lazy_subcommands:
+            patterns = _allow_patterns()
+            if not _is_allowed(args[0], patterns):
+                raise _NotAllowed(args[0], patterns)
         try:
             # 'elm COMMAND --info' and 'elm COMMAND --help' describe the command
             # and exit. Parse the command's own options first so they work
             # before cli() insists on credentials.
-            args = ctx.protected_args + ctx.args
             if args and args[0] in self.lazy_subcommands and {'--info', '--help', '-h'} & set(args[1:]):
                 self.get_command(ctx, args[0]).make_context(args[0], list(args[1:]), parent=ctx)
             return super().invoke(ctx)
@@ -172,6 +190,69 @@ def _capture_config_path(ctx, param, value):
         _resolved_config_file = value
     return value
 
+# ALLOWED COMMANDS
+# A profile can limit which commands may be run with it, in its .ini:
+#
+#   allow_commands = ['MetricsUsage']                  # just this one
+#   allow_commands = ['DeviceList', 'Alert*', 'SDTList']  # shell-style wildcards
+#
+# It applies to everyone using the profile -- people, scripts and AI assistants
+# -- so a typo or a wrong guess inside automation cannot reach other endpoints.
+# Refused commands exit with NOT_ALLOWED_EXIT and send no request; --help and
+# --info respect it too. With no allow_commands key every command is allowed.
+# This is a guard rail, not a security boundary: the API token's role in
+# LogicMonitor is what actually limits access.
+
+NOT_ALLOWED_EXIT = 3
+
+
+def _allow_patterns(path=None):
+    """The profile's allow_commands patterns, or None if it does not restrict commands."""
+    path = path or _resolved_config_file
+    if not os.path.isfile(path):
+        return None
+    try:
+        from configobj import ConfigObj
+        patterns = ConfigObj(path, unrepr=True).get('allow_commands')
+    except Exception as e:
+        # Fail closed: an unreadable restriction must not become no restriction.
+        raise click.ClickException(f'cannot read allow_commands from {path}: {e}')
+    if patterns is None:
+        return None
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    if not isinstance(patterns, (list, tuple)) or not all(isinstance(p, str) for p in patterns):
+        raise click.ClickException(f"allow_commands in {path} must be a list of command names, e.g. ['DeviceList', 'Alert*']")
+    return list(patterns)
+
+
+def _is_allowed(command, patterns):
+    return patterns is None or any(fnmatch.fnmatchcase(command, p) for p in patterns)
+
+
+def _profile_name(path=None):
+    return os.path.splitext(os.path.basename(path or _resolved_config_file))[0]
+
+
+def _restriction_summary(patterns):
+    allowed = ', '.join(patterns) if patterns else 'no commands'
+    path = _resolved_config_file.replace(os.path.expanduser('~'), '~', 1)
+    return f"Profile '{_profile_name()}' allows only: {allowed} (allow_commands in {path})"
+
+
+class _NotAllowed(click.ClickException):
+    exit_code = NOT_ALLOWED_EXIT
+
+    def __init__(self, command, patterns):
+        typed = ' '.join(shlex.quote(a) for a in ['elm'] + sys.argv[1:])
+        super().__init__(
+            f"{command} is not allowed. {_restriction_summary(patterns)}.\n"
+            f"No request was sent.\n"
+            f"If you are a script or an AI assistant: do not retry with another profile. Show this\n"
+            f"command to the person, who can run it with a profile that allows {command}:\n"
+            f"  {typed}")
+
+
 def _list_profiles_callback(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
@@ -186,7 +267,12 @@ def _list_profiles_callback(ctx, param, value):
     active = os.path.splitext(os.path.basename(_resolved_config_file))[0]
     for name in names:
         prefix = '* ' if name == active else '  '
-        click.echo(prefix + name)
+        try:
+            patterns = _allow_patterns(os.path.join(_creds_dir, name + '.ini'))
+            note = '' if patterns is None else f"  (allows: {', '.join(patterns) or 'no commands'})"
+        except click.ClickException:
+            note = '  (allow_commands unreadable)'
+        click.echo(prefix + name + note)
     ctx.exit()
 
 def _ai_guide_callback(ctx, param, value):
@@ -285,6 +371,12 @@ PROFILES
   Use --profile NAME to select another. Never read the .ini files: they hold
   credentials.
 
+ALLOWED COMMANDS
+  A profile can allow only some commands (elm --list shows "allows: ..."). Any
+  other command exits with code 3 and sends no request; its --help and --info
+  are refused too. Do not switch profiles to get round it: tell the person,
+  and show them the command you would have run.
+
 FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
   elm-notes.yaml      per-command notes (source of --info)
   elm-knowledge.md    rules that hold across commands (short; read it first)
@@ -294,6 +386,9 @@ FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
   elm COMMAND --info shows a command's elm-notes.yaml entry, so there is no
   need to read the file directly.\
 """)
+    patterns = _allow_patterns()
+    if patterns is not None:
+        click.echo(f"\nTHIS PROFILE IS RESTRICTED\n  {_restriction_summary(patterns)}")
     ctx.exit()
 
 

@@ -133,6 +133,9 @@ elm supports multiple credential profiles:
 - `--config PATH` accepts a full path to any .ini file in any directory
 - `elm --list` (or `elm -l`) lists all available profiles and exits, marking
   the active one with `*`. Use this instead of reading the credentials directory.
+- A profile may set `allow_commands` (see README "Restricting a profile to
+  some commands"). Other commands exit 3 with no request sent. Never work
+  round it by switching profiles: tell the user and show the command instead.
 
 Profile naming convention:
 - `config.ini` is always the default and should always point to the safest
