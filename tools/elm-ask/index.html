@@ -90,6 +90,8 @@
   #commands { margin: 8px auto 0; max-width: 700px; color: var(--muted); font-size: .8rem;
               text-align: center; line-height: 1.7; }
   #commands code { font-size: .95em; }
+  #credit { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 10px; }
+  #credit a { color: inherit; }
 
   /* Browser printing stays sensible even though there is no print button. */
   @media print {
@@ -132,6 +134,7 @@
   <div id="results"></div>
   <footer id="footer"></footer>
   <div id="commands" hidden></div>
+  <p id="credit">Powered by <a href="https://rdmarsh.github.io/elm/" target="_blank" rel="noopener">elm</a></p>
 </main>
 
 <script>
@@ -159,8 +162,7 @@ fetch("/api/health").then(r => r.json()).then(h => {
     ? `Portal: <a href="https://${esc(h.portal)}.logicmonitor.com" target="_blank" rel="noopener">${esc(h.portal)}</a> · `
     : "";
   $("#footer").innerHTML = `${portal}Profile: ${esc(h.profile)} (<button id="show-commands" type="button">${scope}</button>)`
-    + ` · Model: ${esc(h.model)} · Answers can be wrong — check "How I worked this out".`
-    + `<br>Powered by <a href="https://rdmarsh.github.io/elm/" target="_blank" rel="noopener">elm</a>.`;
+    + ` · Model: ${esc(h.model)} · Answers can be wrong — check "How I worked this out".`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
