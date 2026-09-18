@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-09-19
+
 ### Added
 
 - A refused command now says how to get it allowed: "To allow it, add 'AdminList' to allowed_commands in ~/.config/...ini", and tells scripts and AI assistants to ask the person rather than switch profiles or edit the file themselves. `elm --ai` and `elm-knowledge.md` say the same, so an assistant that hits the limit reports what it needs instead of working around it.
@@ -621,7 +623,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/rdmarsh/elm/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/rdmarsh/elm/compare/v1.8.10...v1.9.0
 [1.8.10]: https://github.com/rdmarsh/elm/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/rdmarsh/elm/compare/v1.8.8...v1.8.9
