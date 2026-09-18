@@ -86,6 +86,7 @@
   footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 32px; }
   footer button { background: none; border: 0; padding: 0; font: inherit; color: inherit;
                   text-decoration: underline; cursor: pointer; }
+  footer a { color: inherit; }
   #commands { margin: 8px auto 0; max-width: 700px; color: var(--muted); font-size: .8rem;
               text-align: center; line-height: 1.7; }
   #commands code { font-size: .95em; }
@@ -153,12 +154,13 @@ fetch("/api/health").then(r => r.json()).then(h => {
   if (!h.claude_key) problems.push("No Claude API key is set. Start the container with <code>-e ANTHROPIC_API_KEY=...</code>.");
   if (h.profile_problem) problems.push(esc(h.profile_problem));
   if (problems.length) { $("#banner").innerHTML = problems.join("<br>"); $("#banner").hidden = false; }
-  if (h.portal) $("#subtitle").innerHTML = `Ask about the <strong>${esc(h.portal)}</strong> portal in plain English. Read-only.`;
-
   const scope = h.restricted ? `${h.allowed.length} allowed commands` : "all commands";
-  const where = h.portal ? `Portal: ${esc(h.portal)} · ` : "";
-  $("#footer").innerHTML = `${where}Profile: ${esc(h.profile)} (<button id="show-commands" type="button">${scope}</button>)`
-    + ` · Model: ${esc(h.model)} · Answers can be wrong — check "How I worked this out".`;
+  const portal = h.portal
+    ? `Portal: <a href="https://${esc(h.portal)}.logicmonitor.com" target="_blank" rel="noopener">${esc(h.portal)}</a> · `
+    : "";
+  $("#footer").innerHTML = `${portal}Profile: ${esc(h.profile)} (<button id="show-commands" type="button">${scope}</button>)`
+    + ` · Model: ${esc(h.model)} · Answers can be wrong — check "How I worked this out".`
+    + `<br>Powered by <a href="https://rdmarsh.github.io/elm/" target="_blank" rel="noopener">elm</a>.`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;

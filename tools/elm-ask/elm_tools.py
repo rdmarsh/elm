@@ -312,13 +312,23 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
 
 
 def describe_command(session, command):
-    """The command's `elm COMMAND --info`: parameters, verified notes, examples and fields."""
+    """The command's `elm COMMAND --info`: parameters, verified notes, examples and fields.
+
+    Works for commands the profile withholds too: what a command would return is
+    documentation, not portal data, and knowing it is what lets an answer say
+    "AdminList carries lastLoginOn; ask for it to be allowed" instead of
+    guessing that the API cannot do it at all.
+    """
     if command not in COMMANDS:
         raise ValueError(f"Unknown command {command!r}. Use find_commands to look it up.")
     proc = subprocess.run(ELM_CMD + [command, "--info"], capture_output=True, text=True, timeout=60)
-    if proc.returncode != 0 or not proc.stdout.strip():
-        raise ValueError(f"elm {command} --info failed: {proc.stderr.strip()[:500]}")
-    return truncate(proc.stdout), None
+    if proc.returncode == 0 and proc.stdout.strip():
+        return truncate(proc.stdout), None
+    # Refused by allowed_commands: the same text is built into the definition file.
+    info = COMMANDS[command].get("info")
+    if info:
+        return truncate(f"This profile does not allow running {command}, so it can only be described:\n\n{info}"), None
+    raise ValueError(f"elm {command} --info failed: {proc.stderr.strip()[:500]}")
 
 
 def _jq(session, expression):
