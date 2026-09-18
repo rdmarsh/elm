@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `tools/elm-ask` defaults to the cheapest current model rather than the most capable one: these are lookup questions and every one costs money. `ELM_ASK_MODEL` (or `run.sh -m`) picks another, and the question set in `todo.md` is how to tell whether a dearer model actually answers better. `run.sh` shows the default in [brackets] at the prompt, read from `agent.py` so the script and the code cannot drift apart.
+- `tools/elm-ask` answers say what they mean in two places that were muddled: "How I worked this out" is plain words with no raw epochs or internal numbers (it had written "starts 1790310540 seconds in the future"), and a word that means two things has to be said specifically (it had written "its 2 active SDTs, which are both currently inactive" -- an SDT can exist without being in effect, an alert can be open or acknowledged, a device can be not reporting rather than decommissioned).
+
 ### Fixed
 
 - `tools/elm-ask` answered in UTC ("next downtime is 2026-09-25 at 04:29 UTC"), because LM returns epochs and the model was only told the UTC time. The page now sends the reader's timezone and offset with each question, and the answer gives local times with the zone named, plus "in about N days" for anything upcoming. Where an answer uses LM's own `...OnLocal` fields, which are in the portal's timezone rather than the reader's, it says so.

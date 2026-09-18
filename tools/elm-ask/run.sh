@@ -6,8 +6,8 @@
 #   run.sh --model NAME --effort medium --yes
 #
 # Options:
-#   --model, -m NAME     Claude model (default: the image's own default). Run
-#                        without it to see the models offered by number.
+#   --model, -m NAME     Claude model. Run without it to see the models offered
+#                        by number, with the default in [brackets].
 #   --effort, -e LEVEL   low | medium | high | xhigh | max (default: the API's)
 #   --profile, -p NAME   elm credential profile (default: ai)
 #   --port NUM           port on this machine (default: 8080)
@@ -42,9 +42,14 @@ IMAGE=elm-ask
 # model offered by number. Prices: https://www.anthropic.com/pricing
 MODELS=(
     "claude-opus-5|most capable, and the dearest"
-    "claude-sonnet-5|mid-tier: usually fine for these questions, much cheaper"
-    "claude-haiku-4-5|cheapest, no effort setting, more wrong turns on multi-step questions"
+    "claude-sonnet-5|mid-tier: more careful on multi-step questions"
+    "claude-haiku-4-5|cheapest, and the default; takes no effort setting"
 )
+# The default the image would use, read from the code next to this script so the
+# two cannot drift apart.
+DEFAULT_MODEL=$(sed -n 's/^MODEL = os.environ.get("ELM_ASK_MODEL", "\([^"]*\)")/\1/p' \
+    "$(dirname "${BASH_SOURCE[0]}")/agent.py" 2>/dev/null) || true
+DEFAULT_MODEL=${DEFAULT_MODEL:-image default}
 MODEL=
 EFFORT=
 PROFILE=ai
@@ -87,14 +92,14 @@ if [[ $ASK -eq 1 && -t 0 ]]; then
         for i in "${!MODELS[@]}"; do
             printf '  %d) %-18s %s\n' "$((i + 1))" "${MODELS[i]%%|*}" "${MODELS[i]#*|}"
         done
-        read -r -p "  number, a model name, or Enter for the image default: " MODEL
+        read -r -p "  number or a model name [$DEFAULT_MODEL]: " MODEL
         # A number picks from the list; anything else is taken as a model name.
         if [[ "$MODEL" =~ ^[0-9]+$ ]]; then
             (( MODEL >= 1 && MODEL <= ${#MODELS[@]} )) || { echo "No model $MODEL in the list." >&2; exit 1; }
             MODEL=${MODELS[MODEL - 1]%%|*}
         fi
     fi
-    [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [API default]: " EFFORT
+    [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [none]: " EFFORT
 fi
 
 if [[ -n "$EFFORT" && ! "$EFFORT" =~ ^(low|medium|high|xhigh|max)$ ]]; then
@@ -122,6 +127,6 @@ if [[ $DRY_RUN -eq 1 ]]; then
 fi
 
 printf 'elm-ask: profile %s, model %s, effort %s\n' \
-    "$PROFILE" "${MODEL:-image default}" "${EFFORT:-API default}"
+    "$PROFILE" "${MODEL:-$DEFAULT_MODEL}" "${EFFORT:-none}"
 printf 'Open http://localhost:%s  (ctrl-c here to stop)\n\n' "$PORT"
 exec "${cmd[@]}"

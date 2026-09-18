@@ -159,7 +159,7 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 | `ELM_ASK_ALLOW_UNRESTRICTED` | | Set to `1` to allow a profile without `allowed_commands` |
 | `ELM_CONFIG` | | Path to a specific `.ini` inside the container (overrides `ELM_PROFILE`) |
 | `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too) |
-| `ELM_ASK_MODEL` | see `agent.py` | Claude model to answer with (the page footer shows the one in use) |
+| `ELM_ASK_MODEL` | the cheapest current model (see `agent.py`) | Claude model to answer with (the page footer shows the one in use) |
 | `ELM_ASK_EFFORT` | API default | How hard the model works per step; lower is faster and cheaper |
 | `ELM_ASK_MAX_STEPS` | `25` | Maximum model turns per question |
 
@@ -176,11 +176,11 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   elm-ask
 ```
 
-- **Model.** The default is the most capable one, which is also the dearest.
-  A mid-tier model typically costs a fraction of it and is usually fine for
-  these questions; the smallest models are cheaper again but take more wrong
-  turns on multi-step work. Current names and prices are on Anthropic's
-  pricing page, and the footer shows which model answered.
+- **Model.** The default is the cheapest current model: these are lookup
+  questions, and every one costs money. A mid-tier or top model is more careful
+  on multi-step questions (joining alerts to devices, paging, noticing a filter
+  the API ignored) and costs several times as much. Names and prices are on
+  Anthropic's pricing page; the footer shows which model answered.
 - **Effort.** Lower effort means less thinking per step, so less money and less
   time, at some cost in care. Try it before dropping to a weaker model. Not
   every model takes it (the small ones refuse it); elm-ask notices, says so and

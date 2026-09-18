@@ -97,3 +97,18 @@ page or panel listing each allowed command with its summary (the data is
 already in `profile_status()["allowed"]` and `_defs/commands.json`). Only worth
 it if people ask "what can I ask about?".
 
+## elm-ask: other model providers, and Claude Code (idea)
+
+elm-ask calls the Claude API directly, so it needs API credit even for someone
+who already pays for Claude Code or ChatGPT. Two ways round that, neither
+started:
+
+- **An MCP server** wrapping `tools/elm-ask/elm_tools.py` (the read-only elm
+  tools, secret stripping and the allowed_commands check). Claude Code and
+  Claude Desktop could then query LM through a subscription instead of API
+  tokens, with no web page to host. Probably the cheapest useful next step.
+- **Other providers** (OpenAI and friends): tool-calling APIs are close enough
+  that swapping the client and reshaping the tool definitions is most of the
+  work, but each provider needs its own testing against the question set.
+  `ANTHROPIC_BASE_URL` already covers an Anthropic-compatible gateway.
+

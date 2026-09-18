@@ -10,7 +10,10 @@ import anthropic
 
 import elm_tools
 
-MODEL = os.environ.get("ELM_ASK_MODEL", "claude-opus-5")
+# The cheapest current model by default: these are lookup questions, not hard
+# reasoning, and every question costs money. ELM_ASK_MODEL picks another; the
+# question set in todo.md is how to tell whether a dearer one answers better.
+MODEL = os.environ.get("ELM_ASK_MODEL", "claude-haiku-4-5")
 EFFORT = os.environ.get("ELM_ASK_EFFORT")          # low|medium|high|xhigh|max; unset = API default
 MAX_STEPS = int(os.environ.get("ELM_ASK_MAX_STEPS", "25"))
 HERE = Path(__file__).resolve().parent
