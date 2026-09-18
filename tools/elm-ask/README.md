@@ -208,7 +208,7 @@ ANTHROPIC_API_KEY=... python tools/elm-ask/app.py      # http://127.0.0.1:8080
 | `elm_tools.py` | The five tools: `find_commands`, `describe_command`, `run_elm`, `jq` and `show_table` |
 | `system_prompt.md` | How to interpret questions and write answers |
 | `../../elm-knowledge.md` | Sent with every question: rules that apply across commands |
-| `elm COMMAND --info` | Per-command notes and fields (from `elm-notes.yaml` and the swagger), returned by `describe_command` only when a command is looked up |
+| `elm COMMAND --info` | Per-command notes and fields (from `elm-notes.yaml` and the swagger). `describe_command` returns all of it; the first query against a command also gets that command's notes attached, so a model that skips the lookup still sees them |
 
 Each query's rows are saved as a dataset (`$d1`, `$d2`, ...) for that
 conversation. The model counts, groups and joins them with jq instead of

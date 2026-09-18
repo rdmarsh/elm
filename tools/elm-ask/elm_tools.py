@@ -109,6 +109,15 @@ class Session:
     def __init__(self):
         self.dir = tempfile.TemporaryDirectory(prefix="elm-ask-")
         self.datasets = {}   # id -> {"path", "rows", "description"}
+        self.described = set()   # commands whose notes have been sent already
+
+    def with_notes(self, command, text):
+        """Attach a command's verified notes the first time it is used here."""
+        if command in self.described:
+            return text
+        self.described.add(command)
+        notes = command_notes(command)
+        return f"{text}\n\n{notes}" if notes else text
 
     def add(self, lines, description):
         """Store jsonl lines as a new dataset and return its id."""
@@ -213,8 +222,22 @@ def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=N
     return args
 
 
+def command_notes(command):
+    """The Notes block of `elm COMMAND --info`: what live testing found."""
+    proc = subprocess.run(ELM_CMD + [command, "--info"], capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0 or "\nNotes" not in proc.stdout:
+        return ""
+    notes = proc.stdout.split("\nNotes", 1)[1].split("\nFields (", 1)[0]
+    return "Notes" + notes.rstrip()
+
+
 def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
-    """Run one read-only elm query and store the rows as a dataset."""
+    """Run one read-only elm query and store the rows as a dataset.
+
+    The first use of a command in a conversation comes back with that command's
+    verified notes attached, whether or not describe_command was called: a model
+    that skips the lookup still cannot miss "-C gives no real total here".
+    """
     args = build_elm_args(command, filter, fields, size, offset, params, total)
     shown = "elm " + " ".join(a if re.fullmatch(r"[\w.,:/-]+", a) else repr(a) for a in args)
     proc = subprocess.run(ELM_CMD + global_args() + args, capture_output=True, text=True, timeout=300)
@@ -226,7 +249,13 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     if total:
         value = proc.stdout.strip()
         step = {"type": "step", "command": shown, "result": f"total {value}"}
-        return f"LM reports a total of {value} matching records.", step
+        text = f"LM reports a total of {value} matching records."
+        if not value.lstrip("-").isdigit():
+            # e.g. ">50": this endpoint has no real total, so the number is a floor.
+            text = (f"{command} returned {value!r}, not a real total: this endpoint does not give one. "
+                    f"That is a lower bound, not the answer. Count the rows instead: run_elm with "
+                    f"size 0 (add offset to page past 1000) and count what comes back.")
+        return session.with_notes(command, text), step
 
     lines, removed = [], 0
     for line in proc.stdout.splitlines():
@@ -257,7 +286,7 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     if removed:
         result["secrets_removed"] = f"{removed} secret-bearing values were removed; request specific fields to avoid them."
     step = {"type": "step", "command": shown, "result": f"{len(lines)} rows as ${ds_id}"}
-    return truncate(json.dumps(result, indent=1, default=str)), step
+    return session.with_notes(command, truncate(json.dumps(result, indent=1, default=str))), step
 
 
 def describe_command(session, command):
