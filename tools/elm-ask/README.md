@@ -182,7 +182,9 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   turns on multi-step work. Current names and prices are on Anthropic's
   pricing page, and the footer shows which model answered.
 - **Effort.** Lower effort means less thinking per step, so less money and less
-  time, at some cost in care. Try it before dropping to a weaker model.
+  time, at some cost in care. Try it before dropping to a weaker model. Not
+  every model takes it (the small ones refuse it); elm-ask notices, says so and
+  carries on without it, so the setting is safe to leave on.
 
 Judge both on answers, not on price alone: a cheaper model that needs three
 attempts is not cheaper. That is what the question set in `todo.md` is for.

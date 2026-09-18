@@ -27,6 +27,39 @@ def load_system_prompt():
 SYSTEM = [{"type": "text", "text": load_system_prompt(), "cache_control": {"type": "ephemeral"}}]
 
 
+_effort_unsupported = False
+
+
+def create(client, messages, emit):
+    """One request to Claude, dropping effort if this model will not take it.
+
+    Not every model accepts output_config.effort (Haiku 4.5 rejects it with a
+    400). Rather than make the person match model to setting, ask once, and on
+    that refusal drop it and carry on -- for the rest of this run, so it costs
+    one wasted request, not one per step.
+    """
+    global _effort_unsupported
+    extra = {} if (not EFFORT or _effort_unsupported) else {"output_config": {"effort": EFFORT}}
+    try:
+        return client.beta.messages.create(
+            model=MODEL,
+            max_tokens=16000,
+            system=SYSTEM,
+            tools=elm_tools.TOOLS,
+            messages=messages,
+            cache_control={"type": "ephemeral"},
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
+            **extra,
+        )
+    except anthropic.BadRequestError as exc:
+        if not extra or "effort" not in str(exc):
+            raise
+        _effort_unsupported = True
+        emit({"type": "status", "text": f"{MODEL} does not take an effort setting; continuing without it."})
+        return create(client, messages, emit)
+
+
 class Conversation:
     """One browser tab's chat: message history plus the datasets it fetched."""
 
@@ -57,21 +90,9 @@ def ask(client, conv, question, emit):
         "role": "user",
         "content": f"{question}\n\n(Current time: {now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())})",
     })
-    extra = {"output_config": {"effort": EFFORT}} if EFFORT else {}
-
     for _ in range(MAX_STEPS):
         emit({"type": "status", "text": "Thinking..."})
-        response = client.beta.messages.create(
-            model=MODEL,
-            max_tokens=16000,
-            system=SYSTEM,
-            tools=elm_tools.TOOLS,
-            messages=conv.messages,
-            cache_control={"type": "ephemeral"},
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            **extra,
-        )
+        response = create(client, conv.messages, emit)
         if response.stop_reason == "refusal":
             conv.messages.pop()
             emit({"type": "error", "text": "The model declined to answer this question."})

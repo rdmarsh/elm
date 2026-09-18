@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `tools/elm-ask` died with "This model does not support the effort parameter" (HTTP 400) when `ELM_ASK_EFFORT` was set and the chosen model does not take one (the small models refuse it). It now drops the setting for the rest of the run, says so in the progress line, and carries on, so model and effort can be chosen independently. `run.sh` notes which listed model ignores it.
+
 ### Added
 
 - `tools/elm-ask`: a **Save as PDF** button on each answer. It prints that answer alone -- the question, the text, the tables expanded (no scrolling box, headings repeated on each page) and the "Queries run" list opened -- through the browser's print dialog, where every browser offers "Save as PDF", with a line naming the profile, the model and the time. No new dependency: a print stylesheet and a few lines of JavaScript, which keeps the container offline and nothing to keep up to date. The CSV download stays for spreadsheet work.

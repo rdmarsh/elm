@@ -43,7 +43,7 @@ IMAGE=elm-ask
 MODELS=(
     "claude-opus-5|most capable, and the dearest"
     "claude-sonnet-5|mid-tier: usually fine for these questions, much cheaper"
-    "claude-haiku-4-5|cheapest, but takes more wrong turns on multi-step questions"
+    "claude-haiku-4-5|cheapest, no effort setting, more wrong turns on multi-step questions"
 )
 MODEL=
 EFFORT=
