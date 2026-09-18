@@ -110,6 +110,15 @@ literal comma with `\,`.
   "SNMP alerts", find datasources by `collectMethod` and match alerts on
   `resourceTemplateId` where `resourceTemplateType` is `DS`. Recipe:
   [examples/alerts.md](examples/alerts.md).
+- **Collected values** (memory used, how full a mount is, a temperature, days
+  until a certificate expires) take three steps on the device:
+  `DeviceDatasourceList --deviceId N` finds the datasource and gives its
+  `hdsId`; `DeviceDatasourceInstanceList --deviceId N --hdsId H` gives the
+  instance (e.g. `/`, `Core 0`); `DeviceDatasourceInstanceData --deviceId N
+  --hdsId H --id I --period 1` returns `dataPoints` and `values`, newest
+  first. A value of `"No Data"` means that datapoint is not being collected,
+  which is an answer in itself. An instance's `alertStatus` says whether it is
+  alerting now.
 - **Applied, collecting and instances are different numbers.** A datasource can
   apply to 1205 devices and collect on 2; an instance collects several
   datapoints; `lastCollectedTime` 0 does not mean "not collecting". See
