@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import anthropic
@@ -82,13 +82,26 @@ def call_tool(conv, block):
         return {"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True}, event
 
 
-def ask(client, conv, question, emit):
-    """Answer one question, streaming progress events through emit(dict)."""
+def ask(client, conv, question, emit, where=None):
+    """Answer one question, streaming progress events through emit(dict).
+
+    `where` carries the reader's timezone from the browser, so answers can be in
+    the time they keep rather than UTC.
+    """
     now = datetime.now(timezone.utc)
     conv.last_used = time.time()
+    minutes = (where or {}).get("utc_offset_minutes") or 0
+    sign = "+" if minutes >= 0 else "-"
+    offset = f"UTC{sign}{abs(minutes) // 60:02d}:{abs(minutes) % 60:02d}"
+    # A browser may report the offset without a zone name; then the offset is the name.
+    zone = (where or {}).get("timezone") or offset
+    local = now + timedelta(minutes=minutes)
     conv.messages.append({
         "role": "user",
-        "content": f"{question}\n\n(Current time: {now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())})",
+        "content": (f"{question}\n\n"
+                    f"(Now: {local:%Y-%m-%d %H:%M} for the reader, timezone {zone}{'' if zone == offset else f' ({offset})'}; "
+                    f"{now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())}. "
+                    f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it.)"),
     })
     for _ in range(MAX_STEPS):
         emit({"type": "status", "text": "Thinking..."})

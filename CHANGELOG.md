@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `tools/elm-ask` answered in UTC ("next downtime is 2026-09-25 at 04:29 UTC"), because LM returns epochs and the model was only told the UTC time. The page now sends the reader's timezone and offset with each question, and the answer gives local times with the zone named, plus "in about N days" for anything upcoming. Where an answer uses LM's own `...OnLocal` fields, which are in the portal's timezone rather than the reader's, it says so.
 - `tools/elm-ask` died with "This model does not support the effort parameter" (HTTP 400) when `ELM_ASK_EFFORT` was set and the chosen model does not take one (the small models refuse it). It now drops the setting for the rest of the run, says so in the progress line, and carries on, so model and effort can be chosen independently. `run.sh` notes which listed model ignores it.
 
 ### Added

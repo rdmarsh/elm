@@ -88,6 +88,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
             question = str(body["question"]).strip()[:2000]
+            where = {"timezone": str(body.get("timezone") or "")[:64],
+                     "utc_offset_minutes": int(body.get("utc_offset_minutes") or 0)}
         except (ValueError, KeyError):
             return self.send_json(400, {"error": "expected JSON {question, conversation_id}"})
         if not question:
@@ -111,7 +113,7 @@ class Handler(BaseHTTPRequestHandler):
         if problem:
             return emit({"type": "error", "text": problem})
         try:
-            agent.ask(anthropic.Anthropic(), conv, question, emit)
+            agent.ask(anthropic.Anthropic(), conv, question, emit, where)
         except anthropic.AuthenticationError:
             emit({"type": "error", "text": "The Claude API key is missing or invalid."})
         except anthropic.RateLimitError:

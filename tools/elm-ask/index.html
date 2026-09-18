@@ -264,7 +264,11 @@ form.addEventListener("submit", async e => {
   try {
     const resp = await fetch("/api/ask", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, conversation_id: conversationId }),
+      body: JSON.stringify({
+        question, conversation_id: conversationId,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,     // e.g. Australia/Sydney
+        utc_offset_minutes: -new Date().getTimezoneOffset(),            // e.g. 600
+      }),
     });
     if (!resp.ok) throw new Error((await resp.json()).error || resp.statusText);
     const reader = resp.body.getReader(), decoder = new TextDecoder();
