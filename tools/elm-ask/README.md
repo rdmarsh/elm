@@ -74,6 +74,22 @@ the image. It does not use your local `venv/`, `_cmds/` or `_dist/`.
 
 ## Run
 
+`tools/elm-ask/run.sh` wraps the `docker run` below and asks which model and
+effort to use:
+
+```shell
+export ANTHROPIC_API_KEY=...        # once per terminal
+tools/elm-ask/run.sh                # asks, then starts
+tools/elm-ask/run.sh -y             # no questions, image defaults
+tools/elm-ask/run.sh -m claude-sonnet-5 -e medium -y
+tools/elm-ask/run.sh --profile ai-preprod --port 8081 -y
+```
+
+It checks the key and the profile before starting, builds the image with
+`--build`, and prints the command instead of running it with `--dry-run`.
+`run.sh -h` lists everything. The plain commands below do the same thing by
+hand (and are what Windows needs).
+
 macOS / Linux:
 
 ```shell
@@ -147,7 +163,8 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 ### Cost: model and effort
 
 Answers cost per question, so these two are the dials worth knowing. Both are
-set at `docker run`, and neither needs a rebuild:
+set when starting (`run.sh -m ... -e ...`, or the environment variables
+below), and neither needs a rebuild:
 
 ```shell
 docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
@@ -180,6 +197,7 @@ ANTHROPIC_API_KEY=... python tools/elm-ask/app.py      # http://127.0.0.1:8080
 
 | File | Role |
 |---|---|
+| `run.sh` | Starts the container, asking for the model and effort |
 | `app.py` | Serves the page and streams answers from `/api/ask` as newline-delimited JSON |
 | `agent.py` | The Claude tool-use loop |
 | `elm_tools.py` | The five tools: `find_commands`, `describe_command`, `run_elm`, `jq` and `show_table` |
