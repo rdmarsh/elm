@@ -186,19 +186,31 @@ _ALLOWED = None
 
 
 def find_commands(session, keyword=""):
-    """List the allowed elm commands whose name, summary or tag contains the keyword."""
+    """List the elm commands matching the keyword, and name the ones this profile withholds.
+
+    Matches the profile does not allow are named but not described: without them
+    an answer can only say "I cannot", when what helps is "AdminList would
+    answer this; ask for it to be allowed".
+    """
     kw = keyword.lower()
-    hits = []
     allowed = allowed_commands()
+    hits, withheld = [], []
     for name, c in sorted(COMMANDS.items()):
-        if name not in allowed:
+        if not (kw in name.lower() or kw in (c.get("summary") or "").lower() or kw in (c.get("tag") or "").lower()):
             continue
-        if kw in name.lower() or kw in (c.get("summary") or "").lower() or kw in (c.get("tag") or "").lower():
+        if name in allowed:
             required = [o["name"] for o in c["options"] if o.get("required")]
             hits.append({"command": name, "summary": c.get("summary"), "required_params": required})
+        else:
+            withheld.append(name)
     text = json.dumps(hits[:40], indent=1)
     if len(hits) > 40:
         text += f"\n({len(hits) - 40} more; use a narrower keyword)"
+    if withheld:
+        text += ("\n\nMatching commands this profile does not allow, so you cannot run them: "
+                 + ", ".join(withheld[:20])
+                 + ". If one of these is what the question needs, say so and name it, so the person can "
+                   "decide to allow it; do not guess the answer instead.")
     return text, None
 
 
