@@ -56,7 +56,8 @@ Python or jq installed.
 
 1. Docker (e.g. Docker Desktop, or Colima on macOS).
 2. A Claude API key (`ANTHROPIC_API_KEY`).
-3. An `ai` profile: copy [`ai.example.ini`](../../ai.example.ini) to
+3. An `ai` profile (`tools/elm-check-access.sh -p ai` reports which commands its
+   token can really reach): copy [`ai.example.ini`](../../ai.example.ini) to
    `~/.config/logicmonitor/credentials/ai.ini`, fill in an API token whose
    LogicMonitor role is read-only, and adjust `allowed_commands` if you need to.
    The page tells you if the profile is missing or has no `allowed_commands`.

@@ -17,6 +17,7 @@ script also responds to `-h`/`--help`.
 
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
 - [Ask in plain English](#ask-in-plain-english) — `tools/elm-ask/`
+- [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Change advice](#change-advice) — `tools/elm-change-advice.py`
 - [Collector health check](#collector-health-check) — `tools/lm-collector-run-groovy.ps1`
@@ -55,6 +56,24 @@ people who don't use elm can ask questions such as "what devices have alerting
 disabled?". Claude answers using read-only elm queries and shows the queries it
 ran. Setup, the safety model and settings are in
 [`tools/elm-ask/README.md`](elm-ask/README.md).
+
+## Check what a token can reach
+
+`tools/elm-check-access.sh` sends one small request per command and reports
+whether the profile's API token is actually allowed to run it. A profile has two
+separate limits — `allowed_commands` in its `.ini` (what elm will run) and the
+LogicMonitor role behind its token (what LM will answer) — and this shows where
+they disagree, so you can widen the role or trim the list.
+
+```shell
+tools/elm-check-access.sh -p ai        # the commands that profile allows
+tools/elm-check-access.sh --all -q     # everything the token can reach
+```
+
+It prints `ok`, `denied by LM (403)` or `needs id` per command, then an
+`allowed_commands` line holding just the ones that answered, ready to paste into
+the profile. Commands needing an id are left out of that line: they cannot be
+checked without real ids, so add back the ones you use.
 
 ## Backups
 
