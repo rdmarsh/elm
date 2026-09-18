@@ -15,6 +15,8 @@
 #   --profile, -p PROFILE  elm credential profile (default: ai)
 #   --all                  check every command elm has, not just the allowed ones
 #   --quiet, -q            only the summary and the allowed_commands line
+#   --json                 machine-readable: each command with its API path and
+#                          status, plus the allowed_commands list
 #   -h, --help             show this help
 #
 # Each command is called with -s1 (one row), or plainly where that endpoint
@@ -38,12 +40,14 @@ set -euo pipefail
 PROFILE=ai
 ALL=0
 QUIET=0
+JSON=0
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --profile|-p) PROFILE=$2; shift 2 ;;
         --all)        ALL=1; shift ;;
         --quiet|-q)   QUIET=1; shift ;;
+        --json)       JSON=1; QUIET=1; shift ;;
         -h|--help)    sed -n '2,/^$/p' "$0" | sed -E 's/^# ?//'; exit 0 ;;
         *)            printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
     esac
@@ -65,6 +69,7 @@ say "Checking ${#COMMANDS[@]} commands as profile '$PROFILE' (one small request 
 say
 
 ok=() denied=() skipped=() failed=()
+declare -A STATUS PATHS
 for cmd in "${COMMANDS[@]}"; do
     out=$(elm -p "$PROFILE" "$cmd" -s1 2>&1) || true
     # A few commands take no -s (single-record endpoints); ask them plainly.
@@ -77,8 +82,23 @@ for cmd in "${COMMANDS[@]}"; do
         *"Error:"*|*Traceback*)            verdict="error: $(printf '%s' "$out" | grep -m1 -E 'Error:|Traceback' | cut -c1-60)"; failed+=("$cmd") ;;
         *)                                 verdict="ok"; ok+=("$cmd") ;;
     esac
+    STATUS[$cmd]=${verdict%%:*}
+    # The API path each command calls, for lining statuses up with LM role areas.
+    [[ $JSON -eq 1 ]] && PATHS[$cmd]=$(elm "$cmd" --info 2>/dev/null | sed -n '2s/^GET //p')
     [[ $QUIET -eq 1 ]] || printf '  %-40s %s\n' "$cmd" "$verdict"
 done
+
+if [[ $JSON -eq 1 ]]; then
+    printf '{\n  "profile": "%s",\n  "checked": %d,\n  "results": [\n' "$PROFILE" "${#COMMANDS[@]}"
+    for i in "${!COMMANDS[@]}"; do
+        cmd=${COMMANDS[i]}
+        printf '    {"command": "%s", "path": "%s", "status": "%s"}%s\n' \
+            "$cmd" "${PATHS[$cmd]:-}" "${STATUS[$cmd]}" "$([[ $i -lt $((${#COMMANDS[@]} - 1)) ]] && echo ,)"
+    done
+    printf '  ],\n  "allowed_commands": [%s],\n' "$(printf '"%s", ' "${ok[@]}" | sed 's/, $//')"
+    printf '  "denied": [%s]\n}\n' "$(printf '"%s", ' "${denied[@]:-}" | sed 's/, $//; s/""//')"
+    exit 0
+fi
 
 say
 printf 'ok: %d, denied by LM: %d, needs id: %d, other errors: %d\n' \

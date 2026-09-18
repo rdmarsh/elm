@@ -70,6 +70,10 @@ tools/elm-check-access.sh -p ai        # the commands that profile allows
 tools/elm-check-access.sh --all -q     # everything the token can reach
 ```
 
+`--json` gives the same thing machine-readably, each command with the API path
+it calls and its status, which is what lines results up with LogicMonitor role
+areas.
+
 It prints `ok`, `denied by LM (403)` or `needs id` per command, then an
 `allowed_commands` line holding just the ones that answered, ready to paste into
 the profile. Commands needing an id are left out of that line: they cannot be
