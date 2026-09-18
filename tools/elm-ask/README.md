@@ -140,9 +140,32 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 | `ELM_ASK_ALLOW_UNRESTRICTED` | | Set to `1` to allow a profile without `allowed_commands` |
 | `ELM_CONFIG` | | Path to a specific `.ini` inside the container (overrides `ELM_PROFILE`) |
 | `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too) |
-| `ELM_ASK_MODEL` | `claude-opus-5` | Claude model |
-| `ELM_ASK_EFFORT` | API default | `low`, `medium`, `high`, `xhigh` or `max`: lower is faster and cheaper |
+| `ELM_ASK_MODEL` | see `agent.py` | Claude model to answer with (the page footer shows the one in use) |
+| `ELM_ASK_EFFORT` | API default | How hard the model works per step; lower is faster and cheaper |
 | `ELM_ASK_MAX_STEPS` | `25` | Maximum model turns per question |
+
+### Cost: model and effort
+
+Answers cost per question, so these two are the dials worth knowing. Both are
+set at `docker run`, and neither needs a rebuild:
+
+```shell
+docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
+  -e ANTHROPIC_API_KEY -e ELM_ASK_MODEL=claude-sonnet-5 -e ELM_ASK_EFFORT=medium \
+  -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
+  elm-ask
+```
+
+- **Model.** The default is the most capable one, which is also the dearest.
+  A mid-tier model typically costs a fraction of it and is usually fine for
+  these questions; the smallest models are cheaper again but take more wrong
+  turns on multi-step work. Current names and prices are on Anthropic's
+  pricing page, and the footer shows which model answered.
+- **Effort.** Lower effort means less thinking per step, so less money and less
+  time, at some cost in care. Try it before dropping to a weaker model.
+
+Judge both on answers, not on price alone: a cheaper model that needs three
+attempts is not cheaper. That is what the question set in `todo.md` is for.
 
 ## Run without Docker (development)
 
