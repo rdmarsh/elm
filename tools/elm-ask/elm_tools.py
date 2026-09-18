@@ -152,6 +152,15 @@ def profile_status():
     lines = help_text.stdout.split("Commands:", 1)[-1].split("Restricted profile:", 1)[0].splitlines()
     allowed = {line.split()[0] for line in lines if line.startswith("  ") and line.split()[0] in COMMANDS}
 
+    account = ""
+    try:
+        from configobj import ConfigObj
+        path = ELM_CONFIG or os.path.expanduser(f"~/.config/logicmonitor/credentials/{name}.ini")
+        # Only the account name: the id and key in this file are never read.
+        account = str(ConfigObj(path, unrepr=True).get("account_name") or "")
+    except Exception:
+        pass
+
     problem = None
     if help_text.returncode != 0:
         problem = f"elm cannot read the profile: {help_text.stderr.strip()[:300]}"
@@ -161,7 +170,8 @@ def profile_status():
     elif not restricted and not ALLOW_UNRESTRICTED:
         problem = (f"Profile '{name}' has no allowed_commands, so it can run every command. Add allowed_commands "
                    f"(see ai.example.ini), or set ELM_ASK_ALLOW_UNRESTRICTED=1 to use it anyway.")
-    return {"name": name, "exists": exists, "restricted": restricted, "allowed": allowed, "problem": problem}
+    return {"name": name, "account": account, "exists": exists, "restricted": restricted,
+            "allowed": sorted(allowed), "problem": problem}
 
 
 def allowed_commands():

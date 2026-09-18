@@ -81,6 +81,11 @@
   tr:last-child td { border-bottom: 0; }
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
   footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 32px; }
+  footer button { background: none; border: 0; padding: 0; font: inherit; color: inherit;
+                  text-decoration: underline; cursor: pointer; }
+  #commands { margin: 8px auto 0; max-width: 700px; color: var(--muted); font-size: .8rem;
+              text-align: center; line-height: 1.7; }
+  #commands code { font-size: .95em; }
 
   /* Browser printing stays sensible even though there is no print button. */
   @media print {
@@ -104,7 +109,7 @@
 <main>
   <header>
     <h1><a href="/">elm ask</a></h1>
-    <p>Ask about your LogicMonitor portal in plain English. Read-only.</p>
+    <p id="subtitle">Ask about your LogicMonitor portal in plain English. Read-only.</p>
   </header>
 
   <form id="form">
@@ -122,6 +127,7 @@
   <div id="banner" hidden></div>
   <div id="results"></div>
   <footer id="footer"></footer>
+  <div id="commands" hidden></div>
 </main>
 
 <script>
@@ -144,8 +150,20 @@ fetch("/api/health").then(r => r.json()).then(h => {
   if (!h.claude_key) problems.push("No Claude API key is set. Start the container with <code>-e ANTHROPIC_API_KEY=...</code>.");
   if (h.profile_problem) problems.push(esc(h.profile_problem));
   if (problems.length) { $("#banner").innerHTML = problems.join("<br>"); $("#banner").hidden = false; }
-  const scope = h.restricted ? `${h.allowed_count} allowed commands` : "all commands";
-  $("#footer").textContent = `Profile: ${h.profile} (${scope}) · Model: ${h.model} · Answers can be wrong — check "How I worked this out".`;
+  if (h.portal) $("#subtitle").innerHTML = `Ask about the <strong>${esc(h.portal)}</strong> portal in plain English. Read-only.`;
+
+  const scope = h.restricted ? `${h.allowed.length} allowed commands` : "all commands";
+  const where = h.portal ? `Portal: ${esc(h.portal)} · ` : "";
+  $("#footer").innerHTML = `${where}Profile: ${esc(h.profile)} (<button id="show-commands" type="button">${scope}</button>)`
+    + ` · Model: ${esc(h.model)} · Answers can be wrong — check "How I worked this out".`;
+  $("#show-commands").addEventListener("click", () => {
+    const panel = $("#commands");
+    panel.hidden = !panel.hidden;
+    panel.innerHTML = panel.hidden ? "" :
+      `These are the commands this profile allows (<code>allowed_commands</code> in its .ini); `
+      + `anything else is refused before a request is sent.<br>`
+      + h.allowed.map(c => `<code>${esc(c)}</code>`).join(" ");
+  });
 }).catch(() => {});
 
 function esc(s) {

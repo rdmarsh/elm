@@ -145,7 +145,8 @@ This uses the `ai` profile (`ai.ini`). To use a different one:
 
 If both are set, `ELM_CONFIG` wins. Either way the profile must set
 `allowed_commands`, unless you also add `-e ELM_ASK_ALLOW_UNRESTRICTED=1`. The
-page footer shows which profile is in use and how many commands it allows.
+page footer names the portal and the profile, and its "N allowed commands" is a
+button that lists them.
 
 One elm-ask talks to one portal. For several, run one container per profile on
 different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).

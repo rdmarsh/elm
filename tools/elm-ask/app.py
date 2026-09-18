@@ -50,9 +50,10 @@ def health():
     return {
         "claude_key": has_claude_key(),
         "profile": "custom config file" if elm_tools.ELM_CONFIG else status["name"],
+        "portal": status["account"],
         "profile_problem": status["problem"],
         "restricted": status["restricted"],
-        "allowed_count": len(status["allowed"]),
+        "allowed": status["allowed"],
         "model": agent.MODEL,
     }
 
