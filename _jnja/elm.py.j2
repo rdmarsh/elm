@@ -188,8 +188,25 @@ for _i, _arg in enumerate(_argv):
         _resolved_config_file = config_file
         break
 
+def _config_error(path, error):
+    """A parse error naming the file and the line numbers -- never the lines themselves.
+
+    configobj quotes the offending line back at you ("Invalid line ('access_key =
+    ...')"), which would put a credential into the terminal, logs or a pasted
+    screenshot. Only the line numbers are safe to repeat.
+    """
+    lines = [getattr(e, 'line_number', None) for e in getattr(error, 'errors', [])] or \
+            [getattr(error, 'line_number', None)]
+    lines = sorted({n for n in lines if n})
+    where = 'line ' + ', '.join(str(n) for n in lines) if lines else 'somewhere in the file'
+    return click.ClickException(
+        f"cannot parse {path}: invalid syntax at {where}.\n"
+        f"Every value needs quotes, e.g. access_id = 'abc123' (see config.example.ini).\n"
+        f"The lines themselves are not shown here in case they hold credentials.")
+
+
 def _config_provider(file_path, cmd_name):
-    """Read a profile, naming the file if it cannot be parsed.
+    """Read a profile, naming the file (not its contents) if it cannot be parsed.
 
     click_config_file's own message ("Parsing failed ... First error at line 1")
     does not say which file, which is unhelpful when several profiles exist.
@@ -198,8 +215,7 @@ def _config_provider(file_path, cmd_name):
     try:
         return ConfigObj(file_path, unrepr=True)
     except Exception as e:
-        raise ValueError(f"{file_path}: {e}\n"
-                         f"Values need quotes, e.g. access_id = 'abc123' (see config.example.ini)") from None
+        raise _config_error(file_path, e) from None
 
 
 def _capture_config_path(ctx, param, value):
@@ -239,7 +255,7 @@ def _allow_patterns(path=None):
         profile = ConfigObj(path, unrepr=True)
     except Exception as e:
         # Fail closed: an unreadable restriction must not become no restriction.
-        raise click.ClickException(f'cannot read allowed_commands from {path}: {e}')
+        raise _config_error(path, e) from None
     if 'allowed_commands' not in profile:
         return None
     patterns = profile['allowed_commands']

@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- A config file that cannot be parsed now names the file: "Error reading configuration file: ~/.config/logicmonitor/credentials/prod.ini: Parse error from unrepr-ing value at line 1", plus a reminder that values need quotes. It used to report only "Parsing failed with several errors. First error at line 1", which does not say which of several profiles was at fault.
+- A config file that cannot be parsed now names the file and the line numbers, but never the lines themselves: "cannot parse ~/.config/logicmonitor/credentials/ai.ini: invalid syntax at line 1, 2, 3. Every value needs quotes...". The old message said only "Parsing failed with several errors. First error at line 1", which does not say which of several profiles was at fault; configobj's per-line errors quote the offending line back ("Invalid line ('access_key = ...')"), which would put a credential into the terminal, a log or a pasted screenshot, so elm now reports line numbers only. The same applies to a profile whose allowed_commands cannot be read. A `make testallow` assertion checks a malformed credential value does not appear in the output, and fails if the line is echoed back.
 - `elm -p NAME --help` for a profile whose `allowed_commands` matches nothing had no Commands section at all, which reads as a fault; it now says "(none allowed by this profile)".
 
 - `elm COMMAND --info` cut field descriptions at 90 characters, which removed exactly the useful part of the long ones: `deviceType` and `awsState` lost the list of what their values mean. Descriptions are now shown whole (about 20% more description text).
