@@ -8,13 +8,13 @@ plain English:
 - "What devices have alerting disabled?"
 
 Claude works out which elm queries answer the question, runs them, and replies
-with a short answer, sortable tables (with CSV download), caveats, and a
+with a short answer, sortable tables, caveats, and a
 "How I worked this out" section plus the exact queries it ran.
 
-Each answer has a **Markdown** button: it shows the whole answer -- question,
+Each answer carries two buttons: **Markdown** shows the whole answer -- question,
 text, tables as Markdown tables, and the queries behind it -- ready to copy into
-a ticket, a wiki page or a chat, or to download as a `.md` file. Tables also
-download as CSV for spreadsheet work. The title goes back to a fresh page.
+a ticket, a wiki page or a chat, or to download as `.md`; **CSV** downloads its
+tables for spreadsheet work. The title goes back to a fresh page.
 
 It runs in a Docker container on the user's own machine, so nobody needs elm,
 Python or jq installed.

@@ -48,7 +48,10 @@
 
   .turn { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-top: 16px; }
   .turn .question { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; display: flex; gap: 12px; justify-content: space-between; align-items: start; }
-  .turn .question button { flex: none; }
+  .turn .question .actions { flex: none; display: flex; gap: 8px; }
+  button.icon { display: inline-flex; align-items: center; gap: 6px; }
+  button.icon svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6;
+                    stroke-linecap: round; stroke-linejoin: round; }
   .markdown-view { margin-top: 12px; }
   .markdown-view textarea { width: 100%; height: 320px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
       padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--code); color: var(--ink); resize: vertical; }
@@ -123,6 +126,12 @@
 
 <script>
 const $ = (sel, el = document) => el.querySelector(sel);
+
+// Small inline icons: no network, and they follow the text colour.
+const ICON = {
+  csv: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="12" rx="2"/><path d="M1 6h14M6 6v8"/></svg>`,
+  md: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M4 11V6l2 2.5L8 6v5M11 6v3.5M11 10l1.5-1.5M11 10 9.5 8.5"/></svg>`,
+};
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
 let conversationId = null;
 
@@ -165,6 +174,14 @@ function markdown(text) {
   return out.join("");
 }
 
+function saveFile(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 function csvCell(v) {
   const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -174,8 +191,7 @@ function renderTable(ev) {
   const block = document.createElement("div");
   block.className = "table-block";
   block.innerHTML = `
-    <div class="table-head"><strong>${esc(ev.title)}</strong>
-      <button class="secondary" type="button">Download CSV</button></div>
+    <div class="table-head"><strong>${esc(ev.title)}</strong></div>
     <div class="table-scroll"><table><thead><tr>${ev.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody></tbody></table></div>
     <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > ev.rows.length ? ` (showing first ${ev.rows.length})` : ""} · click a heading to sort</div>`;
   const tbody = $("tbody", block);
@@ -192,19 +208,13 @@ function renderTable(ev) {
     });
     draw(rows);
   }));
-  $("button", block).addEventListener("click", () => {
-    const csv = [ev.columns, ...ev.rows].map(r => r.map(csvCell).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = ev.title.replace(/[^\w-]+/g, "_").slice(0, 60) + ".csv";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  });
   return block;
 }
 
 // Everything an answer is made of, kept so it can be rebuilt as Markdown.
 let health = null;
+
+const slug = s => s.replace(/[^\w-]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "elm-ask";
 
 function tableMarkdown(t) {
   const cell = v => String(v ?? "").replace(/\|/g, "\\|");
@@ -237,7 +247,10 @@ form.addEventListener("submit", async e => {
   const turn = document.createElement("section");
   turn.className = "turn";
   turn.innerHTML = `<div class="question"><span>${esc(question)}</span>
-      <button class="secondary md-toggle" type="button" hidden>Markdown</button></div>
+      <span class="actions">
+        <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
+        <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown" hidden>${ICON.md}Markdown</button>
+      </span></div>
     <div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
     <div class="tables"></div><div class="answer"></div>
     <div class="markdown-view" hidden>
@@ -261,7 +274,11 @@ form.addEventListener("submit", async e => {
         md.steps.push(ev);
         $("summary", steps).textContent = `Queries run (${++stepCount})`;
         break;
-      case "table": md.tables.push(ev); $(".tables", turn).append(renderTable(ev)); break;
+      case "table":
+        md.tables.push(ev);
+        $(".tables", turn).append(renderTable(ev));
+        $(".csv", turn).hidden = false;
+        break;
       case "answer":
         md.answer = ev.markdown;
         $(".answer", turn).innerHTML = markdown(ev.markdown);
@@ -282,12 +299,13 @@ form.addEventListener("submit", async e => {
     try { await navigator.clipboard.writeText(box.value); note.textContent = "Copied"; }
     catch { box.select(); note.textContent = "Press ctrl/cmd-C to copy"; }
   });
-  $(".download", turn).addEventListener("click", () => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([box.value], { type: "text/markdown" }));
-    a.download = question.replace(/[^\w-]+/g, "_").slice(0, 60) + ".md";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $(".download", turn).addEventListener("click", () =>
+    saveFile(slug(question) + ".md", box.value, "text/markdown"));
+  $(".csv", turn).addEventListener("click", () => {
+    // One table, one file; several tables, one file each, named after the table.
+    md.tables.forEach((t, i) => saveFile(
+      (md.tables.length === 1 ? slug(question) : slug(t.title)) + ".csv",
+      [t.columns, ...t.rows].map(r => r.map(csvCell).join(",")).join("\n"), "text/csv"));
   });
 
   try {
