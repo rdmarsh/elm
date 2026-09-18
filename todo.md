@@ -61,7 +61,12 @@ in each answer which portal it came from. Parked until there is a real need.
 
 Build a small evaluation set for `tools/elm-ask`: 10-20 questions people really
 ask, each with an answer confirmed by hand against a known portal and how it was
-confirmed (e.g. open critical alerts = `elm AlertList -c -s0 -F
+confirmed. Start with the four on the page's front screen -- the simplest
+lookups there are, each answerable by one or two commands ("how many devices are
+being monitored?", "how many alerts are open right now?", "which collectors are
+down?", "what devices have alerting disabled?"); if those are not right, nothing
+harder will be. Keep the page's examples and the first four test questions the
+same (e.g. open critical alerts = `elm AlertList -c -s0 -F
 cleared:false,severity:4`; devices with alerting disabled, counting group-level
 disables via `alertDisableStatus`). Include questions that have tripped it up:
 severity numbers, alerting disabled by group, "SNMP" alerts, OS detection,
