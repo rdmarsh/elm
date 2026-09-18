@@ -1,3 +1,5 @@
+<img src="elm-logo.svg" alt="" width="72" align="right">
+
 # elm
 
 [![Dependency Review](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml)
@@ -170,6 +172,9 @@ You will need the following items to run the program after building:
 * (optional) a config file with the API info (default to `~/.config/logicmonitor/credentials/config.ini`)
   * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
+
+`elm-logo.svg` is the project mark (a terminal prompt: elm is a CLI). It is the
+page icon for `tools/elm-ask` and can be reused for docs or slides.
 
 See `config.example.ini` for a documented example config file, and
 `ai.example.ini` for a suggested restricted profile for AI assistants.
