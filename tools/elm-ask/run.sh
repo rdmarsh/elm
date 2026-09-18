@@ -6,7 +6,8 @@
 #   run.sh --model NAME --effort medium --yes
 #
 # Options:
-#   --model, -m NAME     Claude model (default: the image's own default)
+#   --model, -m NAME     Claude model (default: the image's own default). Run
+#                        without it to see the models offered by number.
 #   --effort, -e LEVEL   low | medium | high | xhigh | max (default: the API's)
 #   --profile, -p NAME   elm credential profile (default: ai)
 #   --port NUM           port on this machine (default: 8080)
@@ -36,6 +37,14 @@
 set -euo pipefail
 
 IMAGE=elm-ask
+# Offered by number at the prompt, dearest first. Typing any other model name
+# works too, so this list only needs touching when you want a newly released
+# model offered by number. Prices: https://www.anthropic.com/pricing
+MODELS=(
+    "claude-opus-5|most capable, and the dearest"
+    "claude-sonnet-5|mid-tier: usually fine for these questions, much cheaper"
+    "claude-haiku-4-5|cheapest, but takes more wrong turns on multi-step questions"
+)
 MODEL=
 EFFORT=
 PROFILE=ai
@@ -73,7 +82,18 @@ done
 
 # Ask only when there is a terminal to ask at, and only for what was not given.
 if [[ $ASK -eq 1 && -t 0 ]]; then
-    [[ -n "$MODEL" ]] || read -r -p "Model [image default]: " MODEL
+    if [[ -z "$MODEL" ]]; then
+        echo "Model:"
+        for i in "${!MODELS[@]}"; do
+            printf '  %d) %-18s %s\n' "$((i + 1))" "${MODELS[i]%%|*}" "${MODELS[i]#*|}"
+        done
+        read -r -p "  number, a model name, or Enter for the image default: " MODEL
+        # A number picks from the list; anything else is taken as a model name.
+        if [[ "$MODEL" =~ ^[0-9]+$ ]]; then
+            (( MODEL >= 1 && MODEL <= ${#MODELS[@]} )) || { echo "No model $MODEL in the list." >&2; exit 1; }
+            MODEL=${MODELS[MODEL - 1]%%|*}
+        fi
+    fi
     [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [API default]: " EFFORT
 fi
 

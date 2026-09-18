@@ -85,8 +85,11 @@ tools/elm-ask/run.sh -m claude-sonnet-5 -e medium -y
 tools/elm-ask/run.sh --profile ai-preprod --port 8081 -y
 ```
 
-It checks the key and the profile before starting, builds the image with
-`--build`, and prints the command instead of running it with `--dry-run`.
+Asked for the model, it offers the usual few by number (dearest first, with a
+line on what each trades away); any other model name works too, and Enter keeps
+the image's default. It checks the key and the profile before starting, builds
+the image with `--build`, and prints the command instead of running it with
+`--dry-run`.
 `run.sh -h` lists everything. The plain commands below do the same thing by
 hand (and are what Windows needs).
 
