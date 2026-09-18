@@ -36,6 +36,13 @@ Python or jq installed.
   wide rights is never the one the assistant uses by accident. elm-ask only
   offers and runs the commands that profile allows, and the model cannot choose
   another profile or config file.
+- **An allowlist limits commands, not data.** Several allowed commands carry
+  people's names: `SDTList` has the `admin` who created the downtime, `AlertList`
+  has `ackedBy`, `DeviceList` has `createdBy`. Asked for "a list of users",
+  elm-ask correctly says it cannot produce one and points at the LogicMonitor
+  UI, but it can still name whoever appears in those fields. If that matters,
+  give the profile's token a LogicMonitor role that cannot see those areas; that
+  decides what data exists at all, which no list of commands can.
 - **Read-only token.** Give it an LM API token whose role is read-only. That is
   the guarantee that holds even if everything else is wrong.
 - **Local only.** The commands below publish the port on `127.0.0.1`, so only
