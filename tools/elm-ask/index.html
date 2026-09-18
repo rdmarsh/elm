@@ -170,8 +170,9 @@ fetch("/api/health").then(r => r.json()).then(h => {
   const portal = h.portal
     ? `Portal: <a href="https://${esc(h.portal)}.logicmonitor.com" target="_blank" rel="noopener">${esc(h.portal)}</a> · `
     : "";
-  $("#footer").innerHTML = `${portal}Profile: ${esc(h.profile)} (<button id="show-commands" type="button">${scope}</button>)`
-    + ` · Model: ${esc(h.model)} · Answers can be wrong — check "How I worked this out".`;
+  $("#footer").innerHTML = `Answers can be wrong — check "How I worked this out".<br>`
+    + `${portal}Profile: ${esc(h.profile)} (<button id="show-commands" type="button">${scope}</button>)`
+    + ` · Model: ${esc(h.model)}`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
