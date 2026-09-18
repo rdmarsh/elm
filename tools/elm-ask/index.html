@@ -39,9 +39,12 @@
   button:disabled { opacity: .5; cursor: default; }
   button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
 
-  .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+  /* Two by two, so the four examples read as a set rather than a row and a stray. */
+  .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px auto 0; max-width: 620px; }
   body.has-results .examples { display: none; }
-  .examples button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); padding: 6px 14px; font-size: .9rem; }
+  .examples button { background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+                     padding: 10px 14px; font-size: .9rem; text-align: left; }
+  @media (max-width: 520px) { .examples { grid-template-columns: 1fr; } }
 
   #banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
   #banner code { background: transparent; }
