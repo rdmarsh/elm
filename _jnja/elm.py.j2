@@ -65,6 +65,10 @@ class LazyGroup(click.Group):
         super().format_commands(ctx, formatter)
         patterns = _allow_patterns()
         if patterns is not None:
+            if not self.list_commands(ctx):
+                # Without this the help has no Commands section at all, which reads as a fault.
+                with formatter.section('Commands'):
+                    formatter.write_text('(none allowed by this profile)')
             with formatter.section('Restricted profile'):
                 formatter.write_text(_restriction_summary(patterns))
 
@@ -184,6 +188,20 @@ for _i, _arg in enumerate(_argv):
         _resolved_config_file = config_file
         break
 
+def _config_provider(file_path, cmd_name):
+    """Read a profile, naming the file if it cannot be parsed.
+
+    click_config_file's own message ("Parsing failed ... First error at line 1")
+    does not say which file, which is unhelpful when several profiles exist.
+    """
+    from configobj import ConfigObj
+    try:
+        return ConfigObj(file_path, unrepr=True)
+    except Exception as e:
+        raise ValueError(f"{file_path}: {e}\n"
+                         f"Values need quotes, e.g. access_id = 'abc123' (see config.example.ini)") from None
+
+
 def _capture_config_path(ctx, param, value):
     global _resolved_config_file
     if value:
@@ -265,11 +283,14 @@ class _NotAllowed(click.ClickException):
 
     def __init__(self, command, patterns):
         typed = ' '.join(shlex.quote(a) for a in ['elm'] + sys.argv[1:])
+        path = _resolved_config_file.replace(os.path.expanduser('~'), '~', 1)
         super().__init__(
             f"{command} is not allowed. {_restriction_summary(patterns)}.\n"
             f"No request was sent.\n"
-            f"If you are a script or an AI assistant: do not retry with another profile. Show this\n"
-            f"command to the person, who can run it with a profile that allows {command}:\n"
+            f"To allow it, add '{command}' to allowed_commands in {path}.\n"
+            f"If you are a script or an AI assistant: do not retry with another profile and do not\n"
+            f"edit that file. Tell the person which command you need and why, and show them what you\n"
+            f"would have run:\n"
             f"  {typed}")
 
 
@@ -394,8 +415,9 @@ PROFILES
 ALLOWED COMMANDS
   A profile can allow only some commands (elm --list shows "allows: ..."). Any
   other command exits with code 3 and sends no request; its --help and --info
-  are refused too. Do not switch profiles to get round it: tell the person,
-  and show them the command you would have run.
+  are refused too. Do not switch profiles or edit the profile file to get round
+  it. Say which command you need and why, and show the person the command you
+  would have run -- they can add it to allowed_commands.
 
 FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
   elm-notes.yaml      per-command notes (source of --info)
@@ -469,7 +491,7 @@ enforce_config_perms(config_file)
     },
 )
 
-@click_config_file.configuration_option(config_file_name=config_file, callback=_capture_config_path)
+@click_config_file.configuration_option(config_file_name=config_file, callback=_capture_config_path, provider=_config_provider)
 @click.option('--ai',                 is_flag=True, is_eager=True, expose_value=False, callback=_ai_guide_callback,    help='Print quick-start guide for AI assistants and exit')
 @click.option('-l', '--list',         is_flag=True, is_eager=True, expose_value=False, callback=_list_profiles_callback, help='List available credential profiles and exit')
 @click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name, shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini')

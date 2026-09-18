@@ -484,6 +484,9 @@ testallow: ## Test allowed_commands in a profile (offline)
 	@echo testing: elm --help lists only allowed commands ; $(ALLOWHOME) && $(testbin) -p limited --help | grep -q '^  MetricsUsage' && ! $(testbin) -p limited --help | grep -q '^  AdminList' ; $(ALLOWDONE)
 	@echo testing: elm --list shows what a profile allows ; $(ALLOWHOME) && $(testbin) --list | grep -q 'limited  (allows: MetricsUsage, Device\*)' ; $(ALLOWDONE)
 	@echo testing: allowed_commands = None is an error, not allow-all ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\nallowed_commands = None\n" > $$c/nulled.ini && chmod 600 $$c/nulled.ini && { $(testbin) -p nulled DeviceList --info >/dev/null 2>&1 ; test $$? -eq 1 ; } ; $(ALLOWDONE)
+	@echo testing: the refusal says how to ask for the command ; $(ALLOWHOME) && $(testbin) -p limited AdminList -s1 2>&1 | grep -q "add 'AdminList' to allowed_commands" ; $(ALLOWDONE)
+	@echo testing: a profile that allows nothing says so in --help ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\nallowed_commands = []\n" > $$c/locked.ini && chmod 600 $$c/locked.ini && $(testbin) -p locked --help | grep -q 'none allowed by this profile' ; $(ALLOWDONE)
+	@echo testing: a broken profile names the file ; $(ALLOWHOME) && printf "access_id = no quotes\n" > $$c/broken.ini && chmod 600 $$c/broken.ini && $(testbin) -p broken DeviceList -s1 2>&1 | grep -q 'broken.ini: Parse error' ; $(ALLOWDONE)
 	@echo testing: elm --list skips example profiles ; $(ALLOWHOME) && printf "access_id = 'x'\n" > $$c/ai.example.ini && ! $(testbin) --list | grep -q 'example' ; $(ALLOWDONE)
 	@echo "$(OK_STRING) $@"
 

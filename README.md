@@ -189,8 +189,9 @@ allowed_commands = ['MetricsUsage']            # or e.g. ['DeviceList', 'Alert*'
 
 Anyone using that profile, whether a person, a script or an AI assistant, can
 then run only those commands. Anything else stops before a request is sent,
-with exit code 3 and the command that was attempted, so a typo or a wrong guess
-inside automation cannot wander off to other endpoints:
+with exit code 3, the command that was attempted and the line to add if it
+should be allowed, so a typo or a wrong guess inside automation cannot wander
+off to other endpoints:
 
 ```text
 $ elm -p metricsusage AdminList -s0

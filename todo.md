@@ -69,3 +69,17 @@ AlertList filters the API ignores. Re-run the set after changing the prompt,
 `elm-notes.yaml`, `elm-knowledge.md` or the model, and compare. Answers change as
 the portal changes, so record the check command, not only the number.
 
+## An elm CLI container image (parked 2026-09-18)
+
+For people who cannot install elm (no Python, locked-down Windows laptops), ship
+elm and jq as a container image, run as
+
+    docker run --rm -v "$HOME/.config/logicmonitor/credentials:/creds:ro" elm DeviceList -s0
+
+Most of the work exists already: the first stage of `tools/elm-ask/Dockerfile`
+renders elm from `_jnja/` and the committed swagger. This would be a root
+`Dockerfile` with `elm` as the entrypoint. Publishing it (e.g. to GHCR from a
+GitHub Action on a release tag) would let anyone `docker pull` it; the image must
+hold no credentials, and the README should point at the credentials mount and
+the Windows path/quoting differences. Parked: useful, not urgent.
+
