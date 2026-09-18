@@ -124,7 +124,7 @@
   </form>
 
   <div class="examples">
-    <button type="button">How many devices are being monitored?</button>
+    <button type="button">How much memory is DEVICE using?</button>
     <button type="button">How many alerts are open right now?</button>
     <button type="button">Which collectors are down?</button>
     <button type="button">What devices have alerting disabled?</button>
@@ -134,7 +134,7 @@
   <div id="results"></div>
   <footer id="footer"></footer>
   <div id="commands" hidden></div>
-  <p id="credit">Powered by <a href="https://rdmarsh.github.io/elm/" target="_blank" rel="noopener">elm</a></p>
+  <p id="credit">Powered by <a href="https://rdmarsh.github.io/elm/" target="_blank" rel="noopener">elm</a><span id="elm-version"></span></p>
 </main>
 
 <script>
@@ -148,8 +148,16 @@ const ICON = {
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
 let conversationId = null;
 
+// An example naming DEVICE is a fill-in-the-blank: put it in the box, select the
+// word to replace, and let the person type the name rather than guessing one.
 document.querySelectorAll(".examples button").forEach(b =>
-  b.addEventListener("click", () => { input.value = b.textContent; form.requestSubmit(); }));
+  b.addEventListener("click", () => {
+    input.value = b.textContent;
+    const blank = input.value.indexOf("DEVICE");
+    if (blank < 0) { form.requestSubmit(); return; }
+    input.focus();
+    input.setSelectionRange(blank, blank + "DEVICE".length);
+  }));
 
 fetch("/api/health").then(r => r.json()).then(h => {
   health = h;
@@ -157,6 +165,7 @@ fetch("/api/health").then(r => r.json()).then(h => {
   if (!h.claude_key) problems.push("No Claude API key is set. Start the container with <code>-e ANTHROPIC_API_KEY=...</code>.");
   if (h.profile_problem) problems.push(esc(h.profile_problem));
   if (problems.length) { $("#banner").innerHTML = problems.join("<br>"); $("#banner").hidden = false; }
+  if (h.elm_version) $("#elm-version").textContent = ` v${h.elm_version}`;
   const scope = h.restricted ? `${h.allowed.length} allowed commands` : "all commands";
   const portal = h.portal
     ? `Portal: <a href="https://${esc(h.portal)}.logicmonitor.com" target="_blank" rel="noopener">${esc(h.portal)}</a> · `

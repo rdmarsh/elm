@@ -8,6 +8,7 @@ own machine, bound to localhost (see README.md for the Docker command).
 
 import json
 import os
+import subprocess
 import threading
 import time
 import uuid
@@ -40,6 +41,21 @@ def get_conversation(conv_id):
         return conv_id, conversations[conv_id]
 
 
+def elm_version():
+    """elm's own version, for the credit line ("elm.py, version 1.10.0")."""
+    global _ELM_VERSION
+    if _ELM_VERSION is None:
+        try:
+            out = subprocess.run(elm_tools.ELM_CMD + ["--version"], capture_output=True, text=True, timeout=30).stdout
+            _ELM_VERSION = out.strip().rsplit(" ", 1)[-1]
+        except Exception:
+            _ELM_VERSION = ""
+    return _ELM_VERSION
+
+
+_ELM_VERSION = None
+
+
 def has_claude_key():
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
@@ -55,6 +71,7 @@ def health():
         "restricted": status["restricted"],
         "allowed": status["allowed"],
         "model": agent.MODEL,
+        "elm_version": elm_version(),
     }
 
 
