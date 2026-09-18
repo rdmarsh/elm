@@ -84,13 +84,17 @@
   tr:last-child td { border-bottom: 0; }
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
   footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 32px; }
+  /* The caution is the line that matters; the setup details sit quietly under it. */
+  footer .caution { display: block; font-style: italic; color: var(--ink); opacity: .75;
+                    font-size: .85rem; margin-bottom: 14px; }
+  footer .setup { opacity: .7; }
   footer button { background: none; border: 0; padding: 0; font: inherit; color: inherit;
                   text-decoration: underline; cursor: pointer; }
   footer a { color: inherit; }
   #commands { margin: 8px auto 0; max-width: 700px; color: var(--muted); font-size: .8rem;
               text-align: center; line-height: 1.7; }
   #commands code { font-size: .95em; }
-  #credit { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 10px; }
+  #credit { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 6px; opacity: .7; }
   #credit a { color: inherit; }
 
   /* Browser printing stays sensible even though there is no print button. */
@@ -170,9 +174,9 @@ fetch("/api/health").then(r => r.json()).then(h => {
   const portal = h.portal
     ? `Portal: <a href="https://${esc(h.portal)}.logicmonitor.com" target="_blank" rel="noopener">${esc(h.portal)}</a> · `
     : "";
-  $("#footer").innerHTML = `Answers can be wrong — check "How I worked this out".<br>`
-    + `${portal}Profile: ${esc(h.profile)} (<button id="show-commands" type="button">${scope}</button>)`
-    + ` · Model: ${esc(h.model)}`;
+  $("#footer").innerHTML = `<span class="caution">Answers can be wrong — check "How I worked this out".</span>`
+    + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
+    + `(<button id="show-commands" type="button">${scope}</button>) · Model: ${esc(h.model)}</span>`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
