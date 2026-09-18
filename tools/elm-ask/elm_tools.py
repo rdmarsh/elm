@@ -303,8 +303,10 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     }
     if result["may_have_more"]:
         result["note"] = f"Hit the {limit}-row page limit; fetch the next page with offset={offset + limit}."
-    if stderr and not lines:
-        result["elm_message"] = truncate(stderr, 500)
+    if stderr:
+        # e.g. "unknown field: uptime" -- the query needs fixing, and without this
+        # an empty column looks like missing data rather than a wrong field name.
+        result["elm_warnings"] = truncate(stderr, 500)
     if removed:
         result["secrets_removed"] = f"{removed} secret-bearing values were removed; request specific fields to avoid them."
     step = {"type": "step", "command": shown, "result": f"{len(lines)} rows as ${ds_id}"}
