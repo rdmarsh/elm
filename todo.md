@@ -68,7 +68,10 @@ down?", "what devices have alerting disabled?"); if those are not right, nothing
 harder will be. Keep the page's examples and the first four test questions the
 same (e.g. open critical alerts = `elm AlertList -c -s0 -F
 cleared:false,severity:4`; devices with alerting disabled, counting group-level
-disables via `alertDisableStatus`). Include questions that have tripped it up:
+disables via `alertDisableStatus`). Watch the prose as well as the tables: asked which collectors were down, a
+cheaper model produced a correct table and then a summary naming collectors that
+were not in it, so a test needs to check the sentences too, not just the query.
+Include questions that have tripped it up:
 severity numbers, alerting disabled by group, "SNMP" alerts, OS detection,
 AlertList filters the API ignores. Include questions it should refuse or answer
 only partly, with the refusal as the expected answer: "show me a list of the

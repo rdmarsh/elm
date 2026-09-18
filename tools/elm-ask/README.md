@@ -11,10 +11,10 @@ Claude works out which elm queries answer the question, runs them, and replies
 with a short answer, sortable tables (with CSV download), caveats, and a
 "How I worked this out" section plus the exact queries it ran.
 
-Each answer has a **Save as PDF** button: it prints that one answer -- question,
-text, tables in full and the queries behind it -- through the browser's print
-dialog, where every browser offers "Save as PDF". The tables also download as
-CSV for spreadsheet work.
+Each answer has a **Markdown** button: it shows the whole answer -- question,
+text, tables as Markdown tables, and the queries behind it -- ready to copy into
+a ticket, a wiki page or a chat, or to download as a `.md` file. Tables also
+download as CSV for spreadsheet work. The title goes back to a fresh page.
 
 It runs in a Docker container on the user's own machine, so nobody needs elm,
 Python or jq installed.

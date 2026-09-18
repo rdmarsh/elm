@@ -25,6 +25,7 @@
   header { text-align: center; margin: 8vh 0 24px; transition: margin .2s; }
   body.has-results header { margin: 0 0 16px; text-align: left; }
   h1 { font-size: 2rem; margin: 0; letter-spacing: -.02em; }
+  h1 a { color: inherit; text-decoration: none; }
   body.has-results h1 { font-size: 1.2rem; }
   header p { color: var(--muted); margin: 4px 0 0; }
   body.has-results header p { display: none; }
@@ -48,7 +49,10 @@
   .turn { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-top: 16px; }
   .turn .question { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; display: flex; gap: 12px; justify-content: space-between; align-items: start; }
   .turn .question button { flex: none; }
-  .print-meta { display: none; }
+  .markdown-view { margin-top: 12px; }
+  .markdown-view textarea { width: 100%; height: 320px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--code); color: var(--ink); resize: vertical; }
+  .markdown-view .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
   .status { color: var(--muted); font-size: .9rem; display: flex; gap: 8px; align-items: center; }
   .spinner { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent);
              border-radius: 50%; animation: spin 1s linear infinite; flex: none; }
@@ -75,14 +79,12 @@
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
   footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 32px; }
 
-  /* Printing (and "Save as PDF", which every browser offers in its print dialog)
-     gives the whole answer: question, text, tables and the queries behind it. */
+  /* Browser printing stays sensible even though there is no print button. */
   @media print {
     body { background: #fff; color: #000; }
     main { max-width: none; padding: 0; }
     header, form, .examples, #banner, footer, button { display: none !important; }
-    .print-meta { display: block; color: #555; font-size: .8rem; margin-bottom: 10px; }
-    body.print-one .turn:not(.print-target) { display: none; }
+    .markdown-view { display: none; }
     .turn { border: 0; padding: 0; margin: 0; }
     .turn .question { display: block; font-size: 1.1rem; }
     .table-scroll { max-height: none; overflow: visible; }
@@ -98,7 +100,7 @@
 <body>
 <main>
   <header>
-    <h1>elm ask</h1>
+    <h1><a href="/">elm ask</a></h1>
     <p>Ask about your LogicMonitor portal in plain English. Read-only.</p>
   </header>
 
@@ -201,26 +203,28 @@ function renderTable(ev) {
   return block;
 }
 
-// Print one answer: everything else hidden, collapsed sections opened, then put back.
+// Everything an answer is made of, kept so it can be rebuilt as Markdown.
 let health = null;
-function printTurn(turn) {
-  const opened = [...turn.querySelectorAll("details:not([open])")];
-  opened.forEach(d => d.open = true);
-  const meta = document.createElement("div");
-  meta.className = "print-meta";
-  meta.textContent = `elm ask · ${health ? health.profile + " · " + health.model : ""} · ${new Date().toLocaleString()}`;
-  turn.prepend(meta);
-  turn.classList.add("print-target");
-  document.body.classList.add("print-one");
-  const restore = () => {
-    document.body.classList.remove("print-one");
-    turn.classList.remove("print-target");
-    meta.remove();
-    opened.forEach(d => d.open = false);
-    window.removeEventListener("afterprint", restore);
-  };
-  window.addEventListener("afterprint", restore);
-  window.print();
+
+function tableMarkdown(t) {
+  const cell = v => String(v ?? "").replace(/\|/g, "\\|");
+  return [`**${t.title}**`, "",
+    `| ${t.columns.join(" | ")} |`,
+    `| ${t.columns.map(() => "---").join(" | ")} |`,
+    ...t.rows.map(r => `| ${r.map(cell).join(" | ")} |`),
+    t.total > t.rows.length ? `\n(${t.total} rows, first ${t.rows.length} shown)` : ""].join("\n");
+}
+
+function answerMarkdown(a) {
+  const when = health ? ` · ${health.profile} · ${health.model}` : "";
+  return [`# ${a.question}`, "",
+    ...a.tables.map(tableMarkdown),
+    a.tables.length ? "" : null,
+    a.answer, "",
+    "## Queries run", "",
+    ...a.steps.map(s => `- \`${s.command}\` → ${s.result}`), "",
+    `_elm ask${when} · ${new Date().toLocaleString()}_`,
+  ].filter(x => x !== null).join("\n");
 }
 
 form.addEventListener("submit", async e => {
@@ -233,9 +237,15 @@ form.addEventListener("submit", async e => {
   const turn = document.createElement("section");
   turn.className = "turn";
   turn.innerHTML = `<div class="question"><span>${esc(question)}</span>
-      <button class="secondary print" type="button" hidden>Save as PDF</button></div>
+      <button class="secondary md-toggle" type="button" hidden>Markdown</button></div>
     <div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
     <div class="tables"></div><div class="answer"></div>
+    <div class="markdown-view" hidden>
+      <textarea readonly></textarea>
+      <div class="row"><button class="secondary copy" type="button">Copy</button>
+        <button class="secondary download" type="button">Download .md</button>
+        <span class="note"></span></div>
+    </div>
     <details class="steps" hidden><summary>Queries run (0)</summary><ol></ol></details>`;
   results.prepend(turn);
   const statusText = $(".status-text", turn), steps = $(".steps", turn);
@@ -248,18 +258,37 @@ form.addEventListener("submit", async e => {
       case "step":
         steps.hidden = false;
         $("ol", steps).insertAdjacentHTML("beforeend", `<li><code>${esc(ev.command)}</code> → ${esc(ev.result)}</li>`);
+        md.steps.push(ev);
         $("summary", steps).textContent = `Queries run (${++stepCount})`;
         break;
-      case "table": $(".tables", turn).append(renderTable(ev)); break;
+      case "table": md.tables.push(ev); $(".tables", turn).append(renderTable(ev)); break;
       case "answer":
+        md.answer = ev.markdown;
         $(".answer", turn).innerHTML = markdown(ev.markdown);
-        $(".print", turn).hidden = false;
+        $(".md-toggle", turn).hidden = false;
         break;
       case "error": $(".answer", turn).insertAdjacentHTML("beforeend", `<p class="error">${esc(ev.text)}</p>`); break;
     }
   };
 
-  $(".print", turn).addEventListener("click", () => printTurn(turn));
+  const md = { question, answer: "", tables: [], steps: [] };
+  const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
+  $(".md-toggle", turn).addEventListener("click", () => {
+    view.hidden = !view.hidden;
+    $(".md-toggle", turn).textContent = view.hidden ? "Markdown" : "Hide Markdown";
+    if (!view.hidden) { box.value = answerMarkdown(md); note.textContent = ""; }
+  });
+  $(".copy", turn).addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(box.value); note.textContent = "Copied"; }
+    catch { box.select(); note.textContent = "Press ctrl/cmd-C to copy"; }
+  });
+  $(".download", turn).addEventListener("click", () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([box.value], { type: "text/markdown" }));
+    a.download = question.replace(/[^\w-]+/g, "_").slice(0, 60) + ".md";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
 
   try {
     const resp = await fetch("/api/ask", {
