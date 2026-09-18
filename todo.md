@@ -89,3 +89,11 @@ GitHub Action on a release tag) would let anyone `docker pull` it; the image mus
 hold no credentials, and the README should point at the credentials mount and
 the Windows path/quoting differences. Parked: useful, not urgent.
 
+## elm-ask: show the allowed commands in the page (idea)
+
+The footer says "44 allowed commands" but not which. Cheapest version: a title
+attribute so hovering lists them; fuller version: make it a link to a small
+page or panel listing each allowed command with its summary (the data is
+already in `profile_status()["allowed"]` and `_defs/commands.json`). Only worth
+it if people ask "what can I ask about?".
+
