@@ -108,9 +108,9 @@ if [[ -n "$EFFORT" && ! "$EFFORT" =~ ^(low|medium|high|xhigh|max)$ ]]; then
 fi
 
 if [[ $BUILD -eq 1 ]]; then
-    ( set -x; docker build -f "$REPO_ROOT/tools/elm-ask/Dockerfile" -t "$IMAGE" "$REPO_ROOT" )
+    ( set -x; docker build -f "$REPO_ROOT/tools/elm-ask/dockerfile" -t "$IMAGE" "$REPO_ROOT" )
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; then
-    echo "No '$IMAGE' image yet. Run with --build (or: docker build -f tools/elm-ask/Dockerfile -t $IMAGE .)" >&2
+    echo "No '$IMAGE' image yet. Run with --build (or: docker build -f tools/elm-ask/dockerfile -t $IMAGE .)" >&2
     exit 1
 fi
 

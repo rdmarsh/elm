@@ -1,4 +1,4 @@
-# Allow-list: only what tools/elm-ask/Dockerfile needs. Keeps credentials
+# Allow-list: only what tools/elm-ask/dockerfile needs. Keeps credentials
 # (*.ini, *.tmp), venv/ and build output out of the build context.
 *
 !Makefile

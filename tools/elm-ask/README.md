@@ -67,7 +67,7 @@ Python or jq installed.
 From the repository root:
 
 ```shell
-docker build -f tools/elm-ask/Dockerfile -t elm-ask .
+docker build -f tools/elm-ask/dockerfile -t elm-ask .
 ```
 
 The build renders elm from `_jnja/` and the committed swagger snapshots inside
@@ -191,6 +191,57 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
 Judge both on answers, not on price alone: a cheaper model that needs three
 attempts is not cheaper. That is what the question set in `todo.md` is for.
 
+## qlm: ask from the command line
+
+`qlm` asks the same questions from a terminal, and prints the answer as
+Markdown, so it pipes:
+
+```shell
+qlm how many devices are in SDT right now
+qlm "which collectors are down?" | glow
+```
+
+It runs Claude Code (`claude -p`) on your own Claude login, not an API key, and
+gives it only elm-ask's tools: no shell, no files. The tools come from
+`mcp_server.py`, which runs in the `elm-ask` image, one container per question,
+with the `ai` profile mounted read-only. It is for your own use on your own
+machine: a Claude login is one person's.
+
+Needs Claude Code (logged in), Docker, the image (see [Build](#build)) and the
+`ai` profile. Claude Code must wait for MCP servers in `-p` mode: 2.1.220 did
+not, and qlm then says "the elm tools did not load"; 2.1.277 does
+(`claude update`). Then put it on your `PATH`:
+
+```shell
+ln -s "$PWD/tools/elm-ask/qlm" ~/bin/qlm
+```
+
+`QLM_PROFILE` picks another profile and `QLM_MODEL` another model. Each
+question starts afresh: there are no follow-ups.
+
+### The same tools elsewhere
+
+`mcp_server.py` is an MCP server: a program that offers tools to any Claude
+Code session. It speaks MCP over stdin and stdout, so it needs no port. To give
+an interactive Claude Code session the tools:
+
+```shell
+claude mcp add elm -- docker run -i --rm --user "$(id -u)" \
+  -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
+  elm-ask python /opt/elm/tools/elm-ask/mcp_server.py
+```
+
+To give them to Docker sandboxes (`sbx`), register the same command. It runs on
+the host, so the credentials stay there and the sandbox only sees the answers:
+
+```shell
+sbx mcp add elm --command docker --args "run,-i,--rm,--user,$(id -u),-v,$HOME/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro,elm-ask,python,/opt/elm/tools/elm-ask/mcp_server.py"
+```
+
+Claude Code keeps only the first 2048 characters of a server's instructions,
+so the server's say "call `guide` first", and the `guide` tool returns
+`system_prompt.md` and `elm-knowledge.md` in full.
+
 ## Run without Docker (development)
 
 With elm built locally (`_cmds/`, `engine.py` and `elm.py` present) and `jq` on `PATH`:
@@ -268,6 +319,8 @@ sequenceDiagram
 | `run.sh` | Starts the container, asking for the model and effort |
 | `app.py` | Serves the page and streams answers from `/api/ask` as newline-delimited JSON |
 | `agent.py` | The Claude tool-use loop |
+| `mcp_server.py` | The same tools as an MCP server, for `qlm` and Claude Code |
+| `qlm` | Asks from the command line through `mcp_server.py` |
 | `elm_tools.py` | The five tools: `find_commands`, `describe_command`, `run_elm`, `jq` and `show_table` |
 | `system_prompt.md` | How to interpret questions and write answers |
 | `../../elm-knowledge.md` | Sent with every question: rules that apply across commands |

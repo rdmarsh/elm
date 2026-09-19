@@ -90,9 +90,9 @@ elm and jq as a container image, run as
 
     docker run --rm -v "$HOME/.config/logicmonitor/credentials:/creds:ro" elm DeviceList -s0
 
-Most of the work exists already: the first stage of `tools/elm-ask/Dockerfile`
+Most of the work exists already: the first stage of `tools/elm-ask/dockerfile`
 renders elm from `_jnja/` and the committed swagger. This would be a root
-`Dockerfile` with `elm` as the entrypoint. Publishing it (e.g. to GHCR from a
+`dockerfile` with `elm` as the entrypoint. Publishing it (e.g. to GHCR from a
 GitHub Action on a release tag) would let anyone `docker pull` it; the image must
 hold no credentials, and the README should point at the credentials mount and
 the Windows path/quoting differences. Parked: useful, not urgent.

@@ -1,0 +1,37 @@
+#!/bin/sh
+# qlm: query LogicMonitor in plain English; the answer comes back as Markdown.
+#
+#   qlm how many devices are in SDT right now
+#   qlm "which collectors are down?" | glow
+#
+# Claude Code answers (on your Claude login, not API credits) with elm-ask's
+# read-only tools and nothing else: no shell, no files. The tools run in the
+# elm-ask Docker image with your credentials mounted read-only; build it first
+# (tools/elm-ask/README.md).
+#
+#   QLM_PROFILE  credential profile (default ai; it must set allowed_commands)
+#   QLM_MODEL    Claude model (default: Claude Code's)
+set -eu
+
+[ $# -gt 0 ] || { echo "usage: qlm QUESTION" >&2; exit 2; }
+
+creds=$HOME/.config/logicmonitor/credentials
+server=$(printf '{"mcpServers":{"elm":{"command":"docker","args":[
+    "run","-i","--rm","--user","%s","-e","ELM_PROFILE=%s",
+    "-v","%s:/home/app/.config/logicmonitor/credentials:ro",
+    "elm-ask","python","/opt/elm/tools/elm-ask/mcp_server.py"]}}}' \
+    "$(id -u)" "${QLM_PROFILE:-ai}" "$creds")
+
+cd "${TMPDIR:-/tmp}"   # keep out any CLAUDE.md from the directory qlm is run in
+# Your local time, so the answer gives times in it rather than in UTC; and a
+# plain error, not a guess, when the MCP server did not connect in time.
+question="$*
+
+(Now: $(date '+%Y-%m-%d %H:%M %Z, UTC%z') for the reader. Give times in it.
+If you have no elm tools, reply only: qlm: the elm tools did not load.)"
+
+exec claude -p "$question" \
+    --mcp-config "$server" --strict-mcp-config \
+    --tools "" --allowedTools mcp__elm --permission-mode dontAsk \
+    --no-session-persistence \
+    ${QLM_MODEL:+--model "$QLM_MODEL"} </dev/null

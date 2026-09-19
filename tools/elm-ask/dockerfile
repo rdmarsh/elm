@@ -1,6 +1,6 @@
 # elm-ask: plain-English LogicMonitor questions in a local web page.
 # Build from the repository root (elm itself is rendered from _jnja/ in stage 1):
-#   docker build -f tools/elm-ask/Dockerfile -t elm-ask .
+#   docker build -f tools/elm-ask/dockerfile -t elm-ask .
 # No apt-get: jq comes from its official image as a static binary, and the
 # full python image already has make and awk.
 
@@ -36,7 +36,7 @@ COPY --from=render /src/elm.py /src/engine.py /src/_version.py ./
 COPY --from=render /src/_cmds/ _cmds/
 COPY --from=render /src/_defs/commands.json _defs/commands.json
 COPY elm-knowledge.md ./
-COPY tools/elm-ask/app.py tools/elm-ask/agent.py tools/elm-ask/elm_tools.py tools/elm-ask/system_prompt.md tools/elm-ask/index.html tools/elm-ask/
+COPY tools/elm-ask/app.py tools/elm-ask/agent.py tools/elm-ask/elm_tools.py tools/elm-ask/mcp_server.py tools/elm-ask/system_prompt.md tools/elm-ask/index.html tools/elm-ask/
 # Host file modes are copied as-is (e.g. 0600); make everything readable by the app user.
 RUN chmod -R a+rX /opt/elm
 
