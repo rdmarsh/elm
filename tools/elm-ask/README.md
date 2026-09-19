@@ -202,6 +202,67 @@ ANTHROPIC_API_KEY=... python tools/elm-ask/app.py      # http://127.0.0.1:8080
 
 ## How it works
 
+The container is a small Python web server. It talks to Claude and to
+LogicMonitor itself; the browser only ever talks to the container. Claude never
+reaches LogicMonitor directly: it asks for a tool, and elm-ask decides whether
+to run it.
+
+```mermaid
+flowchart TB
+    browser["Browser<br/>index.html"]
+    subgraph box["elm-ask container, port 127.0.0.1:8080"]
+        direction TB
+        app["app.py<br/>web server"]
+        agent["agent.py<br/>tool-use loop"]
+        tools["elm_tools.py<br/>allowlist, secret removal"]
+        elm["elm<br/>(subprocess)"]
+        jq["jq<br/>(subprocess)"]
+        data[("datasets $d1, $d2 ...<br/>in memory")]
+        creds[/"ai.ini<br/>mounted read-only"/]
+    end
+    claude(["Claude API<br/>api.anthropic.com"])
+    lm(["LogicMonitor REST API<br/>ACCOUNT.logicmonitor.com"])
+
+    browser -- "question" --> app
+    app -- "progress, tables, answer" --> browser
+    app --> agent
+    agent <-->|"messages + tool results<br/>(API key)"| claude
+    agent -- "tool calls" --> tools
+    tools --> elm
+    tools --> jq
+    creds -.-> elm
+    elm -- "read-only GETs<br/>(HMAC-signed)" --> lm
+    tools -- "rows, secrets removed" --> data
+    jq <--> data
+```
+
+One question, step by step:
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as app.py + agent.py
+    participant C as Claude API
+    participant T as elm_tools.py
+    participant L as LogicMonitor
+
+    B->>A: POST /api/ask {question}
+    loop until Claude answers, up to ELM_ASK_MAX_STEPS
+        A->>C: history + tool definitions
+        C-->>A: tool request (e.g. run_elm DeviceList, filter)
+        A->>T: run the tool
+        T->>T: command allowed by the profile?
+        T->>L: elm query (GET)
+        L-->>T: rows
+        T->>T: remove secrets, save as $dN
+        T-->>A: row count + sample (not every row)
+        A-->>B: progress, queries run, tables
+        A->>C: tool result
+    end
+    C-->>A: final answer (Markdown)
+    A-->>B: answer
+```
+
 | File | Role |
 |---|---|
 | `run.sh` | Starts the container, asking for the model and effort |
