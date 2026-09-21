@@ -22,7 +22,10 @@ server=$(printf '{"mcpServers":{"elm":{"command":"docker","args":[
     "elm-ask","python","/opt/elm/tools/elm-ask/mcp_server.py"]}}}' \
     "$(id -u)" "${QLM_PROFILE:-ai}" "$creds")
 
-cd "${TMPDIR:-/tmp}"   # keep out any CLAUDE.md from the directory qlm is run in
+# claude -p skips the trust dialog and loads settings files silently, so keep
+# both out of it: an empty directory (no CLAUDE.md, no project settings) and
+# --restricted (ignores user settings, refuses bypassPermissions).
+cd "${TMPDIR:-/tmp}"
 # Your local time, so the answer gives times in it rather than in UTC; and a
 # plain error, not a guess, when the MCP server did not connect in time.
 question="$*
@@ -32,6 +35,6 @@ If you have no elm tools, reply only: qlm: the elm tools did not load.)"
 
 exec claude -p "$question" \
     --mcp-config "$server" --strict-mcp-config \
-    --tools "" --allowedTools mcp__elm --permission-mode dontAsk \
+    --tools "" --allowedTools mcp__elm --permission-mode dontAsk --restricted \
     --no-session-persistence \
     ${QLM_MODEL:+--model "$QLM_MODEL"} </dev/null
