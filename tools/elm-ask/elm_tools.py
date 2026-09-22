@@ -43,6 +43,15 @@ SECRET_FIELDS = {
     "websiteConf", "encodedConfigData", "config", "downloadUrl", "copyUrl",
     "accessKey", "password", "privateKey", "secret",
 }
+# Personal contact details, removed for the same reason: no question elm-ask is
+# for needs them, and they would otherwise be sent to the model. PortalInfo
+# carries a contacts list (names, emails, mobile numbers); email and phone
+# appear on people elsewhere too. A question that really is about people ("are
+# the portal contacts the same on both portals?") needs these back, and pseudo-
+# nyms rather than plain removal -- see the README.
+PERSONAL_FIELDS = {"contacts", "email", "phone"}
+REMOVED_FIELDS = SECRET_FIELDS | PERSONAL_FIELDS
+
 # Property lists (customProperties, systemProperties, ...) hold {name, value}.
 # LM already masks credential properties as ******** (verified with a read-only
 # token); mask any credential-like name it did not. Not "auth": snmp.auth is the
@@ -81,12 +90,12 @@ def truncate(text, limit=MAX_TOOL_TEXT):
 
 
 def redact(value):
-    """Return (value with secret fields removed or masked, number of changes)."""
+    """Return (value with secret and personal fields removed or masked, number of changes)."""
     changes = 0
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
-            if key in SECRET_FIELDS:
+            if key in REMOVED_FIELDS:
                 changes += 1
                 continue
             item, n = redact(item)
@@ -229,17 +238,25 @@ def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=N
     size = int(size)
     if not 0 <= size <= MAX_ROWS:
         raise ValueError("size must be 0-1000 (0 means up to 1000)")
+    # Paging, filtering and field selection are per-command options, not global
+    # flags: a command that returns one object (PortalInfo, anything ById) has
+    # no size/offset/filter, and passing them makes elm exit 2.
+    has = {o["name"] for o in COMMANDS[command]["options"]}
 
     args = ["-f", "jsonl", command]
     for name, value in params.items():
         args += [f"--{name}", str(value)]
     if total:
         args += ["-C"]
-    else:
+    elif "size" in has:
         args += ["-s", str(size), "-o", str(int(offset))]
     if filter:
+        if "filter" not in has:
+            raise ValueError(f"{command} takes no filter: it does not return a list to filter.")
         args += ["-F", str(filter)]
     if fields:
+        if "fields" not in has:
+            raise ValueError(f"{command} takes no fields.")
         args += ["-f", ",".join(fields) if isinstance(fields, list) else str(fields)]
     return args
 
@@ -308,7 +325,7 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         # an empty column looks like missing data rather than a wrong field name.
         result["elm_warnings"] = truncate(stderr, 500)
     if removed:
-        result["secrets_removed"] = f"{removed} secret-bearing values were removed; request specific fields to avoid them."
+        result["secrets_removed"] = f"{removed} secret-bearing or personal values were removed; request specific fields to avoid them."
     step = {"type": "step", "command": shown, "result": f"{len(lines)} rows as ${ds_id}"}
     return session.with_notes(command, truncate(json.dumps(result, indent=1, default=str))), step
 

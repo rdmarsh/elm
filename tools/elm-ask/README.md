@@ -29,7 +29,13 @@ Python or jq installed.
   (those print the signed Authorization header).
 - **Secrets removed.** Before the model, jq or the page see a row, elm-ask removes fields that can
   carry secrets (collector `bearerToken` and config blobs, API token keys) and masks
-  credential-like property values that LogicMonitor has not already masked.
+  credential-like property values that LogicMonitor has not already masked. It
+  also drops personal contact details (`contacts`, `email`, `phone`): no
+  question elm-ask is for needs them. A question that really is about people
+  ("are the portal contacts the same on both portals?") would need them back,
+  and pseudonyms rather than removal -- the web page could show the real names
+  in its tables, since those do not pass through the model, but qlm's answer is
+  the model's own text, so there the names could not be restored.
 - **Its own restricted profile.** elm-ask uses the `ai` profile, not your default
   `config`, and refuses to answer until `ai.ini` exists and sets
   `allowed_commands`. You have to create it on purpose, so an everyday token with
