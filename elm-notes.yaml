@@ -1321,7 +1321,8 @@ SDTList:
     id:          string   # format: H_<number> for historical, or other prefixes
     admin:       string   # username of SDT creator
     sdtType:     string   # "oneTime", "weekly", "monthly", "daily"
-    type:        string   # SDT scope type; "ResourceSDT", "ResourceGroupSDT", etc.
+    type:        string   # what the SDT covers: ResourceSDT, ResourceGroupSDT,
+                          # CollectorSDT, DeviceDataSourceInstanceSDT, WebsiteSDT (and more)
     startDateTime: integer  # epoch ms
     endDateTime:   integer  # epoch ms
     deviceDisplayName: string
