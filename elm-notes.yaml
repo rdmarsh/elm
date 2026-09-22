@@ -1331,6 +1331,15 @@ SDTList:
   gotchas:
     - "id is a string (e.g. 'H_161'), not integer — cannot filter numerically"
     - "startDateTime and endDateTime are epoch milliseconds, not seconds"
+    - "startDateTimeOnLocal and endDateTimeOnLocal are already formatted in the PORTAL timezone
+       (the row's own `timezone` field names it): print them as they stand. Verified 2026-09-22
+       against the epochs; on that date two models each moved a window 10 h by adding the reader's
+       offset to the already-local string, and reported the wrong day"
+    - "type is the SDT's scope, so rows are not devices: one ResourceGroupSDT silences every
+       resource in that group, a CollectorSDT everything that collector monitors, and a
+       DeviceDataSourceSDT or DeviceDataSourceInstanceSDT only part of one device. Asked how many
+       devices are in downtime, group by type and say what each row covers; counting rows answers a
+       different question (types from the swagger 2026-09-22; the test portal has only ResourceSDT)"
   patterns:
     currently_active: "elm SDTList -s0 -F isEffective:true -f type,deviceDisplayName,startDateTime,endDateTime,comment"
     long_sdts: "elm SDTList -s0 -f id,deviceDisplayName,endDateTime,comment | jq '.SDTList[] | select(.endDateTime > <far_future_epoch_ms>)'"
