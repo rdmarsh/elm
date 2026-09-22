@@ -17,7 +17,26 @@
 #                (~/.local/state/qlm/qlm.log), or a path to log to
 set -eu
 
-[ $# -gt 0 ] || { echo "usage: qlm QUESTION" >&2; exit 2; }
+usage() {
+    cat <<'END'
+usage: qlm QUESTION            ask a LogicMonitor portal, in plain English
+       qlm --info              what it would use: portal, profile, versions
+       qlm --help
+
+Claude Code answers on your Claude login, using elm-ask's read-only tools
+in the elm-ask Docker image. The answer is Markdown on stdout.
+
+  QLM_PROFILE  credential profile(s), one per portal to ask (default ai)
+  QLM_MODEL    Claude model (default sonnet)
+  QLM_LOG      1 to log questions to $XDG_STATE_HOME/qlm/qlm.log, or a path
+END
+}
+
+case ${1:-} in
+    -h|--help) usage; exit 0 ;;
+    --info) info=yes; shift ;;
+esac
+[ $# -gt 0 ] || [ "${info:-}" = yes ] || { usage >&2; exit 2; }
 
 creds=$HOME/.config/logicmonitor/credentials
 
@@ -36,6 +55,22 @@ for profile in ${QLM_PROFILE:-ai}; do
 \"elm-ask\",\"python\",\"/opt/elm/tools/elm-ask/mcp_server.py\"]}"
     allow="$allow mcp__$name"
 done
+
+if [ "${info:-}" = yes ]; then
+    echo "qlm:      $0"
+    echo "model:    ${QLM_MODEL:-sonnet}"
+    echo "log:      ${QLM_LOG:-off}"
+    echo "claude:   $(claude --version 2>&1 || echo 'not found')"
+    echo "image:    elm-ask, built $(docker image inspect -f '{{.Created}}' elm-ask 2>/dev/null || echo 'not built')"
+    for profile in ${QLM_PROFILE:-ai}; do
+        echo
+        echo "config:   $creds/$profile.ini"
+        docker run -i --rm --user "$(id -u)" --cap-drop ALL --security-opt no-new-privileges \
+            -e "ELM_CONFIG=/creds/$profile.ini" -v "$creds/$profile.ini:/creds/$profile.ini:ro" \
+            elm-ask python /opt/elm/tools/elm-ask/mcp_server.py --info
+    done
+    exit 0
+fi
 
 # Opt-in record of what was asked, and of which portal. Questions can name a
 # device or a site, so the file is kept private (0600 in a 0700 directory).

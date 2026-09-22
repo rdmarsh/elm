@@ -264,6 +264,11 @@ not, and qlm then says "the elm tools did not load"; 2.1.277 does
 ln -s "$PWD/tools/elm-ask/qlm" ~/bin/qlm
 ```
 
+`qlm --info` says what a question would use -- the profile and its file, the
+portal, the allowed command count, elm's version, when the image was built, and
+which Claude Code answers -- and `qlm --help` lists the rest. `mcp_server.py
+--info` prints the portal half of that on its own.
+
 `QLM_MODEL` picks another model (default `sonnet`). Each question starts
 afresh: there are no follow-ups.
 

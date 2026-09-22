@@ -12,6 +12,7 @@ client exits.
 
 import functools
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -79,7 +80,22 @@ def reply(request, result):
     print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": result}), flush=True)
 
 
+def info():
+    """What this server would answer with: elm, the profile, the portal."""
+    version = subprocess.run(elm_tools.ELM_CMD + ["--version"], capture_output=True, text=True, timeout=60)
+    status = elm_tools.profile_status()
+    print(f"elm:      {version.stdout.strip() or version.stderr.strip()}")
+    # With ELM_CONFIG the name is a path inside the container; its file name is the useful part.
+    print(f"profile:  {Path(status['name']).name}")
+    print(f"portal:   {status['account'] or '(unknown)'}")
+    print(f"commands: {len(status['allowed'])} allowed" if status["restricted"] else "commands: every command (no allowed_commands)")
+    if status["problem"]:
+        print(f"problem:  {status['problem']}")
+
+
 def main():
+    if "--info" in sys.argv[1:]:
+        return info()
     session = elm_tools.Session()
     tools = [GUIDE_TOOL] + [{"name": t["name"], "description": t["description"], "inputSchema": t["input_schema"]}
              for t in elm_tools.TOOLS]
