@@ -124,6 +124,23 @@ qlm passes that through as `elm --cacert`, which overrides everything else.
 The path is the one inside the container, and that bundle is where the CA from
 `certs/` ends up.
 
+If a query then fails with `certificate verify failed: Basic Constraints of CA
+cert not marked critical`, the certificate is installed and being read -- it is
+being rejected. RFC 5280 requires a CA certificate to mark basicConstraints
+critical, Python 3.13 checks that by default (3.12 did not), and some corporate
+CAs do not comply. Check yours:
+
+```shell
+openssl x509 -in tools/elm-ask/certs/your-root.crt -noout -text | grep -A1 'Basic Constraints'
+```
+
+Without the word `critical` there, ask for a compliant certificate, or build on
+the older Python, which does not enforce it:
+
+```shell
+docker build --build-arg PYTHON_VERSION=3.12 -f tools/elm-ask/dockerfile -t elm-ask .
+```
+
 Getting the certificate is a local matter (Keychain Access on macOS exports it
 as a `.pem`, which can simply be renamed); your IT people are the source of
 truth. Docker itself must trust it too, or it cannot even pull the base images:
