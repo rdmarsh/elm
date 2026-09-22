@@ -1,0 +1,4 @@
+Drop your organisation's root CA here as a .crt file to build behind a
+TLS-inspecting proxy; see "Build" in ../README.md. Certificates in this
+directory are not committed. This file only keeps the directory in git,
+because the build copies it.

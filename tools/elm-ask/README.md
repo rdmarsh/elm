@@ -91,6 +91,35 @@ If the build (or qlm) fails with `failed to connect to the docker API at
 unix:///var/run/docker.sock`, the daemon is not running or its socket is
 elsewhere; see [When it will not answer](#when-it-will-not-answer).
 
+### Behind a proxy that inspects TLS
+
+On a corporate network that decrypts outbound traffic, the build fails at
+`pip install` with `certificate verify failed: unable to get local issuer
+certificate`: the proxy presents its own certificate, and the image trusts
+neither it nor anything signed by it. Put your organisation's root CA in
+`tools/elm-ask/certs/`, as a file ending in `.crt`, and build again:
+
+```shell
+cp ~/corporate-root.pem tools/elm-ask/certs/corporate-root.crt
+docker build -f tools/elm-ask/dockerfile -t elm-ask .
+```
+
+Both stages trust everything in that directory before they install anything
+(`update-ca-certificates` reports `1 added`), and both pip and elm's own
+requests are pointed at the system bundle, because each otherwise trusts a
+certifi file of its own. Certificates there are not committed, and an empty
+directory changes nothing, so the same build works on a network that inspects
+nothing.
+
+Two consequences worth knowing: the image then trusts that CA for everything,
+so do not push it to a shared registry, and `ELM_CACERT` is no longer needed --
+elm already reaches LogicMonitor through the same bundle.
+
+Getting the certificate is a local matter (Keychain Access on macOS exports it
+as a `.pem`, which can simply be renamed); your IT people are the source of
+truth. Docker itself must trust it too, or it cannot even pull the base images:
+that is a setting of your Docker runtime, not of this build.
+
 ## Run
 
 `tools/elm-ask/run.sh` wraps the `docker run` below and asks which model and
@@ -178,7 +207,7 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 | `ELM_PROFILE` | `ai` | Credential profile name, as `elm --profile`. Must set `allowed_commands` |
 | `ELM_ASK_ALLOW_UNRESTRICTED` | | Set to `1` to allow a profile without `allowed_commands` |
 | `ELM_CONFIG` | | Path to a specific `.ini` inside the container (overrides `ELM_PROFILE`) |
-| `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too) |
+| `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too; unnecessary if the CA was built in, see [Build](#behind-a-proxy-that-inspects-tls)) |
 | `ELM_ASK_MODEL` | the cheapest current model (see `agent.py`) | Claude model to answer with (the page footer shows the one in use) |
 | `ELM_ASK_EFFORT` | API default | How hard the model works per step; lower is faster and cheaper |
 | `ELM_ASK_MAX_STEPS` | `25` | Maximum model turns per question |

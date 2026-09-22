@@ -3,6 +3,10 @@
 #   docker build -f tools/elm-ask/dockerfile -t elm-ask .
 # No apt-get: jq comes from its official image as a static binary, and the
 # full python image already has make and awk.
+#
+# On a network that inspects TLS, put your organisation's root CA in
+# tools/elm-ask/certs/ as a .crt file; both stages trust whatever is there
+# before installing anything. Empty, it changes nothing (see README "Build").
 
 ARG PYTHON_VERSION=3.13
 ARG JQ_IMAGE=ghcr.io/jqlang/jq:1.8.1
@@ -13,6 +17,11 @@ FROM ${JQ_IMAGE} AS jq
 FROM python:${PYTHON_VERSION} AS render
 COPY --from=jq /jq /usr/local/bin/jq
 WORKDIR /src
+COPY tools/elm-ask/certs/ /usr/local/share/ca-certificates/extra/
+# pip trusts its own bundled certifi, not the system store, so send it to the
+# system bundle: the usual roots, plus anything certs/ just added.
+RUN update-ca-certificates
+ENV PIP_CERT=/etc/ssl/certs/ca-certificates.crt
 COPY requirements.txt ./
 RUN grep -E '^(jinja2-cli|Jinja2|PyYAML)' requirements.txt | xargs pip install --no-cache-dir
 COPY Makefile swagger.documented.json swagger.undocumented.json _version.py mkinfo.py elm-notes.yaml ./
@@ -25,6 +34,9 @@ RUN make _defs/commands.json && make _info INFOPY=python && make _render JINJA=j
 FROM python:${PYTHON_VERSION}-slim
 COPY --from=jq /jq /usr/local/bin/jq
 RUN useradd --create-home --uid 1000 app && chmod 755 /home/app
+COPY tools/elm-ask/certs/ /usr/local/share/ca-certificates/extra/
+RUN update-ca-certificates
+ENV PIP_CERT=/etc/ssl/certs/ca-certificates.crt
 COPY requirements.txt /tmp/requirements.txt
 COPY tools/elm-ask/requirements.txt /tmp/elm-ask-requirements.txt
 # Runtime dependencies only: everything above "# Build-time only" in requirements.txt.
@@ -42,7 +54,11 @@ RUN chmod -R a+rX /opt/elm
 
 # HOME is fixed so the credentials path is the same when run as another uid
 # (docker run --user "$(id -u)", needed to read a 0600 config.ini).
-ENV HOME=/home/app \
+# REQUESTS_CA_BUNDLE for the same reason as PIP_CERT: elm reaches LogicMonitor
+# with requests, which also trusts certifi rather than the system store. elm
+# --cacert (ELM_CACERT) still wins when it is given.
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    HOME=/home/app \
     ELM_HOME=/opt/elm \
     ELM_ASK_HOST=0.0.0.0 \
     ELM_ASK_PORT=8080 \

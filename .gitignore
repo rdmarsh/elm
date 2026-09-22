@@ -155,3 +155,8 @@ SKILLS_USED.md
 # .claude/settings.json may still be committed if ever needed)
 .claude/settings.local.json
 
+# A corporate root CA for building behind a TLS-inspecting proxy lives in
+# tools/elm-ask/certs/ (see tools/elm-ask/README.md); the directory is kept,
+# the certificates are not committed.
+tools/elm-ask/certs/*
+!tools/elm-ask/certs/.gitkeep
