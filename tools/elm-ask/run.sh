@@ -23,6 +23,9 @@
 # Judge them on answers, not price: a cheaper model that needs three attempts
 # is not cheaper.
 #
+# Run at a terminal without --yes, it opens the page in your browser once the
+# server answers; with --yes, or with no terminal, it only prints the address.
+#
 # Needs a Claude API key and a credential profile with allowed_commands (see
 # ai.example.ini). The key comes from ANTHROPIC_API_KEY, or from the macOS
 # keychain item named below, which run.sh tells you how to store.
@@ -145,5 +148,16 @@ fi
 
 printf 'elm-ask: profile %s, model %s, effort %s\n' \
     "$PROFILE" "${MODEL:-$DEFAULT_MODEL}" "${EFFORT:-none}"
-printf 'Open http://localhost:%s  (ctrl-c here to stop)\n\n' "$PORT"
+URL="http://127.0.0.1:$PORT/"
+printf 'Open %s  (ctrl-c here to stop)\n\n' "$URL"
+
+# Open the browser once the server answers: opened sooner, it shows a "can't
+# connect" page. Only when someone is at a terminal and did not say --yes. The
+# waiting runs in the background, so it outlives the exec below.
+if [[ $ASK -eq 1 && -t 1 ]] && opener=$(command -v open || command -v xdg-open); then
+    ( for _ in $(seq 60); do
+          curl -fs -o /dev/null "$URL" && exec "$opener" "$URL"
+          sleep 0.5
+      done ) &
+fi
 exec "${cmd[@]}"
