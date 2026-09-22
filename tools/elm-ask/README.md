@@ -157,8 +157,9 @@ macOS / Linux:
 
 ```shell
 docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
-  -e ANTHROPIC_API_KEY \
-  -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
+  --cap-drop ALL --security-opt no-new-privileges \
+  -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/ai.ini \
+  -v ~/.config/logicmonitor/credentials/ai.ini:/creds/ai.ini:ro \
   elm-ask
 ```
 
@@ -166,14 +167,17 @@ Windows (PowerShell):
 
 ```powershell
 docker run --rm -p 127.0.0.1:8080:8080 `
-  -e ANTHROPIC_API_KEY `
-  -v "$env:USERPROFILE\.config\logicmonitor\credentials:/home/app/.config/logicmonitor/credentials:ro" `
+  --cap-drop ALL --security-opt no-new-privileges `
+  -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/ai.ini `
+  -v "$env:USERPROFILE\.config\logicmonitor\credentials\ai.ini:/creds/ai.ini:ro" `
   elm-ask
 ```
 
 `--user "$(id -u)"` runs the container as you, so it can read your profile
 (elm keeps credentials at mode 0600). Without it the page says the profile was
-not found.
+not found. Only that one profile is mounted, so the container never holds the
+rest of your credentials, and it drops the Linux capabilities elm has no use
+for.
 
 Then open <http://localhost:8080>.
 
@@ -181,28 +185,21 @@ Then open <http://localhost:8080>.
 
 This uses the `ai` profile (`ai.ini`). To use a different one:
 
-- **Another profile in your credentials folder**, e.g.
-  `~/.config/logicmonitor/credentials/ai-preprod.ini`: pass its name, without
-  `.ini`, as `ELM_PROFILE`.
+`run.sh --profile ai-preprod` is the short way. By hand, mount whichever `.ini`
+you mean and name it with `ELM_CONFIG`; it may live anywhere, not only in the
+credentials folder:
 
-  ```shell
-  docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
-    -e ANTHROPIC_API_KEY -e ELM_PROFILE=ai-preprod \
-    -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
-    elm-ask
-  ```
+```shell
+docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
+  --cap-drop ALL --security-opt no-new-privileges \
+  -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/ai-preprod.ini \
+  -v ~/.config/logicmonitor/credentials/ai-preprod.ini:/creds/ai-preprod.ini:ro \
+  elm-ask
+```
 
-- **A profile file somewhere else**: mount that one file, and pass its path
-  *inside the container* as `ELM_CONFIG`.
-
-  ```shell
-  docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
-    -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/preprod.ini \
-    -v ~/somewhere/preprod.ini:/creds/preprod.ini:ro \
-    elm-ask
-  ```
-
-If both are set, `ELM_CONFIG` wins. Either way the profile must set
+`ELM_PROFILE=NAME` still works, for a container with the whole credentials
+folder mounted at `/home/app/.config/logicmonitor/credentials`; `ELM_CONFIG`
+wins when both are set. Either way the profile must set
 `allowed_commands`, unless you also add `-e ELM_ASK_ALLOW_UNRESTRICTED=1`. The
 page footer names the portal and the profile, and its "N allowed commands" is a
 button that lists them.

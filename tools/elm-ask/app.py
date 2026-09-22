@@ -65,7 +65,7 @@ def health():
     status = elm_tools.profile_status()
     return {
         "claude_key": has_claude_key(),
-        "profile": "custom config file" if elm_tools.ELM_CONFIG else status["name"],
+        "profile": Path(elm_tools.ELM_CONFIG).name if elm_tools.ELM_CONFIG else status["name"],
         "portal": status["account"],
         "profile_problem": status["problem"],
         "restricted": status["restricted"],

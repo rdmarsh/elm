@@ -128,9 +128,12 @@ elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; th
     exit 1
 fi
 
+# Only the profile in use is mounted, as one file: the container has no reason
+# to hold the rest of your credentials. elm needs nothing dropped either.
 cmd=(docker run --rm -p "127.0.0.1:$PORT:8080" --user "$(id -u)"
-     -e ANTHROPIC_API_KEY -e "ELM_PROFILE=$PROFILE"
-     -v "$CREDS_DIR:/home/app/.config/logicmonitor/credentials:ro")
+     --cap-drop ALL --security-opt no-new-privileges
+     -e ANTHROPIC_API_KEY -e "ELM_CONFIG=/creds/$PROFILE.ini"
+     -v "$CREDS_DIR/$PROFILE.ini:/creds/$PROFILE.ini:ro")
 [[ -n "$MODEL" ]] && cmd+=(-e "ELM_ASK_MODEL=$MODEL")
 [[ -n "$EFFORT" ]] && cmd+=(-e "ELM_ASK_EFFORT=$EFFORT")
 cmd+=("$IMAGE")
