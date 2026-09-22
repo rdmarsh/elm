@@ -201,6 +201,36 @@ qlm how many devices are in SDT right now
 qlm "which collectors are down?" | glow
 ```
 
+```mermaid
+flowchart TB
+    you["$ qlm how many devices ... | glow"]
+    qlm["qlm<br/>adds your local time;<br/>no shell, no files, no settings"]
+    cc["claude -p<br/>plans, calls tools, writes the answer"]
+    subgraph box["docker run elm-ask (one per question, then removed)"]
+        direction TB
+        mcp["mcp_server.py<br/>guide + the five tools"]
+        tools["elm_tools.py<br/>allowlist, secret removal"]
+        elm["elm"]
+        jq["jq"]
+        data[("datasets $d1, $d2 ...")]
+        creds[/"ai.ini<br/>mounted read-only"/]
+    end
+    claude(["Claude<br/>your subscription"])
+    lm(["LogicMonitor REST API"])
+
+    you --> qlm --> cc
+    cc <-->|"question, tool results,<br/>answer"| claude
+    cc <-->|"MCP over stdin/stdout"| mcp
+    mcp --> tools
+    tools --> elm
+    tools --> jq
+    tools -- "rows, secrets removed" --> data
+    jq <--> data
+    creds -.-> elm
+    elm -- "read-only GETs" --> lm
+    cc -- "Markdown on stdout" --> you
+```
+
 It runs Claude Code (`claude -p`) on your own Claude login, not an API key, and
 gives it only elm-ask's tools: no shell, no files. The tools come from
 `mcp_server.py`, which runs in the `elm-ask` image, one container per question,
