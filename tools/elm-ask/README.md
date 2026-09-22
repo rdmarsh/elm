@@ -112,8 +112,17 @@ directory changes nothing, so the same build works on a network that inspects
 nothing.
 
 Two consequences worth knowing: the image then trusts that CA for everything,
-so do not push it to a shared registry, and `ELM_CACERT` is no longer needed --
-elm already reaches LogicMonitor through the same bundle.
+so do not push it to a shared registry, and `ELM_CACERT` should not be needed
+-- elm reaches LogicMonitor through the same bundle, via `REQUESTS_CA_BUNDLE`.
+If a query still fails to verify the certificate, say so explicitly:
+
+```shell
+ELM_CACERT=/etc/ssl/certs/ca-certificates.crt qlm ...
+```
+
+qlm passes that through as `elm --cacert`, which overrides everything else.
+The path is the one inside the container, and that bundle is where the CA from
+`certs/` ends up.
 
 Getting the certificate is a local matter (Keychain Access on macOS exports it
 as a `.pem`, which can simply be renamed); your IT people are the source of

@@ -13,6 +13,7 @@
 #   QLM_PROFILE  credential profile(s), one per portal to ask
 #                (default ai; each must set allowed_commands)
 #   QLM_MODEL    Claude model (default sonnet)
+#   ELM_CACERT   CA bundle inside the container, as elm --cacert
 #   QLM_LOG      1 to log questions to $XDG_STATE_HOME/qlm/qlm.log
 #                (~/.local/state/qlm/qlm.log), or a path to log to
 set -eu
@@ -49,6 +50,12 @@ claude --help 2>/dev/null | grep -q -- --restricted || {
 
 creds=$HOME/.config/logicmonitor/credentials
 
+# ELM_CACERT, when set, is passed on as elm --cacert inside the container: the
+# last word on TLS for networks that inspect it. The path is the container's --
+# a CA built into the image (tools/elm-ask/certs/) is at the bundle below.
+cacert=
+[ -n "${ELM_CACERT:-}" ] && cacert="\"-e\",\"ELM_CACERT=$ELM_CACERT\","
+
 # One container per profile, so a question can compare two portals, and so each
 # container holds only the one profile it uses -- not every credential you own.
 servers=
@@ -66,7 +73,7 @@ for profile in ${QLM_PROFILE:-ai}; do
     servers="$servers${servers:+,}\"$name\":{\"command\":\"docker\",\"args\":[\
 \"run\",\"-i\",\"--rm\",\"--user\",\"$(id -u)\",\
 \"--cap-drop\",\"ALL\",\"--security-opt\",\"no-new-privileges\",\
-\"-e\",\"ELM_CONFIG=/creds/$profile.ini\",\
+\"-e\",\"ELM_CONFIG=/creds/$profile.ini\",$cacert\
 \"-v\",\"$creds/$profile.ini:/creds/$profile.ini:ro\",\
 \"elm-ask\",\"python\",\"/opt/elm/tools/elm-ask/mcp_server.py\"]}"
     allow="$allow mcp__$name"
