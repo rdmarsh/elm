@@ -246,8 +246,27 @@ not, and qlm then says "the elm tools did not load"; 2.1.277 does
 ln -s "$PWD/tools/elm-ask/qlm" ~/bin/qlm
 ```
 
-`QLM_PROFILE` picks another profile and `QLM_MODEL` another model. Each
-question starts afresh: there are no follow-ups.
+`QLM_MODEL` picks another model (default `sonnet`). Each question starts
+afresh: there are no follow-ups.
+
+Only the profile in use is mounted, as a single file, so the container holds
+that one token and not every credential you own. It also runs with
+`--cap-drop=ALL --security-opt=no-new-privileges`: elm needs neither.
+
+### Asking two portals at once
+
+`QLM_PROFILE` names the profile to use, and it can name more than one:
+
+```shell
+QLM_PROFILE="ai-prod ai-preprod" qlm which collectors are in prod but not preprod
+```
+
+Each profile gets its own container and its own tools
+(`mcp__elm_ai_prod__run_elm`, `mcp__elm_ai_preprod__run_elm`), so one question
+can compare portals. Each container keeps its own datasets, so a single jq
+expression cannot join across portals: the answer compares what each portal
+returned. Two portals means two containers and two `guide` calls, so it costs
+more than asking one.
 
 ### The same tools elsewhere
 

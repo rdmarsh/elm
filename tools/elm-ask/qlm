@@ -3,24 +3,37 @@
 #
 #   qlm how many devices are in SDT right now
 #   qlm "which collectors are down?" | glow
+#   QLM_PROFILE="ai-prod ai-preprod" qlm which collectors are missing in preprod
 #
 # Claude Code answers (on your Claude login, not API credits) with elm-ask's
 # read-only tools and nothing else: no shell, no files. The tools run in the
 # elm-ask Docker image with your credentials mounted read-only; build it first
 # (tools/elm-ask/README.md).
 #
-#   QLM_PROFILE  credential profile (default ai; it must set allowed_commands)
-#   QLM_MODEL    Claude model (default: Claude Code's)
+#   QLM_PROFILE  credential profile(s), one per portal to ask
+#                (default ai; each must set allowed_commands)
+#   QLM_MODEL    Claude model (default sonnet)
 set -eu
 
 [ $# -gt 0 ] || { echo "usage: qlm QUESTION" >&2; exit 2; }
 
 creds=$HOME/.config/logicmonitor/credentials
-server=$(printf '{"mcpServers":{"elm":{"command":"docker","args":[
-    "run","-i","--rm","--user","%s","-e","ELM_PROFILE=%s",
-    "-v","%s:/home/app/.config/logicmonitor/credentials:ro",
-    "elm-ask","python","/opt/elm/tools/elm-ask/mcp_server.py"]}}}' \
-    "$(id -u)" "${QLM_PROFILE:-ai}" "$creds")
+
+# One container per profile, so a question can compare two portals, and so each
+# container holds only the one profile it uses -- not every credential you own.
+servers=
+allow=
+for profile in ${QLM_PROFILE:-ai}; do
+    [ -f "$creds/$profile.ini" ] || { echo "qlm: no such profile: $creds/$profile.ini" >&2; exit 2; }
+    name=elm_$(printf %s "$profile" | tr -c 'A-Za-z0-9' _)
+    servers="$servers${servers:+,}\"$name\":{\"command\":\"docker\",\"args\":[\
+\"run\",\"-i\",\"--rm\",\"--user\",\"$(id -u)\",\
+\"--cap-drop\",\"ALL\",\"--security-opt\",\"no-new-privileges\",\
+\"-e\",\"ELM_CONFIG=/creds/$profile.ini\",\
+\"-v\",\"$creds/$profile.ini:/creds/$profile.ini:ro\",\
+\"elm-ask\",\"python\",\"/opt/elm/tools/elm-ask/mcp_server.py\"]}"
+    allow="$allow mcp__$name"
+done
 
 # claude -p skips the trust dialog and loads settings files silently, so keep
 # both out of it: an empty directory (no CLAUDE.md, no project settings) and
@@ -33,8 +46,9 @@ question="$*
 (Now: $(date '+%Y-%m-%d %H:%M %Z, UTC%z') for the reader. Give times in it.
 If you have no elm tools, reply only: qlm: the elm tools did not load.)"
 
+# $allow is a list of server names (letters, digits and _), so it is deliberately unquoted.
 exec claude -p "$question" \
-    --mcp-config "$server" --strict-mcp-config \
-    --tools "" --allowedTools mcp__elm --permission-mode dontAsk --restricted \
+    --mcp-config "{\"mcpServers\":{$servers}}" --strict-mcp-config \
+    --tools "" --allowedTools $allow --permission-mode dontAsk --restricted \
     --no-session-persistence \
-    ${QLM_MODEL:+--model "$QLM_MODEL"} </dev/null
+    --model "${QLM_MODEL:-sonnet}" </dev/null
