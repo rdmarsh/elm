@@ -264,6 +264,11 @@ not, and qlm then says "the elm tools did not load"; 2.1.277 does
 ln -s "$PWD/tools/elm-ask/qlm" ~/bin/qlm
 ```
 
+qlm uses only profiles named `ai` or `ai-something` (`ai-acme`,
+`ai-preprod`), so a mistyped `QLM_PROFILE` cannot reach your everyday token. It
+is a guard against your own slip, not a boundary: what a profile may do is set
+by its `allowed_commands` and by its token's LM role, never by its name.
+
 `qlm --info` says what a question would use -- the profile and its file, the
 portal, the allowed command count, elm's version, when the image was built, and
 which Claude Code answers -- and `qlm --help` lists the rest. `mcp_server.py

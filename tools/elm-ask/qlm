@@ -45,6 +45,13 @@ creds=$HOME/.config/logicmonitor/credentials
 servers=
 allow=
 for profile in ${QLM_PROFILE:-ai}; do
+    # Only the ai profiles, so a tired QLM_PROFILE cannot reach an everyday
+    # token. A guard against your own mistake, not a boundary: what a profile
+    # may do is decided by its allowed_commands and its LM role, not its name.
+    case $profile in
+        ai|ai-*) ;;
+        *) echo "qlm: only 'ai' profiles can be used, not '$profile' (see tools/elm-ask/README.md)" >&2; exit 2 ;;
+    esac
     [ -f "$creds/$profile.ini" ] || { echo "qlm: no such profile: $creds/$profile.ini" >&2; exit 2; }
     name=elm_$(printf %s "$profile" | tr -c 'A-Za-z0-9' _)
     servers="$servers${servers:+,}\"$name\":{\"command\":\"docker\",\"args\":[\
