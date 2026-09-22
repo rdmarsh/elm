@@ -23,8 +23,9 @@
 # Judge them on answers, not price: a cheaper model that needs three attempts
 # is not cheaper.
 #
-# Needs ANTHROPIC_API_KEY in the environment, and a credential profile with
-# allowed_commands (see ai.example.ini).
+# Needs a Claude API key and a credential profile with allowed_commands (see
+# ai.example.ini). The key comes from ANTHROPIC_API_KEY, or from the macOS
+# keychain item named below, which run.sh tells you how to store.
 #
 # Examples:
 #   run.sh                                   # prompts, then starts
@@ -47,6 +48,7 @@ MODELS=(
 )
 # The default the image would use, read from the code next to this script so the
 # two cannot drift apart.
+KEYCHAIN_ITEM=${ELM_ASK_KEYCHAIN_ITEM:-anthropic-api-key}   # macOS keychain item holding the key
 DEFAULT_MODEL=$(sed -n 's/^MODEL = os.environ.get("ELM_ASK_MODEL", "\([^"]*\)")/\1/p' \
     "$(dirname "${BASH_SOURCE[0]}")/agent.py" 2>/dev/null) || true
 DEFAULT_MODEL=${DEFAULT_MODEL:-image default}
@@ -74,8 +76,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# The key can live in the macOS keychain instead of a file or your shell
+# history; store it once with:
+#   security add-generic-password -a "$USER" -s "$KEYCHAIN_ITEM" -w
+# (no value on the command line: it prompts, and history keeps nothing).
+if [[ -z "${ANTHROPIC_API_KEY:-}" ]] && command -v security >/dev/null; then
+    ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "$KEYCHAIN_ITEM" -w 2>/dev/null) || true
+    export ANTHROPIC_API_KEY
+fi
+
 [[ -n "${ANTHROPIC_API_KEY:-}" ]] || {
-    echo "ANTHROPIC_API_KEY is not set. Export it first (console.anthropic.com)." >&2
+    echo "ANTHROPIC_API_KEY is not set (get a key at console.anthropic.com), and" >&2
+    echo "nothing is stored as '$KEYCHAIN_ITEM' in your keychain. Either export it," >&2
+    echo "or store it once and run.sh will find it from now on:" >&2
+    echo "    security add-generic-password -a \"\$USER\" -s $KEYCHAIN_ITEM -w" >&2
     exit 1
 }
 

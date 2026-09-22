@@ -126,7 +126,7 @@ that is a setting of your Docker runtime, not of this build.
 effort to use:
 
 ```shell
-export ANTHROPIC_API_KEY=...        # once per terminal
+export ANTHROPIC_API_KEY=...        # once per terminal, or see below
 tools/elm-ask/run.sh                # asks, then starts
 tools/elm-ask/run.sh -y             # no questions, image defaults
 tools/elm-ask/run.sh -m claude-sonnet-5 -e medium -y
@@ -140,6 +140,18 @@ the image with `--build`, and prints the command instead of running it with
 `--dry-run`.
 `run.sh -h` lists everything. The plain commands below do the same thing by
 hand (and are what Windows needs).
+
+On macOS the key can live in the keychain instead, so no terminal and no file
+ever holds it. Store it once (the command prompts, so the key stays out of your
+shell history):
+
+```shell
+security add-generic-password -a "$USER" -s anthropic-api-key -w
+```
+
+`run.sh` reads it from there whenever `ANTHROPIC_API_KEY` is unset, and says
+how to store it when there is nothing to read. `ELM_ASK_KEYCHAIN_ITEM` names a
+different item. qlm needs none of this: it answers on your Claude login.
 
 macOS / Linux:
 
