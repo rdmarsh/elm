@@ -79,6 +79,18 @@ docker build -f tools/elm-ask/dockerfile -t elm-ask .
 The build renders elm from `_jnja/` and the committed swagger snapshots inside
 the image. It does not use your local `venv/`, `_cmds/` or `_dist/`.
 
+The image holds its own copy of everything, so **rebuild after changing any of
+it**: the templates in `_jnja/`, `elm-notes.yaml`, `elm-knowledge.md`, or the
+files in `tools/elm-ask/`. Nothing in the running container reads your working
+tree, so an edit you have not rebuilt is simply not there. Docker caches the
+layers, so a rebuild after editing only `tools/elm-ask/` takes seconds; a
+template change re-renders elm and takes longer. Credentials and the model are
+read at run time, so changing those needs no rebuild.
+
+If the build (or qlm) fails with `failed to connect to the docker API at
+unix:///var/run/docker.sock`, the daemon is not running or its socket is
+elsewhere; see [When it will not answer](#when-it-will-not-answer).
+
 ## Run
 
 `tools/elm-ask/run.sh` wraps the `docker run` below and asks which model and
