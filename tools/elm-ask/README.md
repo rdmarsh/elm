@@ -266,6 +266,25 @@ Only the profile in use is mounted, as a single file, so the container holds
 that one token and not every credential you own. It also runs with
 `--cap-drop=ALL --security-opt=no-new-privileges`: elm needs neither.
 
+### When it will not answer
+
+- **`qlm: the elm tools did not load`** -- Claude Code answered before the MCP
+  server connected, or the server failed to start. Check the server by hand:
+  `echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run -i --rm
+  elm-ask python /opt/elm/tools/elm-ask/mcp_server.py` should print a tool list.
+- **`failed to connect to the Docker API at unix:///var/run/docker.sock ...
+  connect: no such file or directory`** -- no Docker daemon is listening there.
+  Either it is not running (start Docker Desktop, or `colima start`), or it
+  keeps its socket elsewhere: Docker Desktop on macOS uses
+  `~/.docker/run/docker.sock` and Colima `~/.colima/default/docker.sock`. Point
+  Docker at it with `export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`
+  (`docker context ls` shows which socket the current context uses).
+- **`Failed to authenticate: OAuth session expired and could not be
+  refreshed`** -- Claude Code's own login, not qlm: run `claude`, `/login`, and
+  try again. `claude setup-token` avoids repeating it.
+- **A message about `allowed_commands`** -- the profile is missing, or does not
+  restrict commands; the answer names which.
+
 ### Asking two portals at once
 
 `QLM_PROFILE` names the profile to use, and it can name more than one:
