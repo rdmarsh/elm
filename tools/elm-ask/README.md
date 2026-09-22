@@ -285,9 +285,10 @@ with the `ai` profile mounted read-only. It is for your own use on your own
 machine: a Claude login is one person's.
 
 Needs Claude Code (logged in), Docker, the image (see [Build](#build)) and the
-`ai` profile. Claude Code must wait for MCP servers in `-p` mode: 2.1.220 did
-not, and qlm then says "the elm tools did not load"; 2.1.277 does
-(`claude update`). Then put it on your `PATH`:
+`ai` profile. Claude Code must be recent enough for `--restricted` and to wait
+for MCP servers in `-p` mode: 2.1.236 lacks the flag and 2.1.220 answered
+before the server connected, saying "the elm tools did not load"; 2.1.277 does
+both. qlm checks for the flag and says so, so the fix is `claude update`. Then put it on your `PATH`:
 
 ```shell
 ln -s "$PWD/tools/elm-ask/qlm" ~/bin/qlm

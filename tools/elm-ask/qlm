@@ -38,6 +38,15 @@ case ${1:-} in
 esac
 [ $# -gt 0 ] || [ "${info:-}" = yes ] || { usage >&2; exit 2; }
 
+# --restricted is the check that also tells old versions apart: the ones without
+# it answer before the MCP server has connected, which looks like a broken qlm.
+claude --help 2>/dev/null | grep -q -- --restricted || {
+    echo "qlm: this Claude Code is too old ($(claude --version 2>&1 | head -1)): it has no" >&2
+    echo "     --restricted, and versions that old answer before the elm tools load." >&2
+    echo "     Run: claude update" >&2
+    exit 2
+}
+
 creds=$HOME/.config/logicmonitor/credentials
 
 # One container per profile, so a question can compare two portals, and so each
