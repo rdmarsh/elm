@@ -13,6 +13,8 @@
 #   QLM_PROFILE  credential profile(s), one per portal to ask
 #                (default ai; each must set allowed_commands)
 #   QLM_MODEL    Claude model (default sonnet)
+#   QLM_LOG      1 to log questions to $XDG_STATE_HOME/qlm/qlm.log
+#                (~/.local/state/qlm/qlm.log), or a path to log to
 set -eu
 
 [ $# -gt 0 ] || { echo "usage: qlm QUESTION" >&2; exit 2; }
@@ -34,6 +36,20 @@ for profile in ${QLM_PROFILE:-ai}; do
 \"elm-ask\",\"python\",\"/opt/elm/tools/elm-ask/mcp_server.py\"]}"
     allow="$allow mcp__$name"
 done
+
+# Opt-in record of what was asked, and of which portal. Questions can name a
+# device or a site, so the file is kept private (0600 in a 0700 directory).
+# Answers are never logged: they carry portal data, and LM's own audit log
+# already records every request the profile's token made.
+if [ -n "${QLM_LOG:-}" ]; then
+    case $QLM_LOG in
+        1) log=${XDG_STATE_HOME:-$HOME/.local/state}/qlm/qlm.log ;;
+        *) log=$QLM_LOG ;;
+    esac
+    ( umask 077
+      mkdir -p "$(dirname "$log")"
+      printf '%s\t%s\t%s\n' "$(date +%FT%T%z)" "${QLM_PROFILE:-ai}" "$*" >> "$log" )
+fi
 
 # claude -p skips the trust dialog and loads settings files silently, so keep
 # both out of it: an empty directory (no CLAUDE.md, no project settings) and

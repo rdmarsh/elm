@@ -249,6 +249,13 @@ ln -s "$PWD/tools/elm-ask/qlm" ~/bin/qlm
 `QLM_MODEL` picks another model (default `sonnet`). Each question starts
 afresh: there are no follow-ups.
 
+`QLM_LOG=1` records each question in `$XDG_STATE_HOME/qlm/qlm.log`
+(`~/.local/state/qlm/qlm.log`), or in the file you name instead; it is off
+unless set. A line is the time, the profile and the question, in a file only
+you can read, because a question can name a device or a site. Answers are
+never written down: they carry portal data, and LM's audit log already holds
+every request the token made (`elm AuditLogList -F username:ACCESS_ID`).
+
 Only the profile in use is mounted, as a single file, so the container holds
 that one token and not every credential you own. It also runs with
 `--cap-drop=ALL --security-opt=no-new-privileges`: elm needs neither.
