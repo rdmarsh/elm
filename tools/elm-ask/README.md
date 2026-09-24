@@ -357,7 +357,9 @@ that one token and not every credential you own. It also runs with
 ### When it will not answer
 
 - **`qlm: the elm tools did not load`** -- Claude Code answered before the MCP
-  server connected, or the server failed to start. Check the server by hand:
+  server connected, or the server failed to start. (A question that is not
+  about LogicMonitor does not get this: it is answered from general knowledge
+  and ends with a line saying so.) Check the server by hand:
   `echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run -i --rm
   elm-ask python /opt/elm/tools/elm-ask/mcp_server.py` should print a tool list.
 - **`failed to connect to the Docker API at unix:///var/run/docker.sock ...

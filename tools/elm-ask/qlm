@@ -113,12 +113,19 @@ fi
 # both out of it: an empty directory (no CLAUDE.md, no project settings) and
 # --restricted (ignores user settings, refuses bypassPermissions).
 cd "${TMPDIR:-/tmp}"
-# Your local time, so the answer gives times in it rather than in UTC; and a
-# plain error, not a guess, when the MCP server did not connect in time.
+# Your local time, so the answer gives times in it rather than in UTC; a plain
+# error, not a guess, when the MCP server did not connect in time; and an
+# off-topic question answered, but marked as not coming from the portal. The
+# two used to share one line, and "no elm tools" was read as "no elm tools
+# that fit", so an off-topic question got the load error.
 question="$*
 
 (Now: $(date '+%Y-%m-%d %H:%M %Z, UTC%z') for the reader. Give times in it.
-If you have no elm tools, reply only: qlm: the elm tools did not load.)"
+The elm tools are the ones named mcp__elm_*. Only if none are available to
+you, reply only: qlm: the elm tools did not load.
+If they are available but the question is not about LogicMonitor, answer it
+briefly from what you know, then end with this line: _Not from LogicMonitor:
+general knowledge, worth checking._ If you cannot answer it, say so in one line.)"
 
 # $allow is a list of server names (letters, digits and _), so it is deliberately unquoted.
 exec claude -p "$question" \
