@@ -9,6 +9,7 @@ Queries relating to user accounts, API tokens, roles, and offboarding.
 <!--ts-->
    * [Export users by userid](#export-users-by-userid)
    * [Find a user account and check its status](#find-a-user-account-and-check-its-status)
+   * [Who is in a user group, which roles are in a role group](#who-is-in-a-user-group-which-roles-are-in-a-role-group)
    * [Audit all active API tokens](#audit-all-active-api-tokens)
    * [Offboarding checks — collectors, devices, and API tokens](#offboarding-checks--collectors-devices-and-api-tokens)
    * [meta](#meta)
@@ -40,6 +41,22 @@ Compare against a known-active account to confirm which fields indicate suspensi
 elm AdminList -s0 -f id,username,firstName,lastName,status,twoFAEnabled | \
   jq '.AdminList[] | select(.username == "active.user@acme.com" or .username == "departed.user@acme.com")'
 ```
+
+## Who is in a user group, which roles are in a role group
+
+Users and roles carry only group IDs (`adminGroupIds`, `roleGroupId`).
+Look the ID up by the group's name first, then filter on it:
+
+```shell
+elm AdminGroupList -F name:Admins -f id                 # say it returns 11
+elm AdminList -F adminGroupIds:11 -s0 -f id,username
+
+elm RoleGroupList -F 'name:Example Roles' -f id         # say it returns 18
+elm RoleList -F roleGroupId:18 -s0 -f id,name
+```
+
+`AdminList --filterGroupString` looks like it should do this, but it matches
+text in the username, not the group.
 
 ## Audit all active API tokens
 

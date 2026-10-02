@@ -506,13 +506,13 @@ AdminList:
   unique_options:
     type:              "--type TEXT — silently ignored by LM API; field in response is userType with values 'Local', 'SAML', 'API only' (verified); use -F filter instead: -F userType:SAML"
     permission:        "--permission TEXT — no visible effect observed; values unverified"
-    filterGroupString: "--filterGroupString TEXT — filters by adminGroupId; e.g. --filterGroupString 1 returns users in group 1 (verified)"
+    filterGroupString: "--filterGroupString TEXT — NOT a group filter: '11' returned users with 11 in the username, from groups 1 and 11 (verified 2026-10). Use -F adminGroupIds:N"
   key_fields:
     id:           integer
     username:     string
     userType:     string  # "Local", "SAML", "API only" (verified)
     twoFAEnabled: boolean
-    adminGroupIds: array   # list of group IDs the user belongs to
+    adminGroupIds: array   # user group IDs; names via AdminGroupList. Filter: -F adminGroupIds:11 (verified 2026-10)
     roles:        array    # list of role objects with id, name, privileges
   gotchas:
     - "apiTokens.status: 2 = active, 1 = disabled, for both LMv1 and bearer tokens (apiTokens.type tells them apart). Filters natively on the nested field: -F apiTokens.status:2."
@@ -544,6 +544,22 @@ RoleList:
   path: /setting/roles
   unique_options:
     excludeAdmin: "--excludeAdmin / --dont-excludeAdmin — removes 1 built-in admin role from results (43 → 42 verified); default (no flag) includes it"
+  key_fields:
+    roleGroupId: integer  # role group ID; names via RoleGroupList. Filter: -F roleGroupId:18 (verified 2026-10)
+
+AdminGroupList:
+  path: /setting/admin/groups
+  note: "Undocumented. User groups (the ID-to-name map for AdminList adminGroupIds). Singular 'admin'; /setting/admins/groups is 404 (verified 2026-10)."
+  patterns:
+    users_in_group: "elm AdminGroupList -F name:Admins -f id   # then: elm AdminList -F adminGroupIds:ID -s0 -f id,username"
+
+RoleGroupList:
+  path: /setting/role/groups
+  note: "Undocumented. Role groups (the ID-to-name map for RoleList roleGroupId). Singular 'role'; /setting/roles/groups is 404 (verified 2026-10)."
+  patterns:
+    roles_in_group: "elm RoleGroupList -F 'name:Example Roles' -f id   # then: elm RoleList -F roleGroupId:ID -s0 -f id,name"
+  gotchas:
+    - "createdOn is epoch seconds except the root @default group, which returned 20190710233419 (a yyyymmddHHMMSS date) (verified 2026-10)."
 
 AccessGroupList:
   path: /setting/accessgroup

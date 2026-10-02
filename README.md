@@ -280,8 +280,8 @@ swagger.undocumented.json ─┘                                    ↑
                               elm-notes.yaml + swaggers ─→ mkinfo.py (adds the --info text)
 ```
 
-As of the current snapshots that is 174 documented + 15 undocumented = 189
-commands, rendering to 176 modules. The gap is deliberate: 13 command names
+As of the current snapshots that is 174 documented + 19 undocumented = 193
+commands, rendering to 180 modules. The gap is deliberate: 13 command names
 appear in *both* specs, and the undocumented one wins because it is written
 second. That is how the undocumented file patches the official spec — for
 example `ActionChainsList` and `ActionRulesList` are re-declared there to add
@@ -411,6 +411,8 @@ Commands:
   ActionRuleStatusById            Get action rule status
   ActionRulesList                 Get action rules list
   AdminById                       Get user
+  AdminGroupById                  Get user group by id
+  AdminGroupList                  Get user group list
   AdminList                       Get user list
   AlertById                       Get alert
   AlertList                       Get alert list
@@ -588,6 +590,8 @@ Commands:
   ReportUsingTaskId               Get report for task id
   RetentionList                   Retrieve the list of log retentions
   RoleById                        Get role by id
+  RoleGroupById                   Get role group by id
+  RoleGroupList                   Get role group list
   RoleList                        Get role list
   SDTHistoryByDeviceDataSourceId  Get sdt history for the device datasource
   SDTHistoryByDeviceGroupId       Get sdt history for the group

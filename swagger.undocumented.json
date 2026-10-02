@@ -501,6 +501,132 @@
           }
         ]
       }
+    },
+    "/setting/admin/groups": {
+      "get": {
+        "summary": "get user group list",
+        "operationId": "getAdminGroupList",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "fields",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "tags": [
+          "AdminGroups"
+        ]
+      }
+    },
+    "/setting/admin/groups/{id}": {
+      "get": {
+        "summary": "get user group by id",
+        "operationId": "getAdminGroupById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "fields",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "tags": [
+          "AdminGroups"
+        ]
+      }
+    },
+    "/setting/role/groups": {
+      "get": {
+        "summary": "get role group list",
+        "operationId": "getRoleGroupList",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "fields",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "type": "integer",
+            "format": "int32",
+            "default": 50,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "tags": [
+          "RoleGroups"
+        ]
+      }
+    },
+    "/setting/role/groups/{id}": {
+      "get": {
+        "summary": "get role group by id",
+        "operationId": "getRoleGroupById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "fields",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "tags": [
+          "RoleGroups"
+        ]
+      }
     }
   }
 }
