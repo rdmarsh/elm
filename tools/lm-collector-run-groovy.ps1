@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Run an arbitrary Groovy script on one or more LM collectors via Collector Debug,
-    and print (and optionally save) each collector's output.
+    Run an arbitrary Groovy script, or any Collector Debug command, on one or more LM
+    collectors via Collector Debug, and print (and optionally save) each collector's output.
 
 .DESCRIPTION
     A generic sibling to lm-collector-reachability-run-all.ps1. That script is
@@ -15,14 +15,22 @@
 
     Workflow:
       1. Load the Groovy source from -Script, or pick one interactively from the *.groovy
-         files in the current directory.
-      2. Resolve targets: collectors named with -Collector (id / hostname / description)
-         and/or the collectors that -Device devices currently run on.
-      3. Submit the Groovy to every target collector via Collector Debug.
+         files in the current directory. With -Command, send that debug command instead.
+      2. Resolve targets: collectors named with -Collector (id / hostname / description),
+         every active collector in each -Group, and/or the collectors that -Device devices
+         currently run on.
+      3. Submit the Groovy (or -Command) to every target collector via Collector Debug.
       4. Poll, and print each collector's output as soon as it is ready. Optionally also
          save it to a file (-OutputDir per-collector, or -OutFile for a single target).
 
     The Groovy is sent verbatim - there is NO templating or variable substitution.
+
+.PARAMETER Command
+    A Collector Debug command to send as-is instead of a Groovy file - the same text you
+    would type in the portal's debug window, e.g. '!wmi h=10.0.0.5 SELECT Caption FROM
+    Win32_OperatingSystem', '!ping 10.0.0.5' or '!tlist'. Must start with '!'. Cannot be
+    combined with -Script or -WithHostProps. Quote it in single quotes so PowerShell leaves
+    it alone.
 
 .PARAMETER Script
     Path to the .groovy file to run. If omitted, the *.groovy files in the current
@@ -33,6 +41,11 @@
     One or more collectors to run on, by numeric id, hostname, or description. Accepts a
     comma-separated list or the parameter repeated. Collector hostnames are usually the
     'DOMAIN\HOSTNAME' or FQDN form, so a bare name is matched as an unambiguous substring.
+
+.PARAMETER Group
+    One or more collector groups, by numeric id or exact name (case-insensitive). Runs on
+    every active collector in each group; each result header names the group. Handy for
+    "which group can reach this device?" with -Command.
 
 .PARAMETER Device
     One or more device names. Each is resolved to the collector it currently runs on
@@ -89,6 +102,11 @@
     sensitive values in clear text, so save to a file you control (-OutputDir) rather than to screen.
 
 .EXAMPLE
+    ./lm-collector-run-groovy.ps1 -Group "Site A","Site B" -Command '!wmi h=10.0.0.5 SELECT Caption FROM Win32_OperatingSystem'
+    Send one WMI query from every active collector in two groups, to see which group can
+    monitor the device (for auto-balance, pick a group where every collector answers).
+
+.EXAMPLE
     ./lm-collector-run-groovy.ps1 -Script probe.groovy -Collector a,b -OutputDir ./out
     Run on collectors a and b; screen output plus out/<a>.txt and out/<b>.txt.
 
@@ -114,8 +132,10 @@
 [CmdletBinding()]
 param(
     [string]$Script,                    # path to the .groovy file; omitted -> interactive picker
+    [string]$Command,                   # a debug command (e.g. '!wmi h=...') sent as-is instead
 
     [string[]]$Collector,               # collectors by id / hostname / description
+    [string[]]$Group,                   # collector groups by id / name; all active collectors
     [string[]]$Device,                  # device names; resolved to their current collector
     [switch]$WithHostProps,             # for -Device: load the device's real hostProps on the collector
 
@@ -152,13 +172,19 @@ if ($null -eq $lmStatus -or $lmStatus -is [string]) {
                       "(or your connection wrapper) first, then re-run.")
 }
 
-if (-not $Collector -and -not $Device) {
-    Stop-WithMessage ("Nothing to target. Pass -Collector <id|name[,...]> and/or " +
-                      "-Device <name[,...]> to choose where the Groovy runs.")
+if (-not $Collector -and -not $Group -and -not $Device) {
+    Stop-WithMessage ("Nothing to target. Pass -Collector <id|name[,...]>, -Group <id|name[,...]> " +
+                      "and/or -Device <name[,...]> to choose where it runs.")
 }
 
-# ── Load Groovy source (explicit path, or interactive picker) ─────────────────
-if ($Script) {
+# ── Load Groovy source (explicit path, or interactive picker), or take -Command ─
+if ($Command) {
+    if ($Script)        { Stop-WithMessage "Pass -Script or -Command, not both." }
+    if ($WithHostProps) { Stop-WithMessage "-WithHostProps only applies to Groovy scripts, not -Command." }
+    if (-not $Command.TrimStart().StartsWith('!')) {
+        Stop-WithMessage "Debug commands start with '!' (e.g. '!wmi h=10.0.0.5 SELECT Caption FROM Win32_OperatingSystem')."
+    }
+} elseif ($Script) {
     if (Test-Path -LiteralPath $Script -PathType Container) {
         $inDir = @(Get-ChildItem -LiteralPath $Script -File -Filter *.groovy -ErrorAction SilentlyContinue | Sort-Object Name)
         $listing = if ($inDir.Count) {
@@ -196,11 +222,15 @@ if ($Script) {
     }
     $scriptPath = $candidates[$sel - 1].FullName
 }
-$groovyScript = Get-Content -LiteralPath $scriptPath -Raw
-if ([string]::IsNullOrWhiteSpace($groovyScript)) {
-    Stop-WithMessage "Groovy file is empty: $scriptPath - nothing to run."
+if ($Command) {
+    Write-Host "Command:     $Command"
+} else {
+    $groovyScript = Get-Content -LiteralPath $scriptPath -Raw
+    if ([string]::IsNullOrWhiteSpace($groovyScript)) {
+        Stop-WithMessage "Groovy file is empty: $scriptPath - nothing to run."
+    }
+    Write-Host "Script:      $scriptPath"
 }
-Write-Host "Script:      $scriptPath"
 
 # ── Collector list (fetched once) ─────────────────────────────────────────────
 # -BatchSize 1000 forces full pagination (older module versions can default to 50).
@@ -257,7 +287,7 @@ if ($WithHostProps -and -not $Device) {
 }
 
 function Add-Submission {
-    param([string]$Label, [object]$Col, [string]$HostName, [string]$Why)
+    param([string]$Label, [object]$Col, [string]$HostName, [string]$Why, [string]$GroupName = '')
     if ($Col.status -ne 1) {
         Write-Warning "Collector '$($Col.hostname)' (id=$($Col.id)) is not active (status=$($Col.status)) - skipping ($Why)."
         return
@@ -267,6 +297,7 @@ function Add-Submission {
         CollectorHostname = $Col.hostname
         CollectorId       = [int]$Col.id
         HostName          = $HostName   # device name for -CommandHostName; '' for plain runs
+        GroupName         = $GroupName  # set for -Group runs; shown in the result header
     })
 }
 
@@ -275,6 +306,26 @@ foreach ($token in $Collector) {
     if (-not $col) { continue }
     if (-not $seenCollectors.Add([int]$col.id)) { continue }   # this script already runs there
     Add-Submission -Label $col.hostname -Col $col -HostName '' -Why "named with -Collector"
+}
+
+if ($Group) {
+    # -BatchSize 1000 forces full pagination (older module versions can default to 50).
+    $allGroups = @(Get-LMCollectorGroup -BatchSize 1000)
+}
+foreach ($token in $Group) {
+    $g = if ($token -match '^\d+$') {
+        @($allGroups | Where-Object { $_.id -eq [int]$token })
+    } else {
+        @($allGroups | Where-Object { $_.name -eq $token })   # -eq is case-insensitive
+    }
+    if ($g.Count -ne 1) { Write-Warning "Collector group '$token' not found - skipping."; continue }
+    $members = @($allCollectors | Where-Object { $_.collectorGroupId -eq $g[0].id } | Sort-Object hostname)
+    if ($members.Count -eq 0) { Write-Warning "Collector group '$($g[0].name)' (id=$($g[0].id)) has no collectors - skipping."; continue }
+    Write-Host "Group '$($g[0].name)' (id=$($g[0].id)): $($members.Count) collector(s)."
+    foreach ($col in $members) {
+        if (-not $seenCollectors.Add([int]$col.id)) { continue }
+        Add-Submission -Label $col.hostname -Col $col -HostName '' -Why "in group '$($g[0].name)'" -GroupName $g[0].name
+    }
 }
 
 foreach ($name in $Device) {
@@ -311,7 +362,7 @@ foreach ($name in $Device) {
 }
 
 if ($submissions.Count -eq 0) {
-    Stop-WithMessage "No active targets resolved from -Collector / -Device. Nothing to run."
+    Stop-WithMessage "No active targets resolved from -Collector / -Group / -Device. Nothing to run."
 }
 Write-Host "Targets:     $($submissions.Count) run(s)"
 
@@ -371,7 +422,10 @@ Write-Host "Submitting $($submissions.Count) run(s)..."
 $jobs = foreach ($s in $submissions) {
     $tag = if ($s.Label -ne $s.CollectorHostname) { " ($($s.Label))" } else { "" }
     try {
-        if ($s.HostName) {
+        if ($Command) {
+            # Raw debug command, exactly as typed in the portal's debug window.
+            $r = Invoke-LMCollectorDebugCommand -Id $s.CollectorId -DebugCommand $Command -ErrorAction Stop
+        } elseif ($s.HostName) {
             # Device run: send a raw !groovy via -DebugCommand that binds the device's real
             # hostProps (see Build-HostPropsGroovy). We do NOT use -GroovyCommand/-CommandHostName
             # because the module's preamble binds hostProps with 'def', which methods can't see.
@@ -385,6 +439,7 @@ $jobs = foreach ($s in $submissions) {
             Label             = $s.Label
             CollectorHostname = $s.CollectorHostname
             CollectorId       = $s.CollectorId
+            GroupName         = $s.GroupName
             SessionId         = $r.SessionId
         }
     } catch {
@@ -445,6 +500,7 @@ while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
             } else {
                 "==== $($job.CollectorHostname) (id=$($job.CollectorId)) ===="
             }
+            if ($job.GroupName) { $header = $header -replace ' ====$', " - group '$($job.GroupName)' ====" }
             Write-Host ""
             if ($script:useColor) {
                 $esc = [char]27

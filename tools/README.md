@@ -155,6 +155,22 @@ collector hostnames. See `-h`/`--help` (or the script's own comment header)
 for `-WithHostProps` (binds a device's real host properties, for
 device-scoped rather than collector-scoped scripts) and other options.
 
+### Which collector group can reach this device?
+
+`-Command` sends any Collector Debug command as-is (what you would type in
+the portal's debug window) instead of a Groovy file, and `-Group` runs on
+every active collector in each named group (by id or exact name). Together
+they answer "which group should monitor this device?" in one go:
+
+```pwsh
+./tools/lm-collector-run-groovy.ps1 -Group "Site A","Site B","DMZ" `
+    -Command '!wmi h=10.0.0.5 SELECT Caption FROM Win32_OperatingSystem'
+```
+
+Each result header names the collector and its group. For an auto-balance
+group, choose one where every collector answers, because LM may place the
+device on any of them. Any debug command works (`!ping`, `!snmpget`, ...).
+
 There is no built-in "every collector" or pattern flag — `-Collector` always
 wants an explicit list. Build that list yourself with `Get-LMCollector` (the
 same cmdlet the script uses internally), then pass its output straight
