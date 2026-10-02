@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-02
+
 ### Changed
 
 - `tools/elm-ask` defaults to the cheapest current model rather than the most capable one: these are lookup questions and every one costs money. `ELM_ASK_MODEL` (or `run.sh -m`) picks another, and the question set in `todo.md` is how to tell whether a dearer model actually answers better. `run.sh` shows the default in [brackets] at the prompt, read from `agent.py` so the script and the code cannot drift apart.
@@ -652,7 +654,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/rdmarsh/elm/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/rdmarsh/elm/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/rdmarsh/elm/compare/v1.8.10...v1.9.0
 [1.8.10]: https://github.com/rdmarsh/elm/compare/v1.8.9...v1.8.10
