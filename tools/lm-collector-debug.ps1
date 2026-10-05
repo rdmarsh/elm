@@ -280,15 +280,24 @@ function Get-DebugText($result) {
     return ($result | Out-String)
 }
 
-# Collector Debug wraps every result in a 2-line envelope before the command's own output:
-#     returns <n>
-#     output:
-#     <the command's stdout...>
-# Strip it so callers get only the command's output. Anchored at the start and matched
-# defensively, so a result in a different shape is left untouched. The completion check
-# must run on the RAW text (the envelope is non-empty even when nothing was printed).
+# Collector Debug wraps every result in an envelope before the command's own output.
+# Groovy and debug commands:          PowerShell adds an error section (seen 2026-10):
+#     returns <n>                         returns <n>
+#     output:                             error:
+#     <stdout...>                         <stderr, usually empty>
+#                                         output:
+#                                         <stdout...>
+# Strip it so callers get only the command's output; a non-empty error section is kept
+# above it, each line marked "error: ". Anchored at the start and matched defensively, so
+# a result in a different shape is left untouched. The completion check must run on the
+# RAW text (the envelope is non-empty even when nothing was printed).
 function Remove-DebugEnvelope([string]$Text) {
-    return ($Text -replace '^\s*returns\s+-?\d+\r?\noutput:\r?\n?', '')
+    $m = [regex]::Match($Text, '(?ms)\A\s*returns\s+-?\d+\r?\n(?:error:\r?\n(?<err>.*?))?^output:\r?\n?')
+    if (-not $m.Success) { return $Text }
+    $out = $Text.Substring($m.Length)
+    $err = $m.Groups['err'].Value.Trim()
+    if (-not $err) { return $out }
+    return ((($err -split '\r?\n') | ForEach-Object { "error: $_" }) -join "`n") + "`n" + $out
 }
 
 if (-not $Collector -and -not $Group -and -not $Device) {
