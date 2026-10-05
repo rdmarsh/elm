@@ -914,7 +914,8 @@ if ($curResults.Count -ge 2 -and -not $WithDevice) {
 
     Write-Host ""
     if ($disagree -eq 0) {
-        Write-Host "All $agree device(s) agree across all $($ordered.Count) current collectors - no reachability gaps."
+        $all = if ($ordered.Count -eq 2) { 'both' } else { "all $($ordered.Count)" }
+        Write-Host "All $agree device(s) get the same results from $all current collectors."
     } else {
         Write-Host "$disagree device(s) differ between the current collectors; $agree agree."
         Write-Host "Under auto-balance, which collector a device lands on decides whether it works."
@@ -924,6 +925,8 @@ if ($curResults.Count -ge 2 -and -not $WithDevice) {
 # Printed once when ping is the only check a device fails: ICMP is often blocked on the path
 # (cloud networks such as Azure block it outbound by default) even where TCP gets through.
 function Write-PingHint {
+    if ($script:pingHintShown) { return }   # once per run, however many sections want it
+    $script:pingHintShown = $true
     Write-Host ""
     Write-Host "ping FAIL where the TCP checks pass usually means ICMP is blocked on the path (cloud"
     Write-Host "networks such as Azure block it by default), not that the device is unreachable. Ping"
@@ -932,12 +935,26 @@ function Write-PingHint {
 
 # Printed once after a verdict when any snmp result was a TIMEOUT.
 function Write-SnmpV3Hint {
+    if ($script:snmpHintShown) { return }   # once per run, however many sections want it
+    $script:snmpHintShown = $true
     Write-Host ""
     Write-Host "snmp TIMEOUT above may mean wrong community, OR an SNMPv3-only device -- this probe only"
     Write-Host "speaks SNMPv2c/`"public`", so EVERY v3-only device shows TIMEOUT regardless of reachability."
     Write-Host "If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here,"
     Write-Host "not a real network issue. Verify a specific device with the collector debug console:"
     Write-Host "  !snmpdiagnose version=v3 <host>   (see collector-debug-notes.md)"
+}
+
+# One line per device: its name and id, then its failing checks, so a device failing four
+# checks takes one line, not four. Each item has Device, Id and Text (e.g. "ssh FAIL").
+function Write-DeviceChecks {
+    param([object[]]$Items, [string]$Indent = '  ')
+    $groups = @($Items | Group-Object { "$($_.Device)`t$($_.Id)" } | Sort-Object { $_.Group[0].Device })
+    $w = ($groups | ForEach-Object { "$($_.Group[0].Device)  [id=$($_.Group[0].Id)]".Length } | Measure-Object -Maximum).Maximum
+    foreach ($g in $groups) {
+        $head = "$($g.Group[0].Device)  [id=$($g.Group[0].Id)]"
+        Write-Host ("{0}{1}  {2}" -f $Indent, $head.PadRight($w), (($g.Group | ForEach-Object Text) -join ', '))
+    }
 }
 
 # ── What no current collector reaches ─────────────────────────────────────────
@@ -972,15 +989,25 @@ if ($curResults.Count -gt 0 -and -not $ToGroup -and -not $WithDevice) {
     if ($nobody.Count -eq 0) {
         Write-Host "-- Every check passed from $(if ($curResults.Count -eq 1) { $who } else { 'at least one current collector' }). --"
     } else {
-        Write-Host "-- Not reached from ${who}: $($nobody.Count) check(s) --"
-        $wDev = ($nobody | ForEach-Object { "$($_.Device)  [id=$($_.Id)]".Length } | Measure-Object -Maximum).Maximum
-        $wChk = ($nobody | ForEach-Object { $_.Check.Length } | Measure-Object -Maximum).Maximum
-        foreach ($n in $nobody) {
-            $detail = (0..($curResults.Count - 1) | ForEach-Object { Format-CollectorCell $curResults[$_].Hostname $n.Vals[$_] }) -join '  '
-            Write-Host ("  {0}  {1}  {2}" -f "$($n.Device)  [id=$($n.Id)]".PadRight($wDev), $n.Check.PadRight($wChk), $detail)
+        $nDev = @($nobody | ForEach-Object Id | Select-Object -Unique).Count
+        Write-Host "-- Not reached from ${who}: $($nobody.Count) check(s) on $nDev device(s) --"
+        # "ssh FAIL" when every collector got the same result; otherwise each one's, in brackets.
+        $items = foreach ($n in $nobody) {
+            $same = @($n.Vals | Select-Object -Unique)
+            $text = if ($same.Count -eq 1) { "$($n.Check) $(Format-Cell $same[0] $same[0])" } else {
+                "$($n.Check) (" + ((0..($curResults.Count - 1) | ForEach-Object { Format-Cell "$($curResults[$_].Hostname)=$($n.Vals[$_])" $n.Vals[$_] }) -join ' ') + ")"
+            }
+            [PSCustomObject]@{ Device = $n.Device; Id = $n.Id; Text = $text }
         }
+        Write-DeviceChecks $items
         if (@($nobody | Where-Object { $_.Check -eq 'snmp' -and $_.Vals -contains 'TIMEOUT' }).Count) { Write-SnmpV3Hint }
-        if (@($nobody | Where-Object Check -eq 'ping').Count) { Write-PingHint }
+        # The ping note fits only a device that fails ping yet passes a TCP check.
+        $pingButTcp = @($nobody | Where-Object Check -eq 'ping' | Where-Object {
+            $id = $_.Id
+            @($curResults | ForEach-Object { $curById[$_.Hostname][$id] } | Where-Object { $_ } |
+                ForEach-Object { $_.PSObject.Properties | Where-Object { $_.Name -notin $idCols -and $_.Value -eq 'pass' } }).Count -gt 0
+        })
+        if ($pingButTcp.Count) { Write-PingHint }
     }
 }
 
@@ -1043,19 +1070,17 @@ if ($candResults.Count -gt 0 -and $incResults.Count -gt 0) {
             }
         }
 
+        # Devices with a baseline (a current collector passes at least one of their checks),
+        # and how many of those this collector matches completely.
+        $base  = @($incPass.Keys | Where-Object { $incPass[$_].Count -gt 0 }).Count
+        $short = @($gaps | ForEach-Object IdTok | Select-Object -Unique).Count
         if ($gaps.Count -eq 0) {
-            Write-Host "  Reaches everything the current collectors reach. Ready to add."
+            Write-Host "  Reaches everything the current collectors reach ($base device(s)). Ready to add."
         } else {
-            Write-Host "  $($gaps.Count) gap(s) - it would NOT reach these, but a current collector does:"
-            # Second pass: pad each column to its widest value so everything lines up.
-            $wProto = ($gaps | ForEach-Object { $_.Proto.Length } | Measure-Object -Maximum).Maximum
-            $wLabel = ($gaps | ForEach-Object { $_.Label.Length } | Measure-Object -Maximum).Maximum
-            $wIdTok = ($gaps | ForEach-Object { $_.IdTok.Length } | Measure-Object -Maximum).Maximum
-            foreach ($g in $gaps) {
-                Write-Host ("    {0}  {1}  {2}  joining={3}, current collector reaches it" -f `
-                    $g.Proto.PadRight($wProto), $g.Label.PadRight($wLabel),
-                    $g.IdTok.PadRight($wIdTok), (Format-Cell $g.Value $g.Value))
-            }
+            Write-Host "  Matches the current collectors on $($base - $short) of $base device(s). It fails these, which a current collector passes:"
+            Write-DeviceChecks -Indent '    ' @($gaps | ForEach-Object {
+                [PSCustomObject]@{ Device = $_.Label; Id = $_.IdTok -replace '^\[id=|\]$'; Text = "$($_.Proto) $(Format-Cell $_.Value $_.Value)" }
+            })
             Write-Host "  Fix routing/firewall for these before adding it."
         }
     }
@@ -1129,7 +1154,9 @@ if (($tgrp -or $WithDevice) -and $tgtResults.Count -gt 0) {
             $protoIssues.Add([PSCustomObject]@{ Proto = $colName; Vals = $vals; NotNow = -not $nowOk })
         }
 
-        if ($protoIssues.Count -gt 0 -and @($protoIssues | Where-Object Proto -ne 'ping').Count -eq 0) { $anyPingOnly = $true }
+        # Ping is the only failure AND the device has TCP checks (which therefore passed).
+        if ($protoIssues.Count -gt 0 -and @($protoIssues | Where-Object Proto -ne 'ping').Count -eq 0 -and
+            @($d.protocols | Where-Object { $_ -ne 'ping' }).Count -gt 0) { $anyPingOnly = $true }
         $entry = [PSCustomObject]@{ Device = $d.displayName; Id = $d.id; Source = $d.source; Issues = $protoIssues }
         $verdictById[$id] = $worst.ToUpper()
         switch ($worst) {
