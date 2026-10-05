@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Collector reachability checks on large groups timed out. Each collector tests 20 devices at a time, up to about 8 s each when nothing answers, but the check stopped waiting after 120 s and the script after 180 s: enough for about 300 devices. Both waits now grow with the device count, in `lm-collector-reach.ps1` and in the script `elm-collector-reach-paste.sh` prints.
 - A comma in a device name shifted that row's columns in the reachability results (rows are joined with commas, unquoted); names and addresses now have commas replaced by spaces.
 - `lm-collector-debug.ps1` and `lm-collector-reach.ps1` declare that they need PowerShell 7 (`#Requires -Version 7.0`), instead of failing in Windows PowerShell 5.1 with a parse error.
+- `lm-collector-reach.ps1 -Group G` printed nothing about the results when the group had one collector, and with several it never showed a check that failed from all of them (the comparison lists only disagreements), so "can every collector reach everything?" missed exactly the devices nobody reaches. It now lists every check no current collector passes, or says all passed. A failing ping gets a note that ICMP is often blocked where TCP gets through (cloud networks such as Azure block it by default), and the move verdict says "(from ...)" only when the devices came from more than one place.
 
 ### Added
 

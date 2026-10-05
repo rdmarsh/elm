@@ -921,6 +921,15 @@ if ($curResults.Count -ge 2 -and -not $WithDevice) {
     }
 }
 
+# Printed once when ping is the only check a device fails: ICMP is often blocked on the path
+# (cloud networks such as Azure block it outbound by default) even where TCP gets through.
+function Write-PingHint {
+    Write-Host ""
+    Write-Host "ping FAIL where the TCP checks pass usually means ICMP is blocked on the path (cloud"
+    Write-Host "networks such as Azure block it by default), not that the device is unreachable. Ping"
+    Write-Host "still matters if LM monitors the device with Ping, so check before dismissing it."
+}
+
 # Printed once after a verdict when any snmp result was a TIMEOUT.
 function Write-SnmpV3Hint {
     Write-Host ""
@@ -929,6 +938,50 @@ function Write-SnmpV3Hint {
     Write-Host "If v3 is used anywhere in this portal, that is likely the biggest source of TIMEOUTs here,"
     Write-Host "not a real network issue. Verify a specific device with the collector debug console:"
     Write-Host "  !snmpdiagnose version=v3 <host>   (see collector-debug-notes.md)"
+}
+
+# ── What no current collector reaches ─────────────────────────────────────────
+# The comparison above lists only disagreements, so a check that fails from EVERY current
+# collector never shows there - and with one current collector there is nothing to compare
+# at all. List those checks here. Not for -ToGroup / -WithDevice: their verdict marks them
+# ("not reached from its current collectors either").
+if ($curResults.Count -gt 0 -and -not $ToGroup -and -not $WithDevice) {
+    $idCols = 'id', 'device', 'hostname'
+    $curById = @{}
+    foreach ($r in $curResults) {
+        $m = @{}; foreach ($row in $r.Rows) { $m[[string]$row.id] = $row }; $curById[$r.Hostname] = $m
+    }
+    $ids = @($curResults.Rows | ForEach-Object { [string]$_.id } | Select-Object -Unique)
+    $nobody = foreach ($id in $ids) {
+        $any = @($curResults | ForEach-Object { $curById[$_.Hostname][$id] } | Where-Object { $_ })[0]
+        foreach ($p in @($any.PSObject.Properties.Name | Where-Object { $_ -notin $idCols })) {
+            # @(...): one collector would otherwise give a bare string, and $vals[0] its first letter.
+            $vals = @(foreach ($r in $curResults) {
+                $row = $curById[$r.Hostname][$id]
+                if ($row) { [string]$row.$p } else { '(absent)' }
+            })
+            if (@($vals | Where-Object { $_ }).Count -eq 0) { continue }   # check not run for this device
+            if ($vals -notcontains 'pass') {
+                [PSCustomObject]@{ Device = $any.device; Id = $id; Check = $p; Vals = $vals }
+            }
+        }
+    }
+    $nobody = @($nobody | Sort-Object Device, Check)
+    $who = if ($curResults.Count -eq 1) { $curResults[0].Hostname } else { 'any current collector' }
+    Write-Host ""
+    if ($nobody.Count -eq 0) {
+        Write-Host "-- Every check passed from $(if ($curResults.Count -eq 1) { $who } else { 'at least one current collector' }). --"
+    } else {
+        Write-Host "-- Not reached from ${who}: $($nobody.Count) check(s) --"
+        $wDev = ($nobody | ForEach-Object { "$($_.Device)  [id=$($_.Id)]".Length } | Measure-Object -Maximum).Maximum
+        $wChk = ($nobody | ForEach-Object { $_.Check.Length } | Measure-Object -Maximum).Maximum
+        foreach ($n in $nobody) {
+            $detail = (0..($curResults.Count - 1) | ForEach-Object { Format-CollectorCell $curResults[$_].Hostname $n.Vals[$_] }) -join '  '
+            Write-Host ("  {0}  {1}  {2}" -f "$($n.Device)  [id=$($n.Id)]".PadRight($wDev), $n.Check.PadRight($wChk), $detail)
+        }
+        if (@($nobody | Where-Object { $_.Check -eq 'snmp' -and $_.Vals -contains 'TIMEOUT' }).Count) { Write-SnmpV3Hint }
+        if (@($nobody | Where-Object Check -eq 'ping').Count) { Write-PingHint }
+    }
 }
 
 # ── Joining-collector verdict: would it reach what the current collectors already do? ──
@@ -1044,6 +1097,7 @@ if (($tgrp -or $WithDevice) -and $tgtResults.Count -gt 0) {
     $partial        = [System.Collections.Generic.List[object]]::new()
     $blocked        = [System.Collections.Generic.List[object]]::new()
     $anySnmpTimeout = $false   # printed once at the end, not per-device -- see the hint below
+    $anyPingOnly    = $false   # a device whose only failing check is ping -- see Write-PingHint
 
     foreach ($d in $deviceObjs) {
         $id = [string]$d.id
@@ -1057,10 +1111,11 @@ if (($tgrp -or $WithDevice) -and $tgtResults.Count -gt 0) {
             # the device summary table) -- wmi, ssh, http, https. Without this translation
             # $row.$p misses those four columns entirely and silently reads as "always absent".
             $colName = $protoLabel[$p] ?? $p
-            $vals = foreach ($r in $tgtResults) {
+            # @(...): one destination collector would otherwise give a bare string.
+            $vals = @(foreach ($r in $tgtResults) {
                 $row = $rowsById[$id][$r.Hostname]
                 if ($row) { [string]$row.$colName } else { '(absent)' }
-            }
+            })
             $numPass = @($vals | Where-Object { $_ -eq 'pass' }).Count
             if ($numPass -eq $tgtResults.Count) {
                 continue   # this protocol is fine everywhere
@@ -1074,6 +1129,7 @@ if (($tgrp -or $WithDevice) -and $tgtResults.Count -gt 0) {
             $protoIssues.Add([PSCustomObject]@{ Proto = $colName; Vals = $vals; NotNow = -not $nowOk })
         }
 
+        if ($protoIssues.Count -gt 0 -and @($protoIssues | Where-Object Proto -ne 'ping').Count -eq 0) { $anyPingOnly = $true }
         $entry = [PSCustomObject]@{ Device = $d.displayName; Id = $d.id; Source = $d.source; Issues = $protoIssues }
         $verdictById[$id] = $worst.ToUpper()
         switch ($worst) {
@@ -1085,8 +1141,8 @@ if (($tgrp -or $WithDevice) -and $tgtResults.Count -gt 0) {
 
     # Two-pass print: measure the widest device label / id token / protocol name across
     # ALL entries first, so every column lines up instead of each row wrapping ragged
-    # (matches the padding the joining-collector verdict above uses). Detail cells reuse Format-CollectorCell for the same colour + padding as
-    # the comparison table above.
+    # (matches the padding the joining-collector verdict above uses). Detail cells reuse
+    # Format-CollectorCell for the same colour + padding as the comparison table above.
     function Write-MoveVerdictEntries {
         param([object[]]$Entries)
         $wLabel = ($Entries | ForEach-Object { $_.Device.Length } | Measure-Object -Maximum).Maximum
@@ -1094,7 +1150,8 @@ if (($tgrp -or $WithDevice) -and $tgtResults.Count -gt 0) {
         $wProto = ($Entries.Issues | ForEach-Object { $_.Proto.Length } | Measure-Object -Maximum).Maximum
         foreach ($e in ($Entries | Sort-Object Device)) {
             $idTok = "[id=$($e.Id)]"
-            Write-Host ("  - {0}  {1}  (from {2})" -f $e.Device.PadRight($wLabel), $idTok.PadRight($wIdTok), $e.Source)
+            $from = if ($WithDevice -or @($sources | ForEach-Object Label | Select-Object -Unique).Count -gt 1) { "  (from $($e.Source))" } else { '' }
+            Write-Host ("  - {0}  {1}{2}" -f $e.Device.PadRight($wLabel), $idTok.PadRight($wIdTok), $from)
             foreach ($i in $e.Issues) {
                 $detail = (0..($tgtResults.Count - 1) | ForEach-Object { Format-CollectorCell $tgtResults[$_].Hostname $i.Vals[$_] }) -join '  '
                 $note   = if ($i.NotNow) { '  (not reached from its current collectors either)' } else { '' }
@@ -1121,6 +1178,7 @@ if (($tgrp -or $WithDevice) -and $tgtResults.Count -gt 0) {
         Write-Host "All devices are reachable from every collector that would monitor them. Safe to move."
     }
     if ($anySnmpTimeout) { Write-SnmpV3Hint }
+    if ($anyPingOnly)    { Write-PingHint }
 }
 
 # ── -PassThru: one object per device, check and collector, down the pipeline ──
