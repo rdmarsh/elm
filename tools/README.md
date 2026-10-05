@@ -8,23 +8,35 @@ installed by `make`, and are intentionally **not documented in the main README**
 (which stays focused on elm). Most accept `-p`/`--profile` to pick a credential
 profile, the same as elm (default `config`).
 
-This file documents the general-purpose tools. The collector readiness /
-reachability tooling has its own walkthrough under
-[`examples/collector-readiness.md`](../examples/collector-readiness.md), and every
-script also responds to `-h`/`--help`.
+The prefix says what a tool needs: **`elm-`** tools call elm (and take
+`-p`/`--profile`), **`lm-`** tools use the Logic.Monitor PowerShell module and
+whatever portal you `Connect-LMAccount`ed to, and a tool with **no prefix**
+needs no portal at all. Every script responds to `-h`/`--help` (PowerShell:
+`Get-Help ./tools/<script>.ps1 -Full`).
 
 ## Contents
 
-- [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
-- [Ask in plain English](#ask-in-plain-english) — `tools/elm-ask/`
-- [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
-- [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
+Collectors
+- [Collector scenarios](#collector-scenarios) — which command for which job
+- [Run commands and scripts on collectors](#run-commands-and-scripts-on-collectors) — `tools/lm-collector-debug.ps1`, example scripts in `tools/groovy/`
+- [Collector reachability](#collector-reachability) — `tools/lm-collector-reach.ps1`, `tools/elm-collector-reach-paste.sh`
+- [Collector capacity matrix](#collector-capacity-matrix) — `tools/collector-capacity-matrix.py`
+
+LogicModules
+- [Module updates](#module-updates) — `tools/elm-module-updates.py`
 - [Change advice](#change-advice) — `tools/elm-change-advice.py`
-- [Collector health check](#collector-health-check) — `tools/lm-collector-run-groovy.ps1`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
+
+Portal reports and backups
+- [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Group paths](#group-paths) — `tools/elm-group-paths.sh`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
-- [Module updates](#module-updates) — `tools/elm-module-updates.py`
+
+Profiles and tokens
+- [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
+- [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
+
+- [Ask in plain English](#ask-in-plain-english) — `tools/elm-ask/`
 
 ## API speed test
 
@@ -122,14 +134,105 @@ tools/elm-collector-config-backup.py               # default profile
 tools/elm-collector-config-backup.py -p prod --date
 ```
 
-## Collector health check
+## Collector scenarios
 
-`tools/lm-collector-run-groovy.ps1` runs an arbitrary Groovy script on one or
-more LM collectors via Collector Debug and prints (or saves) each collector's
-output. It is a **generic** runner — `-Script` points at a `.groovy` file of
-your own (e.g. a collector health-check script that reports JVM heap, disk,
-and task queue stats from the collector itself); no such script ships with
-elm or lives in this repo. Unlike the elm-based tools above it is
+Both collector scripts are PowerShell 7: start `pwsh`, `Connect-LMAccount` to
+the portal, then run them. Running Collector Debug needs a Manage-level API
+token. Anything that names a collector, group or device takes a number as an
+id and text as a name; several are comma-separated. Run either script with no
+arguments to list the collector groups.
+
+**1. I want to check every collector in a group can reach everything that group monitors.**
+
+```pwsh
+./tools/lm-collector-reach.ps1 -Group "Site A"
+```
+
+Lists each device and check where the group's collectors disagree. Under
+auto-balance, a disagreement means the device works or not depending on which
+collector LM puts it on.
+
+**2. I want to add a new collector to a group.** Install it outside the group,
+then check it reaches everything the group's collectors reach:
+
+```pwsh
+./tools/lm-collector-reach.ps1 -Group "Site A" -WithCollector newedge02
+./tools/lm-collector-reach.ps1 -Collector old01 -WithCollector newedge02   # replacing one collector
+```
+
+Without a Manage token, `tools/elm-collector-reach-paste.sh --name "Site A"`
+prints the same check to paste into the new collector's debug console in the
+portal (see [Collector reachability](#collector-reachability)).
+
+**3. I want to move devices from one group to another.**
+
+```pwsh
+./tools/lm-collector-reach.ps1 -Group "Old Site" -ToGroup "New Site"
+./tools/lm-collector-reach.ps1 -Collector legacy01 -ToGroup "New Site"   # the devices on one collector
+```
+
+Ends with READY / PARTIAL / BLOCKED for each device, and says when a device
+is not reached from its current collectors either (so the move is not what
+breaks it).
+
+**4. I want to move a device (or a few) into a group.**
+
+```pwsh
+./tools/lm-collector-reach.ps1 -Group "Site A" -WithDevice server01,server02
+./tools/lm-collector-reach.ps1 -Collector collector01 -WithDevice server01      # onto one collector
+```
+
+Same verdict, with each device's current collector as its baseline.
+
+**5. I want to run a Groovy or PowerShell script on every collector in a group.**
+
+```pwsh
+./tools/lm-collector-debug.ps1 -Group "Site A" -Script check.groovy
+./tools/lm-collector-debug.ps1 -Group "Site A" -Script check.ps1       # Windows collectors only
+```
+
+**6. I want to run a Groovy or PowerShell script on one collector.**
+
+```pwsh
+./tools/lm-collector-debug.ps1 -Collector collector01 -Script check.groovy
+```
+
+**7. I want to open a debug prompt on every collector in a group, or on one.**
+
+```pwsh
+./tools/lm-collector-debug.ps1 -Group "Site A" -Interactive
+./tools/lm-collector-debug.ps1 -Collector collector01 -Interactive
+```
+
+Each command you type runs on all of them and shows each one's answer. `help`
+lists the commands, `exit` quits.
+
+**8. I want to run a debug command (e.g. `!ping`) on every collector in a group, or on one.**
+
+```pwsh
+./tools/lm-collector-debug.ps1 -Group "Site A" -Command '!ping 10.0.0.5'
+./tools/lm-collector-debug.ps1 -Collector collector01 -Command '!tlist'
+```
+
+Use single quotes, so PowerShell passes the command through untouched.
+
+## Run commands and scripts on collectors
+
+`tools/lm-collector-debug.ps1` runs a script or a debug command on one or more
+LM collectors via Collector Debug and prints (or saves) each collector's
+output. It is a **generic** runner:
+
+- `-Script x.groovy` runs Groovy, on any collector.
+- `-Script x.ps1` runs PowerShell, on Windows collectors only (Linux ones are
+  skipped with a warning).
+- `-Command '!...'` sends a debug command as-is, as typed in the portal's
+  debug window.
+- `-Interactive` gives a prompt: each command you type runs on every target.
+
+`tools/groovy/` holds two small Groovy scripts for it: `hello.groovy`, a smoke
+test, and `dump-hostprops.groovy`, which checks `-WithHostProps`. Your own
+scripts (e.g. a collector health check that reports JVM heap, disk, and task
+queue stats) live wherever you keep them. Unlike the elm-based tools it is
 **self-contained** — only the Logic.Monitor PowerShell module and one
 `Connect-LMAccount` session are needed, no elm, bash, jq, or jinja2. Collector
 Debug requires a Manage-level API token (a read-only token gets "Access
@@ -137,11 +240,11 @@ denied").
 
 ```pwsh
 # run your own health-check script against one collector, save its output
-./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+./tools/lm-collector-debug.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
     -Collector collector01 -OutFile ./collector01.txt
 
 # run against a list of collectors; one output file per collector
-./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+./tools/lm-collector-debug.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
     -Collector collector01,collector02,collector03 `
     -OutputDir ~/logicmonitor/collector_health
 ```
@@ -158,18 +261,19 @@ device-scoped rather than collector-scoped scripts) and other options.
 ### Which collector group can reach this device?
 
 `-Command` sends any Collector Debug command as-is (what you would type in
-the portal's debug window) instead of a Groovy file, and `-Group` runs on
+the portal's debug window) instead of a script, and `-Group` runs on
 every active collector in each named group (by id or exact name). Together
 they answer "which group should monitor this device?" in one go:
 
 ```pwsh
-./tools/lm-collector-run-groovy.ps1 -Group "Site A","Site B","DMZ" `
+./tools/lm-collector-debug.ps1 -Group "Site A","Site B","DMZ" `
     -Command '!wmi h=10.0.0.5 SELECT Caption FROM Win32_OperatingSystem'
 ```
 
 Each result header names the collector and its group. For an auto-balance
 group, choose one where every collector answers, because LM may place the
 device on any of them. Any debug command works (`!ping`, `!snmpget`, ...).
+For many devices at once, use [`lm-collector-reach.ps1`](#collector-reachability).
 
 There is no built-in "every collector" or pattern flag — `-Collector` always
 wants an explicit list. Build that list yourself with `Get-LMCollector` (the
@@ -180,15 +284,72 @@ elm needed:
 ```pwsh
 # every active collector
 $targets = (Get-LMCollector -BatchSize 1000 | Where-Object { $_.status -eq 1 }).hostname
-./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+./tools/lm-collector-debug.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
     -Collector $targets -OutputDir ~/logicmonitor/collector_health
 
 # only collectors matching a pattern (hostname or description)
 $targets = (Get-LMCollector -BatchSize 1000 | Where-Object {
     $_.status -eq 1 -and ($_.hostname -like '*edge*' -or $_.description -like '*edge*')
 }).hostname
-./tools/lm-collector-run-groovy.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
+./tools/lm-collector-debug.ps1 -Script ~/lm-collector-toolkit/CollectorHealthCheck.groovy `
     -Collector $targets -OutputDir ~/logicmonitor/collector_health
+```
+
+## Collector reachability
+
+"Can these collectors reach these devices?" — before adding a collector to a
+group, or moving devices into one. The full walkthrough, with sample output,
+is [`examples/collector-readiness.md`](../examples/collector-readiness.md).
+
+- `tools/lm-collector-reach.ps1` tests a group's devices from the group's own
+  collectors and compares them. Add `-WithCollector` to vet a new collector
+  against those devices, `-ToGroup` to check whether they could move to
+  another group, or `-WithDevice` to check whether other devices could move
+  into this one (READY / PARTIAL / BLOCKED per device). `-Collector` uses
+  particular collectors as the setup instead of a group. `-Port` tests the TCP
+  ports you name instead of the built-in checks, and `-PassThru` also sends the
+  results down the pipeline as objects. Needs a Manage-level API token.
+- `tools/elm-collector-reach-paste.sh` prints the same Groovy check for you to
+  paste into Collector Debug in the portal yourself. It needs only elm's
+  read-only token, for when you cannot get a Manage one.
+- For a single device, `lm-collector-debug.ps1 -Group ... -Command` (above) is
+  quicker.
+
+`-Group` (or `-Collector`) is the existing setup: its devices and its
+collectors. At most one `-With...` or `-To...` option says what changes:
+
+| Command | Answers |
+|---|---|
+| `-Group G` | Do G's collectors agree? |
+| `-Group G -WithCollector X` | Can collector X join G? |
+| `-Group G -ToGroup H` | Can G's devices move to group H? |
+| `-Group G -WithDevice D` | Can device D move into G? |
+| `-Collector X` | Do X's devices answer X (or, with several collectors, do they agree)? |
+| `-Collector X -WithCollector Y` | Can Y take over X's devices (a one-for-one replacement)? |
+| `-Collector X -ToGroup H` | Can X's devices (e.g. a collector being retired) go to H? |
+| `-Collector X -WithDevice D` | Can device D be pinned to collector X? |
+
+`-ToGroup` and `-WithDevice` end with READY / PARTIAL / BLOCKED per device.
+
+```pwsh
+./tools/lm-collector-reach.ps1                                    # list groups
+./tools/lm-collector-reach.ps1 -Group 42 -WithCollector newedge02  # vet a new collector
+./tools/lm-collector-reach.ps1 -Group 42 -ToGroup "Site B"         # check a move
+./tools/lm-collector-reach.ps1 -Group 42 -WithDevice server01      # move one device in
+./tools/lm-collector-reach.ps1 -Group 42 -Port 5985,5986 -PassThru | Where-Object Result -ne pass
+```
+
+## Collector capacity matrix
+
+`tools/collector-capacity-matrix.py` needs no portal: it works out the highest
+normal per-collector utilisation an auto-balance group can run at so that, if
+k collectors fail, the survivors stay under a target ceiling
+(`target × (N − k) / N`). Markdown by default; `--combined`, `--jira` and
+`--csv` change the layout.
+
+```shell
+tools/collector-capacity-matrix.py              # 80% target, groups of 1..N
+tools/collector-capacity-matrix.py -t 70 --csv
 ```
 
 ## Datasource usage matrix

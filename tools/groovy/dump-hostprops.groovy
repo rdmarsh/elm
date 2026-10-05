@@ -1,4 +1,4 @@
-// dump-hostprops.groovy - diagnostic for lm-collector-run-groovy.ps1 -WithHostProps
+// dump-hostprops.groovy - diagnostic for lm-collector-debug.ps1 -WithHostProps
 //
 // Tells you (a) whether hostProps loaded and how many entries, (b) whether it is reachable
 // from the script's MAIN body, and (c) whether it is reachable from inside a METHOD - which
@@ -6,7 +6,7 @@
 // Values are the collector's real ones. Caution: output can contain sensitive values in clear
 // text; run with -OutputDir to a file you control:
 //
-//   ./lm-collector-run-groovy.ps1 -Script dump-hostprops.groovy -Device <name> -WithHostProps -OutputDir /tmp
+//   ./lm-collector-debug.ps1 -Script groovy/dump-hostprops.groovy -Device <name> -WithHostProps -OutputDir /tmp
 
 // (c) method access - mirrors how the credential check uses hostProps
 def sizeFromMethod() {

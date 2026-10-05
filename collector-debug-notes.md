@@ -14,7 +14,7 @@ is about a REST API endpoint/field, it belongs in the other two files instead.
 
 Requires a Manage-level API token / role for Collector Debug (a read-only
 token gets "Access denied" — same requirement noted in
-`tools/lm-collector-run-groovy.ps1`). Get command usage from the console
+`tools/lm-collector-debug.ps1`). Get command usage from the console
 itself with `help !<commandname>`.
 
 ## Full command list (from `help`, verbatim)
@@ -183,7 +183,7 @@ a plain-English `Suggestion:` on failure (e.g. "Please check the security
 option and `snmp.security` host property" for a bad v3 security name). Far
 more diagnostic than the reachability tools' current hand-rolled UDP
 `GetRequest` probe (hardcoded SNMPv2c, community `public`, pass/FAIL/TIMEOUT
-only — see `tools/lm-collector-reachability-check.groovy.j2`).
+only — see `tools/elm-collector-reach-paste.groovy.j2`).
 
 ### `!healthCheckV2` — signed script only, not usable from the console
 
@@ -214,7 +214,7 @@ renders the resulting exception as an unstringified object instead of text.
 **If you actually want to run your own healthcheck-style script against a
 collector, use `!groovy` instead** (path to a script, absolute or relative to
 `<agentRoot>/bin`, no signature required) — or the existing
-`tools/lm-collector-run-groovy.ps1` wrapper, which already does this for
+`tools/lm-collector-debug.ps1` wrapper, which already does this for
 `CollectorHealthCheck.groovy` (see `tools/README.md`).
 
 ### `!ping`
@@ -247,10 +247,9 @@ real, working v3 security name/auth/priv from the collector that does. Same
 finding backs the `WMI.queryAll()` Groovy-API javadoc, which states outright
 it only applies "to the host which is monitored by current collector."
 
-**Why this matters:** the whole point of `tools/lm-collector-reachability-run-all.ps1`,
-`tools/lm-collector-move-readiness-run-all.ps1`, and their `-Candidate`/
-`-SourceCollector` modes is testing a collector that does **not** yet monitor
-the device (a candidate being vetted, a target group before a move) — exactly
+**Why this matters:** the whole point of `tools/lm-collector-reach.ps1` and its `-WithCollector`/
+`-ToGroup`/`-WithDevice` options is testing a collector that does **not** yet monitor
+the device (a new collector being vetted, a group before a move) — exactly
 the case where this auto-resolution doesn't apply. Full detail and the
 resulting scoping decision (record a separate future diagnostic tool instead
 of rewriting the existing scripts) is in `RECOMMENDATIONS.md` items 17 and 18.

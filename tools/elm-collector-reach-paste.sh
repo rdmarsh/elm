@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# elm-collector-readiness: discover devices in an LM auto-balance collector group
+# elm-collector-reach-paste: discover devices in an LM auto-balance collector group
 # and render a ready-to-paste Groovy reachability check script to stdout.
 #
 # Usage:
-#   elm-collector-readiness.sh --id GROUP_ID [--profile PROFILE]
-#   elm-collector-readiness.sh --name GROUP_NAME [--profile PROFILE]
-#   elm-collector-readiness.sh            # list auto-balance groups and exit
+#   elm-collector-reach-paste.sh --id GROUP_ID [--profile PROFILE]
+#   elm-collector-reach-paste.sh --name GROUP_NAME [--profile PROFILE]
+#   elm-collector-reach-paste.sh            # list auto-balance groups and exit
 #
 # Options:
 #   --id GROUP_ID       auto-balance collector group ID
@@ -15,8 +15,8 @@
 #
 # Output is the rendered Groovy script on stdout. Status messages go to stderr.
 # Redirect stdout as needed:
-#   elm-collector-readiness.sh --id 42 > /tmp/check.groovy
-#   elm-collector-readiness.sh --name "My Group" --profile prod | pbcopy
+#   elm-collector-reach-paste.sh --id 42 > /tmp/check.groovy
+#   elm-collector-reach-paste.sh --name "My Group" --profile prod | pbcopy
 #
 # The rendered script tests device connections using the hostname or IP address
 # that LM uses to reach each device (the 'name' field, not 'displayName').
@@ -189,7 +189,7 @@ matrix=$(printf '%s' "$raw" | jq '
 } >&2
 
 # ── Render Groovy script to stdout ────────────────────────────────────────────
-template="$SCRIPT_DIR/lm-collector-reachability-check.groovy.j2"
+template="$SCRIPT_DIR/elm-collector-reach-paste.groovy.j2"
 [[ -f "$template" ]] || { printf 'Error: template not found: %s\n' "$template" >&2; exit 1; }
 
 venv_python="$SCRIPT_DIR/../venv/bin/python3"
@@ -229,7 +229,11 @@ devices_groovy = '[\n' + ',\n'.join('    ' + device_to_groovy(d) for d in device
 with open(template_path) as f:
     tmpl = jinja2.Template(f.read())
 
-print(tmpl.render(devices_groovy=devices_groovy))
+# Each collector tests 20 devices at a time, up to about 8 s each when nothing answers;
+# wait for the pool that long (at least 120 s). Same rule as lm-collector-reach.ps1.
+await_seconds = max(120, -(-len(devices) // 20) * 8)
+
+print(tmpl.render(devices_groovy=devices_groovy, await_seconds=await_seconds))
 PYEOF
 
 rm "$tmpfile"

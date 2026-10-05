@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The collector tools sent work to collectors that were down and then waited out the whole timeout for them. They treated `status` 1 as "up", but LogicMonitor reports `status` 1 for every registered collector (in the sandbox, 27 of 37 were down, all with status 1); `isDown` is the real flag. `lm-collector-debug.ps1` and `lm-collector-reach.ps1` now skip down collectors with a warning naming each one, and refuse a down `-Candidate`.
+- Collector reachability checks on large groups timed out. Each collector tests 20 devices at a time, up to about 8 s each when nothing answers, but the check stopped waiting after 120 s and the script after 180 s: enough for about 300 devices. Both waits now grow with the device count, in `lm-collector-reach.ps1` and in the script `elm-collector-reach-paste.sh` prints.
+- A comma in a device name shifted that row's columns in the reachability results (rows are joined with commas, unquoted); names and addresses now have commas replaced by spaces.
+- `lm-collector-debug.ps1` and `lm-collector-reach.ps1` declare that they need PowerShell 7 (`#Requires -Version 7.0`), instead of failing in Windows PowerShell 5.1 with a parse error.
+
+### Added
+
+- `tools/lm-collector-debug.ps1 -Interactive`: a debug prompt on one collector or a whole group. Each command typed runs on every target and each one's answer is shown, then it prompts again; `help` lists the commands, `exit` quits.
+- `tools/lm-collector-debug.ps1` runs PowerShell: `-Script x.ps1` is sent with the module's `-PoshCommand`, on Windows collectors only (Linux collectors are skipped with a warning naming their platform). The interactive picker offers `*.groovy` and `*.ps1`. `-Command` also accepts the console's own `help` / `help !command`, not only `!` commands.
+- `tools/lm-collector-reach.ps1` checks moves both ways: `-ToGroup` (can this group's devices move to that group?) and `-WithDevice` (can these devices, by id or name, move into this group, or onto one collector with `-Collector`?), both ending in READY / PARTIAL / BLOCKED per device. The verdict also tests from the devices' current collectors and says when a device is "not reached from its current collectors either", so a device that is already unreachable is not blamed on the move.
+- `tools/lm-collector-reach.ps1 -Port 5985,5986` tests the TCP ports you name, on every device, instead of the built-in checks; WinRM's two ports are labelled `winrm` and `winrm-https`.
+- `tools/lm-collector-reach.ps1 -PassThru` also sends one object per device, check and collector down the pipeline (`Device`, `DeviceId`, `Address`, `Source`, `Check`, `Collector`, `Role`, `Result`, `Verdict`), for `Where-Object`, `Export-Csv` and the like; the report still goes to the screen.
+- `tools/README.md` opens the collector tools with seven scenarios ("I want to add a new collector to a group", "I want to open a debug prompt on every collector in a group", ...), each with the command that does it.
+
+### Changed
+
+- The collector tools are named for what they do. `lm-collector-run-groovy.ps1` is now `lm-collector-debug.ps1`, since it runs debug commands and PowerShell as well as Groovy, and its example scripts `hello.groovy` and `dump-hostprops.groovy` moved to `tools/groovy/`. `elm-collector-readiness.sh` and its template are now `elm-collector-reach-paste.sh` and `elm-collector-reach-paste.groovy.j2`: they print a reachability check to paste into Collector Debug yourself, which needs only a read-only token.
+- `lm-collector-reachability-run-all.ps1` and `lm-collector-move-readiness-run-all.ps1` are merged into `tools/lm-collector-reach.ps1`. They asked one question, "can these collectors reach these devices?", and shared most of their code, so every fix had to be made twice. `-Group` (or `-Collector`) is the existing setup, its devices and its collectors; at most one `-With...` or `-To...` option says what changes: `-WithCollector` (was `-Candidate`), `-ToGroup`, or `-WithDevice`. The flags were renamed in the merge (`-GroupName`/`-GroupId`/`-id` are now `-Group`, and `-SourceCollector X -group T` is now `-Collector X -ToGroup T`), with no aliases kept. Results go under `<temp>/lm-reach/`.
+- `lm-collector-debug.ps1` and `lm-collector-reach.ps1` work the same way: one identical block of shared code finds collectors (by id, name, or an unambiguous part of a name), groups and devices (a number is an id, text a name), and reads results. `lm-collector-debug.ps1 -Device` now takes ids as well as names. With no target, both print their usage and the collector groups; mistakes stop with one red line rather than a PowerShell stack trace. `lm-collector-reach.ps1` no longer saves the debug wrapper (`returns 0` / `output:`) at the top of each result file, and `lm-collector-debug.ps1` checks for results after 1, 2 and 4 seconds before settling at every 5, so short commands answer quickly.
+- `tools/README.md` lists every tool, grouped by what it is for, says what the `elm-` / `lm-` / no prefix means, and has new sections for collector reachability and the capacity matrix.
+
+All of the above was tested against stand-ins for the Logic.Monitor cmdlets, not yet against a portal.
+
 ## [1.11.0] - 2026-10-02
 
 ### Added
