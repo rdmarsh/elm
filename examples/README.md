@@ -23,6 +23,6 @@ See [../EXAMPLES.md](../EXAMPLES.md) for the full index.
 - [compare-portals.sh](compare-portals.sh) — a Markdown page comparing several portals, a
   section per area, showing what differs (`FULL=1` for whole tables), for a wiki or a report
 - [report-pdf.sh](report-pdf.sh) — any Markdown page to a landscape PDF via pandoc and
-  weasyprint, styled by [report.css](report.css)
+  weasyprint, styled by [report.css](report.css); `LOGO=` adds your logo to every page
 - [fs_usage_root_pct_alertexpr.sh](fs_usage_root_pct_alertexpr.sh) — outputs a CSV list of the
   alertExpr used for PercentUsed of the root volume for all devices in a group

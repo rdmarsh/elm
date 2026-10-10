@@ -13,7 +13,8 @@
 
 @page {
   size: A4 landscape;
-  margin: 12mm 10mm;
+  margin: 14mm 10mm 12mm;
+  @top-right    { content: element(logo); vertical-align: bottom; }   /* LOGO=..., see report-pdf.sh */
   @bottom-left  { content: string(title); font: 7pt "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif; color: #888; }
   @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7pt "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif; color: #888; }
 }
@@ -27,6 +28,11 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* the optional logo: lifted out of the page into each page's top-right corner
+   (a browser's print, which cannot do that, shows it once at the top right) */
+.report-logo { position: running(logo); float: right; }
+.report-logo img { height: 9mm; width: auto; }
 
 h1 { font-size: 16pt; margin: 0 0 4pt; string-set: title content(); }
 h2 {

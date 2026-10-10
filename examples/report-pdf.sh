@@ -11,6 +11,9 @@
 #   examples/compare-portals.sh prod,preprod,test critical.txt > differences.md
 #   examples/report-pdf.sh differences.md
 #
+# LOGO=/path/to/logo.png (or .svg, .jpg) puts that image in the top-right
+# corner of every page, e.g. your company's logo. Keep it outside the repo.
+#
 # Needs pandoc and weasyprint (macOS: brew install pandoc weasyprint). Without
 # weasyprint it still writes the HTML: open that in a browser and print it to
 # PDF, which applies the same styles.
@@ -26,7 +29,19 @@ command -v pandoc >/dev/null || { echo "report-pdf: pandoc not found (brew insta
 # the page's first heading names the document (pagetitle sets <title> only, so
 # it is not printed a second time)
 title=$(sed -n 's/^# //p' "$md" | head -1)
-pandoc "$md" -s --embed-resources -c "$css" --metadata pagetitle="${title:-Report}" -o "$html"
+
+# the logo goes in at the top of the page; report.css moves it into each page's
+# top-right corner, and --embed-resources copies the image into the HTML
+before=/dev/null
+if [ -n "${LOGO:-}" ]; then
+    [ -r "$LOGO" ] || { echo "report-pdf: cannot read LOGO $LOGO" >&2; exit 1; }
+    logo=$(cd "$(dirname "$LOGO")" && pwd)/$(basename "$LOGO")
+    before=$(mktemp)
+    trap 'rm -f "$before"' EXIT
+    printf '<div class="report-logo"><img src="%s" alt=""></div>\n' "$logo" > "$before"
+fi
+pandoc "$md" -s --embed-resources -c "$css" --metadata pagetitle="${title:-Report}" \
+    --include-before-body "$before" -o "$html"
 
 if command -v weasyprint >/dev/null; then
     # weasyprint warns about pandoc's screen-only styles and font subsetting; not useful here

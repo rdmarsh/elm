@@ -459,7 +459,13 @@ brew install pandoc weasyprint          # macOS; on Linux, your package manager
 examples/compare-portals.sh prod,preprod,test critical.txt > differences.md
 examples/report-pdf.sh differences.md                  # writes differences.pdf
 examples/report-pdf.sh differences.md report.pdf       # or name it
+LOGO=~/.config/logicmonitor/logo.png examples/report-pdf.sh differences.md   # with a logo
 ```
+
+`LOGO` puts an image (PNG, JPEG or SVG) in the top-right corner of every page,
+such as your company's logo, 9 mm high (change `.report-logo img` in
+report.css for another size). Keep the file outside the repo so it is never
+committed.
 
 It goes Markdown -> HTML (pandoc) -> PDF (weasyprint), styled by
 [report.css](report.css): A4 landscape for the wide tables, a small font, each
