@@ -60,8 +60,8 @@ echo
 # -C prints one total per portal; jq adds which command it counted. Sizes are
 # expected to differ, so this is always the plain table, no "same" column.
 echo 'Sizes' >&2
-printf '\n## Sizes\n\nHow many devices and websites each portal has.\n\n'
-for c in DeviceList WebsiteList; do
+printf '\n## Sizes\n\nHow many of each, per portal.\n\n'
+for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList WebsiteList; do
     elm -p "$profiles" -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
 done | python3 "$matrix" $opts -k command -v total
 

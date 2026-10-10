@@ -404,14 +404,15 @@ done | tools/portal-matrix.py -k command -v total -m
 ## A whole page for a wiki
 
 [compare-portals.sh](compare-portals.sh) runs most of the above and writes one
-Markdown page, a section per area: device and website counts, account
+Markdown page, a section per area: sizes (devices, device groups, collectors,
+users, dashboards, websites), account
 settings, contacts, roles and privileges, users and user groups, escalation
 chains, alert rules, recipient groups, integrations, your standard device
 groups, root group properties, collector groups and builds, the critical
 datasources (if you give it a file of names) and the other LogicModules.
 
-Left out because they are expected to differ: the other counts, the device
-group tree outside your standard groups (usually per customer), and which
+Left out because they are expected to differ: the device group tree outside
+your standard groups (usually per customer), and which
 datasources are in use (it follows what each portal monitors; see
 [LogicModules](#logicmodules) to check it once by hand).
 
@@ -421,7 +422,7 @@ DEVICE_GROUPS='Standards,Templates' \
 ```
 
 Each section shows only what differs; one where every portal agrees says
-"No differences". The device and website counts are always shown in full. The page header says it is a differences-only page.
+"No differences". The sizes are always shown in full. The page header says it is a differences-only page.
 Progress and each table's "N of M rows differ" go to stderr: `tail -f
 differences.log` in another terminal shows how far it has got (the critical
 datasources take one query per name, so a long list takes a few minutes).
