@@ -493,8 +493,8 @@ currently-active SDTs; `--exact` switches host matching from contains
 `tools/portal-matrix.py` turns what elm prints for several profiles
 (`elm -p a,b,c`, see "Several portals at once" in the main README) into one
 row per item and one column per portal, so whichever portal is out of step
-stands out. It reads elm's `-f jsonl` (or `-f json`) on stdin and needs no
-portal itself. `-k` names the field(s) that identify a row; without `-v` a cell
+stands out. It reads elm's `-f jsonl`, `json` or `prettyjson` on stdin (so
+`-f` can be left out) and needs no portal itself. `-k` names the field(s) that identify a row; without `-v` a cell
 is ✓ where the portal has that row and — where it does not; with `-v` it holds
 the value.
 
@@ -524,8 +524,8 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
   instead of elm's own `-d`: that drops rows a portal shares with all the
   others, and a portal left with no rows would vanish from the table, hiding
   what it lacks.
-- `-m` adds a `same` column (✓ / ✗) and keeps every row: the full table for a
-  wiki page.
+- `-m` adds a `same` column (✓ / ✗) after the portals and keeps every row:
+  the full table for a wiki page.
 - `-c account_name` heads the columns with the account names rather than your
   profile names, for readers who know the portals that way. It is refused
   when two profiles point at one account, since their rows would merge.

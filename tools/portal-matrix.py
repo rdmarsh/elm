@@ -26,8 +26,9 @@ what it lacks. -m adds a "same" column (✓ / ✗) instead, for a full table.
 
 Columns are the profiles (or -c account_name, for readers who know the
 portals by account; refused when two profiles share an account, since their
-rows would merge), in the order they first appear. Reads elm's -f jsonl or
--f json from stdin. GitHub Flavored Markdown by default, CSV with --csv.
+rows would merge), in the order they first appear, then "same" with -m.
+Reads elm's -f jsonl, -f json or -f prettyjson from stdin, so -f can be left
+out. GitHub Flavored Markdown by default, CSV with --csv.
 Exit status: 0 when every row is the same on every portal, 1 when any
 differs (like diff), 2 on bad input.
 """
@@ -35,6 +36,7 @@ differs (like diff), 2 on bad input.
 import argparse
 import csv
 import json
+import re
 import sys
 
 TICK, CROSS = "✓", "✗"
@@ -45,8 +47,8 @@ def err(*args):
 
 
 def read_rows(text):
-    """Records from elm -f jsonl (one per line) or -f json ({"Command": [...]})."""
-    text = text.strip()
+    """Records from elm -f jsonl (one per line), -f json or -f prettyjson ({"Command": [...]})."""
+    text = re.sub(r"\x1b\[[0-9;]*m", "", text).strip()     # prettyjson colours even when piped
     if not text:
         return []
     try:
@@ -146,7 +148,7 @@ def main(argv=None):
     try:
         rows = read_rows(sys.stdin.read())
     except json.JSONDecodeError as e:
-        err(f"portal-matrix: input is not elm's -f jsonl or -f json output ({e})")
+        err(f"portal-matrix: input is not elm's -f jsonl, json or prettyjson output ({e})")
         return 2
     if not rows:
         err("portal-matrix: no rows on stdin (pipe in elm -p a,b,... -f jsonl COMMAND ...)")
@@ -171,12 +173,12 @@ def main(argv=None):
     columns, table = pivot(rows, keys, values, args.column)
     differ = [key for key, cells in table.items() if not same(cells, columns)]
 
-    headers = keys + (["same"] if args.match else []) + columns
+    headers = keys + columns + (["same"] if args.match else [])     # read left to right: verdict last
     body = []
     for key, cells in table.items():
         if args.diff and key in differ or not args.diff:
             mark = [CROSS if key in differ else TICK] if args.match else []
-            body.append(list(key) + mark + [cells.get(col, args.missing) for col in columns])
+            body.append(list(key) + [cells.get(col, args.missing) for col in columns] + mark)
 
     if not body:
         err(f"No differences: {len(table)} rows the same on {len(columns)} portals")
@@ -185,7 +187,7 @@ def main(argv=None):
         emit_csv(headers, body)
     else:
         first = len(keys)
-        centred = set(range(first, len(headers))) if not values else ({first} if args.match else set())
+        centred = set(range(first, len(headers))) if not values else ({len(headers) - 1} if args.match else set())
         emit_gfm(headers, body, centred)
     sys.stdout.flush()      # the table first, then the summary on stderr
     err(f"{len(differ)} of {len(table)} rows differ across {len(columns)} portals")
