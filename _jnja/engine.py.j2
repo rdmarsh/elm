@@ -85,7 +85,10 @@ def engine(elm, **kwargs):
             continue
         logging.debug('flag: %s', flag)
         logging.debug('flags[flag]: %s', flags[flag])
-        queryParams += '&' + flag + '=' + str(flags[flag])
+        # dotted -f names (privileges.objectName) are picked out here, after the
+        # response: LM is asked for the top-level field
+        value = top_fields(flags[flag]) if flag == 'fields' else flags[flag]
+        queryParams += '&' + flag + '=' + str(value)
 
     logging.debug('queryParams: %s', queryParams)
 
@@ -109,7 +112,7 @@ def engine(elm, **kwargs):
             click.echo('# ' + name)
             report(elm, flags, obj, url, auth)
         else:
-            results.append((name, *rows(flags, obj, name)))
+            results.append((name, *rows(elm, flags, obj, name)))
 
     if elm.format not in ('api', 'curl', 'wget'):
         report_portals(elm, flags, results, failed)
@@ -270,25 +273,119 @@ def report(elm, flags, obj, url, auth):
             click.echo(obj['total'])
     elif 'count' in flags:
         logging.debug('count is a flag, showing count instead')
-        click.echo(len(obj['items']))
+        # with -e, the rows after exploding: elm -e contacts PortalInfo -f contacts -c
+        click.echo(len(explode(project(flags, obj), elm.explode)) if elm.explode else len(obj['items']))
     else:
         items = project(flags, obj)
-        output(items, elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
+        output(explode(items, elm.explode), elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
         warn(flags, obj, items)
 
 
+def requested(flags):
+    """The -f names, in order."""
+    return [f.strip() for f in flags.get('fields', '').split(',') if f.strip()]
+
+
+def top_fields(fields):
+    """What to ask LM for: the part of each -f name before any dot, once each."""
+    return ','.join(dict.fromkeys(f.strip().split('.', 1)[0] for f in fields.split(',') if f.strip()))
+
+
+def path_tree(names):
+    """{'name': None, 'privileges': {'objectName': None}}: None keeps the whole value."""
+    tree = {}
+    for name in names:
+        node = tree
+        parts = name.split('.')
+        for part in parts[:-1]:
+            if part in node and node[part] is None:
+                break       # the whole field is already wanted
+            node = node.setdefault(part, {})
+        else:
+            node[parts[-1]] = None
+    return tree
+
+
+def trim(value, tree):
+    """Keep only the fields in tree, looking inside lists of records."""
+    if tree is None:
+        return value
+    if isinstance(value, list):
+        return [trim(v, tree) for v in value]
+    if isinstance(value, dict):
+        return {k: trim(v, tree[k]) for k, v in value.items() if k in tree}
+    return value
+
+
 def project(flags, obj):
-    """The items, trimmed to the requested fields."""
+    """The items, trimmed to the requested fields; privileges.objectName picks a sub-field."""
     # Client-side field projection: trim each item to only the requested fields.
     # Defence against endpoints that ignore fields= (e.g. IntegrationList branded
     # types — upstream bug #52). No-op when the API already honoured fields=.
     if 'fields' in flags and obj['items']:
-        requested = {f.strip() for f in flags['fields'].split(',')}
-        return [
-            {k: v for k, v in item.items() if k in requested}
-            for item in obj['items']
-        ]
+        tree = path_tree(requested(flags))
+        return [trim(item, tree) for item in obj['items']]
     return obj['items']
+
+
+def flatten(prefix, record, row):
+    """Add a record's fields to row as prefix.key; records inside it too, lists stay whole."""
+    for k, v in record.items():
+        if isinstance(v, dict) and v:
+            flatten(f'{prefix}.{k}', v, row)
+        else:
+            row[f'{prefix}.{k}'] = v
+
+
+def explode(items, fields, profile=None):
+    """One row per item of each -e list, the record's other fields repeated on each.
+
+    A list of records becomes columns named field.key; an empty list keeps its
+    row, blank. A record that is not in a list is flattened the same way.
+    Several fields are one inside another (-e groups -e groups.members): the
+    -e check in elm.py refuses separate lists, which would multiply.
+    """
+    for field in fields:
+        if items and not any(field in item for item in items):
+            label = f'{profile}: ' if profile else ''
+            click.secho(f'{label}Warning: nothing to explode, no field {field} in the results (is it in -f?)',
+                        fg='yellow', err=True)
+            continue
+        rows = []
+        for item in items:
+            if field not in item:
+                rows.append(item)
+                continue
+            value = item[field]
+            if value == []:
+                # keep the record: its field.key columns come out blank
+                rows.append({k: v for k, v in item.items() if k != field})
+                continue
+            for one in value if isinstance(value, list) else [value]:
+                row = {}
+                for k, v in item.items():
+                    if k != field:
+                        row[k] = v
+                    elif isinstance(one, dict):
+                        flatten(field, one, row)
+                    else:
+                        row[k] = one
+                rows.append(row)
+        items = rows
+    return items
+
+
+def paths(value, prefix=''):
+    """Every field name in value, dotted below the top level, looking inside lists."""
+    found = set()
+    if isinstance(value, list):
+        for v in value:
+            found |= paths(v, prefix)
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            found.add(prefix + k)
+            found |= paths(v, prefix + k + '.')
+    return found
 
 
 def warn(flags, obj, items, profile=None):
@@ -300,7 +397,7 @@ def warn(flags, obj, items, profile=None):
     truncated = False
 
     #if output() found no valid fields it already reported an error - suppress follow-on warnings
-    returned = set(items[0].keys()) if items else set()
+    returned = set().union(*(item.keys() for item in items))
 
     if returned:
         #give a warning if there are more records not shown
@@ -317,7 +414,10 @@ def warn(flags, obj, items, profile=None):
 
         #warn if any requested fields were not returned by the API
         if 'fields' in flags:
-            missing = {f.strip() for f in flags['fields'].split(',')} - returned
+            names = requested(flags)
+            if any('.' in name for name in names):
+                returned = paths(items)
+            missing = set(names) - returned
             if missing:
                 noun = 'field' if len(missing) == 1 else 'fields'
                 click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(sorted(missing))),
@@ -325,7 +425,7 @@ def warn(flags, obj, items, profile=None):
     return truncated
 
 
-def rows(flags, obj, profile):
+def rows(elm, flags, obj, profile):
     """One portal's rows when several are queried: its items, or its -c/-C count.
 
     Returns (rows, truncated).
@@ -336,14 +436,16 @@ def rows(flags, obj, profile):
             return [{'total': '>{}'.format(abs(obj['total']) - 1)}], False
         return [{'total': obj['total']}], False
     if 'count' in flags:
-        return [{'count': len(obj['items'])}], False
+        count = len(explode(project(flags, obj), elm.explode, profile)) if elm.explode else len(obj['items'])
+        return [{'count': count}], False
     items = project(flags, obj)
     if not items:
         click.secho(f'{profile}: Warning: no data found', fg='yellow', err=True)
     elif not any(items):
         click.secho(f'{profile}: Error: no valid fields selected', fg='red', err=True)
         return [], False
-    return items, warn(flags, obj, items, profile)
+    truncated = warn(flags, obj, items, profile)
+    return explode(items, elm.explode, profile), truncated
 
 
 def report_portals(elm, flags, results, failed):

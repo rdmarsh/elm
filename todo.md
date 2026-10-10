@@ -48,6 +48,17 @@ chains/rules data is available.
 Context: same class as GitHub issue #47 (LM swagger omits paging params on
 several list endpoints).
 
+## Whole numbers print as 1.0 when a column has gaps
+
+pandas turns a number column with any missing value into floats, so ids and
+counts print as `1.0`, `2.0` in csv, the tables and jsonl whenever some rows
+lack the field. Long-standing (any field absent from some records), but `-e`
+makes it common: `-e groups.members` with one empty list prints every member
+id as a float (seen 2026-10-11 in a faked test). A fix such as converting
+whole-valued float columns to pandas' nullable `Int64` in `output()` changes
+existing output, including the jsonl a downstream repo reads, so test it
+against current output first; maybe together with pandas 3.
+
 ## pandas 3 (needed for Python 3.15)
 
 pandas 2.3 has no Python 3.15 wheels and will not get them, so on 3.15 `make`

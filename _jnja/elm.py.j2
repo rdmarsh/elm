@@ -356,7 +356,7 @@ Source, docs, and examples: https://github.com/rdmarsh/elm
 CRITICAL: flag position matters.
   elm [GLOBAL FLAGS] COMMAND [COMMAND FLAGS]
 
-Global flags (before COMMAND):  -p -d -l -f -o -s -H -I -v -i -k -a -V
+Global flags (before COMMAND):  -p -d -e -l -f -o -s -H -I -v -i -k -a -V
                                 --config --head --foot --cacert --ai
 Command flags (after COMMAND):  -s -o -f -F -S -c -C --info  plus the command's
                                 own parameters (--id, --deviceId, ...)
@@ -386,7 +386,8 @@ BEFORE USING A COMMAND: elm COMMAND --info
   but they can be wrong too: if real results contradict either, say so.
 
 KEEP TOKEN USE DOWN
-  -f FIELD,...        fetch only the fields you need
+  -f FIELD,...        fetch only the fields you need; a dotted name picks
+                      part of a nested field: -f name,privileges.objectName
   -c / -C             count instead of fetching rows to count them
   -f jsonl, csv, values  compact output; avoid prettyjson, html and xml
   elm COMMAND --info  instead of reading elm-notes.yaml or the swagger
@@ -409,6 +410,11 @@ KEY SUBCOMMAND FLAGS (most commands support these)
                    Prefer -C: -c caps at 1000 and under-reports anything larger.
                    Exception: AlertList and AuditLogList don't return a real
                    total (-C prints a warning and ">N"); use -c -s0 there.
+
+NESTED LISTS
+  -e FIELD (before COMMAND) gives one row per item of a list field, its keys as
+  FIELD.key columns: elm -e contacts -f csv PortalInfo -f contacts
+  The field must be in -f. -e repeats only for a list inside another.
 
 OUTPUT SHAPE
   json, prettyjson:  wrapped in the command name: {"DeviceList": [{...}, ...]}
@@ -498,7 +504,7 @@ def _portals(names):
 
 class ELM(object):
     """Load config and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals=None, diff=False):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals=None, diff=False, explode=()):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
@@ -514,6 +520,8 @@ class ELM(object):
         # several profiles (-p a,b): one (name, access_id, access_key, account_name) each
         self.portals = portals
         self.diff = diff
+        # list fields to turn into one row per item (-e)
+        self.explode = explode
 
 def enforce_config_perms(config_path):
     if not os.path.exists(config_path):
@@ -560,6 +568,7 @@ enforce_config_perms(config_file)
 @click.option('--ai',                 is_flag=True, is_eager=True, expose_value=False, callback=_ai_guide_callback,    help='Print quick-start guide for AI assistants and exit')
 @click.option('-l', '--list',         is_flag=True, is_eager=True, expose_value=False, callback=_list_profiles_callback, help='List available credential profiles and exit')
 @click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name, shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini. Comma-separated names (a,b) run the command on each')
+@click.option('-e', '--explode',      multiple=True, metavar='FIELD', help='One row per item of this list field, its keys as FIELD.key columns. Repeat only for a list inside it (-e a -e a.b)')
 @click.option('-d', '--diff',         is_flag=True, default=False, help='With several profiles: show only the rows that are not the same on all of them')
 @click.option('-i', '--access_id',    help='API token access id')
 @click.option('-k', '--access_key',   help='API token access key')
@@ -576,7 +585,7 @@ enforce_config_perms(config_file)
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(__version__, '-V', '--version')
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile, diff):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile, diff, explode):
     """A cli interface for extracting LogicMonitor data via the api
 
     Default config: ~/.config/logicmonitor/credentials/config.ini
@@ -624,6 +633,17 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     if diff and not portals:
         raise click.UsageError('--diff needs several profiles to compare, e.g. -p prod,preprod')
 
+    # Two separate lists exploded together pair every item of one with every item
+    # of the other: rows multiply and the pairs mean nothing. Only a list inside
+    # one already exploded may follow.
+    explode = tuple(f.strip() for e in explode for f in e.split(',') if f.strip())
+    for i, field in enumerate(explode):
+        if i and not any(field.startswith(earlier + '.') for earlier in explode[:i]):
+            raise click.UsageError(
+                f"{explode[i - 1]} and {field} are separate lists: exploding both pairs every item of one "
+                f"with every item of the other. Run once per list. (-e repeats only for a list inside "
+                f"another, e.g. -e groups -e groups.members)")
+
     #make sure we've got the bare minimun access needs
     if not access_id or not access_key or not account_name:
         click.secho('Error: access_id, access_key or account_name not set via cli or config file', fg='red', err=True)
@@ -660,7 +680,8 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     logging.info('halt_on_api_error: %s', halt_on_api_error)
     logging.info('cacert: %s', cacert)
     logging.info('diff: %s', diff)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals, diff)
+    logging.info('explode: %s', explode)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals, diff, explode)
 
 if __name__ == '__main__':
     cli()

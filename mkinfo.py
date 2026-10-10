@@ -102,7 +102,19 @@ def response_fields(api_path, paths, definitions):
     # Descriptions are kept whole: the long ones are usually the ones that list
     # what the values mean (e.g. deviceType, awsState), so cutting them loses
     # exactly the useful part.
-    return {name: (field_type(p), clean(p.get("description"))) for name, p in props.items()}
+    return {name: (field_type(p), clean(p.get("description")), sub_fields(p, definitions))
+            for name, p in props.items()}
+
+
+def sub_fields(prop, definitions):
+    """The field names inside a record or list-of-records field, for -f a.b and -e.
+
+    Names only: descriptions for every nested field would not fit the budget.
+    """
+    inner = prop.get("items", {}) if prop.get("type") == "array" else prop
+    if "$ref" not in inner and "allOf" not in inner and "properties" not in inner:
+        return []
+    return sorted(schema_properties(inner, definitions), key=str.lower)
 
 
 # --- elm-notes.yaml ------------------------------------------------------------
@@ -249,7 +261,7 @@ def build_info(definition, note, block, fields):
     if names:
         out.append("Fields (name: type - description; [notes] = elm-notes.yaml, otherwise the swagger):")
         for name in names:
-            kind, description = fields.get(name, ("", ""))
+            kind, description, subs = fields.get(name, ("", "", []))
             note_type, note_comment = key_fields.get(name, ("", ""))
             if note_type and not note_type.startswith(("{", "[")) and " " not in note_type:
                 kind = kind or note_type
@@ -258,6 +270,8 @@ def build_info(definition, note, block, fields):
             elif name not in fields:
                 description = "[notes] not in the swagger"
             out.append(f"  {name}: {kind}" + (f" - {description}" if description else ""))
+            if subs:
+                out.append(f"    {name}.: " + ", ".join(subs))
     else:
         out.append("Fields: not described in the swagger; run with -s1 to see what comes back.")
 

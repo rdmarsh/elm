@@ -389,6 +389,10 @@ Options:
                            ~/.config/logicmonitor/credentials/<NAME>.ini.
                            Comma-separated names (a,b) run the command on each
 
+  -e, --explode FIELD      One row per item of this list field, its keys as
+                           FIELD.key columns. Repeat only for a list inside it
+                           (-e a -e a.b)
+
   -d, --diff               With several profiles: show only the rows that are
                            not the same on all of them
 
@@ -740,6 +744,47 @@ or nothing is sent to any of them. If one portal fails, the others' rows are
 still printed and elm exits 1 (`--halt-on-api-error` stops at the first
 failure). With `-f api`, `curl` or `wget`, each portal's request follows a
 `# <profile>` line.
+
+### Nested fields: `-e` and dotted `-f`
+
+Some fields hold a list of records: a role's `privileges`, a portal's
+`contacts`, a device's `customProperties`. In csv or a table they come out as
+one unreadable cell. `-e FIELD` (before the command name) gives one row per
+item instead, with the record's other fields repeated and the item's keys as
+`FIELD.key` columns:
+
+```shell
+$ elm -e privileges -f csv RoleList -f name,privileges
+name,privileges.objectType,privileges.objectId,privileges.objectName,privileges.operation,privileges.subOperation
+helpdesk,host_group,12,Linux Servers,read,
+helpdesk,setting,opsnote,opsnote,read,
+empty,,,,,
+```
+
+A role with no privileges keeps its row, blank. `-c` counts the rows after
+exploding (`elm -e contacts PortalInfo -f contacts -c` counts the contacts);
+`-C` is still LM's total of records. A field holding a single record rather
+than a list (such as `installationMetadata`) is flattened into `FIELD.key`
+columns on the same row.
+
+**A dotted name in `-f` picks part of a nested field.** elm asks LM for the
+whole field and trims it afterwards, with or without `-e`:
+
+```shell
+elm -e privileges -f csv RoleList -f name,privileges.objectName,privileges.operation
+```
+
+`elm COMMAND --info` lists the names under each nested field (the
+`privileges.:` line). With [several portals](#several-portals-at-once) and
+`-d`, this compares items one by one, and leaves out sub-fields such as
+`privileges.objectId` that hold portal-specific ids and would make every row
+differ. Without `-e`, `-d` compares a list whole, so the same items in another
+order count as different.
+
+`-e` takes one list per run. Exploding two separate lists, such as
+`customProperties` and `systemProperties`, would pair every item of one with
+every item of the other, so elm refuses it: run once per list. It repeats only
+for a list inside another: `-e groups -e groups.members`.
 
 ### Command info
 

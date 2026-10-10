@@ -509,12 +509,14 @@ testallow: ## Test allowed_commands in a profile (offline)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testmulti
-testmulti: ## Test the checks on several profiles, -p a,b (offline)
+testmulti: ## Test the checks on several profiles (-p a,b) and on -e (offline)
 	@echo testing: every profile must allow the command ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\n" > $$c/open.ini && chmod 600 $$c/open.ini && { $(testbin) -p open,limited AdminList -s1 2>&1 | grep -q "Profile 'limited' allows only" ; } && { $(testbin) -p open,limited AdminList -s1 >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
 	@echo testing: a profile listed twice is an error ; $(ALLOWHOME) && $(testbin) -p limited,limited MetricsUsage 2>&1 | grep -q 'profile listed twice' ; $(ALLOWDONE)
 	@echo testing: a missing profile is named ; $(ALLOWHOME) && $(testbin) -p limited,nope MetricsUsage 2>&1 | grep -q "no profile 'nope'" ; $(ALLOWDONE)
 	@echo testing: -i cannot be used with several profiles ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\n" > $$c/open.ini && chmod 600 $$c/open.ini && $(testbin) -p open,limited -i x MetricsUsage 2>&1 | grep -q -- '-i cannot be used with several profiles' ; $(ALLOWDONE)
 	@echo testing: --diff needs several profiles ; $(ALLOWHOME) && $(testbin) -p limited -d MetricsUsage 2>&1 | grep -q -- '--diff needs several profiles' ; $(ALLOWDONE)
+	@echo testing: -e refuses two separate lists ; $(ALLOWHOME) && { $(testbin) -p limited -e contacts -e privileges MetricsUsage 2>&1 | grep -q 'are separate lists' ; } ; $(ALLOWDONE)
+	@echo testing: --info lists the fields inside a nested field ; $(testbin) RoleList --info | grep -q 'privileges.: objectId, objectName'
 	@echo testing: --diff refuses -f curl ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\n" > $$c/open.ini && chmod 600 $$c/open.ini && $(testbin) -p open,limited -d -f curl MetricsUsage 2>&1 | grep -q -- '--diff compares rows' ; $(ALLOWDONE)
 	@echo "$(OK_STRING) $@"
 

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `-e` / `--explode FIELD` gives one row per item of a list field (a role's `privileges`, a portal's `contacts`, a device's `customProperties`), the record's other fields repeated and the item's keys as `FIELD.key` columns. A record with an empty list keeps its row. `-c` counts the exploded rows. With several profiles and `-d`, items are compared one by one rather than as a whole list (where order counted). Two separate lists cannot be exploded together, since every item of one would pair with every item of the other; `-e` repeats only for a list inside another (`-e groups -e groups.members`).
+- A dotted name in `-f` picks part of a nested field: `-f name,privileges.objectName,privileges.operation`. elm asks LM for the top-level field and trims the rest, so portal-specific ids such as `privileges.objectId` can be left out of a comparison.
+- `elm COMMAND --info` lists the names inside each nested field, e.g. `privileges.: objectId, objectName, objectType, operation, subOperation`.
+
 ### Changed
 
 - `make` checks the Python version before building, and stops with the command to use instead: below 3.10 (the oldest that `truststore` and `requests` accept), or above the newest tested, which is 3.14 for now. On 3.15 the build used to fail deep inside pip compiling pandas (`metadata-generation-failed`), because pandas 2.3 has no 3.15 wheels. `PYTHON_UNTESTED=1` tries a newer one anyway. Once `venv/` exists, its Python is the one checked. `setup.py` now says `>=3.10` (it said `>=3.9`, which the pins never supported).
