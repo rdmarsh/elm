@@ -1,0 +1,66 @@
+/* report.css -- print styles for a portal comparison page as a PDF.
+ *
+ * Wide tables (one column per portal) fit better on landscape pages in a
+ * small font. Used by the Markdown -> HTML -> PDF recipe in
+ * examples/comparing-portals.md:
+ *
+ *   pandoc comparison.md -s --embed-resources -c examples/report.css \
+ *     --metadata pagetitle="Portal comparison" -o comparison.html
+ *   weasyprint comparison.html comparison.pdf
+ *
+ * Also fine opened in a browser and printed (Print -> Save as PDF).
+ */
+
+@page {
+  size: A4 landscape;
+  margin: 12mm 10mm;
+  @bottom-left  { content: string(title); font: 7pt "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif; color: #888; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7pt "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif; color: #888; }
+}
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif;
+  font-size: 9pt;
+  line-height: 1.3;
+  color: #222;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+h1 { font-size: 16pt; margin: 0 0 4pt; string-set: title content(); }
+h2 {
+  font-size: 12pt;
+  margin: 14pt 0 3pt;
+  padding-bottom: 2pt;
+  border-bottom: 1px solid #bbb;
+  break-after: avoid;           /* keep a heading with its table */
+}
+p { margin: 2pt 0 5pt; }
+p:has(+ table) { break-after: avoid; }
+
+table {
+  border-collapse: collapse;
+  width: auto;
+  max-width: 100%;
+  font-size: 7.5pt;
+  margin: 3pt 0 8pt;
+}
+thead { display: table-header-group; }   /* repeat the header row on every page */
+tr { break-inside: avoid; }
+th, td {
+  border: 1px solid #ccc;
+  padding: 1.5pt 4pt;
+  vertical-align: top;
+  overflow-wrap: anywhere;      /* long checksums, paths and JSON wrap rather than overflow */
+}
+th { background: #eee; font-weight: 600; white-space: nowrap; }   /* headings never break mid-word */
+tbody tr:nth-child(even) td { background: #fafafa; }
+
+em { color: #666; }             /* "_No differences._" */
+code { font-size: 90%; }
+
+/* pandoc's own standalone styles cap the width and add margins meant for screens */
+@media print {
+  body { max-width: none; padding: 0; }
+}

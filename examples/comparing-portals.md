@@ -27,6 +27,7 @@ tables are illustrations of the shape, not real output.
    * [Collectors](#collectors)
    * [LogicModules](#logicmodules)
    * [A whole page for a wiki](#a-whole-page-for-a-wiki)
+   * [A PDF report](#a-pdf-report)
    * [Scripting and scheduled checks](#scripting-and-scheduled-checks)
    * [Choosing keys and values](#choosing-keys-and-values)
    * [Caveats](#caveats)
@@ -407,6 +408,13 @@ MATRIX_OPTS='-c account_name --tick :true: --cross :false:' \
   examples/compare-portals.sh prod,preprod,test critical.txt > comparison.md
 ```
 
+`DIFF_ONLY=1` makes every section show only what differs, for a much shorter
+page; a section where every portal agrees says "No differences":
+
+```shell
+DIFF_ONLY=1 examples/compare-portals.sh prod,preprod,test critical.txt > differences.md
+```
+
 A single table with a heading of your own:
 
 ```shell
@@ -414,6 +422,27 @@ A single table with a heading of your own:
   elm -p prod,preprod,test RoleList -s0 -f name | tools/portal-matrix.py -k name -m --tick :true: --cross :false:
 } >> comparison.md
 ```
+
+## A PDF report
+
+Go through HTML rather than straight to PDF: [report.css](report.css) lays the
+wide tables out on landscape pages in a small font, repeats each table's
+header row on every page, wraps long checksums, and numbers the pages.
+`pandoc file.md -o file.pdf` goes through LaTeX instead, which needs a large
+TeX install and lets wide tables run off the page.
+
+```shell
+brew install pandoc weasyprint          # macOS; on Linux, your package manager
+
+DIFF_ONLY=1 examples/compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
+pandoc differences.md -s --embed-resources -c examples/report.css \
+  --metadata pagetitle="Portal comparison" -o differences.html
+weasyprint differences.html differences.pdf
+```
+
+Or open the HTML in a browser and print it to PDF. Keep the default ✓ / ✗
+marks for a PDF (no `--tick :true:`): the wiki's emoji codes would print as
+text. A table too big to print is better attached as `--csv`.
 
 ## Scripting and scheduled checks
 
