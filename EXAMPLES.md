@@ -24,11 +24,14 @@ Each topic has its own file in the [examples/](examples/) directory.
 | [examples/users.md](examples/users.md) | User accounts: export by id, status checks, offboarding |
 | [examples/websites.md](examples/websites.md) | Websites: group hierarchy queries, missing required properties |
 | [examples/dashboards-reports.md](examples/dashboards-reports.md) | Dashboards and reports: filtering by resource group or hostsVal |
+| [examples/comparing-portals.md](examples/comparing-portals.md) | Several portals side by side: which one is out of step (users, roles, alerting, groups, collectors, LogicModules) |
 
 ## Scripts
 
 For longer automation, see the scripts in [examples/](examples/):
 
+- [compare-portals.sh](examples/compare-portals.sh) — a Markdown page comparing several portals,
+  a section per area, for a wiki
 - [fs_usage_root_pct_alertexpr.sh](examples/fs_usage_root_pct_alertexpr.sh) — outputs a CSV list of the
   alertExpr used for PercentUsed of the root volume for all devices in a group
 

@@ -12,7 +12,10 @@ that shows at a glance which portal is out of step:
     | joe@example.com  |  ✓   |    ✓    |  ✓   |
     | fred@example.com |  ✓   |    —    |  ✓   |
 
-Rows are identified by the -k field(s). Without -v a cell is ✓ where the
+Rows are identified by the -k field(s). Without -k, when each portal has one
+record (PortalInfo, a ...ById command) there is one row per field with each
+portal's value, so settings line up side by side; with several records per
+portal, every field together identifies a row. Without -v a cell is ✓ where the
 portal has that row and — where it does not; with -v it holds that field's
 value (several -v fields are joined with " / "), so differing values show:
 
@@ -74,15 +77,31 @@ def show(value):
     return str(value)
 
 
+def get(row, field):
+    """row's field; a dotted name not in row (escalatingChain.name) looks inside its records."""
+    if field in row:
+        return row[field]
+    value = row
+    for part in field.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return None
+        value = value[part]
+    return value
+
+
+def has(rows, field):
+    return any(field in row or get(row, field) is not None for row in rows)
+
+
 def pivot(rows, keys, values, column, tick):
     """(columns, {key tuple: {column: cell}}), both in first-seen order."""
     columns, table = [], {}
     for row in rows:
-        col = show(row.get(column))
+        col = show(get(row, column))
         if col not in columns:
             columns.append(col)
-        key = tuple(show(row.get(k)) for k in keys)
-        cell = " / ".join(show(row.get(v)) for v in values) if values else tick
+        key = tuple(show(get(row, k)) for k in keys)
+        cell = " / ".join(show(get(row, v)) for v in values) if values else tick
         cells = table.setdefault(key, {}).setdefault(col, [])
         if cell not in cells:
             cells.append(cell)      # one portal with several rows for a key: list each value once
@@ -132,8 +151,10 @@ def parse_args(argv):
         description=__doc__.split("\n\n")[0],
         epilog=__doc__.split("\n\n", 1)[1],
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("-k", "--key", required=True, metavar="FIELD[,FIELD]",
-                   help="field(s) that identify a row, e.g. name or name,privileges.objectName")
+    p.add_argument("-k", "--key", metavar="FIELD[,FIELD]",
+                   help="field(s) that identify a row, e.g. name or name,privileges.objectName. "
+                        "Without it: one row per field when each portal has one record (PortalInfo), "
+                        "otherwise every field together")
     p.add_argument("-v", "--value", metavar="FIELD[,FIELD]",
                    help="show this field's value in each cell instead of a tick")
     p.add_argument("-c", "--column", default="profile", metavar="FIELD",
@@ -154,7 +175,7 @@ def parse_args(argv):
 
 def main(argv=None):
     args = parse_args(argv)
-    keys = [k.strip() for k in args.key.split(",") if k.strip()]
+    keys = [k.strip() for k in (args.key or "").split(",") if k.strip()]
     values = [v.strip() for v in (args.value or "").split(",") if v.strip()]
 
     try:
@@ -167,7 +188,7 @@ def main(argv=None):
         return 2
 
     present = set().union(*(row.keys() for row in rows))
-    absent = [f for f in [args.column] + keys + values if f not in present]
+    absent = [f for f in [args.column] + keys + values if not has(rows, f)]
     if absent:
         err(f"portal-matrix: no field {', '.join(absent)} in the input; it has: {', '.join(sorted(present))}")
         return 2
@@ -181,6 +202,22 @@ def main(argv=None):
             err(f"portal-matrix: {args.column} {col} is behind several profiles ({', '.join(sorted(names))}), "
                 f"whose rows would merge; use -c profile")
             return 2
+
+    if not keys:
+        # the portal's own fields, in first-seen order
+        fields = [f for f in dict.fromkeys(f for row in rows for f in row)
+                  if f not in (args.column, "profile", "account_name")]
+        per_portal = {}
+        for row in rows:
+            per_portal[show(get(row, args.column))] = per_portal.get(show(get(row, args.column)), 0) + 1
+        if set(per_portal.values()) == {1}:
+            # one record each (PortalInfo, a ById): one row per field, its value per portal
+            fields = values or fields
+            rows = [{args.column: get(row, args.column), "field": f, "value": get(row, f)}
+                    for row in rows for f in fields]
+            keys, values = ["field"], ["value"]
+        else:
+            keys = [f for f in fields if f not in values]
 
     columns, table = pivot(rows, keys, values, args.column, args.tick)
     differ = [key for key, cells in table.items() if not same(cells, columns)]

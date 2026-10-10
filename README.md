@@ -745,6 +745,10 @@ still printed and elm exits 1 (`--halt-on-api-error` stops at the first
 failure). With `-f api`, `curl` or `wget`, each portal's request follows a
 `# <profile>` line.
 
+[examples/comparing-portals.md](examples/comparing-portals.md) has recipes for
+users, roles, alerting, groups, collectors and LogicModules, and a table tool
+(`tools/portal-matrix.py`) that puts each portal in its own column.
+
 ### Nested fields: `-e` and dotted `-f`
 
 Some fields hold a list of records: a role's `privileges`, a portal's
@@ -889,6 +893,7 @@ See [EXAMPLES.md](EXAMPLES.md) for the full index, or jump directly to a topic:
 - [Users](examples/users.md) - export by id, status checks, offboarding
 - [Websites](examples/websites.md) - group hierarchy queries, missing required properties
 - [Dashboards and reports](examples/dashboards-reports.md) - filtering by resource group or hostsVal
+- [Comparing portals](examples/comparing-portals.md) - several portals side by side, which one is out of step
 
 ## Errors
 

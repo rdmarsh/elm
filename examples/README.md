@@ -16,8 +16,11 @@ See [../EXAMPLES.md](../EXAMPLES.md) for the full index.
 | [users.md](users.md) | User accounts: export by id, status checks, offboarding |
 | [websites.md](websites.md) | Websites: group hierarchy queries, missing required properties |
 | [dashboards-reports.md](dashboards-reports.md) | Dashboards and reports: filtering by resource group or hostsVal |
+| [comparing-portals.md](comparing-portals.md) | Several portals side by side: which one is out of step (users, roles, alerting, groups, collectors, LogicModules) |
 
 ## Scripts
 
+- [compare-portals.sh](compare-portals.sh) — a Markdown page comparing several portals, a
+  section per area, for a wiki
 - [fs_usage_root_pct_alertexpr.sh](fs_usage_root_pct_alertexpr.sh) — outputs a CSV list of the
   alertExpr used for PercentUsed of the root volume for all devices in a group

@@ -1,0 +1,106 @@
+#!/bin/sh
+# compare-portals.sh -- a Markdown page comparing several portals, for a wiki.
+#
+# Usage:
+#   examples/compare-portals.sh PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md
+#
+# One section per area (sizes, contacts, users and roles, alerting, groups,
+# collectors, LogicModules), each a table from tools/portal-matrix.py with one
+# column per portal. Big areas show only what differs; small ones the whole
+# table with a "same" column. The optional file lists datasource names, one
+# per line, to compare by checksum (see examples/comparing-portals.md).
+#
+# MATRIX_OPTS is passed to every portal-matrix call, e.g. for a wiki that
+# renders :true: / :false: and readers who know the portals by account name:
+#   MATRIX_OPTS='-c account_name --tick :true: --cross :false:' \
+#     examples/compare-portals.sh prod,preprod,test critical.txt > page.md
+#
+# The contacts section lists names, emails and phone numbers: keep the page
+# somewhere only the people who may see them can read it. Progress and each
+# table's summary go to stderr. Needs elm on PATH.
+
+set -u
+profiles=${1:?usage: $0 PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md}
+names=${2:-}
+matrix="$(dirname "$0")/../tools/portal-matrix.py"
+opts=${MATRIX_OPTS:-}
+
+# section TITLE NOTE ELM-ARGS... -- PORTAL-MATRIX-ARGS...
+section() {
+    title=$1 note=$2
+    shift 2
+    echo "$title" >&2
+    elm_args=''
+    while [ "$1" != -- ]; do elm_args="$elm_args $(printf '%s' "$1" | sed "s/'/'\\\\''/g; s/^/'/; s/\$/'/")"; shift; done
+    shift
+    # shellcheck disable=SC2086  # opts is meant to split
+    table=$(eval "elm -p '$profiles' -f jsonl $elm_args" | python3 "$matrix" $opts "$@")
+    printf '\n## %s\n\n%s\n\n' "$title" "$note"
+    if [ -n "$table" ]; then printf '%s\n' "$table"; else echo '_No differences._'; fi
+}
+
+printf '# Portal comparison\n\nProfiles: %s. Generated %s by elm.\n' "$profiles" "$(date '+%Y-%m-%d %H:%M')"
+
+# -C prints one total per portal; jq adds which command it counted
+echo 'Sizes' >&2
+printf '\n## Sizes\n\nHow many of each, per portal.\n\n'
+for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList WebsiteList; do
+    elm -p "$profiles" -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
+done | python3 "$matrix" $opts -k command -v total -m
+
+section 'Contacts' 'Portal contacts (PortalInfo).' \
+    -e contacts PortalInfo -f contacts -- -k contacts.email -m
+
+section 'Roles' 'Which roles exist where.' \
+    RoleList -s0 -f name -- -k name -m
+
+section 'Role privileges' 'Only the privileges that differ: the operation each role has on each object.' \
+    -e privileges RoleList -s0 -f name,privileges.objectType,privileges.objectName,privileges.operation \
+    -- -k name,privileges.objectType,privileges.objectName -v privileges.operation -d
+
+section 'Users' 'Only the users whose status differs, or who are missing somewhere.' \
+    AdminList -s0 -f username,status -- -k username -v status -d
+
+section 'User groups' 'Which user groups exist where.' \
+    AdminGroupList -s0 -f name -- -k name -m
+
+section 'Escalation chains' 'Which escalation chains exist where.' \
+    EscalationChainList -s0 -f name -- -k name -m
+
+section 'Alert rules' 'Only the alert rules that differ: priority / level / escalation chain.' \
+    AlertRuleList -s0 -f name,priority,levelStr,escalatingChain.name \
+    -- -k name -v priority,levelStr,escalatingChain.name -d
+
+section 'Recipient groups' 'Which recipient groups exist where.' \
+    RecipientGroupList -s0 -f groupName -- -k groupName -m
+
+section 'Integrations' 'Which integrations exist where, and their type.' \
+    IntegrationList -s0 -f name,type -- -k name -v type -m
+
+section 'Device groups' 'Only the groups that differ: missing, or with another AppliesTo.' \
+    DeviceGroupList -s0 -f fullPath,appliesTo -- -k fullPath -v appliesTo -d
+
+section 'Root group properties' 'Custom properties set on the root device group (inherited by everything).' \
+    -e customProperties DeviceGroupById --id 1 -f customProperties \
+    -- -k customProperties.name -v customProperties.value -m
+
+section 'Collector groups' 'Which collector groups exist where.' \
+    CollectorGroupList -s0 -f name -- -k name -m
+
+section 'Collector builds' 'Which collector builds are running where.' \
+    CollectorList -s0 -f build -- -k build -m
+
+if [ -n "$names" ]; then
+    echo 'Critical datasources' >&2
+    printf '\n## Critical datasources\n\nChecksum of each datasource in %s.\n\n' "$(basename "$names")"
+    while read -r ds; do
+        [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,checksum
+    done < "$names" | python3 "$matrix" $opts -k name -v checksum -m
+fi
+
+echo 'Other LogicModules' >&2
+printf '\n## Other LogicModules\n\nOnly the ConfigSources, EventSources, PropertySources, TopologySources and AppliesTo functions that differ, by checksum.\n\n'
+table=$(for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do
+    elm -p "$profiles" -f jsonl "$c" -s0 -f name,checksum | jq -c --arg t "$c" '{type: $t} + .'
+done | python3 "$matrix" $opts -k type,name -v checksum -d)
+if [ -n "$table" ]; then printf '%s\n' "$table"; else echo '_No differences._'; fi

@@ -496,7 +496,8 @@ row per item and one column per portal, so whichever portal is out of step
 stands out. It reads elm's `-f jsonl`, `json` or `prettyjson` on stdin (so
 `-f` can be left out) and needs no portal itself. `-k` names the field(s) that identify a row; without `-v` a cell
 is ✓ where the portal has that row and — where it does not; with `-v` it holds
-the value.
+the value. Many more recipes, and a script that builds a whole comparison page,
+are in [examples/comparing-portals.md](../examples/comparing-portals.md).
 
 ```shell
 # which portals have which contacts
@@ -520,6 +521,10 @@ while read -r ds; do
 done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
 ```
 
+- Without `-k`: when each portal returns one record (`PortalInfo`, a `...ById`),
+  one row per field with each portal's value, so settings line up side by
+  side (`-v` picks the fields); otherwise every field together identifies a
+  row.
 - `-d` keeps only the rows where some portal differs or is missing. Use it
   instead of elm's own `-d`: that drops rows a portal shares with all the
   others, and a portal left with no rows would vanish from the table, hiding
