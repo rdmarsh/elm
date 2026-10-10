@@ -552,7 +552,7 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
 `tools/elm-compare-portals.sh` runs a set of comparisons on several portals
 and writes one Markdown page: a linked Contents list, then a section per area
 (sizes, account settings, contacts, roles and privileges, users, alerting,
-your standard device groups, root group properties, collectors, critical
+your standard device groups and their properties, root group properties, collectors, critical
 datasources by checksum, other LogicModules), each a `portal-matrix.py` table.
 Only what differs is shown; the sizes always in full, with a total.
 
@@ -565,8 +565,8 @@ DEVICE_GROUPS='Standards,Templates' \
   per line; [examples/comparing-portals.md](../examples/comparing-portals.md)
   shows how to rank them from `PortalInfo`.
 - `DEVICE_GROUPS` names the top-level device groups to compare,
-  comma-separated (each with everything under it); unset, that section is
-  skipped. **Quote it** in single quotes: zsh and bash read `~name` as a home
+  comma-separated (each with everything under it): the groups themselves and
+  their custom properties; unset, both sections are skipped. **Quote it** in single quotes: zsh and bash read `~name` as a home
   directory, so an unquoted `~admin` errors or becomes a path. The script
   refuses an entry that has already become a path.
 - `FULL=1` shows the smaller areas in full, with a `same` column.

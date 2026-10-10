@@ -14,7 +14,8 @@
 # examples/comparing-portals.md). tools/report-pdf.sh turns the page into a PDF.
 #
 # DEVICE_GROUPS names the top-level device groups to compare, comma-separated,
-# e.g. DEVICE_GROUPS='Standards,Templates': each one and everything under it.
+# e.g. DEVICE_GROUPS='Standards,Templates': each one and everything under it,
+# the groups (AppliesTo) and their custom properties.
 # The rest of the tree is usually per-customer and expected to differ. Unset,
 # the device groups section is skipped. Quote it: DEVICE_GROUPS='~admin' --
 # unquoted, zsh and bash read ~name as a home directory.
@@ -116,14 +117,10 @@ section 'Recipient groups' 'Which recipient groups exist where.' \
 section 'Integrations' 'Which integrations exist where, and their type.' \
     IntegrationList -s0 -f name,type -- -k name -v type "$full"
 
-# only the named subtrees: the ~ filter finds fullPaths containing the name,
-# jq keeps the group itself and what is under it
-echo 'Device groups' >&2
-printf '\n## Device groups\n\n'
-if [ -z "${DEVICE_GROUPS:-}" ]; then
-    echo '_Skipped: set DEVICE_GROUPS to the top-level groups to compare, e.g. DEVICE_GROUPS=Standards,Templates._'
-else
-    printf 'Only the groups in %s (and under them) that differ: missing, or with another AppliesTo.\n\n' "$DEVICE_GROUPS"
+# subtree_rows ELM-ARGS... : DeviceGroupList rows for the groups named in
+# DEVICE_GROUPS and everything under them. The ~ filter finds fullPaths
+# containing the name; jq keeps the group itself and what is under it.
+subtree_rows() {
     old_ifs=$IFS; IFS=,
     for g in $DEVICE_GROUPS; do
         IFS=$old_ifs
@@ -133,10 +130,27 @@ else
                      "Quote the value: DEVICE_GROUPS='~admin,...'" >&2
                 continue ;;
         esac
-        elm -p "$profiles" -f jsonl DeviceGroupList -s0 -F "fullPath~$g" -f fullPath,appliesTo \
+        elm -p "$profiles" -f jsonl "$@" DeviceGroupList -s0 -F "fullPath~$g" -f "fullPath,$fields" \
             | jq -c --arg g "$g" 'select(.fullPath == $g or (.fullPath | startswith($g + "/")))'
-    done | python3 "$matrix" $opts -k fullPath -v appliesTo -d | shown
+    done
     IFS=$old_ifs
+}
+
+echo 'Device groups' >&2
+printf '\n## Device groups\n\n'
+if [ -z "${DEVICE_GROUPS:-}" ]; then
+    echo '_Skipped: set DEVICE_GROUPS to the top-level groups to compare, e.g. DEVICE_GROUPS=Standards,Templates._'
+else
+    printf 'Only the groups in %s (and under them) that differ: missing, or with another AppliesTo.\n\n' "$DEVICE_GROUPS"
+    fields=appliesTo subtree_rows | python3 "$matrix" $opts -k fullPath -v appliesTo -d | shown
+
+    # one row per group and property; groups with none are left out (whether a
+    # group exists is the section above). Secrets read ******** everywhere.
+    echo 'Device group properties' >&2
+    printf '\n## Device group properties\n\nOnly the custom properties of those groups that differ: missing somewhere, or another value.\n\n'
+    fields=customProperties subtree_rows -e customProperties \
+        | jq -c 'select(.["customProperties.name"] != null)' \
+        | python3 "$matrix" $opts -k fullPath,customProperties.name -v customProperties.value -d | shown
 fi
 
 section 'Root group properties' 'Custom properties set on the root device group (inherited by everything).' \

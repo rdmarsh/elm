@@ -409,7 +409,7 @@ Markdown page, a section per area: sizes (devices, device groups, collectors,
 users, dashboards, websites), account
 settings, contacts, roles and privileges, users and user groups, escalation
 chains, alert rules, recipient groups, integrations, your standard device
-groups, root group properties, collector groups and builds, the critical
+groups and their properties, root group properties, collector groups and builds, the critical
 datasources (if you give it a file of names) and the other LogicModules.
 
 Left out because they are expected to differ: the device group tree outside
@@ -433,7 +433,7 @@ datasources take one query per name, so a long list takes a few minutes).
 
 | Setting | What it does |
 |---------|--------------|
-| `DEVICE_GROUPS='Standards,Templates'` | the top-level device groups to compare, comma-separated: each one and everything under it, missing groups and AppliesTo differences. Unset, the section is skipped. Keep the single quotes: zsh and bash read `~name` as a home directory, so an unquoted `~admin` errors or turns into a path |
+| `DEVICE_GROUPS='Standards,Templates'` | the top-level device groups to compare, comma-separated: each one and everything under it. Two sections: the groups (missing, or another AppliesTo) and their custom properties (missing, or another value). Unset, both are skipped. Keep the single quotes: zsh and bash read `~name` as a home directory, so an unquoted `~admin` errors or turns into a path |
 | `FULL=1` | the whole table for the smaller areas (roles, settings, chains, ...), with a `same` column, instead of differences only. The large areas (role privileges, users, alert rules, device groups, other LogicModules) stay differences only |
 | `MATRIX_OPTS='...'` | passed to every `portal-matrix.py` call, e.g. `-c account_name` for account names as the column headings, `--tick :true: --cross :false:` for a wiki that renders those |
 
