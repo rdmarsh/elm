@@ -1,15 +1,15 @@
 #!/bin/sh
-# report-pdf.sh -- turn a Markdown page into a PDF with examples/report.css.
+# report-pdf.sh -- turn a Markdown page into a PDF with tools/report.css.
 #
 # Usage:
-#   examples/report-pdf.sh FILE.md [OUT.pdf]      (OUT defaults to FILE.pdf)
+#   tools/report-pdf.sh FILE.md [OUT.pdf]      (OUT defaults to FILE.pdf)
 #
 # Markdown -> HTML (pandoc) -> PDF (weasyprint), styled by report.css: A4
 # landscape for wide tables, a small font, header rows repeated on each page,
-# page numbers. Made for compare-portals.sh's page, but any Markdown works:
+# page numbers. Made for elm-compare-portals.sh's page, but any Markdown works:
 #
-#   examples/compare-portals.sh prod,preprod,test critical.txt > differences.md
-#   examples/report-pdf.sh differences.md
+#   tools/elm-compare-portals.sh prod,preprod,test critical.txt > differences.md
+#   tools/report-pdf.sh differences.md
 #
 # LOGO=/path/to/logo.png (or .svg, .jpg) puts that image in the top-right
 # corner of every page, e.g. your company's logo. Keep it outside the repo.

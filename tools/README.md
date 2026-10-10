@@ -29,6 +29,8 @@ LogicModules
 
 Comparing portals
 - [Portal matrix](#portal-matrix) — `tools/portal-matrix.py`
+- [Comparison page](#comparison-page) — `tools/elm-compare-portals.sh`
+- [PDF report](#pdf-report) — `tools/report-pdf.sh`, `tools/report.css`
 
 Portal reports and backups
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
@@ -542,6 +544,49 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
   `NO_COLOR` set, they are plain.
 - Exit status like `diff`: 0 when every row is the same on every portal, 1
   when any differs, 2 on bad input. A one-line summary goes to stderr.
+
+## Comparison page
+
+`tools/elm-compare-portals.sh` runs a set of comparisons on several portals
+and writes one Markdown page: a linked Contents list, then a section per area
+(sizes, account settings, contacts, roles and privileges, users, alerting,
+your standard device groups, root group properties, collectors, critical
+datasources by checksum, other LogicModules), each a `portal-matrix.py` table.
+Only what differs is shown; the sizes always in full.
+
+```shell
+DEVICE_GROUPS='Standards,Templates' \
+  tools/elm-compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
+```
+
+- `critical.txt` (optional) lists datasource names to compare by checksum, one
+  per line; [examples/comparing-portals.md](../examples/comparing-portals.md)
+  shows how to rank them from `PortalInfo`.
+- `DEVICE_GROUPS` names the top-level device groups to compare,
+  comma-separated (each with everything under it); unset, that section is
+  skipped. **Quote it** in single quotes: zsh and bash read `~name` as a home
+  directory, so an unquoted `~admin` errors or becomes a path. The script
+  refuses an entry that has already become a path.
+- `FULL=1` shows the smaller areas in full, with a `same` column.
+- `MATRIX_OPTS` is passed to every `portal-matrix.py`, e.g.
+  `'-c account_name --tick :true: --cross :false:'` for a wiki.
+- Progress and each table's summary go to stderr.
+
+## PDF report
+
+`tools/report-pdf.sh FILE.md [OUT.pdf]` turns any Markdown page into a PDF:
+pandoc to HTML, weasyprint to PDF, styled by `tools/report.css` (A4 landscape,
+small font, header rows repeated on each page, page numbers, a Contents list
+with page numbers and clickable links, headings as bookmarks).
+
+```shell
+brew install pandoc weasyprint
+tools/report-pdf.sh differences.md                                  # differences.pdf
+LOGO=~/.config/logicmonitor/logo.png tools/report-pdf.sh differences.md   # your logo on every page
+```
+
+`LOGO` takes a PNG, JPEG or SVG; keep it outside the repo. Without weasyprint
+it writes the HTML instead: print that from a browser.
 
 ## Module updates
 

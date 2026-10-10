@@ -1,8 +1,8 @@
 #!/bin/sh
-# compare-portals.sh -- a Markdown page comparing several portals, for a wiki or a report.
+# elm-compare-portals.sh -- a Markdown page comparing several portals, for a wiki or a report.
 #
 # Usage:
-#   examples/compare-portals.sh PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md
+#   tools/elm-compare-portals.sh PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md
 #
 # A Contents list links to each section. One section per area (sizes,
 # settings, contacts, users and roles, alerting,
@@ -11,17 +11,18 @@
 # portal agrees says "No differences". FULL=1 shows the whole table for the
 # smaller areas instead, with a "same" column. The optional file lists
 # datasource names, one per line, to compare by checksum (see
-# examples/comparing-portals.md). examples/report-pdf.sh turns the page into a PDF.
+# examples/comparing-portals.md). tools/report-pdf.sh turns the page into a PDF.
 #
 # DEVICE_GROUPS names the top-level device groups to compare, comma-separated,
 # e.g. DEVICE_GROUPS='Standards,Templates': each one and everything under it.
 # The rest of the tree is usually per-customer and expected to differ. Unset,
-# the device groups section is skipped.
+# the device groups section is skipped. Quote it: DEVICE_GROUPS='~admin' --
+# unquoted, zsh and bash read ~name as a home directory.
 #
 # MATRIX_OPTS is passed to every portal-matrix call, e.g. for a wiki that
 # renders :true: / :false: and readers who know the portals by account name:
 #   MATRIX_OPTS='-c account_name --tick :true: --cross :false:' \
-#     examples/compare-portals.sh prod,preprod,test critical.txt > page.md
+#     tools/elm-compare-portals.sh prod,preprod,test critical.txt > page.md
 #
 # The contacts section lists names, emails and phone numbers: keep the page
 # somewhere only the people who may see them can read it. Progress and each
@@ -30,7 +31,7 @@
 set -u
 profiles=${1:?usage: $0 PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md}
 names=${2:-}
-matrix="$(dirname "$0")/../tools/portal-matrix.py"
+matrix="$(dirname "$0")/portal-matrix.py"
 opts=${MATRIX_OPTS:-}
 full=-d                                # only the rows that differ
 [ -n "${FULL:-}" ] && full=-m          # ... or the whole table, with a "same" column
@@ -125,6 +126,12 @@ else
     old_ifs=$IFS; IFS=,
     for g in $DEVICE_GROUPS; do
         IFS=$old_ifs
+        case $g in
+            /*) # no LM group path starts with /: the shell expanded a ~name
+                echo "DEVICE_GROUPS: $g is a directory, not a group; the shell expanded a ~ in it." \
+                     "Quote the value: DEVICE_GROUPS='~admin,...'" >&2
+                continue ;;
+        esac
         elm -p "$profiles" -f jsonl DeviceGroupList -s0 -F "fullPath~$g" -f fullPath,appliesTo \
             | jq -c --arg g "$g" 'select(.fullPath == $g or (.fullPath | startswith($g + "/")))'
     done | python3 "$matrix" $opts -k fullPath -v appliesTo -d | shown

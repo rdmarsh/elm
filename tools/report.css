@@ -4,7 +4,7 @@
  * small font. Used by the Markdown -> HTML -> PDF recipe in
  * examples/comparing-portals.md:
  *
- *   pandoc comparison.md -s --embed-resources -c examples/report.css \
+ *   pandoc comparison.md -s --embed-resources -c tools/report.css \
  *     --metadata pagetitle="Portal comparison" -o comparison.html
  *   weasyprint comparison.html comparison.pdf
  *
@@ -66,7 +66,7 @@ tbody tr:nth-child(even) td { background: #fafafa; }
 em { color: #666; }             /* "_No differences._" */
 a { color: #1a4f8b; text-decoration: none; }
 
-/* the Contents list compare-portals.sh writes: two columns, each entry with a
+/* the Contents list elm-compare-portals.sh writes: two columns, each entry with a
    dotted leader to its page number. The links are clickable in the PDF. */
 #contents + ul { list-style: none; padding-left: 0; columns: 2; column-gap: 12mm; margin: 2pt 0 6pt; }
 #contents + ul li { margin: 1pt 0; }

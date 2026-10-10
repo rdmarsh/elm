@@ -13,8 +13,8 @@ tables are illustrations of the shape, not real output.
   [nested fields](../README.md#nested-fields--e-and-dotted--f) for the flags
 - [tools/README: portal matrix](../tools/README.md#portal-matrix) for the
   table tool's options
-- [compare-portals.sh](compare-portals.sh) builds a whole comparison page, and
-  [report-pdf.sh](report-pdf.sh) prints it as a PDF
+- [tools/elm-compare-portals.sh](../tools/elm-compare-portals.sh) builds a whole comparison page, and
+  [tools/report-pdf.sh](../tools/report-pdf.sh) prints it as a PDF
 
 <!--ts-->
    * [The pieces](#the-pieces)
@@ -403,7 +403,7 @@ done | tools/portal-matrix.py -k command -v total -m
 
 ## A whole page for a wiki
 
-[compare-portals.sh](compare-portals.sh) runs most of the above and writes one
+[tools/elm-compare-portals.sh](../tools/elm-compare-portals.sh) runs most of the above and writes one
 Markdown page, a section per area: sizes (devices, device groups, collectors,
 users, dashboards, websites), account
 settings, contacts, roles and privileges, users and user groups, escalation
@@ -418,7 +418,7 @@ datasources are in use (it follows what each portal monitors; see
 
 ```shell
 DEVICE_GROUPS='Standards,Templates' \
-  examples/compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
+  tools/elm-compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
 ```
 
 The page opens with a Contents list linking to each section (the links work
@@ -431,7 +431,7 @@ datasources take one query per name, so a long list takes a few minutes).
 
 | Setting | What it does |
 |---------|--------------|
-| `DEVICE_GROUPS='Standards,Templates'` | the top-level device groups to compare, comma-separated: each one and everything under it, missing groups and AppliesTo differences. Unset, the section is skipped |
+| `DEVICE_GROUPS='Standards,Templates'` | the top-level device groups to compare, comma-separated: each one and everything under it, missing groups and AppliesTo differences. Unset, the section is skipped. Keep the single quotes: zsh and bash read `~name` as a home directory, so an unquoted `~admin` errors or turns into a path |
 | `FULL=1` | the whole table for the smaller areas (roles, settings, chains, ...), with a `same` column, instead of differences only. The large areas (role privileges, users, alert rules, device groups, other LogicModules) stay differences only |
 | `MATRIX_OPTS='...'` | passed to every `portal-matrix.py` call, e.g. `-c account_name` for account names as the column headings, `--tick :true: --cross :false:` for a wiki that renders those |
 
@@ -439,7 +439,7 @@ For a wiki page with every table in full:
 
 ```shell
 FULL=1 MATRIX_OPTS='-c account_name --tick :true: --cross :false:' \
-  examples/compare-portals.sh prod,preprod,test critical.txt > comparison.md
+  tools/elm-compare-portals.sh prod,preprod,test critical.txt > comparison.md
 ```
 
 A single table with a heading of your own:
@@ -452,25 +452,25 @@ A single table with a heading of your own:
 
 ## A PDF report
 
-[report-pdf.sh](report-pdf.sh) turns the page (or any Markdown file) into a
+[tools/report-pdf.sh](../tools/report-pdf.sh) turns the page (or any Markdown file) into a
 PDF:
 
 ```shell
 brew install pandoc weasyprint          # macOS; on Linux, your package manager
 
-examples/compare-portals.sh prod,preprod,test critical.txt > differences.md
-examples/report-pdf.sh differences.md                  # writes differences.pdf
-examples/report-pdf.sh differences.md report.pdf       # or name it
-LOGO=~/.config/logicmonitor/logo.png examples/report-pdf.sh differences.md   # with a logo
+tools/elm-compare-portals.sh prod,preprod,test critical.txt > differences.md
+tools/report-pdf.sh differences.md                  # writes differences.pdf
+tools/report-pdf.sh differences.md report.pdf       # or name it
+LOGO=~/.config/logicmonitor/logo.png tools/report-pdf.sh differences.md   # with a logo
 ```
 
 `LOGO` puts an image (PNG, JPEG or SVG) in the top-right corner of every page,
 such as your company's logo, 9 mm high (change `.report-logo img` in
-report.css for another size). Keep the file outside the repo so it is never
+tools/report.css for another size). Keep the file outside the repo so it is never
 committed.
 
 It goes Markdown -> HTML (pandoc) -> PDF (weasyprint), styled by
-[report.css](report.css): A4 landscape for the wide tables, a small font, each
+[tools/report.css](../tools/report.css): A4 landscape for the wide tables, a small font, each
 table's header row repeated on every page, long checksums wrapped, headings
 kept with their tables, and "Page N of M" footers. The page's first heading
 becomes the PDF's title, the Contents list gets a page number on each line and
