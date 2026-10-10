@@ -268,6 +268,16 @@ elm -p prod,preprod,test DeviceGroupList -s0 -f fullPath,appliesTo \
   | tools/portal-matrix.py -k fullPath -v appliesTo -d
 ```
 
+Most of the tree is usually per customer and expected to differ. To compare
+only a standard subtree (here `Standards`): `-F fullPath~` finds every path
+containing the name, and jq keeps the group and what is under it:
+
+```shell
+elm -p prod,preprod,test -f jsonl DeviceGroupList -s0 -F 'fullPath~Standards' -f fullPath,appliesTo \
+  | jq -c 'select(.fullPath == "Standards" or (.fullPath | startswith("Standards/")))' \
+  | tools/portal-matrix.py -k fullPath -v appliesTo -d
+```
+
 Custom properties on the root group (id 1), which every device inherits:
 
 ```shell
@@ -394,25 +404,32 @@ done | tools/portal-matrix.py -k command -v total -m
 ## A whole page for a wiki
 
 [compare-portals.sh](compare-portals.sh) runs most of the above and writes one
-Markdown page, a section per area: sizes, account settings, contacts, roles
-and privileges, users and user groups, escalation chains, alert rules,
-recipient groups, integrations, device groups, root group properties,
-collector groups and builds, datasources in use, the critical datasources (if
-you give it a file of names) and the other LogicModules.
+Markdown page, a section per area: device and website counts, account
+settings, contacts, roles and privileges, users and user groups, escalation
+chains, alert rules, recipient groups, integrations, your standard device
+groups, root group properties, collector groups and builds, the critical
+datasources (if you give it a file of names) and the other LogicModules.
+
+Left out because they are expected to differ: the other counts, the device
+group tree outside your standard groups (usually per customer), and which
+datasources are in use (it follows what each portal monitors; see
+[LogicModules](#logicmodules) to check it once by hand).
 
 ```shell
-examples/compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
+DEVICE_GROUPS='Standards,Templates' \
+  examples/compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
 ```
 
 Each section shows only what differs; one where every portal agrees says
-"No differences". The page header says it is a differences-only page.
+"No differences". The device and website counts are always shown in full. The page header says it is a differences-only page.
 Progress and each table's "N of M rows differ" go to stderr: `tail -f
 differences.log` in another terminal shows how far it has got (the critical
 datasources take one query per name, so a long list takes a few minutes).
 
 | Setting | What it does |
 |---------|--------------|
-| `FULL=1` | the whole table for the smaller areas (roles, groups, settings, ...), with a `same` column, instead of differences only. The large areas (role privileges, users, alert rules, device groups, datasources in use, other LogicModules) stay differences only |
+| `DEVICE_GROUPS='Standards,Templates'` | the top-level device groups to compare, comma-separated: each one and everything under it, missing groups and AppliesTo differences. Unset, the section is skipped |
+| `FULL=1` | the whole table for the smaller areas (roles, settings, chains, ...), with a `same` column, instead of differences only. The large areas (role privileges, users, alert rules, device groups, other LogicModules) stay differences only |
 | `MATRIX_OPTS='...'` | passed to every `portal-matrix.py` call, e.g. `-c account_name` for account names as the column headings, `--tick :true: --cross :false:` for a wiki that renders those |
 
 For a wiki page with every table in full:

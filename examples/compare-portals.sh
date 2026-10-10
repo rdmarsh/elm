@@ -5,12 +5,17 @@
 #   examples/compare-portals.sh PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md
 #
 # One section per area (sizes, settings, contacts, users and roles, alerting,
-# groups, collectors, LogicModules), each a table from tools/portal-matrix.py
+# device groups, collectors, LogicModules), each a table from tools/portal-matrix.py
 # with one column per portal, showing only what differs: a section where every
 # portal agrees says "No differences". FULL=1 shows the whole table for the
 # smaller areas instead, with a "same" column. The optional file lists
 # datasource names, one per line, to compare by checksum (see
 # examples/comparing-portals.md). examples/report-pdf.sh turns the page into a PDF.
+#
+# DEVICE_GROUPS names the top-level device groups to compare, comma-separated,
+# e.g. DEVICE_GROUPS='Standards,Templates': each one and everything under it.
+# The rest of the tree is usually per-customer and expected to differ. Unset,
+# the device groups section is skipped.
 #
 # MATRIX_OPTS is passed to every portal-matrix call, e.g. for a wiki that
 # renders :true: / :false: and readers who know the portals by account name:
@@ -52,12 +57,13 @@ printf '# Portal comparison\n\nProfiles: %s. Generated %s by elm.' "$profiles" "
 [ -z "${FULL:-}" ] && printf ' Differences only: rows that are the same on every portal are left out.'
 echo
 
-# -C prints one total per portal; jq adds which command it counted
+# -C prints one total per portal; jq adds which command it counted. Sizes are
+# expected to differ, so this is always the plain table, no "same" column.
 echo 'Sizes' >&2
-printf '\n## Sizes\n\nHow many of each, per portal.\n\n'
-for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList WebsiteList; do
+printf '\n## Sizes\n\nHow many devices and websites each portal has.\n\n'
+for c in DeviceList WebsiteList; do
     elm -p "$profiles" -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
-done | python3 "$matrix" $opts -k command -v total "$full" | shown
+done | python3 "$matrix" $opts -k command -v total
 
 # account settings that should match (counts, contract limits and timers left out)
 settings=requireTwoFA,configurable2FAOptions,requireTwoFAForRemoteSession,sessionTimeoutInSeconds
@@ -99,8 +105,22 @@ section 'Recipient groups' 'Which recipient groups exist where.' \
 section 'Integrations' 'Which integrations exist where, and their type.' \
     IntegrationList -s0 -f name,type -- -k name -v type "$full"
 
-section 'Device groups' 'Only the groups that differ: missing, or with another AppliesTo.' \
-    DeviceGroupList -s0 -f fullPath,appliesTo -- -k fullPath -v appliesTo -d
+# only the named subtrees: the ~ filter finds fullPaths containing the name,
+# jq keeps the group itself and what is under it
+echo 'Device groups' >&2
+printf '\n## Device groups\n\n'
+if [ -z "${DEVICE_GROUPS:-}" ]; then
+    echo '_Skipped: set DEVICE_GROUPS to the top-level groups to compare, e.g. DEVICE_GROUPS=Standards,Templates._'
+else
+    printf 'Only the groups in %s (and under them) that differ: missing, or with another AppliesTo.\n\n' "$DEVICE_GROUPS"
+    old_ifs=$IFS; IFS=,
+    for g in $DEVICE_GROUPS; do
+        IFS=$old_ifs
+        elm -p "$profiles" -f jsonl DeviceGroupList -s0 -F "fullPath~$g" -f fullPath,appliesTo \
+            | jq -c --arg g "$g" 'select(.fullPath == $g or (.fullPath | startswith($g + "/")))'
+    done | python3 "$matrix" $opts -k fullPath -v appliesTo -d | shown
+    IFS=$old_ifs
+fi
 
 section 'Root group properties' 'Custom properties set on the root device group (inherited by everything).' \
     -e customProperties DeviceGroupById --id 1 -f customProperties \
@@ -111,9 +131,6 @@ section 'Collector groups' 'Which collector groups exist where.' \
 
 section 'Collector builds' 'Which collector builds are running where.' \
     CollectorList -s0 -f build -- -k build "$full"
-
-section 'Datasources in use' 'Only the datasources not in use on every portal (instances per portal; — is none).' \
-    -e numberOfInstancesPerDS PortalInfo -f numberOfInstancesPerDS -- -d
 
 if [ -n "$names" ]; then
     echo 'Critical datasources' >&2
