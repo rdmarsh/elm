@@ -135,7 +135,11 @@ are present by running `make init`)
 * `jq`
 * `awk`
 * `git` -- to initially clone the repo
-* `python3`
+* `python3`, a version `make` accepts: from `PYTHON_MIN` up to the newest
+  tested, `PYTHON_MAX` (both near the top of the `Makefile`). If your default
+  `python3` is newer, `make` stops and says so; pick another with
+  `make clean && make PYTHON=python3.NN`. Once `venv/` exists, plain `make`
+  uses its Python.
 * `curl` -- only needed for `make swagger` (refreshing the LogicMonitor spec).
   The build itself never downloads anything, so `curl` is not required to
   build, install or run elm.

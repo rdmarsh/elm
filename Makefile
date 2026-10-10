@@ -71,6 +71,14 @@ GREPFLAGS = -l
 
 #python
 PYTHON ?= python3
+# Python versions elm builds with. The minimum is the oldest the pinned
+# requirements accept (truststore and requests need 3.10); the maximum is the
+# newest one tested: a newer Python may lack wheels for the pins (pandas 2.3 has
+# none for 3.15, so pip tries to compile it and fails). Raise it after a clean
+# build and `make test` pass. PYTHON_UNTESTED=1 skips the maximum. Once venv/
+# exists its Python is the one checked, so PYTHON= is only needed to create it.
+PYTHON_MIN := 3.10
+PYTHON_MAX := 3.14
 
 # venv location
 VENV := venv
@@ -186,7 +194,17 @@ $(defdir)/info.stamp: $(defdir)/commands.$(JSN) mkinfo.$(PY) elm-notes.yaml swag
 # do not change
 
 .PHONY: PYTHON-exists CURL-exists JINJA-exists JQ-exists AWK-exists PYINST-exists
-PYTHON-exists: ; @which $(PYTHON) || { echo "$(ER_STRING) $(PYTHON) not found"; exit 1; }
+PYTHON-exists:
+	@which $(PYTHON) || { echo "$(ER_STRING) $(PYTHON) not found"; exit 1; }
+	@py=$(PYTHON) ; [ -x $(VENV)/bin/python3 ] && py=$(VENV)/bin/python3 ; \
+	v=$$($$py -c 'import sys; print("%d.%d" % sys.version_info[:2])') ; \
+	older() { [ "$$(printf '%s\n%s\n' "$$1" "$$2" | sort -t. -k1,1n -k2,2n | head -1)" = "$$1" ] && [ "$$1" != "$$2" ] ; } ; \
+	if older "$$v" "$(PYTHON_MIN)" ; then \
+	  echo "$(ER_STRING) $$py is Python $$v; elm needs $(PYTHON_MIN) or newer. Use e.g. make PYTHON=python$(PYTHON_MAX)" ; exit 1 ; \
+	elif older "$(PYTHON_MAX)" "$$v" && [ -z "$(PYTHON_UNTESTED)" ] ; then \
+	  echo "$(ER_STRING) $$py is Python $$v, newer than elm has been tested on ($(PYTHON_MAX))." ; \
+	  echo "  Use: make clean && make PYTHON=python$(PYTHON_MAX)   (or PYTHON_UNTESTED=1 to try anyway)" ; exit 1 ; \
+	fi
 PYINST-exists: ; @which $(PYINST) || { echo "$(ER_STRING) $(PYINST) not found"; exit 1; }
 CURL-exists:   ; @which $(CURL)   || { echo "$(ER_STRING) $(CURL) not found"; exit 1; }
 JINJA-exists:  ; @which $(JINJA)  || { echo "$(ER_STRING) $(JINJA) not found"; exit 1; }

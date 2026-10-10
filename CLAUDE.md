@@ -248,6 +248,10 @@ Environment notes:
   the current pins (pandas 2.3.3, numpy 2.5.0, pyinstaller 6.21.0). If a
   future dependency bump surfaces incompatibilities, fall back to a
   conservative interpreter with `make PYTHON=python3.12`.
+- `make` refuses a Python outside `PYTHON_MIN`..`PYTHON_MAX` (top of the
+  Makefile; checks `venv/bin/python3` once the venv exists). 3.15 is out until
+  pandas 3 (see todo.md): pandas 2.3 has no 3.15 wheels. Raise `PYTHON_MAX`
+  only after a clean build and `make test` pass on the new version.
 - `setup.py` ships the generated top-level modules via
   `py_modules=['elm', 'engine', '_version']` (not `find_packages()`).
 
