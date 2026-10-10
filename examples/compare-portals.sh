@@ -4,7 +4,8 @@
 # Usage:
 #   examples/compare-portals.sh PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md
 #
-# One section per area (sizes, settings, contacts, users and roles, alerting,
+# A Contents list links to each section. One section per area (sizes,
+# settings, contacts, users and roles, alerting,
 # device groups, collectors, LogicModules), each a table from tools/portal-matrix.py
 # with one column per portal, showing only what differs: a section where every
 # portal agrees says "No differences". FULL=1 shows the whole table for the
@@ -56,6 +57,12 @@ section() {
 printf '# Portal comparison\n\nProfiles: %s. Generated %s by elm.' "$profiles" "$(date '+%Y-%m-%d %H:%M')"
 [ -z "${FULL:-}" ] && printf ' Differences only: rows that are the same on every portal are left out.'
 echo
+
+# The sections go to a temporary file first, so a Contents list linking to
+# each of them can come before them (anchors as pandoc and GitHub make them).
+body=$(mktemp)
+trap 'rm -f "$body"' EXIT
+exec 3>&1 >"$body"
 
 # -C prints one total per portal; jq adds which command it counted. Sizes are
 # expected to differ, so this is always the plain table, no "same" column.
@@ -145,3 +152,10 @@ printf '\n## Other LogicModules\n\nOnly the ConfigSources, EventSources, Propert
 for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do
     elm -p "$profiles" -f jsonl "$c" -s0 -f name,checksum | jq -c --arg t "$c" '{type: $t} + .'
 done | python3 "$matrix" $opts -k type,name -v checksum -d | shown
+
+exec 1>&3 3>&-
+printf '\n## Contents\n\n'
+sed -n 's/^## //p' "$body" | while IFS= read -r t; do
+    printf -- '- [%s](#%s)\n' "$t" "$(printf '%s' "$t" | tr 'A-Z ' 'a-z-' | tr -cd 'a-z0-9_.-')"
+done
+cat "$body"

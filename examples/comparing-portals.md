@@ -421,6 +421,8 @@ DEVICE_GROUPS='Standards,Templates' \
   examples/compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
 ```
 
+The page opens with a Contents list linking to each section (the links work
+in the Markdown, on a wiki that makes GitHub-style anchors, and in the PDF).
 Each section shows only what differs; one where every portal agrees says
 "No differences". The sizes are always shown in full. The page header says it is a differences-only page.
 Progress and each table's "N of M rows differ" go to stderr: `tail -f
@@ -471,7 +473,8 @@ It goes Markdown -> HTML (pandoc) -> PDF (weasyprint), styled by
 [report.css](report.css): A4 landscape for the wide tables, a small font, each
 table's header row repeated on every page, long checksums wrapped, headings
 kept with their tables, and "Page N of M" footers. The page's first heading
-becomes the PDF's title. Without weasyprint it writes the HTML instead and
+becomes the PDF's title, the Contents list gets a page number on each line and
+stays clickable, and the headings become the PDF's bookmarks. Without weasyprint it writes the HTML instead and
 says so: open that in a browser and print it to PDF, which applies the same
 styles. (`pandoc file.md -o file.pdf` would go through LaTeX, which needs a
 large TeX install and lets wide tables run off the page.)

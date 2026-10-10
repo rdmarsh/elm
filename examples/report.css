@@ -64,6 +64,14 @@ th { background: #eee; font-weight: 600; white-space: nowrap; }   /* headings ne
 tbody tr:nth-child(even) td { background: #fafafa; }
 
 em { color: #666; }             /* "_No differences._" */
+a { color: #1a4f8b; text-decoration: none; }
+
+/* the Contents list compare-portals.sh writes: two columns, each entry with a
+   dotted leader to its page number. The links are clickable in the PDF. */
+#contents + ul { list-style: none; padding-left: 0; columns: 2; column-gap: 12mm; margin: 2pt 0 6pt; }
+#contents + ul li { margin: 1pt 0; }
+#contents + ul a { color: #222; }
+#contents + ul a::after { content: leader('.') target-counter(attr(href), page); color: #666; }
 code { font-size: 90%; }
 
 /* pandoc's own standalone styles cap the width and add margins meant for screens */
