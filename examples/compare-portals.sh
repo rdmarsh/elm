@@ -54,9 +54,11 @@ section() {
     eval "elm -p '$profiles' -f jsonl $elm_args" | python3 "$matrix" $opts "$@" | shown
 }
 
-printf '# Portal comparison\n\nProfiles: %s. Generated %s by elm.' "$profiles" "$(date '+%Y-%m-%d %H:%M')"
-[ -z "${FULL:-}" ] && printf ' Differences only: rows that are the same on every portal are left out.'
-echo
+# "a, b and c", each in bold
+names=$(printf '%s' "$profiles" | awk -F, '{
+    for (i = 1; i <= NF; i++) s = s (i == 1 ? "" : i == NF ? " and " : ", ") "**" $i "**"; print s }')
+printf '# Portal comparison\n\nComparing %s, %s.\n' "$names" "$(date '+%-d %B %Y at %H:%M')"
+[ -z "${FULL:-}" ] && printf '\nOnly what differs is shown: rows that are the same on every portal are left out.\n'
 
 # The sections go to a temporary file first, so a Contents list linking to
 # each of them can come before them (anchors as pandoc and GitHub make them).
