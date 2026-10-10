@@ -386,7 +386,9 @@ elm -p prod,preprod,test DatasourceList -s0 -F name~Cisco_ -f name,checksum \
 One query fetches at most 1000 rows; narrow with `-F` if elm warns that
 results were truncated.
 
-The other module types in one table, with jq adding which list each came from:
+The other module types in one table, with jq adding which list each came from.
+There are few enough of these to compare them all, so they need no list of
+names (the comparison page does this too):
 
 ```shell
 for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do

@@ -39,7 +39,8 @@ full=-d                                # only the rows that differ
 
 # table PORTAL-MATRIX-ARGS... : the matrix of the rows on stdin. A table that
 # comes out empty says why, with portal-matrix's own count, so "the same
-# everywhere" cannot be mistaken for "nothing was compared".
+# everywhere" cannot be mistaken for "nothing was compared". $empty, if set,
+# replaces the note for no rows at all.
 errs=$(mktemp)
 table() {
     t=$(python3 "$matrix" $opts "$@" 2>"$errs")
@@ -50,7 +51,7 @@ table() {
     elif [ "$rc" -eq 0 ]; then
         printf '_%s._\n' "$(tail -1 "$errs")"          # No differences: N rows the same on M portals
     else
-        echo '_Nothing to compare: no rows came back (see the log)._'
+        echo "_${empty:-Nothing to compare: no rows came back (see the log)}._"
     fi
 }
 
@@ -161,7 +162,7 @@ else
     printf '\n## Device group properties\n\nOnly the custom properties of those groups that differ: missing somewhere, or another value.\n\n'
     fields=customProperties subtree_rows -e customProperties \
         | jq -c 'select(.["customProperties.name"] != null)' \
-        | table -k fullPath,customProperties.name -v customProperties.value -d
+        | empty='No custom properties set on these groups' table -k fullPath,customProperties.name -v customProperties.value -d
 fi
 
 section 'Root group properties' 'Custom properties set on the root device group (inherited by everything).' \
@@ -183,7 +184,7 @@ if [ -n "$names" ]; then
 fi
 
 echo 'Other LogicModules' >&2
-printf '\n## Other LogicModules\n\nOnly the ConfigSources, EventSources, PropertySources, TopologySources and AppliesTo functions that differ, by checksum.\n\n'
+printf '\n## Other LogicModules\n\nEvery ConfigSource, EventSource, PropertySource, TopologySource and AppliesTo function, by checksum: only the ones that differ.\n\n'
 for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do
     elm -p "$profiles" -f jsonl "$c" -s0 -f name,checksum | jq -c --arg t "$c" '{type: $t} + .'
 done | table -k type,name -v checksum -d

@@ -50,6 +50,10 @@ def err(*args):
     print(*args, file=sys.stderr)
 
 
+def plural(n, word):
+    return f"{n} {word}" + ("" if n == 1 else "s")
+
+
 def read_rows(text):
     """Records from elm -f jsonl (one per line), -f json or -f prettyjson ({"Command": [...]})."""
     text = text.strip()
@@ -258,7 +262,7 @@ def main(argv=None):
             body.append(list(key) + [cells.get(col, args.missing) for col in columns] + summed + mark)
 
     if not body:
-        err(f"No differences: {len(table)} rows the same on {len(columns)} portals")
+        err(f"No differences: {plural(len(table), 'row')} the same on {plural(len(columns), 'portal')}")
         return 0
     if args.csv:
         emit_csv(headers, body)
@@ -270,7 +274,7 @@ def main(argv=None):
         colours = {args.tick: green, args.cross: red, args.missing: red} if colour else {}
         emit_gfm(headers, body, centred, colours, first)
     sys.stdout.flush()      # the table first, then the summary on stderr
-    err(f"{len(differ)} of {len(table)} rows differ across {len(columns)} portals")
+    err(f"{len(differ)} of {plural(len(table), 'row')} differ across {plural(len(columns), 'portal')}")
     return 1 if differ else 0
 
 
