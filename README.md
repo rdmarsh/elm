@@ -108,7 +108,9 @@ will warn and fix them automatically. If it cannot fix them, it will
 abort.
 
 Use `elm --list` (or `elm -l`) to see available credential profiles.
-To use a non-default profile: `elm --profile NAME COMMAND`.
+To use a non-default profile: `elm --profile NAME COMMAND`. To run a command
+on several portals at once: `elm -p NAME,NAME COMMAND` (see
+[Several portals at once](#several-portals-at-once)).
 
 You may need to restart your terminal session.
 
@@ -380,7 +382,11 @@ Options:
   --ai                     Print quick-start guide for AI assistants and exit
   -l, --list               List available credential profiles and exit
   -p, --profile NAME       Credentials profile name, shorthand for --config
-                           ~/.config/logicmonitor/credentials/<NAME>.ini
+                           ~/.config/logicmonitor/credentials/<NAME>.ini.
+                           Comma-separated names (a,b) run the command on each
+
+  -d, --diff               With several profiles: show only the rows that are
+                           not the same on all of them
 
   -i, --access_id TEXT     API token access id
   -k, --access_key TEXT    API token access key
@@ -675,6 +681,59 @@ many", not "exactly this many". Most list endpoints return an exact count with
 total, so `-C` shows a lower bound like `>50` with a warning; for those two
 only, `-c -s0` counts the rows actually fetched, which is accurate provided
 the true total is under 1000.
+
+### Several portals at once
+
+Give `-p` several profiles, separated by commas, to run the same query on each
+portal. The rows come back as one table with a `profile` column first:
+
+```shell
+$ elm -p prod,preprod -f csv DeviceGroupList -f name,appliesTo
+profile,name,appliesTo
+prod,Linux Servers,isLinux()
+prod,Old Stuff,false
+prod,Windows Servers,isWindows()
+preprod,Linux Servers,isLinux() && !isK8s()
+preprod,Windows Servers,isWindows()
+```
+
+In JSON, `profile` is a key on every record, so `jq 'select(.profile=="prod")'`
+picks out one portal. `-c` and `-C` give one `profile,count` (or
+`profile,total`) row per portal.
+
+**`-d` / `--diff`** shows only the rows that are not identical on every
+portal: what is left is what is out of step. Here Windows Servers matches, so
+it is dropped. A row shown for every portal
+means its values differ; a row shown for some portals is missing from the
+others.
+
+```shell
+$ elm -p prod,preprod -d -f csv DeviceGroupList -f name,appliesTo
+profile,name,appliesTo
+prod,Linux Servers,isLinux()
+prod,Old Stuff,false
+preprod,Linux Servers,isLinux() && !isK8s()
+```
+
+Choose the fields to compare with `-f`: fields such as `id` always differ
+between portals (elm warns if `-f` is missing). Like `diff`, it exits 0 when
+the portals match (printing "No differences" to stderr), 1 when they differ,
+and 2 when it could not compare everything: a portal could not be read, or
+there were more rows than one request fetches (1000 at most, with `-s0`) and
+no difference was found in the rows that were. Narrow with `-F` in that case. Lists inside a record are compared
+whole, so the same entries in a different order count as different.
+
+**`-o FILE`** writes one file per portal, named `<profile>-FILE` in the same
+directory, each without the `profile` column: the same file `-p NAME` would
+write. `diff prod-groups.csv preprod-groups.csv` then works directly.
+
+Each profile uses its own credentials, so `-i`, `-k`, `-a` and `--config`
+cannot be combined with several profiles. Every profile must allow the
+command (see [Restricting a profile](#restricting-a-profile-to-some-commands)),
+or nothing is sent to any of them. If one portal fails, the others' rows are
+still printed and elm exits 1 (`--halt-on-api-error` stops at the first
+failure). With `-f api`, `curl` or `wget`, each portal's request follows a
+`# <profile>` line.
 
 ### Command info
 

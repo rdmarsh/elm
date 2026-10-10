@@ -7,6 +7,8 @@ import hmac
 
 import logging
 import json
+import os
+import sys
 from collections import defaultdict
 import click
 
@@ -49,10 +51,6 @@ def engine(elm, **kwargs):
         flags['size'] = 1000
         logging.debug('kwargs[\'size\']: %s', kwargs['size'])
 
-    #Request Info
-    httpVerb ='GET'
-    logging.debug('httpVerb: %s', httpVerb)
-
     #construct path based on passed attributes (path values)
     # find placeholders between {} and collect in attributes var for below
     attributes = re.findall(r'\{([A-Za-z0-9_]+?)\}',elm.path)
@@ -77,10 +75,6 @@ def engine(elm, **kwargs):
     resourcePath = elm.path
     logging.debug('resourcePath: %s', resourcePath)
 
-    #construct URL
-    url = 'https://'+ elm.account_name +'.logicmonitor.com/santaba/rest' + resourcePath
-    logging.debug('url: %s', url)
-
     #construct queryParams
     queryParams = ''
 
@@ -95,6 +89,47 @@ def engine(elm, **kwargs):
 
     logging.debug('queryParams: %s', queryParams)
 
+    #one portal, unless several profiles were given (-p a,b)
+    if not elm.portals:
+        fetched = fetch(elm, flags, resourcePath, queryParams, elm.access_id, elm.access_key, elm.account_name)
+        if fetched:
+            report(elm, flags, *fetched)
+        return
+
+    results = []
+    failed = []
+    for name, access_id, access_key, account_name in elm.portals:
+        logging.info('profile: %s', name)
+        fetched = fetch(elm, flags, resourcePath, queryParams, access_id, access_key, account_name, name)
+        if not fetched:
+            failed.append(name)
+            continue
+        obj, url, auth = fetched
+        if elm.format in ('api', 'curl', 'wget'):
+            click.echo('# ' + name)
+            report(elm, flags, obj, url, auth)
+        else:
+            results.append((name, *rows(flags, obj, name)))
+
+    if elm.format not in ('api', 'curl', 'wget'):
+        report_portals(elm, flags, results, failed)
+    if failed:
+        # diff's convention: 0 same, 1 different, 2 trouble
+        sys.exit(2 if elm.diff else 1)
+
+
+def fetch(elm, flags, resourcePath, queryParams, access_id, access_key, account_name, profile=None):
+    """Send the request to one portal: (obj, url, auth), or None if it failed."""
+    import requests
+
+    #Request Info
+    httpVerb ='GET'
+    logging.debug('httpVerb: %s', httpVerb)
+
+    #construct URL
+    url = 'https://'+ account_name +'.logicmonitor.com/santaba/rest' + resourcePath
+    logging.debug('url: %s', url)
+
     data = ''
     logging.debug('data: %s', data)
 
@@ -107,11 +142,11 @@ def engine(elm, **kwargs):
     logging.debug('requestVars: %s', requestVars)
 
     #Construct signature
-    hmac1 = hmac.new(elm.access_key.encode(),msg=requestVars.encode(),digestmod=hashlib.sha256).hexdigest()
+    hmac1 = hmac.new(access_key.encode(),msg=requestVars.encode(),digestmod=hashlib.sha256).hexdigest()
     signature = base64.b64encode(hmac1.encode())
 
     #Construct html headers
-    auth = 'LMv1 ' + elm.access_id + ':' + signature.decode() + ':' + epoch
+    auth = 'LMv1 ' + access_id + ':' + signature.decode() + ':' + epoch
     # dont show this as it has the api auth details
     #logging.info('auth: %s', auth)
     headers = {'Content-Type':'application/json','Authorization':auth,'X-Version':'{{ apiversion }}'}
@@ -142,6 +177,8 @@ def engine(elm, **kwargs):
 
     except requests.RequestException as e:
         click.secho('Error: request failed', fg='red', err=True)
+        if profile:
+            click.secho(f'Profile: {profile}', fg='red', err=True)
         if elm:
             click.secho(f'Command: {elm.command}', fg='red', err=True)
             click.secho(f'Path: {elm.path}', fg='red', err=True)
@@ -176,7 +213,7 @@ def engine(elm, **kwargs):
         # Abort if configured to halt on error, otherwise return cleanly
         if elm.halt_on_api_error:
             raise click.Abort()
-        return
+        return None
 
     #obj = response.content
     obj = response.json()
@@ -210,14 +247,18 @@ def engine(elm, **kwargs):
     logging.debug('searchId: %s', obj.get('searchId', None))
     logging.debug('isMin: %s', obj.get('isMin', None))
     logging.debug('obj: %s', obj)
+    return obj, response.url, auth
 
+
+def report(elm, flags, obj, url, auth):
+    """Print one portal's response, in the format asked for."""
     if elm.format == "api":
-        click.echo(response.url)
+        click.echo(url)
         click.echo("Authorization: " + auth)
     elif elm.format == "curl":
-        click.echo('curl -H "Authorization: ' + auth + '" "' + response.url + '"')
+        click.echo('curl -H "Authorization: ' + auth + '" "' + url + '"')
     elif elm.format == "wget":
-        click.echo('wget -O - --header="Authorization: ' + auth + '" "' + response.url + '"')
+        click.echo('wget -O - --header="Authorization: ' + auth + '" "' + url + '"')
     elif 'total' in flags:
         logging.debug('total is a flag, showing total instead')
         if obj['total'] < 0:
@@ -231,40 +272,125 @@ def engine(elm, **kwargs):
         logging.debug('count is a flag, showing count instead')
         click.echo(len(obj['items']))
     else:
-        # Client-side field projection: trim each item to only the requested fields.
-        # Defence against endpoints that ignore fields= (e.g. IntegrationList branded
-        # types — upstream bug #52). No-op when the API already honoured fields=.
-        if 'fields' in flags and obj['items']:
-            requested = {f.strip() for f in flags['fields'].split(',')}
-            obj['items'] = [
-                {k: v for k, v in item.items() if k in requested}
-                for item in obj['items']
-            ]
+        items = project(flags, obj)
+        output(items, elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
+        warn(flags, obj, items)
 
-        output(obj['items'], elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
 
-        #if output() found no valid fields it already reported an error - suppress follow-on warnings
-        returned = set(obj['items'][0].keys()) if obj['items'] else set()
+def project(flags, obj):
+    """The items, trimmed to the requested fields."""
+    # Client-side field projection: trim each item to only the requested fields.
+    # Defence against endpoints that ignore fields= (e.g. IntegrationList branded
+    # types — upstream bug #52). No-op when the API already honoured fields=.
+    if 'fields' in flags and obj['items']:
+        requested = {f.strip() for f in flags['fields'].split(',')}
+        return [
+            {k: v for k, v in item.items() if k in requested}
+            for item in obj['items']
+        ]
+    return obj['items']
 
-        if returned:
-            #give a warning if there are more records not shown
-            if 'size' in flags:
-                # compare against what this page actually reached, not the raw
-                # total: with --offset the earlier pages already covered
-                # everything below it, so total > size is not truncation.
-                # ben magic drops offset=0, hence the .get() default.
-                shown = int(flags.get('offset', 0)) + len(obj['items'])
-                if obj['total'] < 0 or shown < obj['total']:
-                    click.secho('Warning: results truncated by size limit',
-                                fg='yellow', err=True)
 
-            #warn if any requested fields were not returned by the API
-            if 'fields' in flags:
-                missing = {f.strip() for f in flags['fields'].split(',')} - returned
-                if missing:
-                    label = 'field' if len(missing) == 1 else 'fields'
-                    click.secho('Warning: unknown {}: {}'.format(label, ', '.join(sorted(missing))),
-                                fg='yellow', err=True)
+def warn(flags, obj, items, profile=None):
+    """Warn about truncated results and requested fields that did not come back.
+
+    Returns True if there were more rows than were fetched.
+    """
+    label = f'{profile}: ' if profile else ''
+    truncated = False
+
+    #if output() found no valid fields it already reported an error - suppress follow-on warnings
+    returned = set(items[0].keys()) if items else set()
+
+    if returned:
+        #give a warning if there are more records not shown
+        if 'size' in flags:
+            # compare against what this page actually reached, not the raw
+            # total: with --offset the earlier pages already covered
+            # everything below it, so total > size is not truncation.
+            # ben magic drops offset=0, hence the .get() default.
+            shown = int(flags.get('offset', 0)) + len(items)
+            if obj['total'] < 0 or shown < obj['total']:
+                truncated = True
+                click.secho(label + 'Warning: results truncated by size limit',
+                            fg='yellow', err=True)
+
+        #warn if any requested fields were not returned by the API
+        if 'fields' in flags:
+            missing = {f.strip() for f in flags['fields'].split(',')} - returned
+            if missing:
+                noun = 'field' if len(missing) == 1 else 'fields'
+                click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(sorted(missing))),
+                            fg='yellow', err=True)
+    return truncated
+
+
+def rows(flags, obj, profile):
+    """One portal's rows when several are queried: its items, or its -c/-C count.
+
+    Returns (rows, truncated).
+    """
+    if 'total' in flags:
+        if obj['total'] < 0:
+            click.secho(f'{profile}: Warning: total unknown, results may be truncated', fg='yellow', err=True)
+            return [{'total': '>{}'.format(abs(obj['total']) - 1)}], False
+        return [{'total': obj['total']}], False
+    if 'count' in flags:
+        return [{'count': len(obj['items'])}], False
+    items = project(flags, obj)
+    if not items:
+        click.secho(f'{profile}: Warning: no data found', fg='yellow', err=True)
+    elif not any(items):
+        click.secho(f'{profile}: Error: no valid fields selected', fg='red', err=True)
+        return [], False
+    return items, warn(flags, obj, items, profile)
+
+
+def report_portals(elm, flags, results, failed):
+    """Print the rows from several portals: one table with a profile column, or one file each."""
+    table = [(name, row) for name, items, _ in results for row in items]
+    truncated = [name for name, _, cut in results if cut]
+
+    if elm.diff:
+        if failed:
+            click.secho(f"Error: cannot compare, no data from: {', '.join(failed)}", fg='red', err=True)
+            sys.exit(2)
+        if 'fields' not in flags and 'count' not in flags and 'total' not in flags:
+            click.secho('Warning: --diff without -f compares every field, and fields such as id '
+                        'differ between portals; choose the fields to compare with -f', fg='yellow', err=True)
+        # keep a row unless every portal has an identical one
+        key = lambda row: json.dumps(row, sort_keys=True, default=str)
+        portals_with = defaultdict(set)
+        for name, row in table:
+            portals_with[key(row)].add(name)
+        table = [(name, row) for name, row in table if len(portals_with[key(row)]) < len(results)]
+        if truncated:
+            # rows past the size limit were never fetched, so were never compared
+            click.secho(f"Warning: --diff compared only the rows fetched; more were not fetched from: "
+                        f"{', '.join(truncated)} (narrow it with -F)", fg='yellow', err=True)
+        if not table:
+            if truncated:
+                # not a clean "same": the rows not fetched may still differ
+                click.secho(f'No differences in the rows fetched from {len(results)} profiles', err=True)
+                sys.exit(2)
+            click.secho(f'No differences between {len(results)} profiles', fg='green', err=True)
+            return
+
+    if elm.filename and elm.filename != '-':
+        # one file per portal, named for it, each the same as a run with -p NAME would write
+        directory, base = os.path.split(elm.filename)
+        for name, *_ in results:
+            mine = [row for portal, row in table if portal == name]
+            if mine:
+                output(mine, elm.command, os.path.join(directory, f'{name}-{base}'),
+                       elm.format, elm.noheader, elm.index, elm.head, elm.foot)
+    elif table:
+        output([{'profile': name, **row} for name, row in table],
+               elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
+
+    if elm.diff:
+        sys.exit(1)
+
 
 def output(items, command, filename='-', format='json', noheader=False, index=False, head='', foot=''):
     import pandas as pd

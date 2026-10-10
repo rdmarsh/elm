@@ -96,10 +96,13 @@ class LazyGroup(click.Group):
         # Checked before anything else, including --help, --info and the
         # credentials check, so a refused command sends no request and a
         # restricted profile does not describe commands it cannot run.
+        # With -p a,b every profile must allow it, so nothing runs on some and not others.
         if args and args[0] in self.lazy_subcommands:
-            patterns = _allow_patterns()
-            if not _is_allowed(args[0], patterns):
-                raise _NotAllowed(args[0], patterns)
+            paths = [_profile_to_path(n) for n in _profile_names] if len(_profile_names) > 1 else [None]
+            for path in paths:
+                patterns = _allow_patterns(path)
+                if not _is_allowed(args[0], patterns):
+                    raise _NotAllowed(args[0], patterns, path)
         try:
             # 'elm COMMAND --info' and 'elm COMMAND --help' describe the command
             # and exit. Parse the command's own options first so they work
@@ -177,16 +180,21 @@ def _profile_to_path(name):
     base = name[:-4] if name.endswith('.ini') else name
     return os.path.join(_creds_dir, base + '.ini')
 
+# -p a,b runs the command on each profile in turn. The first one also supplies
+# the other settings an .ini can hold (format, cacert, ...); the credentials are
+# read from each profile when the command runs (see _portals).
+_profile_names = []
 _argv = sys.argv[1:]
 for _i, _arg in enumerate(_argv):
     if _arg in ('-p', '--profile') and _i + 1 < len(_argv):
-        config_file = _profile_to_path(_argv[_i + 1])
-        _resolved_config_file = config_file
+        _profile_names = _argv[_i + 1].split(',')
         break
     elif _arg.startswith('--profile='):
-        config_file = _profile_to_path(_arg.split('=', 1)[1])
-        _resolved_config_file = config_file
+        _profile_names = _arg.split('=', 1)[1].split(',')
         break
+if _profile_names and _profile_names[0]:
+    config_file = _profile_to_path(_profile_names[0])
+    _resolved_config_file = config_file
 
 def _config_error(path, error):
     """A parse error naming the file and the line numbers -- never the lines themselves.
@@ -288,20 +296,23 @@ def _allowed_text(patterns, profile):
     return ', '.join(patterns)
 
 
-def _restriction_summary(patterns):
-    allowed = _allowed_text(patterns, _profile_name())
-    path = _resolved_config_file.replace(os.path.expanduser('~'), '~', 1)
-    return f"Profile '{_profile_name()}' allows only: {allowed} (allowed_commands in {path})"
+def _restriction_summary(patterns, path=None):
+    path = path or _resolved_config_file
+    allowed = _allowed_text(patterns, _profile_name(path))
+    shown = path.replace(os.path.expanduser('~'), '~', 1)
+    return f"Profile '{_profile_name(path)}' allows only: {allowed} (allowed_commands in {shown})"
 
 
 class _NotAllowed(click.ClickException):
     exit_code = NOT_ALLOWED_EXIT
 
-    def __init__(self, command, patterns):
+    def __init__(self, command, patterns, path=None):
         typed = ' '.join(shlex.quote(a) for a in ['elm'] + sys.argv[1:])
-        path = _resolved_config_file.replace(os.path.expanduser('~'), '~', 1)
+        path = path or _resolved_config_file
+        summary = _restriction_summary(patterns, path)
+        path = path.replace(os.path.expanduser('~'), '~', 1)
         super().__init__(
-            f"{command} is not allowed. {_restriction_summary(patterns)}.\n"
+            f"{command} is not allowed. {summary}.\n"
             f"No request was sent.\n"
             f"To allow it, add '{command}' to allowed_commands in {path}.\n"
             f"If you are a script or an AI assistant: do not retry with another profile and do not\n"
@@ -345,7 +356,7 @@ Source, docs, and examples: https://github.com/rdmarsh/elm
 CRITICAL: flag position matters.
   elm [GLOBAL FLAGS] COMMAND [COMMAND FLAGS]
 
-Global flags (before COMMAND):  -p -l -f -o -s -H -I -v -i -k -a -V
+Global flags (before COMMAND):  -p -d -l -f -o -s -H -I -v -i -k -a -V
                                 --config --head --foot --cacert --ai
 Command flags (after COMMAND):  -s -o -f -F -S -c -C --info  plus the command's
                                 own parameters (--id, --deviceId, ...)
@@ -427,6 +438,9 @@ PROFILES
   the default is a test portal. If it is not clear which profile to use, ask.
   Use --profile NAME to select another. Never read the .ini files: they hold
   credentials.
+  -p a,b runs the command on each portal, adding a "profile" column. Add -d to
+  show only the rows not identical on all of them (exit 1 if any); compare
+  chosen fields (-f), since ids always differ between portals.
 
 ALLOWED COMMANDS
   A profile can allow only some commands (elm --list shows "allows: ..."). Any
@@ -450,9 +464,40 @@ FURTHER READING (files in the repo at https://github.com/rdmarsh/elm)
     ctx.exit()
 
 
+def _portals(names):
+    """(profile, access_id, access_key, account_name) for each profile in -p a,b."""
+    from configobj import ConfigObj
+    if any(not n for n in names):
+        raise click.UsageError(f"empty profile name in -p {','.join(names)}")
+    names = [n[:-4] if n.endswith('.ini') else n for n in names]
+    twice = sorted({n for n in names if names.count(n) > 1})
+    if twice:
+        raise click.UsageError(f"profile listed twice in -p: {', '.join(twice)}")
+    # Credentials given on the command line, or another config file, would apply
+    # to every portal at once, which is never what is meant.
+    given = [a.split('=', 1)[0] for a in _argv
+             if a.split('=', 1)[0] in ('-i', '-k', '-a', '--access_id', '--access_key', '--account_name', '--config')]
+    if given:
+        raise click.UsageError(f"{given[0]} cannot be used with several profiles: each profile has its own")
+    portals = []
+    for name in names:
+        path = _profile_to_path(name)
+        if not os.path.isfile(path):
+            raise click.UsageError(f"no profile '{name}' ({path}); 'elm --list' shows the profiles")
+        try:
+            profile = ConfigObj(path, unrepr=True)
+        except Exception as e:
+            raise _config_error(path, e) from None
+        creds = [profile.get(k) for k in ('access_id', 'access_key', 'account_name')]
+        if not all(creds):
+            raise click.UsageError(f"access_id, access_key or account_name not set in profile '{name}' ({path})")
+        portals.append((name, *creds))
+    return portals
+
+
 class ELM(object):
     """Load config and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals=None, diff=False):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
@@ -465,6 +510,9 @@ class ELM(object):
         self.foot = foot
         self.halt_on_api_error = halt_on_api_error
         self.cacert = cacert
+        # several profiles (-p a,b): one (name, access_id, access_key, account_name) each
+        self.portals = portals
+        self.diff = diff
 
 def enforce_config_perms(config_path):
     if not os.path.exists(config_path):
@@ -510,7 +558,8 @@ enforce_config_perms(config_file)
 @click_config_file.configuration_option(config_file_name=config_file, callback=_capture_config_path, provider=_config_provider)
 @click.option('--ai',                 is_flag=True, is_eager=True, expose_value=False, callback=_ai_guide_callback,    help='Print quick-start guide for AI assistants and exit')
 @click.option('-l', '--list',         is_flag=True, is_eager=True, expose_value=False, callback=_list_profiles_callback, help='List available credential profiles and exit')
-@click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name, shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini')
+@click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name, shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini. Comma-separated names (a,b) run the command on each')
+@click.option('-d', '--diff',         is_flag=True, default=False, help='With several profiles: show only the rows that are not the same on all of them')
 @click.option('-i', '--access_id',    help='API token access id')
 @click.option('-k', '--access_key',   help='API token access key')
 @click.option('-a', '--account_name', help='LogicMonitor account (company) name')
@@ -526,7 +575,7 @@ enforce_config_perms(config_file)
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(__version__, '-V', '--version')
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile, diff):
     """A cli interface for extracting LogicMonitor data via the api
 
     Default config: ~/.config/logicmonitor/credentials/config.ini
@@ -561,8 +610,18 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
             click.secho(f"Error: The directory '{directory}' does not exist", fg='red', err=True)
             raise click.Abort()
 
-    if profile:
+    portals = None
+    if profile and ',' in profile:
+        portals = _portals(profile.split(','))
+        for name, *_ in portals:
+            logging.info('profile: %s -> %s', name, _profile_to_path(name))
+        if format in ('api', 'curl', 'wget') and diff:
+            raise click.UsageError(f'--diff compares rows, and -f {format} prints requests, not rows')
+        access_id, access_key, account_name = portals[0][1:]
+    elif profile:
         logging.info('profile: %s -> %s', profile, _profile_to_path(profile))
+    if diff and not portals:
+        raise click.UsageError('--diff needs several profiles to compare, e.g. -p prod,preprod')
 
     #make sure we've got the bare minimun access needs
     if not access_id or not access_key or not account_name:
@@ -599,7 +658,8 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     logging.info('foot: %s', foot)
     logging.info('halt_on_api_error: %s', halt_on_api_error)
     logging.info('cacert: %s', cacert)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert)
+    logging.info('diff: %s', diff)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals, diff)
 
 if __name__ == '__main__':
     cli()

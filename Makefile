@@ -458,7 +458,7 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testdocs testbasic testallow testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
+test: testdocs testbasic testallow testmulti testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
@@ -488,6 +488,16 @@ testallow: ## Test allowed_commands in a profile (offline)
 	@echo testing: a profile that allows nothing says so in --help ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\nallowed_commands = []\n" > $$c/locked.ini && chmod 600 $$c/locked.ini && $(testbin) -p locked --help | grep -q 'none allowed by this profile' ; $(ALLOWDONE)
 	@echo testing: a broken profile names the file ; $(ALLOWHOME) && printf "access_id = no quotes SHOULDNOTLEAK\n" > $$c/broken.ini && chmod 600 $$c/broken.ini && { $(testbin) -p broken DeviceList -s1 2>&1 | grep -q 'cannot parse .*broken.ini: invalid syntax at line 1' ; } && ! $(testbin) -p broken DeviceList -s1 2>&1 | grep -q SHOULDNOTLEAK ; $(ALLOWDONE)
 	@echo testing: elm --list skips example profiles ; $(ALLOWHOME) && printf "access_id = 'x'\n" > $$c/ai.example.ini && ! $(testbin) --list | grep -q 'example' ; $(ALLOWDONE)
+	@echo "$(OK_STRING) $@"
+
+.PHONY: testmulti
+testmulti: ## Test the checks on several profiles, -p a,b (offline)
+	@echo testing: every profile must allow the command ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\n" > $$c/open.ini && chmod 600 $$c/open.ini && { $(testbin) -p open,limited AdminList -s1 2>&1 | grep -q "Profile 'limited' allows only" ; } && { $(testbin) -p open,limited AdminList -s1 >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
+	@echo testing: a profile listed twice is an error ; $(ALLOWHOME) && $(testbin) -p limited,limited MetricsUsage 2>&1 | grep -q 'profile listed twice' ; $(ALLOWDONE)
+	@echo testing: a missing profile is named ; $(ALLOWHOME) && $(testbin) -p limited,nope MetricsUsage 2>&1 | grep -q "no profile 'nope'" ; $(ALLOWDONE)
+	@echo testing: -i cannot be used with several profiles ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\n" > $$c/open.ini && chmod 600 $$c/open.ini && $(testbin) -p open,limited -i x MetricsUsage 2>&1 | grep -q -- '-i cannot be used with several profiles' ; $(ALLOWDONE)
+	@echo testing: --diff needs several profiles ; $(ALLOWHOME) && $(testbin) -p limited -d MetricsUsage 2>&1 | grep -q -- '--diff needs several profiles' ; $(ALLOWDONE)
+	@echo testing: --diff refuses -f curl ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\n" > $$c/open.ini && chmod 600 $$c/open.ini && $(testbin) -p open,limited -d -f curl MetricsUsage 2>&1 | grep -q -- '--diff compares rows' ; $(ALLOWDONE)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testbasic
