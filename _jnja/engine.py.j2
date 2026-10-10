@@ -347,8 +347,11 @@ def explode(items, fields, profile=None):
     """
     for field in fields:
         if items and not any(field in item for item in items):
+            import difflib
             label = f'{profile}: ' if profile else ''
-            click.secho(f'{label}Warning: nothing to explode, no field {field} in the results (is it in -f?)',
+            close = difflib.get_close_matches(field, set().union(*(item.keys() for item in items)), n=1)
+            hint = f'did you mean {close[0]}?' if close else 'is it in -f?'
+            click.secho(f'{label}Warning: nothing to explode, no field {field} in the results ({hint})',
                         fg='yellow', err=True)
             continue
         rows = []
@@ -412,16 +415,17 @@ def warn(flags, obj, items, profile=None):
                 click.secho(label + 'Warning: results truncated by size limit',
                             fg='yellow', err=True)
 
-        #warn if any requested fields were not returned by the API
-        if 'fields' in flags:
-            names = requested(flags)
-            if any('.' in name for name in names):
-                returned = paths(items)
-            missing = set(names) - returned
-            if missing:
-                noun = 'field' if len(missing) == 1 else 'fields'
-                click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(sorted(missing))),
-                            fg='yellow', err=True)
+    #warn if any requested fields were not returned by the API -- also when none
+    #were, so "no valid fields selected" comes with the names that were wrong
+    if 'fields' in flags and items:
+        names = requested(flags)
+        if any('.' in name for name in names):
+            returned = paths(items)
+        missing = set(names) - returned
+        if missing:
+            noun = 'field' if len(missing) == 1 else 'fields'
+            click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(sorted(missing))),
+                        fg='yellow', err=True)
     return truncated
 
 

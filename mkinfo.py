@@ -230,7 +230,7 @@ def build_info(definition, note, block, fields):
     out.append("")
 
     if note:
-        out.append("Notes (elm-notes.yaml, from live testing; they take precedence over the field list):")
+        notes_at = len(out)
         if note.get("note"):
             out.append(f"- {clean(note['note'])}")
         for gotcha in as_list(note.get("gotchas")):
@@ -254,7 +254,9 @@ def build_info(definition, note, block, fields):
         for key, value in note.items():
             if key not in known:
                 out.extend(render_plain(key, value))
-        out.append("")
+        if len(out) > notes_at:     # no heading over nothing (key_fields alone are shown under Fields)
+            out.insert(notes_at, "Notes (elm-notes.yaml, from live testing; they take precedence over the field list):")
+            out.append("")
 
     key_fields = commented_items(block, "key_fields")
     names = sorted(set(fields) | set(key_fields), key=str.lower)
