@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `-e` / `--explode FIELD` gives one row per item of a list field (a role's `privileges`, a portal's `contacts`, a device's `customProperties`), the record's other fields repeated and the item's keys as `FIELD.key` columns. A record with an empty list keeps its row. `-c` counts the exploded rows. With several profiles and `-d`, items are compared one by one rather than as a whole list (where order counted). Two separate lists cannot be exploded together, since every item of one would pair with every item of the other; `-e` repeats only for a list inside another (`-e groups -e groups.members`).
 - A dotted name in `-f` picks part of a nested field: `-f name,privileges.objectName,privileges.operation`. elm asks LM for the top-level field and trims the rest, so portal-specific ids such as `privileges.objectId` can be left out of a comparison.
+- `tools/portal-matrix.py` pivots what elm prints for several profiles into one row per item and one column per portal: ✓ / — for which portals have it, or each portal's value with `-v`. `-d` keeps only the rows that differ, `-m` adds a ✓ / ✗ `same` column, `-c account_name` heads the columns with account names; Markdown by default, `--csv`. Recipes for contacts, role privileges and a list of critical datasources compared by checksum are in `tools/README.md`.
 - `elm COMMAND --info` lists the names inside each nested field, e.g. `privileges.: objectId, objectName, objectType, operation, subOperation`.
 
 ### Changed

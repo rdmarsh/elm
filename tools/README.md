@@ -27,6 +27,9 @@ LogicModules
 - [Change advice](#change-advice) — `tools/elm-change-advice.py`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
 
+Comparing portals
+- [Portal matrix](#portal-matrix) — `tools/portal-matrix.py`
+
 Portal reports and backups
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Group paths](#group-paths) — `tools/elm-group-paths.sh`
@@ -484,6 +487,52 @@ Rows are sorted active-first, then by `FROM`. `--active` limits output to
 currently-active SDTs; `--exact` switches host matching from contains
 (`displayName~`) to exact (`displayName:`); `-p`/`--profile` selects the portal
 (defaults to `config`). Requires `elm`, `jq`, and `column`.
+
+## Portal matrix
+
+`tools/portal-matrix.py` turns what elm prints for several profiles
+(`elm -p a,b,c`, see "Several portals at once" in the main README) into one
+row per item and one column per portal, so whichever portal is out of step
+stands out. It reads elm's `-f jsonl` (or `-f json`) on stdin and needs no
+portal itself. `-k` names the field(s) that identify a row; without `-v` a cell
+is ✓ where the portal has that row and — where it does not; with `-v` it holds
+the value.
+
+```shell
+# which portals have which contacts
+elm -p prod,preprod,test -e contacts -f jsonl PortalInfo -f contacts \
+  | tools/portal-matrix.py -k contacts.email
+
+| contacts.email   | prod | preprod | test |
+| ---------------- | :--: | :-----: | :--: |
+| joe@example.com  |  ✓   |    ✓    |  ✓   |
+| fred@example.com |  ✓   |    —    |  ✓   |
+
+# role privileges that differ: one row per role and object, the operation in
+# each cell (objectId is left out: it holds portal-specific ids)
+elm -p prod,preprod,test -e privileges -f jsonl RoleList \
+    -f name,privileges.objectType,privileges.objectName,privileges.operation -s0 \
+  | tools/portal-matrix.py -k name,privileges.objectType,privileges.objectName -v privileges.operation -d
+
+# the critical datasources, one name per line in critical.txt, by checksum
+while read -r ds; do
+  elm -p prod,preprod,test -f jsonl DatasourceList -F "name:$ds" -f name,checksum
+done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
+```
+
+- `-d` keeps only the rows where some portal differs or is missing. Use it
+  instead of elm's own `-d`: that drops rows a portal shares with all the
+  others, and a portal left with no rows would vanish from the table, hiding
+  what it lacks.
+- `-m` adds a `same` column (✓ / ✗) and keeps every row: the full table for a
+  wiki page.
+- `-c account_name` heads the columns with the account names rather than your
+  profile names, for readers who know the portals that way. It is refused
+  when two profiles point at one account, since their rows would merge.
+- Markdown (GitHub Flavored) by default; `--csv` for a spreadsheet;
+  `--missing TEXT` changes the —.
+- Exit status like `diff`: 0 when every row is the same on every portal, 1
+  when any differs, 2 on bad input. A one-line summary goes to stderr.
 
 ## Module updates
 
