@@ -37,10 +37,21 @@ opts=${MATRIX_OPTS:-}
 full=-d                                # only the rows that differ
 [ -n "${FULL:-}" ] && full=-m          # ... or the whole table, with a "same" column
 
-# print stdin, or a note when a differences-only table came out empty
-shown() {
-    t=$(cat)
-    if [ -n "$t" ]; then printf '%s\n' "$t"; else echo '_No differences._'; fi
+# table PORTAL-MATRIX-ARGS... : the matrix of the rows on stdin. A table that
+# comes out empty says why, with portal-matrix's own count, so "the same
+# everywhere" cannot be mistaken for "nothing was compared".
+errs=$(mktemp)
+table() {
+    t=$(python3 "$matrix" $opts "$@" 2>"$errs")
+    rc=$?
+    cat "$errs" >&2
+    if [ -n "$t" ]; then
+        printf '%s\n' "$t"
+    elif [ "$rc" -eq 0 ]; then
+        printf '_%s._\n' "$(tail -1 "$errs")"          # No differences: N rows the same on M portals
+    else
+        echo '_Nothing to compare: no rows came back (see the log)._'
+    fi
 }
 
 # section TITLE NOTE ELM-ARGS... -- PORTAL-MATRIX-ARGS...
@@ -53,19 +64,19 @@ section() {
     shift
     # shellcheck disable=SC2086  # opts is meant to split
     printf '\n## %s\n\n%s\n\n' "$title" "$note"
-    eval "elm -p '$profiles' -f jsonl $elm_args" | python3 "$matrix" $opts "$@" | shown
+    eval "elm -p '$profiles' -f jsonl $elm_args" | table "$@"
 }
 
 # "a, b and c", each in bold
-names=$(printf '%s' "$profiles" | awk -F, '{
+portal_list=$(printf '%s' "$profiles" | awk -F, '{
     for (i = 1; i <= NF; i++) s = s (i == 1 ? "" : i == NF ? " and " : ", ") "**" $i "**"; print s }')
-printf '# Portal comparison\n\nComparing %s, %s.\n' "$names" "$(date '+%-d %B %Y at %H:%M')"
+printf '# Portal comparison\n\nComparing %s, %s.\n' "$portal_list" "$(date '+%-d %B %Y at %H:%M')"
 [ -z "${FULL:-}" ] && printf '\nOnly what differs is shown: rows that are the same on every portal are left out.\n'
 
 # The sections go to a temporary file first, so a Contents list linking to
 # each of them can come before them (anchors as pandoc and GitHub make them).
 body=$(mktemp)
-trap 'rm -f "$body"' EXIT
+trap 'rm -f "$body" "$errs"' EXIT
 exec 3>&1 >"$body"
 
 # -C prints one total per portal; jq adds which command it counted. Sizes are
@@ -75,7 +86,7 @@ echo 'Sizes' >&2
 printf '\n## Sizes\n\nHow many of each, per portal.\n\n'
 for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList WebsiteList; do
     elm -p "$profiles" -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
-done | python3 "$matrix" $opts -k command -v total -t
+done | table -k command -v total -t
 
 # account settings that should match (counts, contract limits and timers left out)
 settings=requireTwoFA,configurable2FAOptions,requireTwoFAForRemoteSession,sessionTimeoutInSeconds
@@ -142,7 +153,7 @@ if [ -z "${DEVICE_GROUPS:-}" ]; then
     echo '_Skipped: set DEVICE_GROUPS to the top-level groups to compare, e.g. DEVICE_GROUPS=Standards,Templates._'
 else
     printf 'Only the groups in %s (and under them) that differ: missing, or with another AppliesTo.\n\n' "$DEVICE_GROUPS"
-    fields=appliesTo subtree_rows | python3 "$matrix" $opts -k fullPath -v appliesTo -d | shown
+    fields=appliesTo subtree_rows | table -k fullPath -v appliesTo -d
 
     # one row per group and property; groups with none are left out (whether a
     # group exists is the section above). Secrets read ******** everywhere.
@@ -150,7 +161,7 @@ else
     printf '\n## Device group properties\n\nOnly the custom properties of those groups that differ: missing somewhere, or another value.\n\n'
     fields=customProperties subtree_rows -e customProperties \
         | jq -c 'select(.["customProperties.name"] != null)' \
-        | python3 "$matrix" $opts -k fullPath,customProperties.name -v customProperties.value -d | shown
+        | table -k fullPath,customProperties.name -v customProperties.value -d
 fi
 
 section 'Root group properties' 'Custom properties set on the root device group (inherited by everything).' \
@@ -168,14 +179,14 @@ if [ -n "$names" ]; then
     printf '\n## Critical datasources\n\nChecksum of each datasource in %s.\n\n' "$(basename "$names")"
     while read -r ds; do
         [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,checksum
-    done < "$names" | python3 "$matrix" $opts -k name -v checksum "$full" | shown
+    done < "$names" | table -k name -v checksum "$full"
 fi
 
 echo 'Other LogicModules' >&2
 printf '\n## Other LogicModules\n\nOnly the ConfigSources, EventSources, PropertySources, TopologySources and AppliesTo functions that differ, by checksum.\n\n'
 for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do
     elm -p "$profiles" -f jsonl "$c" -s0 -f name,checksum | jq -c --arg t "$c" '{type: $t} + .'
-done | python3 "$matrix" $opts -k type,name -v checksum -d | shown
+done | table -k type,name -v checksum -d
 
 exec 1>&3 3>&-
 printf '\n## Contents\n\n'

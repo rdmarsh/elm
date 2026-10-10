@@ -424,8 +424,10 @@ DEVICE_GROUPS='Standards,Templates' \
 
 The page opens with a Contents list linking to each section (the links work
 in the Markdown, on a wiki that makes GitHub-style anchors, and in the PDF).
-Each section shows only what differs; one where every portal agrees says
-"No differences". The sizes are always shown in full, with a total across the
+Each section shows only what differs. One where every portal agrees says so
+with a count -- "No differences: 31 rows the same on 4 portals" -- so you can
+tell it compared something; one whose query found nothing says "Nothing to
+compare" (a misspelt group, say: check the log). The sizes are always shown in full, with a total across the
 portals. The page header says it is a differences-only page.
 Progress and each table's "N of M rows differ" go to stderr: `tail -f
 differences.log` in another terminal shows how far it has got (the critical

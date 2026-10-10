@@ -554,7 +554,10 @@ and writes one Markdown page: a linked Contents list, then a section per area
 (sizes, account settings, contacts, roles and privileges, users, alerting,
 your standard device groups and their properties, root group properties, collectors, critical
 datasources by checksum, other LogicModules), each a `portal-matrix.py` table.
-Only what differs is shown; the sizes always in full, with a total.
+Only what differs is shown; a section where all portals agree says how many
+rows it compared ("No differences: 31 rows the same on 4 portals"), and one
+whose query found nothing says "Nothing to compare". Sizes are always in full,
+with a total.
 
 ```shell
 DEVICE_GROUPS='Standards,Templates' \
