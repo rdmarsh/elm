@@ -347,7 +347,7 @@ def rows(flags, obj, profile):
 
 
 def report_portals(elm, flags, results, failed):
-    """Print the rows from several portals: one table with a profile column, or one file each."""
+    """Print the rows from several portals: one table with profile and account_name columns, or one file each."""
     table = [(name, row) for name, items, _ in results for row in items]
     truncated = [name for name, _, cut in results if cut]
 
@@ -385,7 +385,9 @@ def report_portals(elm, flags, results, failed):
                 output(mine, elm.command, os.path.join(directory, f'{name}-{base}'),
                        elm.format, elm.noheader, elm.index, elm.head, elm.foot)
     elif table:
-        output([{'profile': name, **row} for name, row in table],
+        # profile is unique; account_name is not (two tokens on one portal) but is what others know it by
+        account = {name: account_name for name, _, _, account_name in elm.portals}
+        output([{'profile': name, 'account_name': account[name], **row} for name, row in table],
                elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
 
     if elm.diff:

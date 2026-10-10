@@ -685,21 +685,23 @@ the true total is under 1000.
 ### Several portals at once
 
 Give `-p` several profiles, separated by commas, to run the same query on each
-portal. The rows come back as one table with a `profile` column first:
+portal. The rows come back as one table, with `profile` and `account_name`
+columns first:
 
 ```shell
 $ elm -p prod,preprod -f csv DeviceGroupList -f name,appliesTo
-profile,name,appliesTo
-prod,Linux Servers,isLinux()
-prod,Old Stuff,false
-prod,Windows Servers,isWindows()
-preprod,Linux Servers,isLinux() && !isK8s()
-preprod,Windows Servers,isWindows()
+profile,account_name,name,appliesTo
+prod,acme,Linux Servers,isLinux()
+prod,acme,Old Stuff,false
+prod,acme,Windows Servers,isWindows()
+preprod,acmepreprod,Linux Servers,isLinux() && !isK8s()
+preprod,acmepreprod,Windows Servers,isWindows()
 ```
 
-In JSON, `profile` is a key on every record, so `jq 'select(.profile=="prod")'`
-picks out one portal. `-c` and `-C` give one `profile,count` (or
-`profile,total`) row per portal.
+`profile` is always unique, while two profiles can point at the same account
+(say, two tokens with different roles), so `profile` is the one to select on.
+In JSON both are keys on every record: `jq 'select(.profile=="prod")'` picks
+out one portal. `-c` and `-C` give one count (or total) row per portal.
 
 **`-d` / `--diff`** shows only the rows that are not identical on every
 portal: what is left is what is out of step. Here Windows Servers matches, so
@@ -709,10 +711,10 @@ others.
 
 ```shell
 $ elm -p prod,preprod -d -f csv DeviceGroupList -f name,appliesTo
-profile,name,appliesTo
-prod,Linux Servers,isLinux()
-prod,Old Stuff,false
-preprod,Linux Servers,isLinux() && !isK8s()
+profile,account_name,name,appliesTo
+prod,acme,Linux Servers,isLinux()
+prod,acme,Old Stuff,false
+preprod,acmepreprod,Linux Servers,isLinux() && !isK8s()
 ```
 
 Choose the fields to compare with `-f`: fields such as `id` always differ
@@ -724,8 +726,8 @@ no difference was found in the rows that were. Narrow with `-F` in that case. Li
 whole, so the same entries in a different order count as different.
 
 **`-o FILE`** writes one file per portal, named `<profile>-FILE` in the same
-directory, each without the `profile` column: the same file `-p NAME` would
-write. `diff prod-groups.csv preprod-groups.csv` then works directly.
+directory, each without the `profile` and `account_name` columns: the same
+file `-p NAME` would write. `diff prod-groups.csv preprod-groups.csv` then works directly.
 
 Each profile uses its own credentials, so `-i`, `-k`, `-a` and `--config`
 cannot be combined with several profiles. Every profile must allow the

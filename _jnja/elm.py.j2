@@ -438,7 +438,8 @@ PROFILES
   the default is a test portal. If it is not clear which profile to use, ask.
   Use --profile NAME to select another. Never read the .ini files: they hold
   credentials.
-  -p a,b runs the command on each portal, adding a "profile" column. Add -d to
+  -p a,b runs the command on each portal, adding "profile" and "account_name"
+  columns (profile is unique; two profiles can share an account). Add -d to
   show only the rows not identical on all of them (exit 1 if any); compare
   chosen fields (-f), since ids always differ between portals.
 
