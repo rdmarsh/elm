@@ -48,6 +48,17 @@ for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList Websit
     elm -p "$profiles" -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
 done | python3 "$matrix" $opts -k command -v total -m
 
+# account settings that should match (counts, contract limits and timers left out)
+settings=requireTwoFA,configurable2FAOptions,requireTwoFAForRemoteSession,sessionTimeoutInSeconds
+settings=$settings,allowConcurrentLogins,enableKeepMeSignedIn,keepMeSignedInConfigurableDays,enableRemoteSession
+settings=$settings,enableCollectorDebug,enableTestScript,enableScriptsInTextWidget,allowExecutionForDiagnosticSource
+settings=$settings,allowExecutionForRemediationSource,applyCspPolicyOnDashboard,allowSharedReports,tokenDisabledDays
+settings=$settings,userSuspendDays,timestampWindowOfApiUsersInSec,enableUserDetailsEmailNotification
+settings=$settings,tenantIdentifierPropertyName,enableUpdateOfTenantIdentifierProperty,accountDomainWhitelist
+settings=$settings,whiteList,alertTotalIncludeInAck,alertTotalIncludeInSdt,timezone
+section 'Account settings' 'Two-factor, sessions, remote session, scripts, token and user expiry, tenant property, allowlists, alert totals.' \
+    PortalInfo -f "$settings" -- -m
+
 section 'Contacts' 'Portal contacts (PortalInfo).' \
     -e contacts PortalInfo -f contacts -- -k contacts.email -m
 

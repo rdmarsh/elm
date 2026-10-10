@@ -145,7 +145,35 @@ elm -p prod,preprod,test PortalInfo -f timezone,tenantIdentifierPropertyName,ema
 ```
 
 `elm PortalInfo --info` lists the other fields. Leave out the counts
-(`numberOfDevices` and the like): they always differ.
+(`numberOfDevices` and the like), the committed and limit figures (they follow
+each contract) and the `disable...EpochTime` timers: they differ for reasons
+that are not configuration.
+
+All the account settings worth keeping alike -- two-factor, sessions, remote
+session, scripts, token and user expiry, the tenant property, allowlists and
+alert totals -- in one table, differences only:
+
+```shell
+settings=requireTwoFA,configurable2FAOptions,requireTwoFAForRemoteSession,\
+sessionTimeoutInSeconds,allowConcurrentLogins,enableKeepMeSignedIn,keepMeSignedInConfigurableDays,\
+enableRemoteSession,enableCollectorDebug,enableTestScript,enableScriptsInTextWidget,\
+allowExecutionForDiagnosticSource,allowExecutionForRemediationSource,applyCspPolicyOnDashboard,\
+allowSharedReports,tokenDisabledDays,userSuspendDays,timestampWindowOfApiUsersInSec,\
+enableUserDetailsEmailNotification,tenantIdentifierPropertyName,enableUpdateOfTenantIdentifierProperty,\
+accountDomainWhitelist,whiteList,alertTotalIncludeInAck,alertTotalIncludeInSdt,timezone
+
+elm -p prod,preprod,test PortalInfo -f "$settings" | tools/portal-matrix.py -d
+```
+
+```text
+| field                   | prod  | preprod | test  |
+| ----------------------- | ----- | ------- | ----- |
+| enableRemoteSession     | false | false   | true  |
+| sessionTimeoutInSeconds | 14400 | 14400   | 86400 |
+```
+
+`configurable2FAOptions` is a list of options; the matrix sorts lists of plain
+values, so the same options in another order count as the same.
 
 Who are the portal contacts? Explode the list, key on the email:
 

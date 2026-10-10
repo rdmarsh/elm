@@ -67,11 +67,20 @@ def read_rows(text):
 
 
 def show(value):
-    """A cell's text: blank for null, 1 not 1.0, JSON for anything nested."""
+    """A cell's text: blank for null, true/false as in JSON, 1 not 1.0, JSON for anything nested.
+
+    A list of plain values is sorted, so the same options in another order
+    (configurable2FAOptions) compare as the same; lists of records keep their
+    order (explode them with elm -e to compare item by item).
+    """
     if value is None:
         return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
+    if isinstance(value, list) and all(isinstance(v, (str, int, float)) for v in value):
+        value = sorted(value, key=str)
     if isinstance(value, (dict, list)):
         return json.dumps(value, sort_keys=True)
     return str(value)
@@ -212,7 +221,7 @@ def main(argv=None):
             per_portal[show(get(row, args.column))] = per_portal.get(show(get(row, args.column)), 0) + 1
         if set(per_portal.values()) == {1}:
             # one record each (PortalInfo, a ById): one row per field, its value per portal
-            fields = values or fields
+            fields = values or sorted(fields, key=str.lower)     # -v's order, else alphabetical
             rows = [{args.column: get(row, args.column), "field": f, "value": get(row, f)}
                     for row in rows for f in fields]
             keys, values = ["field"], ["value"]
