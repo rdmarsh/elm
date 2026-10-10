@@ -529,8 +529,11 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
 - `-c account_name` heads the columns with the account names rather than your
   profile names, for readers who know the portals that way. It is refused
   when two profiles point at one account, since their rows would merge.
-- Markdown (GitHub Flavored) by default; `--csv` for a spreadsheet;
-  `--missing TEXT` changes the —.
+- Markdown (GitHub Flavored) by default; `--csv` for a spreadsheet.
+- `--tick`, `--cross` and `--missing` change the marks, e.g.
+  `--tick :true: --cross :false:` for a wiki that renders those. In a terminal
+  the marks are coloured (green ✓, red ✗ and —); piped, redirected or with
+  `NO_COLOR` set, they are plain.
 - Exit status like `diff`: 0 when every row is the same on every portal, 1
   when any differs, 2 on bad input. A one-line summary goes to stderr.
 

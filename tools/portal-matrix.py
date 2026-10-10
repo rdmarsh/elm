@@ -28,7 +28,8 @@ Columns are the profiles (or -c account_name, for readers who know the
 portals by account; refused when two profiles share an account, since their
 rows would merge), in the order they first appear, then "same" with -m.
 Reads elm's -f jsonl, -f json or -f prettyjson from stdin, so -f can be left
-out. GitHub Flavored Markdown by default, CSV with --csv.
+out. --tick and --cross change the marks (e.g. :true: and :false: for a wiki).
+In a terminal the marks are coloured; piped or with NO_COLOR set, they are not. GitHub Flavored Markdown by default, CSV with --csv.
 Exit status: 0 when every row is the same on every portal, 1 when any
 differs (like diff), 2 on bad input.
 """
@@ -36,10 +37,10 @@ differs (like diff), 2 on bad input.
 import argparse
 import csv
 import json
-import re
+import os
 import sys
 
-TICK, CROSS = "✓", "✗"
+TICK, CROSS = "✓", "✗"     # the defaults; --tick / --cross change them
 
 
 def err(*args):
@@ -48,7 +49,7 @@ def err(*args):
 
 def read_rows(text):
     """Records from elm -f jsonl (one per line), -f json or -f prettyjson ({"Command": [...]})."""
-    text = re.sub(r"\x1b\[[0-9;]*m", "", text).strip()     # prettyjson colours even when piped
+    text = text.strip()
     if not text:
         return []
     try:
@@ -73,7 +74,7 @@ def show(value):
     return str(value)
 
 
-def pivot(rows, keys, values, column):
+def pivot(rows, keys, values, column, tick):
     """(columns, {key tuple: {column: cell}}), both in first-seen order."""
     columns, table = [], {}
     for row in rows:
@@ -81,7 +82,7 @@ def pivot(rows, keys, values, column):
         if col not in columns:
             columns.append(col)
         key = tuple(show(row.get(k)) for k in keys)
-        cell = " / ".join(show(row.get(v)) for v in values) if values else TICK
+        cell = " / ".join(show(row.get(v)) for v in values) if values else tick
         cells = table.setdefault(key, {}).setdefault(col, [])
         if cell not in cells:
             cells.append(cell)      # one portal with several rows for a key: list each value once
@@ -98,8 +99,12 @@ def emit_csv(headers, body):
     w.writerows(body)
 
 
-def emit_gfm(headers, body, centred):
-    """GFM table, padded so the raw Markdown lines up too; ticks centred."""
+def emit_gfm(headers, body, centred, colours, first):
+    """GFM table, padded so the raw Markdown lines up too; ticks centred.
+
+    colours maps a mark to an ANSI colour code, applied after padding so the
+    columns still line up.
+    """
     def esc(s):
         return str(s).replace("|", "\\|").replace("\n", " ")
 
@@ -108,7 +113,10 @@ def emit_gfm(headers, body, centred):
     widths = [max([3, len(h)] + [len(row[i]) for row in body]) for i, h in enumerate(headers)]
 
     def pad(s, i):
-        return s.center(widths[i]) if i in centred else s.ljust(widths[i])
+        padded = s.center(widths[i]) if i in centred else s.ljust(widths[i])
+        if s and s in colours and i >= first:
+            padded = padded.replace(s, f"\x1b[{colours[s]}m{s}\x1b[0m", 1)
+        return padded
 
     def line(cells):
         print("| " + " | ".join(cells) + " |")
@@ -136,6 +144,10 @@ def parse_args(argv):
                    help=f"add a 'same' column: {TICK} where every portal agrees, {CROSS} where not")
     p.add_argument("--missing", default="—", metavar="TEXT",
                    help="what a cell shows where the portal has no such row (default: —)")
+    p.add_argument("--tick", default=TICK, metavar="TEXT",
+                   help=f"the mark for present / the same (default: {TICK}; e.g. :true: for a wiki)")
+    p.add_argument("--cross", default=CROSS, metavar="TEXT",
+                   help=f"the mark for not the same, in the -m column (default: {CROSS}; e.g. :false:)")
     p.add_argument("--csv", action="store_true", help="CSV instead of a Markdown table")
     return p.parse_args(argv)
 
@@ -170,14 +182,14 @@ def main(argv=None):
                 f"whose rows would merge; use -c profile")
             return 2
 
-    columns, table = pivot(rows, keys, values, args.column)
+    columns, table = pivot(rows, keys, values, args.column, args.tick)
     differ = [key for key, cells in table.items() if not same(cells, columns)]
 
     headers = keys + columns + (["same"] if args.match else [])     # read left to right: verdict last
     body = []
     for key, cells in table.items():
         if args.diff and key in differ or not args.diff:
-            mark = [CROSS if key in differ else TICK] if args.match else []
+            mark = [args.cross if key in differ else args.tick] if args.match else []
             body.append(list(key) + [cells.get(col, args.missing) for col in columns] + mark)
 
     if not body:
@@ -188,7 +200,10 @@ def main(argv=None):
     else:
         first = len(keys)
         centred = set(range(first, len(headers))) if not values else ({len(headers) - 1} if args.match else set())
-        emit_gfm(headers, body, centred)
+        colour = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+        green, red = "32", "31"
+        colours = {args.tick: green, args.cross: red, args.missing: red} if colour else {}
+        emit_gfm(headers, body, centred, colours, first)
     sys.stdout.flush()      # the table first, then the summary on stderr
     err(f"{len(differ)} of {len(table)} rows differ across {len(columns)} portals")
     return 1 if differ else 0
