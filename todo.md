@@ -48,6 +48,45 @@ chains/rules data is available.
 Context: same class as GitHub issue #47 (LM swagger omits paging params on
 several list endpoints).
 
+## pandas 3 (needed for Python 3.15)
+
+pandas 2.3 has no Python 3.15 wheels and will not get them, so on 3.15 `make`
+tries to compile pandas and fails (`metadata-generation-failed`, found
+2026-10-10 when Homebrew moved `python3` to 3.15). The first pandas with 3.15
+wheels is 3.0.6. pandas 3.0.0 was released 2026-01-21; 3.0.6 came out
+2026-09-17 and 3.1.0rc0 on 2026-09-30, so it is settled. Until this is done,
+build with `make PYTHON=python3.14`.
+
+What could change elm's output: text columns become a dedicated `str` dtype
+instead of `object` (empty values and NaN may print differently), and
+copy-on-write is always on (unlikely to matter: elm only formats). Method:
+capture every `-f` format for a few commands with pandas 2.3, rebuild with
+pandas 3, and compare byte for byte; `make testfmtcont` covers the shape, the
+byte comparison covers the rest. Watch the `jsonl` trailing bytes (a downstream
+repo counts lines) and `sqlite` column types.
+
+## CI: build and test on every platform elm should run on
+
+`.github/workflows/makefile.yml` is green but builds nothing: it installs the
+requirements, runs `make clean` and prints `make help`. Goal: build the binary
+and run the offline tests (`testallow`, `testmulti`, `testdocs`, the offline
+part of `testbasic`) on:
+
+- macOS (arm64; Intel while GitHub still offers it) and Ubuntu: native runners.
+- Debian and RHEL (Rocky/Alma or UBI): containers on the Ubuntu runner.
+  PyInstaller binaries need a glibc at least as new as the one they were built
+  on, so build releases on the oldest supported distro and test elsewhere.
+- Python 3.12, 3.13, 3.14, plus the next Python as an allowed-to-fail job: it
+  would have caught the pandas/3.15 break above before a rebuild did.
+- Docker: build the image from the item below and run `--version` / `--help`.
+- Windows: expect real work, not just a runner. The Makefile and tests are
+  bash; and `enforce_config_perms` (in `_jnja/elm.py.j2`) checks Unix modes
+  700/600, which Windows `os.chmod` cannot set, so elm likely exits "cannot
+  secure" there. Not yet tried on Windows; WSL works as Linux.
+
+Later: live tests against a sandbox portal with a read-only token in a GitHub
+secret, and release binaries attached to a tag.
+
 ## elm-ask: one page for several portals (parked 2026-09-18)
 
 `tools/elm-ask` answers from one profile (`ai` by default), so one container
