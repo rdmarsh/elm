@@ -90,6 +90,9 @@ section 'Collector groups' 'Which collector groups exist where.' \
 section 'Collector builds' 'Which collector builds are running where.' \
     CollectorList -s0 -f build -- -k build -m
 
+section 'Datasources in use' 'Only the datasources not in use on every portal (instances per portal; — is none).' \
+    -e numberOfInstancesPerDS PortalInfo -f numberOfInstancesPerDS -- -d
+
 if [ -n "$names" ]; then
     echo 'Critical datasources' >&2
     printf '\n## Critical datasources\n\nChecksum of each datasource in %s.\n\n' "$(basename "$names")"

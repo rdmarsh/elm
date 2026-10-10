@@ -274,8 +274,43 @@ compare their groups and builds rather than the collectors.
 Compare by `checksum`: it changes whenever the module's content does. `version`
 is a timestamp, not a version number.
 
-The datasources that matter most, listed one name per line in a file (there
-are thousands, and `-F` has no OR, so this is one query per name):
+Which datasources are in use where, with how many instances each:
+`PortalInfo`'s `numberOfInstancesPerDS` maps every datasource with instances
+to its count, so one call per portal covers them all. Exploding it gives one
+row per datasource:
+
+```shell
+elm -p prod,preprod,test -e numberOfInstancesPerDS PortalInfo -f numberOfInstancesPerDS \
+  | tools/portal-matrix.py -d
+```
+
+```text
+| field                                  | prod | preprod | test |
+| -------------------------------------- | ---- | ------- | ---- |
+| numberOfInstancesPerDS.Ping            | 1180 | 1175    | 85   |
+| numberOfInstancesPerDS.WinAutoServices | 2250 | 2250    | —    |
+```
+
+Counts differ wherever portals differ in size, so read — (not in use there at
+all) rather than the numbers.
+
+**Picking the critical datasources.** The same field ranks them by use. The
+top 30 across all the portals, into a file:
+
+```shell
+elm -p prod,preprod,test -f jsonl PortalInfo -f numberOfInstancesPerDS \
+  | jq -rs 'map(.numberOfInstancesPerDS | to_entries[]) | group_by(.key)
+            | map({key: .[0].key, n: (map(.value) | add)}) | sort_by(-.n) | .[:30][].key' \
+  > critical.txt
+```
+
+It counts instances, not devices: a datasource with many instances per device
+(interfaces, services, disks) ranks above one on every device with one
+instance each. Edit the list by hand afterwards; it only has to be made once.
+
+Then compare those datasources by checksum, one name per line in the file
+(there are thousands of datasources, and `-F` has no OR, so this is one query
+per name):
 
 ```shell
 # critical.txt

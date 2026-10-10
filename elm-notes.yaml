@@ -2031,6 +2031,7 @@ PortalInfo:
     numOfAzureDevices:           integer
     numOfGcpDevices:             integer
     numberOfDatasourceInstances: integer  # instances being collected
+    numberOfInstancesPerDS:      object   # {datasource name: instances}, every datasource with instances; ranks datasources by use in one call (verified 2026-10-11, 595 entries)
     numberOfDashboards:          integer
     numberOfWidgets:             integer
     hostGroupsInfo:              object   # dynamic vs static groups and their property counts
