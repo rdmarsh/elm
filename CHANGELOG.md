@@ -6,14 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Fixed
-
-- The collector tools sent work to collectors that were down and then waited out the whole timeout for them. They treated `status` 1 as "up", but LogicMonitor reports `status` 1 for every registered collector (in the sandbox, 27 of 37 were down, all with status 1); `isDown` is the real flag. `lm-collector-debug.ps1` and `lm-collector-reach.ps1` now skip down collectors with a warning naming each one, and refuse a down `-WithCollector`.
-- Collector reachability checks on large groups timed out. Each collector tests 20 devices at a time, up to about 8 s each when nothing answers, but the check stopped waiting after 120 s and the script after 180 s: enough for about 300 devices. Both waits now grow with the device count, in `lm-collector-reach.ps1` and in the script `elm-collector-reach-paste.sh` prints.
-- A comma in a device name shifted that row's columns in the reachability results (rows are joined with commas, unquoted); names and addresses now have commas replaced by spaces.
-- `lm-collector-debug.ps1` and `lm-collector-reach.ps1` declare that they need PowerShell 7 (`#Requires -Version 7.0`), instead of failing in Windows PowerShell 5.1 with a parse error.
-- `lm-collector-reach.ps1 -Group G` printed nothing about the results when the group had one collector, and with several it never showed a check that failed from all of them (the comparison lists only disagreements), so "can every collector reach everything?" missed exactly the devices nobody reaches. It now lists every check no current collector passes, or says all passed. Long lists put one device per line with its failing checks (a joining collector that reached none of 38 devices took 83 lines), and the joining-collector verdict leads with how many devices it matches. A device that fails ping but passes a TCP check gets a note that ICMP is often blocked where TCP gets through (cloud networks such as Azure block it by default), and the move verdict says "(from ...)" only when the devices came from more than one place.
-- `lm-collector-debug.ps1 -Script x.ps1` showed the collector's `returns 0` / `error:` / `output:` wrapper above the script's output: PowerShell results carry an `error:` section that Groovy ones do not, and only the Groovy shape was stripped. Both shapes are now stripped; anything in the error section is kept, marked `error:`, above the output. (Found running it on a Windows collector in the sandbox.)
+## [1.12.0] - 2026-10-11
 
 ### Added
 
@@ -33,7 +26,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `lm-collector-debug.ps1` and `lm-collector-reach.ps1` work the same way: one identical block of shared code finds collectors (by id, name, or an unambiguous part of a name), groups and devices (a number is an id, text a name), and reads results. `lm-collector-debug.ps1 -Device` now takes ids as well as names. With no target, both print their usage and the collector groups; mistakes stop with one red line rather than a PowerShell stack trace. `lm-collector-reach.ps1` no longer saves the debug wrapper (`returns 0` / `output:`) at the top of each result file, and `lm-collector-debug.ps1` checks for results after 1, 2 and 4 seconds before settling at every 5, so short commands answer quickly.
 - `tools/README.md` lists every tool, grouped by what it is for, says what the `elm-` / `lm-` / no prefix means, and has new sections for collector reachability and the capacity matrix.
 
-All of the above was tested against stand-ins for the Logic.Monitor cmdlets, not yet against a portal.
+### Fixed
+
+- The collector tools sent work to collectors that were down and then waited out the whole timeout for them. They treated `status` 1 as "up", but LogicMonitor reports `status` 1 for every registered collector (in the sandbox, 27 of 37 were down, all with status 1); `isDown` is the real flag. `lm-collector-debug.ps1` and `lm-collector-reach.ps1` now skip down collectors with a warning naming each one, and refuse a down `-WithCollector`.
+- Collector reachability checks on large groups timed out. Each collector tests 20 devices at a time, up to about 8 s each when nothing answers, but the check stopped waiting after 120 s and the script after 180 s: enough for about 300 devices. Both waits now grow with the device count, in `lm-collector-reach.ps1` and in the script `elm-collector-reach-paste.sh` prints.
+- A comma in a device name shifted that row's columns in the reachability results (rows are joined with commas, unquoted); names and addresses now have commas replaced by spaces.
+- `lm-collector-debug.ps1` and `lm-collector-reach.ps1` declare that they need PowerShell 7 (`#Requires -Version 7.0`), instead of failing in Windows PowerShell 5.1 with a parse error.
+- `lm-collector-reach.ps1 -Group G` printed nothing about the results when the group had one collector, and with several it never showed a check that failed from all of them (the comparison lists only disagreements), so "can every collector reach everything?" missed exactly the devices nobody reaches. It now lists every check no current collector passes, or says all passed. Long lists put one device per line with its failing checks (a joining collector that reached none of 38 devices took 83 lines), and the joining-collector verdict leads with how many devices it matches. A device that fails ping but passes a TCP check gets a note that ICMP is often blocked where TCP gets through (cloud networks such as Azure block it by default), and the move verdict says "(from ...)" only when the devices came from more than one place.
+- `lm-collector-debug.ps1 -Script x.ps1` showed the collector's `returns 0` / `error:` / `output:` wrapper above the script's output: PowerShell results carry an `error:` section that Groovy ones do not, and only the Groovy shape was stripped. Both shapes are now stripped; anything in the error section is kept, marked `error:`, above the output. (Found running it on a Windows collector in the sandbox.)
+
+The collector-tool entries above were tested against stand-ins for the Logic.Monitor cmdlets, not yet against a portal.
 
 ## [1.11.0] - 2026-10-02
 
@@ -679,7 +681,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/rdmarsh/elm/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/rdmarsh/elm/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/rdmarsh/elm/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/rdmarsh/elm/compare/v1.8.10...v1.9.0
