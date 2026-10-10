@@ -68,12 +68,13 @@ trap 'rm -f "$body"' EXIT
 exec 3>&1 >"$body"
 
 # -C prints one total per portal; jq adds which command it counted. Sizes are
-# expected to differ, so this is always the plain table, no "same" column.
+# expected to differ, so this is always the plain table, no "same" column, with
+# a total across the portals.
 echo 'Sizes' >&2
 printf '\n## Sizes\n\nHow many of each, per portal.\n\n'
 for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList WebsiteList; do
     elm -p "$profiles" -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
-done | python3 "$matrix" $opts -k command -v total
+done | python3 "$matrix" $opts -k command -v total -t
 
 # account settings that should match (counts, contract limits and timers left out)
 settings=requireTwoFA,configurable2FAOptions,requireTwoFAForRemoteSession,sessionTimeoutInSeconds

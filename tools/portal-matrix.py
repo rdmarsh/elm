@@ -117,6 +117,22 @@ def pivot(rows, keys, values, column, tick):
     return columns, {key: {col: ", ".join(cells) for col, cells in row.items()} for key, row in table.items()}
 
 
+def total(cells, columns):
+    """The sum of a row's cells when they are all numbers (missing ones count as 0), else blank."""
+    numbers = []
+    for col in columns:
+        if col not in cells:
+            continue
+        try:
+            numbers.append(float(cells[col]))
+        except ValueError:
+            return ""
+    if not numbers:
+        return ""
+    sum_ = sum(numbers)
+    return str(int(sum_)) if sum_.is_integer() else str(sum_)
+
+
 def same(cells, columns):
     return len(cells) == len(columns) and len(set(cells.values())) == 1
 
@@ -172,6 +188,8 @@ def parse_args(argv):
                    help="only the rows where some portal differs or is missing")
     p.add_argument("-m", "--match", action="store_true",
                    help=f"add a 'same' column: {TICK} where every portal agrees, {CROSS} where not")
+    p.add_argument("-t", "--total", action="store_true",
+                   help="add a 'total' column: each row's numbers summed across the portals")
     p.add_argument("--missing", default="—", metavar="TEXT",
                    help="what a cell shows where the portal has no such row (default: —)")
     p.add_argument("--tick", default=TICK, metavar="TEXT",
@@ -231,12 +249,13 @@ def main(argv=None):
     columns, table = pivot(rows, keys, values, args.column, args.tick)
     differ = [key for key, cells in table.items() if not same(cells, columns)]
 
-    headers = keys + columns + (["same"] if args.match else [])     # read left to right: verdict last
+    headers = keys + columns + (["total"] if args.total else []) + (["same"] if args.match else [])     # read left to right: verdict last
     body = []
     for key, cells in table.items():
         if args.diff and key in differ or not args.diff:
             mark = [args.cross if key in differ else args.tick] if args.match else []
-            body.append(list(key) + [cells.get(col, args.missing) for col in columns] + mark)
+            summed = [total(cells, columns)] if args.total else []
+            body.append(list(key) + [cells.get(col, args.missing) for col in columns] + summed + mark)
 
     if not body:
         err(f"No differences: {len(table)} rows the same on {len(columns)} portals")

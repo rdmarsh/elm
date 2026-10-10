@@ -116,6 +116,7 @@ elm -p prod,preprod,test RoleList -s0 -f name | tools/portal-matrix.py -k name -
   that it does not.
 - `-v FIELD` puts that field's value in each cell instead of a tick.
 - `-d` shows only the rows that differ; `-m` keeps them all and adds `same`.
+- `-t` adds a `total` column summing each row's numbers across the portals.
 - `-c account_name` heads the columns with account names instead of profile
   names, for readers who know the portals that way.
 - `--csv` for a spreadsheet; `--tick`, `--cross` and `--missing` change the
@@ -398,7 +399,7 @@ Portal sizes in one table, the same way:
 ```shell
 for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList WebsiteList; do
   elm -p prod,preprod,test -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
-done | tools/portal-matrix.py -k command -v total -m
+done | tools/portal-matrix.py -k command -v total -t
 ```
 
 ## A whole page for a wiki
@@ -424,7 +425,8 @@ DEVICE_GROUPS='Standards,Templates' \
 The page opens with a Contents list linking to each section (the links work
 in the Markdown, on a wiki that makes GitHub-style anchors, and in the PDF).
 Each section shows only what differs; one where every portal agrees says
-"No differences". The sizes are always shown in full. The page header says it is a differences-only page.
+"No differences". The sizes are always shown in full, with a total across the
+portals. The page header says it is a differences-only page.
 Progress and each table's "N of M rows differ" go to stderr: `tail -f
 differences.log` in another terminal shows how far it has got (the critical
 datasources take one query per name, so a long list takes a few minutes).

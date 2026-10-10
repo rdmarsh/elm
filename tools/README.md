@@ -534,6 +534,8 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
   what it lacks.
 - `-m` adds a `same` column (✓ / ✗) after the portals and keeps every row:
   the full table for a wiki page.
+- `-t` adds a `total` column: each row's numbers summed across the portals
+  (for counts such as `-C` totals; blank where a row is not all numbers).
 - `-c account_name` heads the columns with the account names rather than your
   profile names, for readers who know the portals that way. It is refused
   when two profiles point at one account, since their rows would merge.
@@ -552,7 +554,7 @@ and writes one Markdown page: a linked Contents list, then a section per area
 (sizes, account settings, contacts, roles and privileges, users, alerting,
 your standard device groups, root group properties, collectors, critical
 datasources by checksum, other LogicModules), each a `portal-matrix.py` table.
-Only what differs is shown; the sizes always in full.
+Only what differs is shown; the sizes always in full, with a total.
 
 ```shell
 DEVICE_GROUPS='Standards,Templates' \
