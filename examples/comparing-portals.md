@@ -13,7 +13,8 @@ tables are illustrations of the shape, not real output.
   [nested fields](../README.md#nested-fields--e-and-dotted--f) for the flags
 - [tools/README: portal matrix](../tools/README.md#portal-matrix) for the
   table tool's options
-- [compare-portals.sh](compare-portals.sh) builds a whole comparison page
+- [compare-portals.sh](compare-portals.sh) builds a whole comparison page, and
+  [report-pdf.sh](report-pdf.sh) prints it as a PDF
 
 <!--ts-->
    * [The pieces](#the-pieces)
@@ -393,56 +394,67 @@ done | tools/portal-matrix.py -k command -v total -m
 ## A whole page for a wiki
 
 [compare-portals.sh](compare-portals.sh) runs most of the above and writes one
-Markdown page, a section per area. Big areas show only what differs; small
-ones the whole table:
+Markdown page, a section per area: sizes, account settings, contacts, roles
+and privileges, users and user groups, escalation chains, alert rules,
+recipient groups, integrations, device groups, root group properties,
+collector groups and builds, datasources in use, the critical datasources (if
+you give it a file of names) and the other LogicModules.
 
 ```shell
-examples/compare-portals.sh prod,preprod,test critical.txt > comparison.md
+examples/compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
 ```
 
-For a wiki that renders `:true:` and `:false:`, with account names as the
-column headings:
+Each section shows only what differs; one where every portal agrees says
+"No differences". The page header says it is a differences-only page.
+Progress and each table's "N of M rows differ" go to stderr: `tail -f
+differences.log` in another terminal shows how far it has got (the critical
+datasources take one query per name, so a long list takes a few minutes).
+
+| Setting | What it does |
+|---------|--------------|
+| `FULL=1` | the whole table for the smaller areas (roles, groups, settings, ...), with a `same` column, instead of differences only. The large areas (role privileges, users, alert rules, device groups, datasources in use, other LogicModules) stay differences only |
+| `MATRIX_OPTS='...'` | passed to every `portal-matrix.py` call, e.g. `-c account_name` for account names as the column headings, `--tick :true: --cross :false:` for a wiki that renders those |
+
+For a wiki page with every table in full:
 
 ```shell
-MATRIX_OPTS='-c account_name --tick :true: --cross :false:' \
+FULL=1 MATRIX_OPTS='-c account_name --tick :true: --cross :false:' \
   examples/compare-portals.sh prod,preprod,test critical.txt > comparison.md
-```
-
-`DIFF_ONLY=1` makes every section show only what differs, for a much shorter
-page; a section where every portal agrees says "No differences":
-
-```shell
-DIFF_ONLY=1 examples/compare-portals.sh prod,preprod,test critical.txt > differences.md
 ```
 
 A single table with a heading of your own:
 
 ```shell
 { echo '## Roles'; echo
-  elm -p prod,preprod,test RoleList -s0 -f name | tools/portal-matrix.py -k name -m --tick :true: --cross :false:
+  elm -p prod,preprod,test RoleList -s0 -f name | tools/portal-matrix.py -k name -m
 } >> comparison.md
 ```
 
 ## A PDF report
 
-Go through HTML rather than straight to PDF: [report.css](report.css) lays the
-wide tables out on landscape pages in a small font, repeats each table's
-header row on every page, wraps long checksums, and numbers the pages.
-`pandoc file.md -o file.pdf` goes through LaTeX instead, which needs a large
-TeX install and lets wide tables run off the page.
+[report-pdf.sh](report-pdf.sh) turns the page (or any Markdown file) into a
+PDF:
 
 ```shell
 brew install pandoc weasyprint          # macOS; on Linux, your package manager
 
-DIFF_ONLY=1 examples/compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
-pandoc differences.md -s --embed-resources -c examples/report.css \
-  --metadata pagetitle="Portal comparison" -o differences.html
-weasyprint differences.html differences.pdf
+examples/compare-portals.sh prod,preprod,test critical.txt > differences.md
+examples/report-pdf.sh differences.md                  # writes differences.pdf
+examples/report-pdf.sh differences.md report.pdf       # or name it
 ```
 
-Or open the HTML in a browser and print it to PDF. Keep the default ✓ / ✗
-marks for a PDF (no `--tick :true:`): the wiki's emoji codes would print as
-text. A table too big to print is better attached as `--csv`.
+It goes Markdown -> HTML (pandoc) -> PDF (weasyprint), styled by
+[report.css](report.css): A4 landscape for the wide tables, a small font, each
+table's header row repeated on every page, long checksums wrapped, headings
+kept with their tables, and "Page N of M" footers. The page's first heading
+becomes the PDF's title. Without weasyprint it writes the HTML instead and
+says so: open that in a browser and print it to PDF, which applies the same
+styles. (`pandoc file.md -o file.pdf` would go through LaTeX, which needs a
+large TeX install and lets wide tables run off the page.)
+
+Keep the default ✓ / ✗ marks for a PDF (no `--tick :true:` in `MATRIX_OPTS`):
+the wiki's emoji codes would print as text. A table too big to print is better
+attached as a spreadsheet: run that one command with `portal-matrix.py --csv`.
 
 ## Scripting and scheduled checks
 

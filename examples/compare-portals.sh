@@ -1,17 +1,16 @@
 #!/bin/sh
-# compare-portals.sh -- a Markdown page comparing several portals, for a wiki.
+# compare-portals.sh -- a Markdown page comparing several portals, for a wiki or a report.
 #
 # Usage:
 #   examples/compare-portals.sh PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md
 #
-# One section per area (sizes, contacts, users and roles, alerting, groups,
-# collectors, LogicModules), each a table from tools/portal-matrix.py with one
-# column per portal. Big areas show only what differs; small ones the whole
-# table with a "same" column. The optional file lists datasource names, one
-# per line, to compare by checksum (see examples/comparing-portals.md).
-#
-# DIFF_ONLY=1 makes every section show only what differs, for a shorter
-# report (a section where all portals agree says "No differences").
+# One section per area (sizes, settings, contacts, users and roles, alerting,
+# groups, collectors, LogicModules), each a table from tools/portal-matrix.py
+# with one column per portal, showing only what differs: a section where every
+# portal agrees says "No differences". FULL=1 shows the whole table for the
+# smaller areas instead, with a "same" column. The optional file lists
+# datasource names, one per line, to compare by checksum (see
+# examples/comparing-portals.md). examples/report-pdf.sh turns the page into a PDF.
 #
 # MATRIX_OPTS is passed to every portal-matrix call, e.g. for a wiki that
 # renders :true: / :false: and readers who know the portals by account name:
@@ -27,8 +26,8 @@ profiles=${1:?usage: $0 PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md}
 names=${2:-}
 matrix="$(dirname "$0")/../tools/portal-matrix.py"
 opts=${MATRIX_OPTS:-}
-full=-m                                # the whole table, with a "same" column
-[ -n "${DIFF_ONLY:-}" ] && full=-d     # ... or only the rows that differ
+full=-d                                # only the rows that differ
+[ -n "${FULL:-}" ] && full=-m          # ... or the whole table, with a "same" column
 
 # print stdin, or a note when a differences-only table came out empty
 shown() {
@@ -50,7 +49,7 @@ section() {
 }
 
 printf '# Portal comparison\n\nProfiles: %s. Generated %s by elm.' "$profiles" "$(date '+%Y-%m-%d %H:%M')"
-[ -n "${DIFF_ONLY:-}" ] && printf ' Differences only: rows that are the same on every portal are left out.'
+[ -z "${FULL:-}" ] && printf ' Differences only: rows that are the same on every portal are left out.'
 echo
 
 # -C prints one total per portal; jq adds which command it counted

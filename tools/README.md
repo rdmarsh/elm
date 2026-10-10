@@ -496,8 +496,9 @@ row per item and one column per portal, so whichever portal is out of step
 stands out. It reads elm's `-f jsonl`, `json` or `prettyjson` on stdin (so
 `-f` can be left out) and needs no portal itself. `-k` names the field(s) that identify a row; without `-v` a cell
 is ✓ where the portal has that row and — where it does not; with `-v` it holds
-the value. Many more recipes, and a script that builds a whole comparison page,
-are in [examples/comparing-portals.md](../examples/comparing-portals.md).
+the value. Many more recipes, a script that builds a whole comparison page and one
+that prints it as a PDF, are in
+[examples/comparing-portals.md](../examples/comparing-portals.md).
 
 ```shell
 # which portals have which contacts
