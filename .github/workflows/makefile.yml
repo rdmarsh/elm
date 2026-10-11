@@ -9,7 +9,9 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: a new Ubuntu changes glibc and the build, so
+    # move up on purpose.
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v5
