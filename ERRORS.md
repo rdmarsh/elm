@@ -6,7 +6,7 @@ The following show some errors you may see and what they mean:
    * [Error: access_id, access_key or account_name not set via cli or config file](#error-access_id-access_key-or-account_name-not-set-via-cli-or-config-file)
    * [Warning: config file permissions are too open](#warning-config-file-permissions-are-too-open)
    * [Error: no valid fields selected](#error-no-valid-fields-selected)
-   * [Warning: size limit is less than total records](#warning-size-limit-is-less-than-total-records)
+   * [Warning: results truncated by size limit](#warning-results-truncated-by-size-limit)
    * [Warning: no data found](#warning-no-data-found)
    * [REST API error codes](#rest-api-error-codes)
    * [meta](#meta)

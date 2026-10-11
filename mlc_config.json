@@ -31,6 +31,10 @@
     {
       "pattern": "^https://docs\\.ansible\\.com",
       "comment": "docs.ansible.com 403s automated checkers but links are valid"
+    },
+    {
+      "pattern": "^https?://localhost",
+      "comment": "a service the reader runs themselves (tools/elm-ask); never up in CI"
     }
   ],
   "timeout": "20s",
