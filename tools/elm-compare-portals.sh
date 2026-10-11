@@ -2,16 +2,18 @@
 # elm-compare-portals.sh -- a Markdown page comparing several portals, for a wiki or a report.
 #
 # Usage:
-#   tools/elm-compare-portals.sh PROFILE,PROFILE,... [DATASOURCE-NAMES-FILE] > page.md
+#   tools/elm-compare-portals.sh PROFILE,PROFILE,... [MODULE-NAMES-FILE] > page.md
 #
-# A Contents list links to each section. One section per area (sizes,
-# settings, contacts, users and roles, alerting,
-# device groups, collectors, LogicModules), each a table from tools/portal-matrix.py
-# with one column per portal, showing only what differs: a section where every
-# portal agrees says "No differences". FULL=1 shows the whole table for the
-# smaller areas instead, with a "same" column. The optional file lists
-# datasource names, one per line, to compare by checksum (see
-# examples/comparing-portals.md). tools/report-pdf.sh turns the page into a PDF.
+# A Summary table comes first: each section, linked, with its result in short.
+# One section per area (sizes, settings, contacts, users and roles, alerting,
+# device groups, collectors, LogicModules, SysOID maps), each a table from
+# tools/portal-matrix.py with one column per portal, showing only what differs:
+# a section where every portal agrees says "No differences". FULL=1 shows the
+# whole table for the smaller areas instead, with a "same" column. Then lists
+# per portal of things to fix: hardcoded devices in AppliesTo, unused modules,
+# stale API tokens, users not logged in (STALE_DAYS, default 90). The optional
+# file lists module names, one per line, to compare by version and AppliesTo
+# (see examples/comparing-portals.md). tools/report-pdf.sh turns the page into a PDF.
 #
 # DEVICE_GROUPS names the top-level device groups to compare, comma-separated,
 # e.g. DEVICE_GROUPS='Standards,Templates': each one and everything under it,
@@ -25,7 +27,7 @@
 #   MATRIX_OPTS='-c account_name --tick :true: --cross :false:' \
 #     tools/elm-compare-portals.sh prod,preprod,test critical.txt > page.md
 #
-# The contacts section lists names, emails and phone numbers: keep the page
+# The contacts, token and user sections name people: keep the page
 # somewhere only the people who may see them can read it. Progress and each
 # table's summary go to stderr. Needs elm on PATH.
 
@@ -38,34 +40,70 @@ full=-d                                # only the rows that differ
 min=--min=${MIN:-2}                    # ... and, where noted, only on 2+ portals: one portal's own (a customer's) are expected
 [ -n "${FULL:-}" ] && full=-m          # ... or the whole table, with a "same" column
 
+# heading TITLE [NOTE]: a section's heading and what it shows. The title also
+# goes to stderr as progress, and names the section in the summary.
+heading() {
+    current=$1
+    echo "$1" >&2
+    printf '\n## %s\n\n' "$1"
+    [ -n "${2:-}" ] && printf '%s\n\n' "$2"
+    return 0
+}
+
+# result TEXT: the current section's line in the summary
+summary=$(mktemp)
+result() { printf '%s\t%s\n' "$current" "$1" >> "$summary"; }
+
 # table PORTAL-MATRIX-ARGS... : the matrix of the rows on stdin, then
 # portal-matrix's own count ("3 of 40 rows differ ..."), so a short table, or
 # none ("No differences: ..."), cannot be mistaken for "nothing was compared".
-# $empty, if set, replaces the note for no rows at all.
+# $empty, if set, replaces the note for no rows at all; $found=1 makes the
+# summary say how many rows were found, for lists of things to fix; $say
+# replaces the summary's text, for counts that are not meant to match. Set them
+# before the call and clear them after: a VAR=x prefix on a shell function
+# can outlive the call.
 errs=$(mktemp)
 table() {
     t=$(python3 "$matrix" -o "$profiles" $opts "$@" 2>"$errs")
     rc=$?
     cat "$errs" >&2
+    count=$(tail -1 "$errs")
     if [ -n "$t" ]; then
-        printf '%s\n\n_%s._\n' "$t" "$(tail -1 "$errs")"
+        printf '%s\n\n_%s._\n' "$t" "$count"
     elif [ "$rc" -eq 0 ]; then
-        printf '_%s._\n' "$(tail -1 "$errs")"          # No differences: N rows the same on M portals
+        printf '_%s._\n' "$count"          # No differences: N rows the same on M portals
     else
-        echo "_${empty:-Nothing to compare: no rows came back (see the log)}._"
+        count=${empty:-Nothing to compare: no rows came back (see the log)}
+        echo "_${count}._"
+        result "$count"
+        return
     fi
+    if [ -n "${say:-}" ]; then
+        result "$say"
+    elif [ -n "${found:-}" ]; then
+        result "**$(printf '%s\n' "$count" | sed -E 's/^No differences: //; s/^[0-9]+ of //; s/ rows?.*//')** found"
+    else
+        result "$count"
+    fi
+}
+
+# list_table FIELD...: a plain Markdown table of the jsonl rows on stdin, one
+# column per field, for lists that are per portal rather than compared
+list_table() {
+    jq -rs --args '. as $rows | $ARGS.positional as $f
+        | if ($rows | length) == 0 then empty else
+          ("| " + ($f | join(" | ")) + " |"), ("|" + ($f | map("---") | join("|")) + "|"),
+          ($rows[] | "| " + ([.[$f[]] | if . == null then "" else tostring | gsub("\\|"; "\\|") end] | join(" | ")) + " |")
+          end' "$@"
 }
 
 # section TITLE NOTE ELM-ARGS... -- PORTAL-MATRIX-ARGS...
 section() {
-    title=$1 note=$2
+    heading "$1" "$2"
     shift 2
-    echo "$title" >&2
     elm_args=''
     while [ "$1" != -- ]; do elm_args="$elm_args $(printf '%s' "$1" | sed "s/'/'\\\\''/g; s/^/'/; s/\$/'/")"; shift; done
     shift
-    # shellcheck disable=SC2086  # opts is meant to split
-    printf '\n## %s\n\n%s\n\n' "$title" "$note"
     eval "elm -p '$profiles' -f jsonl $elm_args" | table "$@"
 }
 
@@ -80,20 +118,19 @@ printf '# Portal comparison\n\nComparing %s, %s.\n' "$portal_list" "$(date '+%-d
 [ -z "${FULL:-}" ] && printf '\nOnly what differs is shown: rows that are the same on every portal are left out.\n'
 [ "${MIN:-2}" -gt 1 ] && printf '\nUsers, roles, alerting, integrations, collector groups and LogicModules that only one portal has (a customer'"'"'s own) are left out too; the count under each table says how many, per portal. MIN=1 shows them.\n'
 
-# The sections go to a temporary file first, so a Contents list linking to
-# each of them can come before them (anchors as pandoc and GitHub make them).
+# The sections go to a temporary file first, so the summary linking to each
+# of them can come before them.
 body=$(mktemp)
-trap 'rm -f "$body" "$errs" "${mods:-}"' EXIT
+trap 'rm -f "$body" "$errs" "$summary" "${mods:-}"' EXIT
 exec 3>&1 >"$body"
 
 # -C prints one total per portal; jq adds which command it counted. Sizes are
 # expected to differ, so this is always the plain table, no "same" column, with
 # a total across the portals.
-echo 'Sizes' >&2
-printf '\n## Sizes\n\nHow many of each, per portal.\n\n'
+heading 'Sizes' 'How many of each, per portal.'
 for c in DeviceList DeviceGroupList CollectorList AdminList DashboardList WebsiteList; do
     elm -p "$profiles" -f jsonl "$c" -C | jq -c --arg c "$c" '{command: $c} + .'
-done | table -k command -v total -t
+done | { say='Counts per portal'; table -k command -v total -t; }
 
 # account settings that should match (counts, contract limits and timers left out)
 settings=requireTwoFA,configurable2FAOptions,requireTwoFAForRemoteSession,sessionTimeoutInSeconds
@@ -155,21 +192,21 @@ subtree_rows() {
     IFS=$old_ifs
 }
 
-echo 'Device groups' >&2
-printf '\n## Device groups\n\n'
+heading 'Device groups'
 if [ -z "${DEVICE_GROUPS:-}" ]; then
     echo '_Skipped: set DEVICE_GROUPS to the top-level groups to compare, e.g. DEVICE_GROUPS=Standards,Templates._'
+    result 'Skipped: DEVICE_GROUPS not set'
 else
     printf 'Only the groups in %s (and under them) that differ: missing, or with another AppliesTo.\n\n' "$(and_list '' "$DEVICE_GROUPS")"
     fields=appliesTo subtree_rows | table -k fullPath -v appliesTo -d
 
     # one row per group and property; groups with none are left out (whether a
     # group exists is the section above). Secrets read ******** everywhere.
-    echo 'Device group properties' >&2
-    printf '\n## Device group properties\n\nOnly the custom properties of those groups that differ: missing somewhere, or another value.\n\n'
+    heading 'Device group properties' 'Only the custom properties of those groups that differ: missing somewhere, or another value.'
     fields=customProperties subtree_rows -e customProperties \
         | jq -c 'select(.["customProperties.name"] != null)' \
-        | empty='No custom properties set on these groups' table -k fullPath,customProperties.name -v customProperties.value -d
+        | { empty='No custom properties set on these groups'; table -k fullPath,customProperties.name -v customProperties.value -d; }
+    empty=
 fi
 
 section 'Root group properties' 'Custom properties set on the root device group (inherited by everything).' \
@@ -188,59 +225,118 @@ section 'Collector builds' 'Which collector builds are running where.' \
 module='{module: ((if .version then (.version | if . > 99999999999 then ./1000 else . end | floor | todate[:10]) + " " else "" end) + .checksum[:6])}'
 
 # The other module types, fetched once: the critical list looks names up here
-# too, and the Other LogicModules section is made from it. Types by their LM
-# names; AppliesTo functions have no version or AppliesTo.
+# too, and the Other LogicModules section is made from it. LIST:TYPE:FIELDS,
+# types by their LM names; not every type has a version or an AppliesTo.
+types='ConfigSourceList:ConfigSource:name,version,checksum,appliesTo
+EventSourceList:EventSource:name,version,checksum,appliesTo
+PropertyRulesList:PropertySource:name,version,checksum,appliesTo
+TopologySourceList:TopologySource:name,version,checksum,appliesTo
+DiagnosticSourcesList:DiagnosticSource:name,version,checksum,appliesTo
+RemediationSourcesList:RemediationSource:name,checksum,appliesTo
+JobMonitorList:JobMonitor:name,checksum,appliesTo
+LogSourceList:LogSource:name,checksum
+AppliesToFunctionList:AppliesToFunction:name,checksum'
 mods=$(mktemp)
-for c in ConfigSourceList:ConfigSource EventSourceList:EventSource PropertyRulesList:PropertySource \
-         TopologySourceList:TopologySource AppliesToFunctionList:AppliesToFunction; do
-    fields=name,version,checksum,appliesTo
-    [ "${c%%:*}" = AppliesToFunctionList ] && fields=name,checksum
-    elm -p "$profiles" -f jsonl "${c%%:*}" -s0 -f "$fields" | jq -c --arg t "${c#*:}" '{type: $t} + .'
+for c in $types; do
+    list=${c%%:*} rest=${c#*:}
+    elm -p "$profiles" -f jsonl "$list" -s0 -f "${rest#*:}" 2>/dev/null | jq -c --arg t "${rest%%:*}" '{type: $t} + .'
 done > "$mods"
 
 if [ -n "$names" ]; then
-    echo 'Critical LogicModules' >&2
-    printf '\n## Critical LogicModules\n\nEach module in %s: its version date and checksum, and its AppliesTo (the part most often changed on one portal), each a row.\n\n' "$(basename "$names")"
-    found=$(mktemp) one=$(mktemp)
+    heading 'Critical LogicModules' "Each module in $(basename "$names"): its version date and checksum, and its AppliesTo (the part most often changed on one portal), each a row."
+    hits=$(mktemp) one=$(mktemp)
     # a datasource by that name, else any other module type by that name
     while read -r ds; do
         [ -n "$ds" ] || continue
         elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,version,checksum,appliesTo 2>/dev/null \
             | jq -c '{type: "DataSource"} + .' > "$one"
         if [ -s "$one" ]; then cat "$one"; else jq -c --arg n "$ds" 'select(.name == $n)' "$mods"; fi
-    done < "$names" | tee "$found" \
+    done < "$names" | tee "$hits" \
         | jq -c "del(.version, .checksum, .appliesTo) as \$row | (\$row + {field: \"version\", value: ($module).module}), (select(has(\"appliesTo\")) | \$row + {field: \"appliesTo\", value: .appliesTo})" \
         | table -k type,name,field -v value "$full"
     # a name no portal has (a typo, or not the exact name) would otherwise just be absent
     unknown=$(while read -r ds; do
-        [ -n "$ds" ] && ! jq -e --arg n "$ds" 'select(.name == $n)' "$found" >/dev/null && printf '%s,' "$ds"
+        [ -n "$ds" ] && ! jq -e --arg n "$ds" 'select(.name == $n)' "$hits" >/dev/null && printf '%s,' "$ds"
     done < "$names")
     [ -n "$unknown" ] && printf '\n_Not found on any portal (check the exact name): %s._\n' "$(and_list '' "$unknown")"
-    rm -f "$found" "$one"
+    rm -f "$hits" "$one"
 fi
 
-echo 'Other LogicModules' >&2
-printf '\n## Other LogicModules\n\nEvery ConfigSource, EventSource, PropertySource, TopologySource and AppliesTo function, by version date and checksum: only the ones that differ.\n\n'
+heading 'Other LogicModules' 'Every ConfigSource, EventSource, PropertySource, TopologySource, DiagnosticSource, RemediationSource, JobMonitor, LogSource and AppliesTo function, by version date and checksum: only the ones that differ.'
 jq -c "del(.version, .checksum, .appliesTo) + ($module)" "$mods" | table -k type,name -v module -d "$min"
 
-# Every module and device group whose AppliesTo picks devices by id, on every
-# portal, whether or not the portals agree: an id means one device on one
-# portal, and stops matching when the device is replaced or re-added.
-echo 'Hardcoded device ids' >&2
-printf '\n## Hardcoded device ids\n\nModules and device groups whose AppliesTo names devices by `system.deviceId`, with the ids on each portal. An id is one device on one portal: a property or category on the devices does the same job and survives a device being replaced.\n\n'
-ids='[.appliesTo | scan("(?i)deviceid\\s*[=!]=\\s*\"?([0-9]+)") | .[0]] | if length > 0 then join(", ") else "yes" end'
-{
-    elm -p "$profiles" -f jsonl DatasourceList -s0 -F 'appliesTo~deviceId' -f name,appliesTo 2>/dev/null \
-        | jq -c '{type: "DataSource"} + .'
-    jq -c 'select(.appliesTo // "" | test("deviceid"; "i"))' "$mods"
-    elm -p "$profiles" -f jsonl DeviceGroupList -s0 -F 'appliesTo~deviceId' -f fullPath,appliesTo 2>/dev/null \
-        | jq -c '{type: "DeviceGroup", name: .fullPath} + del(.fullPath)'
-} | jq -c "{profile, account_name, type, name, ids: ($ids)}" \
-  | empty='None: no AppliesTo names a device id' table -k type,name -v ids
+# SysOID maps set categories from a device's SNMP OID, and many AppliesTo test
+# categories: a map that differs changes which modules a device gets
+heading 'SysOID maps' 'The categories each SNMP sysOID gives a device, where they differ. Many AppliesTo test those categories, so a map that differs changes which modules a device gets.'
+elm -p "$profiles" -f jsonl OIDList -s0 -f oid,categories | table -k oid -v categories -d "$min"
 
+# Every module and device group whose AppliesTo picks out single devices, by
+# id or by name (==, not =~ patterns), on every portal whether or not the
+# portals agree: it means one device on one portal, and stops matching when
+# the device is replaced or renamed.
+heading 'Hardcoded devices' 'Modules and device groups whose AppliesTo picks devices by `system.deviceId`, and modules that pick them by `system.hostname`, `system.displayname` or `system.ips` with `==`, with the values on each portal. An id is one device on one portal; a name stops matching when the device is renamed. A property or category on the devices does the same job and lasts. Not counted: commented-out text, a disabled AppliesTo (`false()`), and groups by name, which customers use for maintenance windows. A module for an API, such as `system.hostname == "api.example.com"`, is LM'"'"'s own pattern and fine.'
+# ids anywhere; names in modules only; /* comments */ and false() ignored
+picks='(.appliesTo // "" | gsub("/\\*[^*]*\\*/"; "")) as $a
+    | if ($a | test("^\\s*false\\(\\)")) then [] else
+      [$a | scan("(?i)system\\.(deviceid|hostname|displayname|ips)\\s*==\\s*\"?([^\"\\s)|&]+)")
+        | select((.[0] | ascii_downcase) == "deviceid" or $type != "DeviceGroup")
+        | if (.[0] | ascii_downcase) == "deviceid" then .[1] else (.[0] | ascii_downcase) + " " + .[1] end] end'
+{
+    for f in deviceId system.hostname system.displayname system.ips; do
+        elm -p "$profiles" -f jsonl DatasourceList -s0 -F "appliesTo~$f" -f name,appliesTo 2>/dev/null \
+            | jq -c '{type: "DataSource"} + .'
+        elm -p "$profiles" -f jsonl DeviceGroupList -s0 -F "appliesTo~$f" -f fullPath,appliesTo 2>/dev/null \
+            | jq -c '{type: "DeviceGroup", name: .fullPath} + del(.fullPath)'
+    done
+    cat "$mods"
+} | jq -c ".type as \$type | {profile, account_name, type, name, picks: ($picks)} | select(.picks | length > 0) | .picks |= join(\", \")" \
+  | jq -sc 'unique_by(.profile, .type, .name)[]' \
+  | { found=1 empty='None: no AppliesTo names a single device'; table -k type,name -v picks; }
+found= empty=
+
+# Clean-up: per portal, not compared. Things to remove or check, and how
+# stale counts as stale.
+days=${STALE_DAYS:-90}
+pcol=profile
+case " $opts " in *account_name*) pcol=account_name ;; esac
+
+heading 'Unused LogicModules' "How many modules of each type no device uses, per portal (LM's own included: many are never used). Candidates for removal, especially where one portal has many more than the rest."
+for c in DatasourceList:DataSource $types; do
+    list=${c%%:*} rest=${c#*:}
+    [ "$list" = AppliesToFunctionList ] && continue        # no isInUse
+    elm -p "$profiles" -f jsonl "$list" -F isInUse:false -C 2>/dev/null | jq -c --arg t "${rest%%:*}" '{type: $t} + .'
+done | { say='Counts per type, per portal'; table -k type -v total; }
+
+heading 'Stale API tokens' "Active API tokens not used in the last $days days, or never (STALE_DAYS changes it). Each one still works: revoke the ones nobody needs."
+elm -p "$profiles" -f jsonl ApiTokenList -s0 -f adminName,accessId,status,createdOn,lastUsedOn,note 2>/dev/null \
+    | jq -c --argjson d "$days" --arg p "$pcol" 'select(.status == 2 and (.lastUsedOn == 0 or .lastUsedOn < now - $d * 86400))
+        | {portal: .[$p], user: .adminName, token: (.accessId[:8] + "…"), created: (.createdOn | todate[:10]),
+           "last used": (if .lastUsedOn == 0 then "never" else .lastUsedOn | todate[:10] end), note}' \
+    | jq -sc 'sort_by(.portal, .user)[]' > "$body.tok"
+n=$(grep -c . "$body.tok")
+if [ "$n" -gt 0 ]; then list_table portal user token created 'last used' note < "$body.tok"; printf '\n_%s found._\n' "$n"; result "**$n** found"
+else echo "_None: every active token was used in the last $days days._"; result 'None'; fi
+rm -f "$body.tok"
+
+heading 'Users not logged in' "Active users, not API-only, who have not logged in for $days days, or never. Suspend or remove the ones who have left."
+elm -p "$profiles" -f jsonl AdminList -s0 -f username,status,apionly,lastLoginOn,createdBy 2>/dev/null \
+    | jq -c --argjson d "$days" --arg p "$pcol" 'select(.status == "active" and (.apionly | not) and (.lastLoginOn == 0 or .lastLoginOn < now - $d * 86400))
+        | {portal: .[$p], user: .username, "last login": (if .lastLoginOn == 0 then "never" else .lastLoginOn | todate[:10] end), "created by": .createdBy}' \
+    | jq -sc 'sort_by(.portal, .user)[]' > "$body.usr"
+n=$(grep -c . "$body.usr")
+if [ "$n" -gt 0 ]; then list_table portal user 'last login' 'created by' < "$body.usr"; printf '\n_%s found._\n' "$n"; result "**$n** found"
+else echo "_None: every active user logged in within $days days._"; result 'None'; fi
+rm -f "$body.usr"
+
+# The summary comes first: one row per section, linked, with its result in
+# short ("12 of 40 differ"). Anchors as pandoc and GitHub make them.
 exec 1>&3 3>&-
-printf '\n## Contents\n\n'
-sed -n 's/^## //p' "$body" | while IFS= read -r t; do
-    printf -- '- [%s](#%s)\n' "$t" "$(printf '%s' "$t" | tr 'A-Z ' 'a-z-' | tr -cd 'a-z0-9_.-')"
-done
+printf '\n## Summary\n\n| Section | Result |\n| --- | --- |\n'
+while IFS='	' read -r t r; do
+    r=$(printf '%s\n' "$r" | sed -E \
+        -e 's/^([0-9]+) of ([0-9]+) rows? differs? across [0-9]+ portals?/**\1** of \2 differ/' \
+        -e 's/^No differences: ([0-9]+) rows? the same on [0-9]+ portals?/none of \1 differ/' \
+        -e 's/; ([0-9]+) rows? on (only one portal|fewer than [0-9]+ portals) left out.*/; \1 on \2 left out/')
+    printf '| [%s](#%s) | %s |\n' "$t" "$(printf '%s' "$t" | tr 'A-Z ' 'a-z-' | tr -cd 'a-z0-9_.-')" "$r"
+done < "$summary"
 cat "$body"

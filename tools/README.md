@@ -559,10 +559,12 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
 ## Comparison page
 
 `tools/elm-compare-portals.sh` runs a set of comparisons on several portals
-and writes one Markdown page: a linked Contents list, then a section per area
-(sizes, account settings, contacts, roles and privileges, users, alerting,
-your standard device groups and their properties, root group properties, collectors, critical
-LogicModules, other LogicModules, hardcoded device ids), each a `portal-matrix.py` table.
+and writes one Markdown page: a Summary table first (each section, linked, with
+its result in short: "12 of 40 differ", "none of 26 differ", "9 found"), then a
+section per area (sizes, account settings, contacts, roles and privileges,
+users, alerting, your standard device groups and their properties, root group
+properties, collectors, critical LogicModules, other LogicModules, SysOID
+maps), each a `portal-matrix.py` table, then lists per portal of things to fix.
 Only what differs is shown; a section where all portals agree says how many
 rows it compared ("No differences: 31 rows the same on 4 portals"), and one
 whose query found nothing says "Nothing to compare". Sizes are always in full,
@@ -582,9 +584,19 @@ DEVICE_GROUPS='Standards,Templates' \
   two rows each, the version (date and checksum) and the AppliesTo, the part
   most often changed on one portal; [examples/comparing-portals.md](../examples/comparing-portals.md)
   shows how to rank them from `PortalInfo`.
-- Hardcoded device ids lists every module and device group whose AppliesTo
-  picks devices by `system.deviceId`, with the ids on each portal, whether or
-  not the portals agree: a to-do list for replacing them.
+- Hardcoded devices lists every module and device group whose AppliesTo
+  picks devices by `system.deviceId`, and every module that picks them by
+  `system.hostname`, `system.displayname` or `system.ips` with `==`, with the
+  values on each portal, whether or not the portals agree: a to-do list for
+  replacing them. Commented-out text, a disabled AppliesTo (`false()`) and
+  groups by name (maintenance windows) are not counted.
+- SysOID maps: the categories each SNMP sysOID gives a device, where they
+  differ. Many AppliesTo test categories, so a map that differs changes which
+  modules a device gets.
+- Clean-up, per portal: unused LogicModules (a count per type), active API
+  tokens unused for `STALE_DAYS` (default 90) days, and active users, not
+  API-only, who have not logged in for as long. The last two name people,
+  like the contacts.
 - `DEVICE_GROUPS` names the top-level device groups to compare,
   comma-separated (each with everything under it): the groups themselves and
   their custom properties; unset, both sections are skipped. **Quote it** in single quotes: zsh and bash read `~name` as a home

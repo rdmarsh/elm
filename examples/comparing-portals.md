@@ -456,7 +456,10 @@ users, dashboards, websites), account
 settings, contacts, roles and privileges, users and user groups, escalation
 chains, alert rules, recipient groups, integrations, your standard device
 groups and their properties, root group properties, collector groups and builds, the critical
-datasources (if you give it a file of names) and the other LogicModules.
+LogicModules (if you give it a file of names), the other LogicModules and the
+SysOID maps. A Summary table at the top links each section with its result in
+short. After the comparisons come lists per portal of things to fix: hardcoded
+devices in AppliesTo, unused modules, stale API tokens and users not logged in.
 
 Left out because they are expected to differ: the device group tree outside
 your standard groups (usually per customer), and which
@@ -482,6 +485,7 @@ datasources take one query per name, so a long list takes a few minutes).
 | Setting | What it does |
 |---------|--------------|
 | `DEVICE_GROUPS='Standards,Templates'` | the top-level device groups to compare, comma-separated: each one and everything under it. Two sections: the groups (missing, or another AppliesTo) and their custom properties (missing, or another value). Unset, both are skipped. Keep the single quotes: zsh and bash read `~name` as a home directory, so an unquoted `~admin` errors or turns into a path |
+| `STALE_DAYS=180` | how long unused counts as stale for the API token and user lists (default 90) |
 | `MIN=1` | also show what only one portal has. By default users, roles, alerting, integrations, collector groups and LogicModules that only one portal has (a customer's own) are left out, and the count under each table says how many, per portal |
 | `FULL=1` | the whole table for the smaller areas (roles, settings, chains, ...), with a `same` column, instead of differences only. The large areas (role privileges, users, alert rules, device groups, other LogicModules) stay differences only |
 | `MATRIX_OPTS='...'` | passed to every `portal-matrix.py` call, e.g. `-c account_name` for account names as the column headings, `--tick :true: --cross :false:` for a wiki that renders those |
