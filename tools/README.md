@@ -573,6 +573,9 @@ DEVICE_GROUPS='Standards,Templates' \
   tools/elm-compare-portals.sh prod,preprod,test critical.txt > differences.md 2> differences.log
 ```
 
+- LogicModule cells show the version as a date (the latest is the newest copy)
+  and the checksum's first 6 characters: the same date with another checksum
+  is a local edit.
 - `critical.txt` (optional) lists datasource names to compare by checksum, one
   per line; [examples/comparing-portals.md](../examples/comparing-portals.md)
   shows how to rank them from `PortalInfo`.

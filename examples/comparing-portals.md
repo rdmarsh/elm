@@ -321,8 +321,17 @@ compare their groups and builds rather than the collectors.
 
 ## LogicModules
 
-Compare by `checksum`: it changes whenever the module's content does. `version`
-is a timestamp, not a version number.
+Compare by `checksum`: it changes whenever the module's content does. It can't
+say which copy is newer, though. `version` can: it is when that version of the
+module was published, as a Unix timestamp (`1680611212` is 4 April 2023), so
+the latest date is the newest copy. The same date with another checksum means
+someone edited the module locally. `tools/elm-compare-portals.sh` shows both
+in each cell, e.g. `2023-04-04 e3996a`, with this jq (AppliesTo functions
+have no `version`, so they show the checksum alone):
+
+```shell
+jq -c 'del(.version, .checksum) + {module: ((if .version then (.version | todate[:10]) + " " else "" end) + .checksum[:6])}'
+```
 
 Which datasources are in use where, with how many instances each:
 `PortalInfo`'s `numberOfInstancesPerDS` maps every datasource with instances

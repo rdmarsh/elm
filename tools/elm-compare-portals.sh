@@ -182,13 +182,18 @@ section 'Collector groups' 'Which collector groups exist where.' \
 section 'Collector builds' 'Which collector builds are running where.' \
     CollectorList -s0 -f build -- -k build "$full"
 
+# LogicModules: each cell is the version as a date (which copy is newest) and
+# the checksum's first 6 characters (whether the content differs: the same date
+# with another checksum is a local edit). AppliesTo functions have no version.
+module='{module: ((if .version then (.version | if . > 99999999999 then ./1000 else . end | floor | todate[:10]) + " " else "" end) + .checksum[:6])}'
+
 if [ -n "$names" ]; then
     echo 'Critical datasources' >&2
-    printf '\n## Critical datasources\n\nChecksum of each datasource in %s.\n\n' "$(basename "$names")"
+    printf '\n## Critical datasources\n\nEach datasource in %s: its version date and checksum.\n\n' "$(basename "$names")"
     found=$(mktemp)
     while read -r ds; do
-        [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,checksum
-    done < "$names" | tee "$found" | table -k name -v checksum "$full"
+        [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,version,checksum
+    done < "$names" | tee "$found" | jq -c "del(.version, .checksum) + ($module)" | table -k name -v module "$full"
     # a name no portal has (a typo, or not the exact name) would otherwise just be absent
     unknown=$(while read -r ds; do
         [ -n "$ds" ] && ! jq -e --arg n "$ds" 'select(.name == $n)' "$found" >/dev/null && printf '%s,' "$ds"
@@ -198,10 +203,13 @@ if [ -n "$names" ]; then
 fi
 
 echo 'Other LogicModules' >&2
-printf '\n## Other LogicModules\n\nEvery ConfigSource, EventSource, PropertySource, TopologySource and AppliesTo function, by checksum: only the ones that differ.\n\n'
+printf '\n## Other LogicModules\n\nEvery ConfigSource, EventSource, PropertySource, TopologySource and AppliesTo function, by version date and checksum: only the ones that differ.\n\n'
 for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do
-    elm -p "$profiles" -f jsonl "$c" -s0 -f name,checksum | jq -c --arg t "$c" '{type: $t} + .'
-done | table -k type,name -v checksum -d "$min"
+    fields=name,version,checksum
+    [ "$c" = AppliesToFunctionList ] && fields=name,checksum
+    elm -p "$profiles" -f jsonl "$c" -s0 -f "$fields" \
+        | jq -c --arg t "$c" "{type: \$t} + del(.version, .checksum) + ($module)"
+done | table -k type,name -v module -d "$min"
 
 exec 1>&3 3>&-
 printf '\n## Contents\n\n'
