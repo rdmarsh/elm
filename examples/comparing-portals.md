@@ -414,6 +414,32 @@ for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList A
 done | tools/portal-matrix.py -k type,name -v checksum -d
 ```
 
+### Hardcoded device ids
+
+An AppliesTo such as `isLinux() || system.deviceId == "1234"` names one device
+on one portal: the same id is another device, or none, on the next portal, and
+the device stops matching when it is replaced or re-added. LM's filter searches
+inside AppliesTo, so one query per type finds them:
+
+```shell
+elm -p prod,preprod,test -f jsonl DatasourceList -s0 -F 'appliesTo~deviceId' -f name,appliesTo
+elm -p prod,preprod,test -f jsonl DeviceGroupList -s0 -F 'appliesTo~deviceId' -f fullPath,appliesTo
+```
+
+(The same `-F` works on `PropertyRulesList`, `ConfigSourceList`,
+`EventSourceList` and `TopologySourceList`.) Which devices an id is, on the
+portal it came from:
+
+```shell
+elm -p prod DeviceById --id 1234 -f displayName,name
+```
+
+To replace it, give those devices something the AppliesTo can test, such as a
+custom property (`ping.force` = `true`), then use that instead of the ids:
+`isLinux() || ping.force == "true"`. It keeps working when the device is
+replaced, and reads as what it means. The comparison page lists every such
+module and group, with the ids on each portal.
+
 Portal sizes in one table, the same way:
 
 ```shell

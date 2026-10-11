@@ -6,10 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `tools/elm-compare-portals.sh`: a Hardcoded device ids section lists every module and device group whose AppliesTo picks devices by `system.deviceId`, with the ids on each portal. An id is one device on one portal and stops matching when the device is replaced; `examples/comparing-portals.md` shows how to find them with elm alone and what to use instead.
+
 ### Changed
 
 - `tools/elm-compare-portals.sh`: LogicModule cells (critical datasources and other LogicModules) show the module's version as a date and the first 6 characters of its checksum, e.g. `2023-04-04 e3996a`, instead of the 32-character checksum alone. The checksum said a copy differed but not which was newest; the latest date is the newest, and the same date with another checksum is a local edit.
 - `tools/elm-compare-portals.sh`: each critical datasource also has an `appliesTo` row, the part most often changed on one portal, so a different checksum can be told apart from a different AppliesTo at a glance.
+- `tools/elm-compare-portals.sh`: the critical list takes any module type, not only datasources: a name that is not a datasource is looked up among the PropertySources, ConfigSources, EventSources and TopologySources the page fetches anyway, and a `type` column says which. The section is now Critical LogicModules.
 
 ## [1.13.0] - 2026-10-11
 

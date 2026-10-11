@@ -83,7 +83,7 @@ printf '# Portal comparison\n\nComparing %s, %s.\n' "$portal_list" "$(date '+%-d
 # The sections go to a temporary file first, so a Contents list linking to
 # each of them can come before them (anchors as pandoc and GitHub make them).
 body=$(mktemp)
-trap 'rm -f "$body" "$errs"' EXIT
+trap 'rm -f "$body" "$errs" "${mods:-}"' EXIT
 exec 3>&1 >"$body"
 
 # -C prints one total per portal; jq adds which command it counted. Sizes are
@@ -187,31 +187,56 @@ section 'Collector builds' 'Which collector builds are running where.' \
 # with another checksum is a local edit). AppliesTo functions have no version.
 module='{module: ((if .version then (.version | if . > 99999999999 then ./1000 else . end | floor | todate[:10]) + " " else "" end) + .checksum[:6])}'
 
+# The other module types, fetched once: the critical list looks names up here
+# too, and the Other LogicModules section is made from it. Types by their LM
+# names; AppliesTo functions have no version or AppliesTo.
+mods=$(mktemp)
+for c in ConfigSourceList:ConfigSource EventSourceList:EventSource PropertyRulesList:PropertySource \
+         TopologySourceList:TopologySource AppliesToFunctionList:AppliesToFunction; do
+    fields=name,version,checksum,appliesTo
+    [ "${c%%:*}" = AppliesToFunctionList ] && fields=name,checksum
+    elm -p "$profiles" -f jsonl "${c%%:*}" -s0 -f "$fields" | jq -c --arg t "${c#*:}" '{type: $t} + .'
+done > "$mods"
+
 if [ -n "$names" ]; then
-    echo 'Critical datasources' >&2
-    printf '\n## Critical datasources\n\nEach datasource in %s: its version date and checksum, and its AppliesTo (the part most often changed on one portal), each a row.\n\n' "$(basename "$names")"
-    found=$(mktemp)
+    echo 'Critical LogicModules' >&2
+    printf '\n## Critical LogicModules\n\nEach module in %s: its version date and checksum, and its AppliesTo (the part most often changed on one portal), each a row.\n\n' "$(basename "$names")"
+    found=$(mktemp) one=$(mktemp)
+    # a datasource by that name, else any other module type by that name
     while read -r ds; do
-        [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,version,checksum,appliesTo
+        [ -n "$ds" ] || continue
+        elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,version,checksum,appliesTo 2>/dev/null \
+            | jq -c '{type: "DataSource"} + .' > "$one"
+        if [ -s "$one" ]; then cat "$one"; else jq -c --arg n "$ds" 'select(.name == $n)' "$mods"; fi
     done < "$names" | tee "$found" \
-        | jq -c "del(.version, .checksum, .appliesTo) as \$row | (\$row + {field: \"version\", value: ($module).module}), (\$row + {field: \"appliesTo\", value: .appliesTo})" \
-        | table -k name,field -v value "$full"
+        | jq -c "del(.version, .checksum, .appliesTo) as \$row | (\$row + {field: \"version\", value: ($module).module}), (select(has(\"appliesTo\")) | \$row + {field: \"appliesTo\", value: .appliesTo})" \
+        | table -k type,name,field -v value "$full"
     # a name no portal has (a typo, or not the exact name) would otherwise just be absent
     unknown=$(while read -r ds; do
         [ -n "$ds" ] && ! jq -e --arg n "$ds" 'select(.name == $n)' "$found" >/dev/null && printf '%s,' "$ds"
     done < "$names")
     [ -n "$unknown" ] && printf '\n_Not found on any portal (check the exact name): %s._\n' "$(and_list '' "$unknown")"
-    rm -f "$found"
+    rm -f "$found" "$one"
 fi
 
 echo 'Other LogicModules' >&2
 printf '\n## Other LogicModules\n\nEvery ConfigSource, EventSource, PropertySource, TopologySource and AppliesTo function, by version date and checksum: only the ones that differ.\n\n'
-for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do
-    fields=name,version,checksum
-    [ "$c" = AppliesToFunctionList ] && fields=name,checksum
-    elm -p "$profiles" -f jsonl "$c" -s0 -f "$fields" \
-        | jq -c --arg t "$c" "{type: \$t} + del(.version, .checksum) + ($module)"
-done | table -k type,name -v module -d "$min"
+jq -c "del(.version, .checksum, .appliesTo) + ($module)" "$mods" | table -k type,name -v module -d "$min"
+
+# Every module and device group whose AppliesTo picks devices by id, on every
+# portal, whether or not the portals agree: an id means one device on one
+# portal, and stops matching when the device is replaced or re-added.
+echo 'Hardcoded device ids' >&2
+printf '\n## Hardcoded device ids\n\nModules and device groups whose AppliesTo names devices by `system.deviceId`, with the ids on each portal. An id is one device on one portal: a property or category on the devices does the same job and survives a device being replaced.\n\n'
+ids='[.appliesTo | scan("(?i)deviceid\\s*[=!]=\\s*\"?([0-9]+)") | .[0]] | if length > 0 then join(", ") else "yes" end'
+{
+    elm -p "$profiles" -f jsonl DatasourceList -s0 -F 'appliesTo~deviceId' -f name,appliesTo 2>/dev/null \
+        | jq -c '{type: "DataSource"} + .'
+    jq -c 'select(.appliesTo // "" | test("deviceid"; "i"))' "$mods"
+    elm -p "$profiles" -f jsonl DeviceGroupList -s0 -F 'appliesTo~deviceId' -f fullPath,appliesTo 2>/dev/null \
+        | jq -c '{type: "DeviceGroup", name: .fullPath} + del(.fullPath)'
+} | jq -c "{profile, account_name, type, name, ids: ($ids)}" \
+  | empty='None: no AppliesTo names a device id' table -k type,name -v ids
 
 exec 1>&3 3>&-
 printf '\n## Contents\n\n'
