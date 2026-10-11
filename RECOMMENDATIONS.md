@@ -319,7 +319,9 @@ the help block already in README.md round-trips to a byte-identical file
 with the red error and leaves README.md unchanged. Neither run leaves temp
 files behind.
 
-## [ ] 13. URL-encode query parameter values — DO THIS ITEM LAST
+## [x] 13. URL-encode query parameter values — DO THIS ITEM LAST
+
+Done 2026-10-11. See CHANGELOG `[Unreleased]` → Fixed; the item as written follows.
 
 **Problem:** in `_jnja/engine.py.j2`, query parameters are glued into a string
 (`queryParams += '&' + flag + '=' + str(flags[flag])`) and passed to

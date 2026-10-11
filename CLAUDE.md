@@ -213,8 +213,10 @@ Resolved (kept here so the history is not re-investigated):
 - `make -n` infinite recursion / duplicated build from a recursive
   `$(MAKE)` in the `_defs/commands.json` recipe — fixed; the build now
   calls explicit sub-targets (`$(MAKE) _render _build`).
-- Query params are sent structured (`requests.get(..., params=...)` in
-  `_jnja/engine.py.j2`), not hand-concatenated.
+- Query params are a dict passed as `requests.get(..., params=...)` in
+  `_jnja/engine.py.j2`, so each value is percent-encoded (`&`, `+`, `#` in a
+  filter stay one value). Hand-concatenated until 2026-10-11, when `-F
+  'displayName~R&D'` got a 400; checked live that results are unchanged.
 
 Removed:
 - `-x` / `--export` (export a query as a standalone script) was a

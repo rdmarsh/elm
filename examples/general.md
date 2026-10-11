@@ -196,7 +196,7 @@ elm -f api DeviceList -s1 -F displayName~foo
 Example output (values are illustrative — yours will contain real credentials):
 
 ```
-https://acme.logicmonitor.com/santaba/rest/device/devices?&size=1&filter=displayName%7Efoo
+https://acme.logicmonitor.com/santaba/rest/device/devices?size=1&filter=displayName~%22foo%22
 Authorization: LMv1 abcd1234:<hmac-signature>:<epoch-ms>
 ```
 

@@ -75,8 +75,9 @@ def engine(elm, **kwargs):
     resourcePath = elm.path
     logging.debug('resourcePath: %s', resourcePath)
 
-    #construct queryParams
-    queryParams = ''
+    #construct queryParams: a dict, so requests percent-encodes each value
+    #(a filter with & + or # in it stays one value)
+    queryParams = {}
 
     #turn flags into queryParams key values
     _output_only = {'count', 'total'}
@@ -88,7 +89,7 @@ def engine(elm, **kwargs):
         # dotted -f names (privileges.objectName) are picked out here, after the
         # response: LM is asked for the top-level field
         value = top_fields(flags[flag]) if flag == 'fields' else flags[flag]
-        queryParams += '&' + flag + '=' + str(value)
+        queryParams[flag] = str(value)
 
     logging.debug('queryParams: %s', queryParams)
 
