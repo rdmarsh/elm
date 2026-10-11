@@ -121,8 +121,8 @@ binary links. Replace the `build` job `steps:` with:
     - name: Full build (init, render, PyInstaller binary)
       run: make
 
-    - name: Offline test subset
-      run: make testbasicoffline
+    - name: Every test that needs no credentials
+      run: make testoffline
 ```
 
 Why copy the example file instead of passing `--config config.example.ini`:
@@ -146,7 +146,9 @@ inherited.
 
 **4b. Add a `testbasicoffline` target and call it from CI.** *Target done
 2026-10-11, not yet called from CI: `make testoffline` runs it with `testdocs`,
-`testallow` and `testmulti`; use that in the workflow.* Split the LM-free
+`testallow` and `testmulti`; use that in the workflow. Passes on macOS with
+the real binary and in a Linux sandbox with dummy credentials and no network.
+`testbasic` now runs `testbasicoffline` then its six request lines.* Split the LM-free
 assertions of `testbasic` into a new `make testbasicoffline` target: the first
 block (help / `--version` / `--list` / `--ai` / `--profile` strip / `--list`
 marks `* config`) plus the trailing `$(TSTTARGETS)` `<cmd> --help` loop —
