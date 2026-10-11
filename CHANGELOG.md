@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-10-11
+
 ### Added
 
 - `tools/report-pdf.sh` keeps the HTML beside the PDF: one self-contained file, styles and logo inside, that opens in any browser.
@@ -721,7 +723,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/rdmarsh/elm/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/rdmarsh/elm/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/rdmarsh/elm/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/rdmarsh/elm/compare/v1.10.0...v1.11.0
