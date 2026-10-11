@@ -594,9 +594,10 @@ DEVICE_GROUPS='Standards,Templates' \
   differ. Many AppliesTo test categories, so a map that differs changes which
   modules a device gets.
 - Clean-up, per portal: unused LogicModules (a count per type), active API
-  tokens unused for `STALE_DAYS` (default 90) days, and active users, not
-  API-only, who have not logged in for as long. The last two name people,
-  like the contacts.
+  tokens unused for `STALE_DAYS` (default 90) days, users suspended on one
+  portal but active on another, users who have never logged in, and how many
+  have not logged in for 90 days to a year, 1 to 2 years and over 2 years (a
+  count only). The token and user lists name people, like the contacts.
 - `DEVICE_GROUPS` names the top-level device groups to compare,
   comma-separated (each with everything under it): the groups themselves and
   their custom properties; unset, both sections are skipped. **Quote it** in single quotes: zsh and bash read `~name` as a home

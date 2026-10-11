@@ -11,7 +11,8 @@
 # a section where every portal agrees says "No differences". FULL=1 shows the
 # whole table for the smaller areas instead, with a "same" column. Then lists
 # per portal of things to fix: hardcoded devices in AppliesTo, unused modules,
-# stale API tokens, users not logged in (STALE_DAYS, default 90). The optional
+# stale API tokens (STALE_DAYS, default 90), users suspended on one portal but
+# active on another, users never logged in, and a count of idle users. The optional
 # file lists module names, one per line, to compare by version and AppliesTo
 # (see examples/comparing-portals.md). tools/report-pdf.sh turns the page into a PDF.
 #
@@ -318,15 +319,39 @@ if [ "$n" -gt 0 ]; then list_table portal user token created 'last used' note < 
 else echo "_None: every active token was used in the last $days days._"; result 'None'; fi
 rm -f "$body.tok"
 
-heading 'Users not logged in' "Active users, not API-only, who have not logged in for $days days, or never. Suspend or remove the ones who have left."
-elm -p "$profiles" -f jsonl AdminList -s0 -f username,status,apionly,lastLoginOn,createdBy 2>/dev/null \
-    | jq -c --argjson d "$days" --arg p "$pcol" 'select(.status == "active" and (.apionly | not) and (.lastLoginOn == 0 or .lastLoginOn < now - $d * 86400))
-        | {portal: .[$p], user: .username, "last login": (if .lastLoginOn == 0 then "never" else .lastLoginOn | todate[:10] end), "created by": .createdBy}' \
+# the users of every portal, fetched once for the three sections below
+admins=$(mktemp)
+elm -p "$profiles" -f jsonl AdminList -s0 -f username,status,apionly,lastLoginOn,createdBy 2>/dev/null > "$admins"
+
+# someone suspended on one portal is usually someone who has left, and should
+# be suspended on all of them
+heading 'Suspended users' 'Users suspended on one portal but active on another: usually someone who has left, still able to log in somewhere.'
+jq -sc 'group_by(.username)[] | select(any(.status == "suspended") and any(.status == "active"))[]
+        | {profile, account_name, username, status}' "$admins" \
+    | { found=1 empty='None: everyone suspended somewhere is suspended everywhere they have an account'; table -k username -v status; }
+
+heading 'Users never logged in' "Active users, not API-only, who have never logged in: accounts made for someone who never used them."
+jq -c --arg p "$pcol" 'select(.status == "active" and (.apionly | not) and .lastLoginOn == 0)
+        | {portal: .[$p], user: .username, "created by": .createdBy}' "$admins" \
     | jq -sc 'sort_by(.portal, .user)[]' > "$body.usr"
 n=$(grep -c . "$body.usr")
-if [ "$n" -gt 0 ]; then list_table portal user 'last login' 'created by' < "$body.usr"; printf '\n_%s found._\n' "$n"; result "**$n** found"
-else echo "_None: every active user logged in within $days days._"; result 'None'; fi
+if [ "$n" -gt 0 ]; then list_table portal user 'created by' < "$body.usr"; printf '\n_%s found._\n' "$n"; result "**$n** found"
+else echo "_None: every active user has logged in._"; result 'None'; fi
 rm -f "$body.usr"
+
+# a count, not a list: on a portal whose users sign in through SAML there can
+# be hundreds, and following them up is another report's job
+heading 'Users not logged in' "Active users, not API-only, by when they last logged in, per portal. A count only: the account setting userSuspendDays suspends idle users automatically."
+jq -sc --argjson d "$days" 'now as $now | ["\($d) days to 1 year", "1 to 2 years", "over 2 years"] as $b
+    | group_by(.profile)[] | map(select(.status == "active" and (.apionly | not) and .lastLoginOn > 0)) as $u
+    | ($now - $d * 86400) as $stale | ($now - 365 * 86400) as $y1 | ($now - 730 * 86400) as $y2
+    | .[0] as $first | $b[] as $bucket
+    | {profile: $first.profile, account_name: $first.account_name, "last login": $bucket,
+       users: ($u | map(.lastLoginOn | if $bucket == $b[0] then (. < $stale and . >= $y1)
+                                       elif $bucket == $b[1] then (. < $y1 and . >= $y2) else . < $y2 end)
+               | map(select(.)) | length)}' "$admins" \
+    | { say='Counts per portal'; table -k 'last login' -v users -t; }
+rm -f "$admins"
 
 # The summary comes first: one row per section, linked, with its result in
 # short ("12 of 40 differ"). Anchors as pandoc and GitHub make them.
