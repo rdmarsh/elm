@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `.claude/skills/release`: the release steps as a Claude Code skill (version choice, changelog, commit, tag), loaded only when a release is asked for.
 - `-e` / `--explode FIELD` gives one row per item of a list field (a role's `privileges`, a portal's `contacts`, a device's `customProperties`), the record's other fields repeated and the item's keys as `FIELD.key` columns. A record with an empty list keeps its row. `-c` counts the exploded rows. With several profiles and `-d`, items are compared one by one rather than as a whole list (where order counted). Two separate lists cannot be exploded together, since every item of one would pair with every item of the other; `-e` repeats only for a list inside another (`-e groups -e groups.members`).
 - A dotted name in `-f` picks part of a nested field: `-f name,privileges.objectName,privileges.operation`. elm asks LM for the top-level field and trims the rest, so portal-specific ids such as `privileges.objectId` can be left out of a comparison.
 - `tools/portal-matrix.py` pivots what elm prints for several profiles into one row per item and one column per portal: ✓ / — for which portals have it, or each portal's value with `-v`. `-d` keeps only the rows that differ, `-m` adds a ✓ / ✗ `same` column, `-c account_name` heads the columns with account names; Markdown by default, `--csv`. `-t` adds a `total` column summing each row's numbers; `--tick`/`--cross` set the marks (e.g. `:true:` for a wiki), coloured in a terminal. Without `-k`, one record per portal (`PortalInfo`) gives one row per field, settings side by side. A dotted `-v`/`-k` name reads inside a nested record. Booleans print `true`/`false`, and a list of plain values is sorted before comparing, so the same options in another order count as the same.
@@ -18,10 +19,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - `make` checks the Python version before building, and stops with the command to use instead: below 3.10 (the oldest that `truststore` and `requests` accept), or above the newest tested, which is 3.14 for now. On 3.15 the build used to fail deep inside pip compiling pandas (`metadata-generation-failed`), because pandas 2.3 has no 3.15 wheels. `PYTHON_UNTESTED=1` tries a newer one anyway. Once `venv/` exists, its Python is the one checked. `setup.py` now says `>=3.10` (it said `>=3.9`, which the pins never supported).
-- `ai.md` is half the size (about 9.6k characters, down from 19.7k): repeated points merged, every distinct rule kept.
+- `ai.md` is half the size: repeated points merged, every distinct rule kept. A new section, "Load context only when it is needed", says what belongs in an always-loaded `CLAUDE.md`, what in a subdirectory's, and what in a skill that loads only when used.
 
 ### Fixed
 
+- `tools/elm-compare-portals.sh`: an empty name in `DEVICE_GROUPS` (`a,,b`) pulled in the root group, whose `fullPath` is empty, repeating its properties under Device group properties with a blank `fullPath`. Empty names are now skipped, and the groups are listed as "a, b and c". Every table's columns now follow the order given to `-p` (portal-matrix's new `-o`); a portal missing from a table's first rows used to land further right than in the other tables. In the PDF a short name in a narrow column (`Audit_Log`) no longer breaks mid-word.
+- `tools/elm-compare-portals.sh`: the Users and Role privileges sections left out nothing that only one portal has, so each customer's users and roles counted as differences, and on four portals they made up most of a 127-page report. They now leave those out (portal-matrix's new `--min 2`; a staff account missing from one portal still shows), and every table is followed by its count, including how many rows were left out.
 - `-f` naming only fields that do not exist said "no valid fields selected" without saying which: the unknown-field warning was skipped whenever nothing came back. It now follows the error, naming them.
 - `elm COMMAND --info` printed a Notes heading with nothing under it for 40 commands whose `elm-notes.yaml` entry held only `key_fields` or `unique_options` (shown elsewhere).
 

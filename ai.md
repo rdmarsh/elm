@@ -33,6 +33,29 @@ journal or design notes, user-visible changes to the changelog, rejected ideas
 ask. A shorter file that loses future work, evidence, reasoning, open questions
 or rejected alternatives is not an improvement.
 
+## Load context only when it is needed
+
+Everything loaded every session costs tokens every time, and a big file
+collects stale claims and contradictions nobody re-reads. Bigger is not safer.
+Put each fact where it is loaded only when it matters:
+
+1. **Always loaded** - the root `CLAUDE.md`. Only what holds everywhere:
+   safety prohibitions ("never edit generated files"), gotchas the code can't
+   show, non-standard conventions, repo etiquette. Keep "never do X" rules
+   here, where they can't be missed.
+2. **Loaded for one directory** - a `CLAUDE.md` in a subdirectory, read only
+   when working there.
+3. **Loaded on demand** - skills (`.claude/skills/NAME/SKILL.md`): only the
+   one-line description sits in context, the body loads when the task comes
+   up. Use them for workflows ("cut a release", "build the report") and
+   reference material. Tool help such as `--help` or a per-command `--info`
+   works the same way.
+
+Leave out what a session can work out itself: directory layouts (`ls`),
+dependency lists (the manifest), standard commands (`--help`), and API
+details copied from the source. Give each fact one home; a copy in a second
+file goes stale.
+
 ## Write rules positively
 
 Say how work should be done ("Preserve existing debug logging unless asked to
@@ -204,6 +227,7 @@ and note the current state before starting work.
 ```text
 project/
 ├── CLAUDE.md
+├── .claude/skills/   one directory per workflow, each with a SKILL.md
 ├── journal.md
 ├── todo.md
 ├── memory/        user.md, feedback.md, project.md, references.md

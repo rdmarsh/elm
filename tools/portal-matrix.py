@@ -188,10 +188,16 @@ def parse_args(argv):
                    help="show this field's value in each cell instead of a tick")
     p.add_argument("-c", "--column", default="profile", metavar="FIELD",
                    help="field whose values become the columns (default: profile; or account_name)")
+    p.add_argument("-o", "--order", metavar="PROFILE[,PROFILE]",
+                   help="put the columns in this order of profiles (as given to elm -p), "
+                        "whichever -c heads them; otherwise first seen")
     p.add_argument("-d", "--diff", action="store_true",
                    help="only the rows where some portal differs or is missing")
     p.add_argument("-m", "--match", action="store_true",
                    help=f"add a 'same' column: {TICK} where every portal agrees, {CROSS} where not")
+    p.add_argument("--min", type=int, default=1, metavar="N",
+                   help="leave out rows found on fewer than N portals, e.g. 2 for users or roles "
+                        "that only one portal has (the summary says how many)")
     p.add_argument("-t", "--total", action="store_true",
                    help="add a 'total' column: each row's numbers summed across the portals")
     p.add_argument("--missing", default="—", metavar="TEXT",
@@ -234,6 +240,13 @@ def main(argv=None):
                 f"whose rows would merge; use -c profile")
             return 2
 
+    # -o: each column's place, from the profile behind it (field mode below drops "profile")
+    order = [o.strip() for o in (args.order or "").split(",") if o.strip()]
+    rank = {}
+    for row in rows:
+        if row.get("profile") in order:
+            rank.setdefault(show(get(row, args.column)), order.index(row["profile"]))
+
     if not keys:
         # the portal's own fields, in first-seen order
         fields = [f for f in dict.fromkeys(f for row in rows for f in row)
@@ -251,6 +264,13 @@ def main(argv=None):
             keys = [f for f in fields if f not in values]
 
     columns, table = pivot(rows, keys, values, args.column, args.tick)
+    if args.order:
+        columns.sort(key=lambda col: rank.get(col, len(order)))
+    few = [key for key, cells in table.items() if len(cells) < args.min]
+    for key in few:
+        del table[key]
+    fewer = "only one portal" if args.min == 2 else f"fewer than {args.min} portals"
+    left_out = f"; {plural(len(few), 'row')} on {fewer} left out" if few else ""
     differ = [key for key, cells in table.items() if not same(cells, columns)]
 
     headers = keys + columns + (["total"] if args.total else []) + (["same"] if args.match else [])     # read left to right: verdict last
@@ -262,7 +282,7 @@ def main(argv=None):
             body.append(list(key) + [cells.get(col, args.missing) for col in columns] + summed + mark)
 
     if not body:
-        err(f"No differences: {plural(len(table), 'row')} the same on {plural(len(columns), 'portal')}")
+        err(f"No differences: {plural(len(table), 'row')} the same on {plural(len(columns), 'portal')}{left_out}")
         return 0
     if args.csv:
         emit_csv(headers, body)
@@ -274,7 +294,7 @@ def main(argv=None):
         colours = {args.tick: green, args.cross: red, args.missing: red} if colour else {}
         emit_gfm(headers, body, centred, colours, first)
     sys.stdout.flush()      # the table first, then the summary on stderr
-    err(f"{len(differ)} of {plural(len(table), 'row')} differ across {plural(len(columns), 'portal')}")
+    err(f"{len(differ)} of {plural(len(table), 'row')} {'differs' if len(differ) == 1 else 'differ'} across {plural(len(columns), 'portal')}{left_out}")
     return 1 if differ else 0
 
 

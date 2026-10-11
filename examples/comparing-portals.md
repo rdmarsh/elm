@@ -119,6 +119,10 @@ elm -p prod,preprod,test RoleList -s0 -f name | tools/portal-matrix.py -k name -
 - `-t` adds a `total` column summing each row's numbers across the portals.
 - `-c account_name` heads the columns with account names instead of profile
   names, for readers who know the portals that way.
+- `--min 2` leaves out rows only one portal has (a customer's users or roles);
+  the summary counts them.
+- `-o a,b,c` fixes the column order to those profiles (the order you gave
+  `-p`), so every table lines up the same way.
 - `--csv` for a spreadsheet; `--tick`, `--cross` and `--missing` change the
   marks. In a terminal the marks are coloured; piped or redirected they are
   plain.
@@ -204,6 +208,11 @@ Users missing somewhere, or with a different status:
 elm -p prod,preprod,test AdminList -s0 -f username,status \
   | tools/portal-matrix.py -k username -v status -d
 ```
+
+Where each portal has its own customers' users, nearly every user is "missing"
+from the others. `--min 2` keeps only users on two or more portals (a staff
+account missing from one still shows) and counts the rest in the summary. The
+same goes for the role privileges below.
 
 Which roles each user has, per portal (one row per user and role):
 

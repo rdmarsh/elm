@@ -37,17 +37,17 @@ opts=${MATRIX_OPTS:-}
 full=-d                                # only the rows that differ
 [ -n "${FULL:-}" ] && full=-m          # ... or the whole table, with a "same" column
 
-# table PORTAL-MATRIX-ARGS... : the matrix of the rows on stdin. A table that
-# comes out empty says why, with portal-matrix's own count, so "the same
-# everywhere" cannot be mistaken for "nothing was compared". $empty, if set,
-# replaces the note for no rows at all.
+# table PORTAL-MATRIX-ARGS... : the matrix of the rows on stdin, then
+# portal-matrix's own count ("3 of 40 rows differ ..."), so a short table, or
+# none ("No differences: ..."), cannot be mistaken for "nothing was compared".
+# $empty, if set, replaces the note for no rows at all.
 errs=$(mktemp)
 table() {
-    t=$(python3 "$matrix" $opts "$@" 2>"$errs")
+    t=$(python3 "$matrix" -o "$profiles" $opts "$@" 2>"$errs")
     rc=$?
     cat "$errs" >&2
     if [ -n "$t" ]; then
-        printf '%s\n' "$t"
+        printf '%s\n\n_%s._\n' "$t" "$(tail -1 "$errs")"
     elif [ "$rc" -eq 0 ]; then
         printf '_%s._\n' "$(tail -1 "$errs")"          # No differences: N rows the same on M portals
     else
@@ -68,9 +68,13 @@ section() {
     eval "elm -p '$profiles' -f jsonl $elm_args" | table "$@"
 }
 
-# "a, b and c", each in bold
-portal_list=$(printf '%s' "$profiles" | awk -F, '{
-    for (i = 1; i <= NF; i++) s = s (i == 1 ? "" : i == NF ? " and " : ", ") "**" $i "**"; print s }')
+# and_list MARK LIST: "a, b and c" from "a,b,c", each item between MARK (** for bold); empty items dropped
+and_list() {
+    printf '%s' "$2" | awk -F, -v m="$1" '{
+        n = 0; for (i = 1; i <= NF; i++) if ($i != "") item[++n] = $i
+        for (i = 1; i <= n; i++) s = s (i == 1 ? "" : i == n ? " and " : ", ") m item[i] m; print s }'
+}
+portal_list=$(and_list '**' "$profiles")
 printf '# Portal comparison\n\nComparing %s, %s.\n' "$portal_list" "$(date '+%-d %B %Y at %H:%M')"
 [ -z "${FULL:-}" ] && printf '\nOnly what differs is shown: rows that are the same on every portal are left out.\n'
 
@@ -106,12 +110,14 @@ section 'Contacts' 'Portal contacts (PortalInfo).' \
 section 'Roles' 'Which roles exist where.' \
     RoleList -s0 -f name -- -k name "$full"
 
-section 'Role privileges' 'Only the privileges that differ: the operation each role has on each object.' \
+# --min 2: a role or object only one portal has (a customer's) is expected,
+# and which roles exist where is the section above
+section 'Role privileges' 'Only the privileges that differ: the operation each role has on each object. Roles and objects that only one portal has are left out.' \
     -e privileges RoleList -s0 -f name,privileges.objectType,privileges.objectName,privileges.operation \
-    -- -k name,privileges.objectType,privileges.objectName -v privileges.operation -d
+    -- -k name,privileges.objectType,privileges.objectName -v privileges.operation -d --min 2
 
-section 'Users' 'Only the users whose status differs, or who are missing somewhere.' \
-    AdminList -s0 -f username,status -- -k username -v status -d
+section 'Users' 'Only the users on more than one portal whose status differs, or who are missing somewhere. Users on only one portal (a customer'"'"'s) are left out.' \
+    AdminList -s0 -f username,status -- -k username -v status -d --min 2
 
 section 'User groups' 'Which user groups exist where.' \
     AdminGroupList -s0 -f name -- -k name "$full"
@@ -137,6 +143,7 @@ subtree_rows() {
     for g in $DEVICE_GROUPS; do
         IFS=$old_ifs
         case $g in
+            '') continue ;;     # a,,b: an empty name would match the root group (fullPath "")
             /*) # no LM group path starts with /: the shell expanded a ~name
                 echo "DEVICE_GROUPS: $g is a directory, not a group; the shell expanded a ~ in it." \
                      "Quote the value: DEVICE_GROUPS='~admin,...'" >&2
@@ -153,7 +160,7 @@ printf '\n## Device groups\n\n'
 if [ -z "${DEVICE_GROUPS:-}" ]; then
     echo '_Skipped: set DEVICE_GROUPS to the top-level groups to compare, e.g. DEVICE_GROUPS=Standards,Templates._'
 else
-    printf 'Only the groups in %s (and under them) that differ: missing, or with another AppliesTo.\n\n' "$DEVICE_GROUPS"
+    printf 'Only the groups in %s (and under them) that differ: missing, or with another AppliesTo.\n\n' "$(and_list '' "$DEVICE_GROUPS")"
     fields=appliesTo subtree_rows | table -k fullPath -v appliesTo -d
 
     # one row per group and property; groups with none are left out (whether a

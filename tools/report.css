@@ -59,6 +59,7 @@ th, td {
   padding: 1.5pt 4pt;
   vertical-align: top;
   overflow-wrap: anywhere;      /* long checksums, paths and JSON wrap rather than overflow */
+  min-width: 5em;               /* ... but a narrow column still fits a short name (Audit_Log) whole */
 }
 th { background: #eee; font-weight: 600; white-space: nowrap; }   /* headings never break mid-word */
 tbody tr:nth-child(even) td { background: #fafafa; }

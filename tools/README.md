@@ -539,6 +539,12 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
 - `-c account_name` heads the columns with the account names rather than your
   profile names, for readers who know the portals that way. It is refused
   when two profiles point at one account, since their rows would merge.
+- `--min 2` leaves out rows found on only one portal, such as a customer's
+  users or roles, which are expected to be there alone. The summary says how
+  many were left out. `--min N` raises the bar to N portals.
+- `-o a,b,c` puts the columns in that order of profiles, whichever `-c`
+  heads them. Without it they come in the order the portals first appear,
+  which can differ from table to table when a portal is missing a row.
 - Markdown (GitHub Flavored) by default; `--csv` for a spreadsheet.
 - `--tick`, `--cross` and `--missing` change the marks, e.g.
   `--tick :true: --cross :false:` for a wiki that renders those. In a terminal
