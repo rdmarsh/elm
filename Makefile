@@ -521,41 +521,13 @@ testmulti: ## Test the checks on several profiles (-p a,b) and on -e (offline)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testbasic
-testbasic: ## Test basic flags
-	@echo testing: $(testbin) ; $(testbin) >/dev/null
-	@echo testing: $(testbin) --help ; $(testbin) --help >/dev/null
-	@echo testing: $(testbin) -h ; $(testbin) -h >/dev/null
-	@echo testing: $(testbin) --version ; $(testbin) --version >/dev/null
-	@echo testing: $(testbin) -V ; $(testbin) -V >/dev/null
-	@echo testing: $(testbin) --help includes --profile ; $(testbin) --help | grep -q -- '--profile'
-	@echo testing: --profile foo.ini strips .ini extension ; $(testbin) --profile __elm_test__.ini DeviceList 2>&1 | grep -qE 'Config file:.*__elm_test__\.ini$$'
-	@echo testing: $(testbin) --list ; $(testbin) --list >/dev/null
-	@echo testing: $(testbin) -l ; $(testbin) -l >/dev/null
-	@echo testing: --list marks default profile active ; $(testbin) --list | grep -q '^\* config'
-	@echo testing: --help includes --list ; $(testbin) --help | grep -q -- '--list'
-	@echo testing: $(testbin) --ai ; $(testbin) --ai >/dev/null
-	@echo testing: --ai output includes elm-notes.yaml ; $(testbin) --ai | grep -q 'elm-notes.yaml'
-	@echo testing: --help includes --ai ; $(testbin) --help | grep -q -- '--ai'
+testbasic: testbasicoffline ## Test basic flags (the -f api/curl/wget/sqlite lines connect to LM)
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
 	@echo testing: trailing backslash in filter value is escaped ; $(testbin) -f api DeviceList -F 'hostname~foo\' -s1 2>/dev/null | grep -q 'filter=hostname~%22foo%5C%5C%22'
 	@echo testing: embedded quote in filter value is escaped ; $(testbin) -f api DeviceList -F 'hostname~a"b' -s1 2>/dev/null | grep -q 'filter=hostname~%22a%5C%22b%22'
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
 	@echo testing: sqlite format requires -o flag ; $(testbin) -f sqlite MetricsUsage 2>&1 | grep -q 'requires -o'
-	@echo testing: command flag before command gets a hint ; $(testbin) -c DeviceList 2>&1 | grep -q 'Hint: -c is a command option: put it after'
-	@echo testing: -s before command hints at --size ; $(testbin) -s 5 DeviceList 2>&1 | grep -q 'for --size put it after'
-	@echo testing: -f before command hints at --fields ; $(testbin) -f id DeviceList 2>&1 | grep -q 'for --fields put it after'
-	@echo testing: global flag after command gets a hint ; $(testbin) DeviceList -H 2>&1 | grep -q 'Hint: -H is a global option: put it before'
-	@echo testing: -o after command hints at --filename ; $(testbin) DeviceList -o out.csv 2>&1 | grep -q 'for --filename put it before'
-	@echo testing: format name as --fields gets a hint ; $(testbin) DeviceList -f csv 2>&1 | grep -q 'for --format put it before'
-	@echo testing: --info shows path, notes and fields ; $(testbin) AlertList --info | grep -q '^GET /alert/alerts' && $(testbin) AlertList --info | grep -q '^Notes' && $(testbin) AlertList --info | grep -q '^  severity: integer'
-	@echo testing: --info needs no id for a command that requires one ; $(testbin) DeviceDatasourceList --info | grep -q -- '--deviceId integer (required)'
-	@echo testing: --info and --help need no credentials ; h=$$(mktemp -d) && HOME=$$h $(testbin) AlertList --info | grep -q '^GET ' && HOME=$$h $(testbin) AlertList --help | grep -q 'Usage:' ; rc=$$? ; rm -rf $$h ; exit $$rc
-	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
-	@$(foreach cmd,$(TSTTARGETS), \
-		echo testing: $(testbin) $(cmd) --help ;\
-		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\
-		)
 	@echo "$(OK_STRING) $@"
 
 # testbasic without the lines that send a request (-f api/curl/wget/sqlite):

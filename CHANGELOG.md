@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `make testoffline` runs every test that needs no credentials: `testdocs`, `testallow`, `testmulti` and the new `testbasicoffline`, which is `testbasic` without the lines that send a request (`-f api`, `curl`, `wget`, `sqlite`). It passes with dummy credentials and with the network cut off, so it can run in CI. `testbasic` is unchanged.
+- `make testoffline` runs every test that needs no credentials: `testdocs`, `testallow`, `testmulti` and the new `testbasicoffline`, which is `testbasic` without the lines that send a request (`-f api`, `curl`, `wget`, `sqlite`). It passes with dummy credentials and with the network cut off, so it can run in CI. `testbasic` runs it and then the six request lines, so it checks the same things as before, with each check written once.
 
 ### Fixed
 
