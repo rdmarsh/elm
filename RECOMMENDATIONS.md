@@ -69,6 +69,10 @@ command/path context lines, then `raise click.Abort()` if
 
 ## [ ] 4. Make CI actually build and test
 
+*4a and 4b done 2026-10-11 (`9aa7635`): `makefile.yml` runs `make` and
+`make testoffline` on ubuntu-latest with Python 3.14; first run green. Still to
+do: the red check below (break a template on a PR, see it fail).*
+
 **Problem:** `.github/workflows/makefile.yml` never renders the templates,
 never builds the binary, and never runs any test — it only exercises helper
 targets (`cfg`, `clean`, `help`, ...). A breaking change to a `_jnja/`

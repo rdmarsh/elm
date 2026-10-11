@@ -78,10 +78,8 @@ repo counts lines) and `sqlite` column types.
 
 ## CI: build and test on every platform elm should run on
 
-`.github/workflows/makefile.yml` is green but builds nothing: it installs the
-requirements, runs `make clean` and prints `make help`. Goal: build the binary
-and run the offline tests (`testallow`, `testmulti`, `testdocs`, the offline
-part of `testbasic`) on:
+`.github/workflows/makefile.yml` builds the binary and runs `make
+testoffline` on Ubuntu with Python 3.14 (since 2026-10-11). Goal: the same on:
 
 - macOS (arm64; Intel while GitHub still offers it) and Ubuntu: native runners.
 - Debian and RHEL (Rocky/Alma or UBI): containers on the Ubuntu runner.
