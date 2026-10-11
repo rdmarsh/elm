@@ -13,27 +13,23 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      
-    - name: get swagger file
-      run: make _defs/swagger.json
-      
-    - name: Install python requirements
-      run: make reqs
-      
-    - name: Create config dir, copy example file and set permissions of all config files
-      run: make cfg
 
-    - name: Remove generated files
-      run: make clean
-      
-    - name: Remove unneeded mac files
-      run: make nomac
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
 
-    - name: About this Makefile
-      run: make about
+    # The tests run the binary with no --config, and --list must show
+    # '* config', so a default profile has to exist. The example file's dummy
+    # credentials, never real ones: nothing below sends a request.
+    - name: Create a dummy default profile from the example file
+      run: |
+        mkdir -p ~/.config/logicmonitor/credentials
+        cp config.example.ini ~/.config/logicmonitor/credentials/config.ini
+        chmod 700 ~/.config/logicmonitor/credentials
+        chmod 600 ~/.config/logicmonitor/credentials/*.ini
 
-    - name: Copyright notice
-      run: make copying
+    - name: Build (render the templates, PyInstaller binary)
+      run: make
 
-    - name: Show this help
-      run: make help
+    - name: Every test that needs no credentials
+      run: make testoffline
