@@ -265,12 +265,19 @@ def main(argv=None):
 
     columns, table = pivot(rows, keys, values, args.column, args.tick)
     if args.order:
+        # a listed portal that sent no rows is still a column: every row is missing there
+        for i, name in enumerate(order):
+            if i not in rank.values():
+                columns.append(name)
+                rank[name] = i
         columns.sort(key=lambda col: rank.get(col, len(order)))
-    few = [key for key, cells in table.items() if len(cells) < args.min]
-    for key in few:
-        del table[key]
+    if len(columns) < 2:
+        err(f"portal-matrix: only one portal in the input ({', '.join(columns)}), nothing to compare it with")
+        return 2
+    few = {key: table.pop(key) for key in [k for k, cells in table.items() if len(cells) < args.min]}
     fewer = "only one portal" if args.min == 2 else f"fewer than {args.min} portals"
-    left_out = f"; {plural(len(few), 'row')} on {fewer} left out" if few else ""
+    per = [f"{col} {n}" for col in columns if (n := sum(col in cells for cells in few.values()))]
+    left_out = f"; {plural(len(few), 'row')} on {fewer} left out ({', '.join(per)})" if few else ""
     differ = [key for key, cells in table.items() if not same(cells, columns)]
 
     headers = keys + columns + (["total"] if args.total else []) + (["same"] if args.match else [])     # read left to right: verdict last

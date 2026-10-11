@@ -35,6 +35,7 @@ names=${2:-}
 matrix="$(dirname "$0")/portal-matrix.py"
 opts=${MATRIX_OPTS:-}
 full=-d                                # only the rows that differ
+min=--min=${MIN:-2}                    # ... and, where noted, only on 2+ portals: one portal's own (a customer's) are expected
 [ -n "${FULL:-}" ] && full=-m          # ... or the whole table, with a "same" column
 
 # table PORTAL-MATRIX-ARGS... : the matrix of the rows on stdin, then
@@ -77,6 +78,7 @@ and_list() {
 portal_list=$(and_list '**' "$profiles")
 printf '# Portal comparison\n\nComparing %s, %s.\n' "$portal_list" "$(date '+%-d %B %Y at %H:%M')"
 [ -z "${FULL:-}" ] && printf '\nOnly what differs is shown: rows that are the same on every portal are left out.\n'
+[ "${MIN:-2}" -gt 1 ] && printf '\nUsers, roles, alerting, integrations, collector groups and LogicModules that only one portal has (a customer'"'"'s own) are left out too; the count under each table says how many, per portal. MIN=1 shows them.\n'
 
 # The sections go to a temporary file first, so a Contents list linking to
 # each of them can come before them (anchors as pandoc and GitHub make them).
@@ -108,32 +110,30 @@ section 'Contacts' 'Portal contacts (PortalInfo).' \
     -e contacts PortalInfo -f contacts -- -k contacts.email "$full"
 
 section 'Roles' 'Which roles exist where.' \
-    RoleList -s0 -f name -- -k name "$full"
+    RoleList -s0 -f name -- -k name "$full" "$min"
 
-# --min 2: a role or object only one portal has (a customer's) is expected,
-# and which roles exist where is the section above
-section 'Role privileges' 'Only the privileges that differ: the operation each role has on each object. Roles and objects that only one portal has are left out.' \
+section 'Role privileges' 'Only the privileges that differ: the operation each role has on each object.' \
     -e privileges RoleList -s0 -f name,privileges.objectType,privileges.objectName,privileges.operation \
-    -- -k name,privileges.objectType,privileges.objectName -v privileges.operation -d --min 2
+    -- -k name,privileges.objectType,privileges.objectName -v privileges.operation -d "$min"
 
-section 'Users' 'Only the users on more than one portal whose status differs, or who are missing somewhere. Users on only one portal (a customer'"'"'s) are left out.' \
-    AdminList -s0 -f username,status -- -k username -v status -d --min 2
+section 'Users' 'Only the users whose status differs, or who are missing somewhere.' \
+    AdminList -s0 -f username,status -- -k username -v status -d "$min"
 
 section 'User groups' 'Which user groups exist where.' \
-    AdminGroupList -s0 -f name -- -k name "$full"
+    AdminGroupList -s0 -f name -- -k name "$full" "$min"
 
 section 'Escalation chains' 'Which escalation chains exist where.' \
-    EscalationChainList -s0 -f name -- -k name "$full"
+    EscalationChainList -s0 -f name -- -k name "$full" "$min"
 
 section 'Alert rules' 'Only the alert rules that differ: priority / level / escalation chain.' \
     AlertRuleList -s0 -f name,priority,levelStr,escalatingChain.name \
-    -- -k name -v priority,levelStr,escalatingChain.name -d
+    -- -k name -v priority,levelStr,escalatingChain.name -d "$min"
 
 section 'Recipient groups' 'Which recipient groups exist where.' \
-    RecipientGroupList -s0 -f groupName -- -k groupName "$full"
+    RecipientGroupList -s0 -f groupName -- -k groupName "$full" "$min"
 
 section 'Integrations' 'Which integrations exist where, and their type.' \
-    IntegrationList -s0 -f name,type -- -k name -v type "$full"
+    IntegrationList -s0 -f name,type -- -k name -v type "$full" "$min"
 
 # subtree_rows ELM-ARGS... : DeviceGroupList rows for the groups named in
 # DEVICE_GROUPS and everything under them. The ~ filter finds fullPaths
@@ -177,7 +177,7 @@ section 'Root group properties' 'Custom properties set on the root device group 
     -- -k customProperties.name -v customProperties.value "$full"
 
 section 'Collector groups' 'Which collector groups exist where.' \
-    CollectorGroupList -s0 -f name -- -k name "$full"
+    CollectorGroupList -s0 -f name -- -k name "$full" "$min"
 
 section 'Collector builds' 'Which collector builds are running where.' \
     CollectorList -s0 -f build -- -k build "$full"
@@ -194,7 +194,7 @@ echo 'Other LogicModules' >&2
 printf '\n## Other LogicModules\n\nEvery ConfigSource, EventSource, PropertySource, TopologySource and AppliesTo function, by checksum: only the ones that differ.\n\n'
 for c in ConfigSourceList EventSourceList PropertyRulesList TopologySourceList AppliesToFunctionList; do
     elm -p "$profiles" -f jsonl "$c" -s0 -f name,checksum | jq -c --arg t "$c" '{type: $t} + .'
-done | table -k type,name -v checksum -d
+done | table -k type,name -v checksum -d "$min"
 
 exec 1>&3 3>&-
 printf '\n## Contents\n\n'

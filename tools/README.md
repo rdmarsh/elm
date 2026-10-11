@@ -544,7 +544,10 @@ done < critical.txt | tools/portal-matrix.py -k name -v checksum -m
   many were left out. `--min N` raises the bar to N portals.
 - `-o a,b,c` puts the columns in that order of profiles, whichever `-c`
   heads them. Without it they come in the order the portals first appear,
-  which can differ from table to table when a portal is missing a row.
+  which can differ from table to table when a portal is missing a row. A
+  listed portal that sent no rows still gets a column (every row missing
+  there), headed by its profile name. Without `-o`, input from only one
+  portal is refused, since there is nothing to compare it with.
 - Markdown (GitHub Flavored) by default; `--csv` for a spreadsheet.
 - `--tick`, `--cross` and `--missing` change the marks, e.g.
   `--tick :true: --cross :false:` for a wiki that renders those. In a terminal
@@ -579,6 +582,10 @@ DEVICE_GROUPS='Standards,Templates' \
   directory, so an unquoted `~admin` errors or becomes a path. The script
   refuses an entry that has already become a path.
 - `FULL=1` shows the smaller areas in full, with a `same` column.
+- Users, roles, alerting, integrations, collector groups and LogicModules
+  that only one portal has (a customer's own) are left out, counted per
+  portal under each table. `MIN=1` shows them; `MIN=3` keeps only what at
+  least three portals have.
 - `MATRIX_OPTS` is passed to every `portal-matrix.py`, e.g.
   `'-c account_name --tick :true: --cross :false:'` for a wiki.
 - Progress and each table's summary go to stderr.
