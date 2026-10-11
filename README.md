@@ -4,7 +4,9 @@
 
 [![Dependency Review](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/dependency-review.yml)
 [![Makefile CI](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/makefile.yml)
+[![Check Markdown links](https://github.com/rdmarsh/elm/actions/workflows/markdown-link-check.yml/badge.svg)](https://github.com/rdmarsh/elm/actions/workflows/markdown-link-check.yml)
 
+[![Latest version](https://img.shields.io/github/v/tag/rdmarsh/elm?sort=semver&label=version)](CHANGELOG.md)
 ![GitHub last commit](https://img.shields.io/github/last-commit/rdmarsh/elm)
 ![GitHub](https://img.shields.io/github/license/rdmarsh/elm)
 ![OSS Lifecycle](https://img.shields.io/osslifecycle/rdmarsh/elm)
