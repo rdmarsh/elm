@@ -67,11 +67,12 @@ command/path context lines, then `raise click.Abort()` if
 **Verify:** `make && make testbasic` (offline). Then one live call:
 `_dist/elm/elm MetricsUsage` must still return data.
 
-## [ ] 4. Make CI actually build and test
+## [x] 4. Make CI actually build and test
 
-*4a and 4b done 2026-10-11 (`9aa7635`): `makefile.yml` runs `make` and
-`make testoffline` on ubuntu-latest with Python 3.14; first run green. Still to
-do: the red check below (break a template on a PR, see it fail).*
+*Done 2026-10-11 (`9aa7635`): `makefile.yml` runs `make` and `make
+testoffline` on ubuntu-latest with Python 3.14; green on main. Red check: PR #57
+added a Python syntax error to `_jnja/elm.py.j2` and the build step failed
+(closed unmerged, branch deleted). More platforms: see todo.md.*
 
 **Problem:** `.github/workflows/makefile.yml` never renders the templates,
 never builds the binary, and never runs any test — it only exercises helper
