@@ -54,3 +54,7 @@ line. Push with:
 Every release is tagged on GitHub. Ask whether to tag; if yes,
 `git tag vX.Y.Z` on the release commit and push it with
 `git push https://github.com/rdmarsh/elm.git vX.Y.Z`. Never move a pushed tag.
+
+Tags only: no GitHub Releases. The old ones (to v1.11.0) were deleted on
+2026-10-11 because the repo page showed v1.11.0 as latest; the notes are in
+`CHANGELOG.md`.
