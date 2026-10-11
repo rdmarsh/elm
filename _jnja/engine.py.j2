@@ -218,9 +218,19 @@ def fetch(elm, flags, resourcePath, queryParams, access_id, access_key, account_
             raise click.Abort()
         return None
 
-    #obj = response.content
-    obj = response.json()
-    #obj = response.content.decode('utf-8')
+    #a 200 that is not JSON: a proxy's interception page, an LM maintenance page
+    try:
+        obj = response.json()
+    except ValueError:
+        click.secho('Error: response was not JSON', fg='red', err=True)
+        if profile:
+            click.secho(f'Profile: {profile}', fg='red', err=True)
+        click.secho(f'Command: {elm.command}', fg='red', err=True)
+        click.secho(f'Path: {elm.path}', fg='red', err=True)
+        click.secho(f'Content-Type: {response.headers.get("Content-Type", "none")}', fg='red', err=True)
+        if elm.halt_on_api_error:
+            raise click.Abort()
+        return None
 
     #not every endpoint returns the usual {total, items, ...} envelope
     if isinstance(obj, list):

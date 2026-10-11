@@ -46,7 +46,9 @@ Done 2026-07 in commit `ef7f886`. `_jnja/engine.py.j2` now passes
 `timeout=(10, 120)` to `requests.get(...)`. See CHANGELOG `[1.8.10]` →
 Fixed. (This item was left marked `[ ]` by mistake; corrected 2026-08-16.)
 
-## [ ] 3. Guard `response.json()` against non-JSON responses
+## [x] 3. Guard `response.json()` against non-JSON responses
+
+Done 2026-10-11. See CHANGELOG `[Unreleased]` → Fixed; the item as written follows.
 
 **Problem:** in `_jnja/engine.py.j2`, right after the `try/except` block for
 the request, the line `obj = response.json()` is unguarded. A 200 response

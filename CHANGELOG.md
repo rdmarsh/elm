@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A reply that is not JSON (a proxy's interception page, an LM maintenance page, sent with status 200) prints `Error: response was not JSON` with the command, path and Content-Type, and stops or carries on per `--halt-on-api-error` like any other failed request, instead of a Python traceback.
+
 ## [1.14.0] - 2026-10-11
 
 ### Added
