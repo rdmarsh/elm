@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - `tools/elm-compare-portals.sh`: LogicModule cells (critical datasources and other LogicModules) show the module's version as a date and the first 6 characters of its checksum, e.g. `2023-04-04 e3996a`, instead of the 32-character checksum alone. The checksum said a copy differed but not which was newest; the latest date is the newest, and the same date with another checksum is a local edit.
+- `tools/elm-compare-portals.sh`: each critical datasource also has an `appliesTo` row, the part most often changed on one portal, so a different checksum can be told apart from a different AppliesTo at a glance.
 
 ## [1.13.0] - 2026-10-11
 

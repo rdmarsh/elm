@@ -189,11 +189,13 @@ module='{module: ((if .version then (.version | if . > 99999999999 then ./1000 e
 
 if [ -n "$names" ]; then
     echo 'Critical datasources' >&2
-    printf '\n## Critical datasources\n\nEach datasource in %s: its version date and checksum.\n\n' "$(basename "$names")"
+    printf '\n## Critical datasources\n\nEach datasource in %s: its version date and checksum, and its AppliesTo (the part most often changed on one portal), each a row.\n\n' "$(basename "$names")"
     found=$(mktemp)
     while read -r ds; do
-        [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,version,checksum
-    done < "$names" | tee "$found" | jq -c "del(.version, .checksum) + ($module)" | table -k name -v module "$full"
+        [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,version,checksum,appliesTo
+    done < "$names" | tee "$found" \
+        | jq -c "del(.version, .checksum, .appliesTo) as \$row | (\$row + {field: \"version\", value: ($module).module}), (\$row + {field: \"appliesTo\", value: .appliesTo})" \
+        | table -k name,field -v value "$full"
     # a name no portal has (a typo, or not the exact name) would otherwise just be absent
     unknown=$(while read -r ds; do
         [ -n "$ds" ] && ! jq -e --arg n "$ds" 'select(.name == $n)' "$found" >/dev/null && printf '%s,' "$ds"

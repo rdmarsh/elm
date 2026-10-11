@@ -576,8 +576,9 @@ DEVICE_GROUPS='Standards,Templates' \
 - LogicModule cells show the version as a date (the latest is the newest copy)
   and the checksum's first 6 characters: the same date with another checksum
   is a local edit.
-- `critical.txt` (optional) lists datasource names to compare by checksum, one
-  per line; [examples/comparing-portals.md](../examples/comparing-portals.md)
+- `critical.txt` (optional) lists datasource names to compare, one per line:
+  two rows each, the version (date and checksum) and the AppliesTo, the part
+  most often changed on one portal; [examples/comparing-portals.md](../examples/comparing-portals.md)
   shows how to rank them from `PortalInfo`.
 - `DEVICE_GROUPS` names the top-level device groups to compare,
   comma-separated (each with everything under it): the groups themselves and
