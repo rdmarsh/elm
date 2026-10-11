@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-10-11
+
 ### Added
 
 - `make testoffline` runs every test that needs no credentials: `testdocs`, `testallow`, `testmulti` and the new `testbasicoffline`, which is `testbasic` without the lines that send a request (`-f api`, `curl`, `wget`, `sqlite`). It passes with dummy credentials and with the network cut off, so it can run in CI. `testbasic` runs it and then the six request lines, so it checks the same things as before, with each check written once.
+
+### Changed
+
+- CI (`Makefile CI`) builds the binary on Ubuntu 24.04 with Python 3.14 and runs `make testoffline` on every push and pull request. Before, it ran only helper targets, so a broken template still passed.
 
 ### Fixed
 
@@ -733,7 +739,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.14.1...HEAD
+[1.14.1]: https://github.com/rdmarsh/elm/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/rdmarsh/elm/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/rdmarsh/elm/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/rdmarsh/elm/compare/v1.11.0...v1.12.0
