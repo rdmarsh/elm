@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - `make` checks the Python version before building, and stops with the command to use instead: below 3.10 (the oldest that `truststore` and `requests` accept), or above the newest tested, which is 3.14 for now. On 3.15 the build used to fail deep inside pip compiling pandas (`metadata-generation-failed`), because pandas 2.3 has no 3.15 wheels. `PYTHON_UNTESTED=1` tries a newer one anyway. Once `venv/` exists, its Python is the one checked. `setup.py` now says `>=3.10` (it said `>=3.9`, which the pins never supported).
+- `ai.md` is half the size (about 9.6k characters, down from 19.7k): repeated points merged, every distinct rule kept.
 
 ### Fixed
 
