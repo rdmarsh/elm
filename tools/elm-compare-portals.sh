@@ -185,9 +185,16 @@ section 'Collector builds' 'Which collector builds are running where.' \
 if [ -n "$names" ]; then
     echo 'Critical datasources' >&2
     printf '\n## Critical datasources\n\nChecksum of each datasource in %s.\n\n' "$(basename "$names")"
+    found=$(mktemp)
     while read -r ds; do
         [ -n "$ds" ] && elm -p "$profiles" -f jsonl DatasourceList -F "name:$ds" -f name,checksum
-    done < "$names" | table -k name -v checksum "$full"
+    done < "$names" | tee "$found" | table -k name -v checksum "$full"
+    # a name no portal has (a typo, or not the exact name) would otherwise just be absent
+    unknown=$(while read -r ds; do
+        [ -n "$ds" ] && ! jq -e --arg n "$ds" 'select(.name == $n)' "$found" >/dev/null && printf '%s,' "$ds"
+    done < "$names")
+    [ -n "$unknown" ] && printf '\n_Not found on any portal (check the exact name): %s._\n' "$(and_list '' "$unknown")"
+    rm -f "$found"
 fi
 
 echo 'Other LogicModules' >&2
