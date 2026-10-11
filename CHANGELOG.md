@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `tools/report-pdf.sh` keeps the HTML beside the PDF: one self-contained file, styles and logo inside, that opens in any browser.
 - `tools/elm-compare-portals.sh`: a Hardcoded devices section lists every module and device group whose AppliesTo picks devices by `system.deviceId`, and every module that picks them by `system.hostname`, `system.displayname` or `system.ips` with `==`, with the values on each portal. An id is one device on one portal and a name stops matching when the device is renamed; `examples/comparing-portals.md` shows how to find them with elm alone and what to use instead. Commented-out text, a disabled AppliesTo and groups by name (maintenance windows) are not counted.
 - `tools/elm-compare-portals.sh`: a Summary table at the top, in place of the Contents list: each section, linked (with its page number in the PDF), and its result in short ("12 of 40 differ", "9 found").
 - `tools/elm-compare-portals.sh`: SysOID maps (the categories each SNMP sysOID gives a device), and DiagnosticSources, RemediationSources, JobMonitors and LogSources among the other LogicModules.

@@ -616,12 +616,14 @@ DEVICE_GROUPS='Standards,Templates' \
 
 `tools/report-pdf.sh FILE.md [OUT.pdf]` turns any Markdown page into a PDF:
 pandoc to HTML, weasyprint to PDF, styled by `tools/report.css` (A4 landscape,
-small font, header rows repeated on each page, page numbers, a Contents list
-with page numbers and clickable links, headings as bookmarks).
+small font, header rows repeated on each page, page numbers, the Summary
+with page numbers and clickable links, headings as bookmarks). It keeps the
+HTML beside the PDF: one self-contained file, styles and logo inside, that
+opens in any browser.
 
 ```shell
 brew install pandoc weasyprint
-tools/report-pdf.sh differences.md                                  # differences.pdf
+tools/report-pdf.sh differences.md                                  # differences.pdf and .html
 LOGO=~/.config/logicmonitor/logo.png tools/report-pdf.sh differences.md   # your logo on every page
 ```
 

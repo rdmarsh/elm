@@ -4,6 +4,9 @@
 # Usage:
 #   tools/report-pdf.sh FILE.md [OUT.pdf]      (OUT defaults to FILE.pdf)
 #
+# Writes OUT.pdf, and OUT.html beside it: one self-contained file (styles and
+# logo inside) that opens in any browser, for sharing or a wiki.
+#
 # Markdown -> HTML (pandoc) -> PDF (weasyprint), styled by report.css: A4
 # landscape for wide tables, a small font, header rows repeated on each page,
 # page numbers. Made for elm-compare-portals.sh's page, but any Markdown works:
@@ -16,7 +19,7 @@
 #
 # Needs pandoc and weasyprint (macOS: brew install pandoc weasyprint). Without
 # weasyprint it still writes the HTML: open that in a browser and print it to
-# PDF, which applies the same styles.
+# PDF, which applies the same styles (without the Summary's page numbers).
 
 set -eu
 md=${1:?usage: $0 FILE.md [OUT.pdf]}
@@ -46,8 +49,8 @@ pandoc "$md" -s --embed-resources -c "$css" --metadata pagetitle="${title:-Repor
 if command -v weasyprint >/dev/null; then
     # weasyprint warns about pandoc's screen-only styles and font subsetting; not useful here
     weasyprint "$html" "$pdf" 2>/dev/null
-    rm -f "$html"
     echo "$pdf" >&2
+    echo "$html" >&2
 else
     echo "report-pdf: weasyprint not found (brew install weasyprint); wrote $html -- open it in a browser and print to PDF" >&2
     exit 1

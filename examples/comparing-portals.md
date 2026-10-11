@@ -516,7 +516,7 @@ PDF:
 brew install pandoc weasyprint          # macOS; on Linux, your package manager
 
 tools/elm-compare-portals.sh prod,preprod,test critical.txt > differences.md
-tools/report-pdf.sh differences.md                  # writes differences.pdf
+tools/report-pdf.sh differences.md                  # writes differences.pdf and differences.html
 tools/report-pdf.sh differences.md report.pdf       # or name it
 LOGO=~/.config/logicmonitor/logo.png tools/report-pdf.sh differences.md   # with a logo
 ```
