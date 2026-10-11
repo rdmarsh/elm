@@ -543,7 +543,7 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             table = re.sub(r'(?<!^)(?=[A-Z])', '_', command).lower()
             # serialize any nested dict/list values to JSON strings for SQLite storage
             df = df.map(lambda v: json.dumps(v) if isinstance(v, (dict, list)) else v)
-            df.insert(0, 'fetched_at', datetime.datetime.utcnow().isoformat(timespec='seconds') + 'Z')
+            df.insert(0, 'fetched_at', datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'))
             conn = sqlite3.connect(filename)
             df.to_sql(table, conn, if_exists='append', index=False)
             conn.close()

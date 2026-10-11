@@ -241,7 +241,9 @@ files` section of `.gitignore`. Verified with `git check-ignore -v`: both
 directories (and `_dist/elm/elm`) now match the new explicit rules rather than
 the incidental bare `elm` pattern, and no tracked files live under either path.
 
-## [ ] 9. Replace deprecated `datetime.utcnow()`
+## [x] 9. Replace deprecated `datetime.utcnow()`
+
+Done 2026-10-11. See CHANGELOG `[Unreleased]` → Fixed; the item as written follows.
 
 **Problem:** the sqlite branch of `output()` in `_jnja/engine.py.j2` uses
 `datetime.datetime.utcnow()`, deprecated since Python 3.12.
