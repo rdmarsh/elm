@@ -144,7 +144,9 @@ and `make` never touches the network, so CI needs no outbound access to build.
 That removes a whole class of flakiness this item would otherwise have
 inherited.
 
-**4b. Add a `testbasicoffline` target and call it from CI.** Split the LM-free
+**4b. Add a `testbasicoffline` target and call it from CI.** *Target done
+2026-10-11, not yet called from CI: `make testoffline` runs it with `testdocs`,
+`testallow` and `testmulti`; use that in the workflow.* Split the LM-free
 assertions of `testbasic` into a new `make testbasicoffline` target: the first
 block (help / `--version` / `--list` / `--ai` / `--profile` strip / `--list`
 marks `* config`) plus the trailing `$(TSTTARGETS)` `<cmd> --help` loop —

@@ -46,7 +46,9 @@ in the template instead.
     make render     Generate _cmds/ from _jnja/ templates
     make install    Build binary via PyInstaller into _dist/
     make clean      Remove all generated files
-    make test       Quick offline tests
+    make test       Quick tests (several connect to LM)
+    make testoffline
+                    Every test that needs no credentials (dummy ones will do)
     make testbasic  Test CLI flags (mostly offline; the -f api/curl/wget/sqlite
                     assertions send a real request and need the live config profile)
     make testverb   Test verbose flags (requires LM connection)
@@ -92,7 +94,11 @@ PyInstaller binary (_dist/elm/elm):
   testid, testH/I, testhead/foot) need live credentials and the default
   `config` profile.
 
-Run `make test` for the quick suite; `make testlong` for the slow ones.
+Run `make test` for the quick suite; `make testlong` for the slow ones;
+`make testoffline` for everything that sends no request (`testdocs`,
+`testbasicoffline` = `testbasic` minus the request lines, `testallow`,
+`testmulti`): passes with dummy credentials and with the network cut off
+(checked 2026-10-11).
 
 
 ## Runtime

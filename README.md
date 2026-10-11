@@ -122,6 +122,7 @@ verification. This does not affect Linux.
 You can also run tests:
 
 ```shell
+make testoffline  # needs no credentials
 make testbasic
 make testverb  # requires LM connection
 ```

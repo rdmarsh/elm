@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `make testoffline` runs every test that needs no credentials: `testdocs`, `testallow`, `testmulti` and the new `testbasicoffline`, which is `testbasic` without the lines that send a request (`-f api`, `curl`, `wget`, `sqlite`). It passes with dummy credentials and with the network cut off, so it can run in CI. `testbasic` is unchanged.
+
 ### Fixed
 
 - A reply that is not JSON (a proxy's interception page, an LM maintenance page, sent with status 200) prints `Error: response was not JSON` with the command, path and Content-Type, and stops or carries on per `--halt-on-api-error` like any other failed request, instead of a Python traceback.

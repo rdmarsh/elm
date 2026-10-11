@@ -558,6 +558,40 @@ testbasic: ## Test basic flags
 		)
 	@echo "$(OK_STRING) $@"
 
+# testbasic without the lines that send a request (-f api/curl/wget/sqlite):
+# needs only a default config profile, dummy credentials will do
+.PHONY: testbasicoffline
+testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
+	@echo testing: $(testbin) ; $(testbin) >/dev/null
+	@echo testing: $(testbin) --help ; $(testbin) --help >/dev/null
+	@echo testing: $(testbin) -h ; $(testbin) -h >/dev/null
+	@echo testing: $(testbin) --version ; $(testbin) --version >/dev/null
+	@echo testing: $(testbin) -V ; $(testbin) -V >/dev/null
+	@echo testing: $(testbin) --help includes --profile ; $(testbin) --help | grep -q -- '--profile'
+	@echo testing: --profile foo.ini strips .ini extension ; $(testbin) --profile __elm_test__.ini DeviceList 2>&1 | grep -qE 'Config file:.*__elm_test__\.ini$$'
+	@echo testing: $(testbin) --list ; $(testbin) --list >/dev/null
+	@echo testing: $(testbin) -l ; $(testbin) -l >/dev/null
+	@echo testing: --list marks default profile active ; $(testbin) --list | grep -q '^\* config'
+	@echo testing: --help includes --list ; $(testbin) --help | grep -q -- '--list'
+	@echo testing: $(testbin) --ai ; $(testbin) --ai >/dev/null
+	@echo testing: --ai output includes elm-notes.yaml ; $(testbin) --ai | grep -q 'elm-notes.yaml'
+	@echo testing: --help includes --ai ; $(testbin) --help | grep -q -- '--ai'
+	@echo testing: command flag before command gets a hint ; $(testbin) -c DeviceList 2>&1 | grep -q 'Hint: -c is a command option: put it after'
+	@echo testing: -s before command hints at --size ; $(testbin) -s 5 DeviceList 2>&1 | grep -q 'for --size put it after'
+	@echo testing: -f before command hints at --fields ; $(testbin) -f id DeviceList 2>&1 | grep -q 'for --fields put it after'
+	@echo testing: global flag after command gets a hint ; $(testbin) DeviceList -H 2>&1 | grep -q 'Hint: -H is a global option: put it before'
+	@echo testing: -o after command hints at --filename ; $(testbin) DeviceList -o out.csv 2>&1 | grep -q 'for --filename put it before'
+	@echo testing: format name as --fields gets a hint ; $(testbin) DeviceList -f csv 2>&1 | grep -q 'for --format put it before'
+	@echo testing: --info shows path, notes and fields ; $(testbin) AlertList --info | grep -q '^GET /alert/alerts' && $(testbin) AlertList --info | grep -q '^Notes' && $(testbin) AlertList --info | grep -q '^  severity: integer'
+	@echo testing: --info needs no id for a command that requires one ; $(testbin) DeviceDatasourceList --info | grep -q -- '--deviceId integer (required)'
+	@echo testing: --info and --help need no credentials ; h=$$(mktemp -d) && HOME=$$h $(testbin) AlertList --info | grep -q '^GET ' && HOME=$$h $(testbin) AlertList --help | grep -q 'Usage:' ; rc=$$? ; rm -rf $$h ; exit $$rc
+	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
+	@echo "$(OK_STRING) $@"
+
+.PHONY: testoffline
+testoffline: testdocs testbasicoffline testallow testmulti ## Run every test that needs no credentials
+	@echo "$(OK_STRING) $@"
+
 .PHONY: testtext
 testtext: testH testI testHI testhead testfoot testheadfoot ## Test commands that alter columns, indices, header and footer
 	@echo "$(OK_STRING) $@"
