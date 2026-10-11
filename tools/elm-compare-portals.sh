@@ -306,7 +306,9 @@ for c in DatasourceList:DataSource $types; do
     list=${c%%:*} rest=${c#*:}
     [ "$list" = AppliesToFunctionList ] && continue        # no isInUse
     elm -p "$profiles" -f jsonl "$list" -F isInUse:false -C 2>/dev/null | jq -c --arg t "${rest%%:*}" '{type: $t} + .'
-done | { say='Counts per type, per portal'; table -k type -v total; }
+done | jq -sc '[group_by(.type)[] | select(all(.total == 0)) | .[0].type] as $none
+        | .[] | select(.type as $t | $none | index($t) | not)' \
+     | { say='Counts per type, per portal'; table -k type -v total; }       # a type no portal has any of is left out
 
 heading 'Stale API tokens' "Active API tokens not used in the last $days days, or never (STALE_DAYS changes it). Each one still works: revoke the ones nobody needs."
 elm -p "$profiles" -f jsonl ApiTokenList -s0 -f adminName,accessId,status,createdOn,lastUsedOn,note 2>/dev/null \
