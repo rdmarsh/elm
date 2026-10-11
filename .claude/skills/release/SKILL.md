@@ -51,7 +51,8 @@ line. Push with:
 
 ## 5. Tag (ask first)
 
-Tags have not been kept consistently: the remote has tags up to v1.9.0, and
-there are local tags up to v1.11.0. Ask whether to tag; if yes,
+Tags have not been kept consistently: the remote has v1.9.0 and older, then
+v1.14.0; v1.10.0 and v1.11.0 are local only, and v1.12.0 and v1.13.0 were
+never tagged. Ask whether to tag; if yes,
 `git tag vX.Y.Z` on the release commit and push it with
 `git push https://github.com/rdmarsh/elm.git vX.Y.Z`.
