@@ -3,8 +3,6 @@ layout: default
 title: "Introducing elm: LogicMonitor data, one command away"
 ---
 
-# Introducing elm: LogicMonitor data, one command away
-
 *12 October 2026*
 
 If you run LogicMonitor, you have probably had a question like this land on
