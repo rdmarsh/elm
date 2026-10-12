@@ -916,6 +916,7 @@ By participating, you agree to abide by its terms. See
 
 - Repository: https://github.com/rdmarsh/elm
 - Issue Tracker: https://github.com/rdmarsh/elm/issues
+- Blog post: [Introducing elm](_posts/2026-10-12-introducing-elm.md)
 - Security Vulnerabilities: [SECURITY.md](SECURITY.md)
 - Related projects and pages:
     - https://www.logicmonitor.com  
