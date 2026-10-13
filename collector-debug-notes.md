@@ -204,12 +204,14 @@ holds. That signature gate is almost certainly why the command is flagged
 "internal use only" in the `help` list — there's no way to construct a
 `scriptBody` that passes verification without LM's private signing key, so
 this is LM's own mechanism for pushing signed healthcheck scripts to
-collectors, not a customer-facing diagnostic. Not independently tried against
-a live collector (no way to produce a valid `signature`/`keyID`), but the
-help text alone is enough to explain the earlier `[object Object]` failures
-seen when calling it bare or with `help` as a positional arg — those weren't
+collectors, not a customer-facing diagnostic. The earlier `[object Object]`
+failures seen when calling it bare or with `help` as a positional arg weren't
 signature failures, just malformed-JSON-argument failures, and the console UI
 renders the resulting exception as an unstringified object instead of text.
+Sending the help example verbatim (well-formed JSON, every field empty) is
+accepted and prints `returns null` with empty output (tried live 2026-10-13).
+That doesn't show whether the signature is checked — an empty script would
+return nothing either way — and a valid signed payload has not been tried.
 
 **If you actually want to run your own healthcheck-style script against a
 collector, use `!groovy` instead** (path to a script, absolute or relative to
