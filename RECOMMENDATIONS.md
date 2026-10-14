@@ -210,7 +210,12 @@ Done 2026-08-16. `git mv .github/workflows/action.yml
 confirm after the next push:** that the "Check Markdown links" workflow
 actually runs from its new filename.
 
-## [ ] 7. Add a scheduled pip-audit workflow
+## [x] 7. Add a scheduled pip-audit workflow
+
+Done 2026-10-14. As written, but with `checkout@v5`, `setup-python@v6` (3.14)
+and `ubuntu-24.04` to match the other workflows. A local `pip-audit -r
+requirements.txt` found no known vulnerabilities on the same day. The item as
+written follows.
 
 **Problem:** `dependency-review.yml` only runs on pull requests, so a
 vulnerability published for an *already-pinned* dependency never triggers

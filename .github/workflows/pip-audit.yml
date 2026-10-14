@@ -1,0 +1,29 @@
+name: pip-audit
+
+# dependency-review.yml only runs on pull requests, so a vulnerability
+# published later for an already-pinned dependency would never alert. This
+# checks requirements.txt weekly; a finding fails the job, which is the alert.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:        # allow manual runs
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install pip-audit
+        run: python3 -m pip install pip-audit
+
+      - name: Audit pinned requirements
+        run: python3 -m pip_audit -r requirements.txt

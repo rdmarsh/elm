@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- A weekly `pip-audit` workflow (Mondays 06:00 UTC, or run by hand) checks `requirements.txt` for known vulnerabilities and fails if it finds one. `dependency-review.yml` only runs on pull requests, so before, a vulnerability published for a dependency that was already pinned never raised an alert.
+
 ## [1.14.1] - 2026-10-11
 
 ### Added
