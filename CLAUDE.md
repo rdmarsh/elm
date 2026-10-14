@@ -1,13 +1,5 @@
 # elm - CLAUDE.md
 
-## What this project is
-
-elm is a CLI tool that queries the LogicMonitor REST API and outputs
-data in multiple formats: CSV, JSON, HTML, Markdown, XML, LaTeX, RST,
-tab, jira, raw, txt, and api. It uses Click for the CLI framework and
-pandas for output formatting.
-
-
 ## CRITICAL: Code generation architecture
 
 Do not edit generated files directly.
@@ -74,8 +66,7 @@ on Linux additionally needs `binutils` and a shared `libpython`).
 
 ## Testing
 
-There is no pytest/unittest suite — ignore the generic pytest guidance in the
-parent ../CLAUDE.md. Tests are Makefile-driven and run against the built
+There is no pytest/unittest suite. Tests are Makefile-driven and run against the built
 PyInstaller binary (_dist/elm/elm):
 
 - `make testbasic` is mostly offline — CLI flags, help/version, `--list`,
@@ -202,8 +193,6 @@ Environment notes:
   Makefile; checks `venv/bin/python3` once the venv exists). 3.15 is out until
   pandas 3 (see todo.md): pandas 2.3 has no 3.15 wheels. Raise `PYTHON_MAX`
   only after a clean build and `make test` pass on the new version.
-- `setup.py` ships the generated top-level modules via
-  `py_modules=['elm', 'engine', '_version']` (not `find_packages()`).
 
 Resolved (kept here so the history is not re-investigated):
 - `make swagger` blocked by a Cloudflare bot challenge (found 2026-08-16,
@@ -214,15 +203,6 @@ Resolved (kept here so the history is not re-investigated):
   the normal path again; do not re-investigate unless it actually fails. If it
   ever comes back, `make swaggerfile FILE=<browser-saved file>` is the
   fallback and needs no network.
-- Slow startup — fixed in v1.8.0 via LazyGroup + deferred heavy imports
-  (`--version` now loads in ~0.2s).
-- `make -n` infinite recursion / duplicated build from a recursive
-  `$(MAKE)` in the `_defs/commands.json` recipe — fixed; the build now
-  calls explicit sub-targets (`$(MAKE) _render _build`).
-- Query params are a dict passed as `requests.get(..., params=...)` in
-  `_jnja/engine.py.j2`, so each value is percent-encoded (`&`, `+`, `#` in a
-  filter stay one value). Hand-concatenated until 2026-10-11, when `-F
-  'displayName~R&D'` got a 400; checked live that results are unchanged.
 
 Removed:
 - `-x` / `--export` (export a query as a standalone script) was a
@@ -238,35 +218,6 @@ Deferred work lives in `todo.md`. Agreed follow-ups from the 2026-07 audit
 live in `RECOMMENDATIONS.md` — work items are written there in full so any
 assistant can execute them; do them in order, one at a time.
 
-
-## AI-facing docs: keep them small
-
-Three files are written for AI assistants as much as for people, and cost
-tokens every time they are read:
-
-- `elm-knowledge.md` -- read in full before every question (tools/elm-ask
-  sends it with each one). Rules that hold across commands only.
-- `elm-notes.yaml` -- one command's entry is shown by `elm COMMAND --info`
-  each time that command is looked up.
-- `elm --ai` (in `_jnja/elm.py.j2`) -- read at the start of a session.
-
-Bigger is not safer. A long file costs more per question, and it collects
-contradictions and stale claims that nobody re-reads (a "verified live"
-severity mapping here was backwards for months). Before adding:
-
-1. One home per fact. About one command -> its `elm-notes.yaml` entry. Holds
-   across commands -> `elm-knowledge.md`. A recipe or background ->
-   `examples/`. Never the same fact in two of them.
-2. Don't repeat the swagger. `--info` already lists every field with its
-   documented description; add a note only where testing shows something
-   different or missing.
-3. Say how it was verified and when, in a few words. If it wasn't verified,
-   say so, or leave it out.
-4. Fix or delete what is wrong; don't add a correction next to it.
-5. Stay within budget. `make testdocs` fails if `elm-knowledge.md` passes
-   8,000 characters or any command's `--info` passes 16,000, and the build
-   fails on a duplicate key in `elm-notes.yaml`. Trim before raising a budget
-   (budgets are in `mkinfo.py`).
 
 ## Do not
 
