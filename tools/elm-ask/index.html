@@ -266,7 +266,7 @@ function tableMarkdown(t) {
 }
 
 function answerMarkdown(a) {
-  const when = health ? ` · ${health.profile} · ${health.model}` : "";
+  const when = health ? ` · ${health.profile} · ${a.model || health.model}` : "";
   return [`# ${a.question}`, "",
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
@@ -277,12 +277,18 @@ function answerMarkdown(a) {
   ].filter(x => x !== null).join("\n");
 }
 
-form.addEventListener("submit", async e => {
+form.addEventListener("submit", e => {
   e.preventDefault();
   const question = input.value.trim();
-  if (!question) return;
+  if (question) ask(question, 0);
+});
+
+// harder > 0 asks the last question again on a dearer model (see agent.py).
+async function ask(question, harder) {
   document.body.classList.add("has-results");
   input.value = ""; go.disabled = true;
+  // Only the newest answer can be retried: the server forgets the one it replaces.
+  document.querySelectorAll(".harder").forEach(b => b.remove());
 
   const turn = document.createElement("section");
   turn.className = "turn";
@@ -290,6 +296,7 @@ form.addEventListener("submit", async e => {
       <span class="actions">
         <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
         <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown" hidden>${ICON.md}Markdown</button>
+        <button class="secondary harder" type="button" title="Ask again on a more capable model" hidden></button>
       </span></div>
     <div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
     <div class="tables"></div><div class="answer"></div>
@@ -307,6 +314,7 @@ form.addEventListener("submit", async e => {
   const handle = ev => {
     switch (ev.type) {
       case "conversation": conversationId = ev.id; break;
+      case "model": md.model = ev.id; more = ev.more; break;
       case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;
       case "step":
         steps.hidden = false;
@@ -323,12 +331,22 @@ form.addEventListener("submit", async e => {
         md.answer = ev.markdown;
         $(".answer", turn).innerHTML = markdown(ev.markdown);
         $(".md-toggle", turn).hidden = false;
+        if (more || harder) {   // a harder model left, or a note that there is none
+          const b = $(".harder", turn);
+          if (b) { b.hidden = false; b.disabled = !more;
+                   b.textContent = !more ? "That's my best" : harder ? "Try even harder" : "Try harder"; }
+        }
         break;
       case "error": $(".answer", turn).insertAdjacentHTML("beforeend", `<p class="error">${esc(ev.text)}</p>`); break;
     }
   };
 
-  const md = { question, answer: "", tables: [], steps: [] };
+  const md = { question, answer: "", tables: [], steps: [], model: "" };
+  let more = false;
+  $(".harder", turn).addEventListener("click", () => {
+    if (harder && !confirm("Costs more tokens. Sure?")) return;
+    ask(question, harder + 1);
+  });
   const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
   $(".md-toggle", turn).addEventListener("click", () => {
     view.hidden = !view.hidden;
@@ -352,7 +370,7 @@ form.addEventListener("submit", async e => {
     const resp = await fetch("/api/ask", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        question, conversation_id: conversationId,
+        question, harder, conversation_id: conversationId,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,     // e.g. Australia/Sydney
         utc_offset_minutes: -new Date().getTimezoneOffset(),            // e.g. 600
       }),
@@ -374,9 +392,10 @@ form.addEventListener("submit", async e => {
     handle({ type: "error", text: `Request failed: ${err.message}` });
   } finally {
     $(".status", turn).remove();
+    if (md.model) $("summary", steps).textContent = `Queries run (${stepCount}) · ${md.model}`;
     go.disabled = false; input.focus();
   }
-});
+}
 </script>
 </body>
 </html>

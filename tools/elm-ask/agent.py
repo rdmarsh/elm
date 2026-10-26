@@ -10,10 +10,14 @@ import anthropic
 
 import elm_tools
 
-# The cheapest current model by default: these are lookup questions, not hard
-# reasoning, and every question costs money. ELM_ASK_MODEL picks another; the
+# A model line, not a model: each question goes to the newest model in the line,
+# looked up from the API, so a new release needs no edit here. Cheapest first;
+# "Try harder" on the page re-asks a question one line further along. The
+# cheapest by default: most questions are lookups, and every one costs money.
+# ELM_ASK_MODEL picks another line, or a full model id to stay on one model; the
 # question set in todo.md is how to tell whether a dearer one answers better.
-MODEL = os.environ.get("ELM_ASK_MODEL", "claude-haiku-4-5")
+LINES = ["haiku", "sonnet", "opus"]
+MODEL = os.environ.get("ELM_ASK_MODEL", "haiku")
 EFFORT = os.environ.get("ELM_ASK_EFFORT")          # low|medium|high|xhigh|max; unset = API default
 MAX_STEPS = int(os.environ.get("ELM_ASK_MAX_STEPS", "25"))
 HERE = Path(__file__).resolve().parent
@@ -30,37 +34,69 @@ def load_system_prompt():
 SYSTEM = [{"type": "text", "text": load_system_prompt(), "cache_control": {"type": "ephemeral"}}]
 
 
-_effort_unsupported = False
+_newest = {}   # line -> newest model id; a pinned model id -> its line
 
 
-def create(client, messages, emit):
+def newest(client, line):
+    """The newest model in a line that is not being retired, asked once per run.
+
+    The Models API gives each model its line (haiku, sonnet, ...).
+    """
+    if line not in _newest:
+        models = [m for m in client.models.list(limit=100) if getattr(m, "line", None) == line]
+        current = [m for m in models if not getattr(m, "deprecated_at", None)] or models
+        if not current:
+            raise ValueError(f"The Claude API offers no {line} model.")
+        _newest[line] = max(current, key=lambda m: m.created_at).id
+    return _newest[line]
+
+
+def pick_model(client, harder=0):
+    """(model id, whether a harder one is left) for a question asked `harder` times."""
+    if MODEL in LINES:
+        start = LINES.index(MODEL)
+    else:  # a pinned model id: harder starts at the line after its own
+        if MODEL not in _newest:
+            _newest[MODEL] = getattr(client.models.retrieve(MODEL), "line", None)
+        line = _newest[MODEL]
+        if not harder:
+            return MODEL, line in LINES[:-1]
+        start = LINES.index(line) if line in LINES else len(LINES) - 1
+    i = min(start + harder, len(LINES) - 1)
+    return newest(client, LINES[i]), i < len(LINES) - 1
+
+
+_effort_unsupported = set()
+
+
+def create(client, model, messages, emit):
     """One request to Claude, dropping effort if this model will not take it.
 
     Not every model accepts output_config.effort (Haiku 4.5 rejects it with a
     400). Rather than make the person match model to setting, ask once, and on
     that refusal drop it and carry on -- for the rest of this run, so it costs
-    one wasted request, not one per step.
+    one wasted request, not one per step. Haiku has no fallback model to hand a
+    declined request to, so only the others are sent `fallbacks`.
     """
-    global _effort_unsupported
-    extra = {} if (not EFFORT or _effort_unsupported) else {"output_config": {"effort": EFFORT}}
+    extra = {} if (not EFFORT or model in _effort_unsupported) else {"output_config": {"effort": EFFORT}}
+    if "haiku" not in model:
+        extra |= {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
     try:
         return client.beta.messages.create(
-            model=MODEL,
+            model=model,
             max_tokens=16000,
             system=SYSTEM,
             tools=elm_tools.TOOLS,
             messages=messages,
             cache_control={"type": "ephemeral"},
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
             **extra,
         )
     except anthropic.BadRequestError as exc:
-        if not extra or "effort" not in str(exc):
+        if "output_config" not in extra or "effort" not in str(exc):
             raise
-        _effort_unsupported = True
-        emit({"type": "status", "text": f"{MODEL} does not take an effort setting; continuing without it."})
-        return create(client, messages, emit)
+        _effort_unsupported.add(model)
+        emit({"type": "status", "text": f"{model} does not take an effort setting; continuing without it."})
+        return create(client, model, messages, emit)
 
 
 class Conversation:
@@ -68,6 +104,8 @@ class Conversation:
 
     def __init__(self):
         self.messages = []
+        self.question = None       # the last question, and where it starts in messages,
+        self.asked_at = 0          # so "Try harder" can ask it again from there
         self.session = elm_tools.Session()
         self.last_used = time.time()
 
@@ -85,12 +123,22 @@ def call_tool(conv, block):
         return {"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True}, event
 
 
-def ask(client, conv, question, emit, where=None):
+def ask(client, conv, question, emit, where=None, harder=0):
     """Answer one question, streaming progress events through emit(dict).
 
     `where` carries the reader's timezone from the browser, so answers can be in
-    the time they keep rather than UTC.
+    the time they keep rather than UTC. `harder` > 0 asks the last question
+    again on a dearer model, from before it was first asked, so the new model
+    starts fresh instead of building on the answer that was not good enough.
     """
+    if harder:
+        if conv.question is None:
+            return emit({"type": "error", "text": "Nothing to try harder on: ask the question again."})
+        del conv.messages[conv.asked_at:]
+        question = conv.question
+    conv.question, conv.asked_at = question, len(conv.messages)
+    model, more = pick_model(client, harder)
+    emit({"type": "model", "id": model, "harder": harder, "more": more})
     now = datetime.now(timezone.utc)
     conv.last_used = time.time()
     minutes = (where or {}).get("utc_offset_minutes") or 0
@@ -108,7 +156,7 @@ def ask(client, conv, question, emit, where=None):
     })
     for _ in range(MAX_STEPS):
         emit({"type": "status", "text": "Thinking..."})
-        response = create(client, conv.messages, emit)
+        response = create(client, model, conv.messages, emit)
         if response.stop_reason == "refusal":
             conv.messages.pop()
             emit({"type": "error", "text": "The model declined to answer this question."})

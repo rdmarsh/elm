@@ -105,12 +105,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(404, {"error": "not found"})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
-            question = str(body["question"]).strip()[:2000]
+            question = str(body.get("question") or "").strip()[:2000]
+            harder = max(0, min(int(body.get("harder") or 0), len(agent.LINES) - 1))
             where = {"timezone": str(body.get("timezone") or "")[:64],
                      "utc_offset_minutes": int(body.get("utc_offset_minutes") or 0)}
         except (ValueError, KeyError):
             return self.send_json(400, {"error": "expected JSON {question, conversation_id}"})
-        if not question:
+        if not question and not harder:
             return self.send_json(400, {"error": "empty question"})
 
         conv_id, conv = get_conversation(body.get("conversation_id"))
@@ -131,7 +132,7 @@ class Handler(BaseHTTPRequestHandler):
         if problem:
             return emit({"type": "error", "text": problem})
         try:
-            agent.ask(anthropic.Anthropic(), conv, question, emit, where)
+            agent.ask(anthropic.Anthropic(), conv, question, emit, where, harder)
         except anthropic.AuthenticationError:
             emit({"type": "error", "text": "The Claude API key is missing or invalid. Stop elm-ask, run run.sh --set-key, and start it again."})
         except anthropic.RateLimitError:

@@ -6,8 +6,9 @@
 #   run.sh --model NAME --effort medium --yes
 #
 # Options:
-#   --model, -m NAME     Claude model. Run without it to see the models offered
-#                        by number, with the default in [brackets].
+#   --model, -m NAME     Claude model line (haiku, sonnet, opus: the newest of
+#                        that line answers) or one exact model id. Run without
+#                        it to see the lines by number, default in [brackets].
 #   --effort, -e LEVEL   low | medium | high | xhigh | max (default: the API's)
 #   --profile, -p NAME   elm credential profile (default: ai)
 #   --port NUM           port on this machine (default: 8080)
@@ -19,9 +20,8 @@
 #   -h, --help           show this help
 #
 # Model and effort are the two dials that decide what a question costs. The
-# most capable model is the default and the dearest; a mid-tier one usually
-# answers these questions for a fraction of it; lower effort means less
-# thinking per step. Names and prices: https://www.anthropic.com/pricing
+# cheapest line is the default, and "Try harder" on the page re-asks one
+# question on the next line up; lower effort means less thinking per step. Names and prices: https://www.anthropic.com/pricing
 # Judge them on answers, not price: a cheaper model that needs three attempts
 # is not cheaper.
 #
@@ -36,7 +36,7 @@
 # Examples:
 #   run.sh                                   # prompts, then starts
 #   run.sh -y                                # image defaults, no questions
-#   run.sh -m claude-sonnet-5 -e medium -y   # cheaper model, less thinking
+#   run.sh -m sonnet -e medium -y            # dearer line, less thinking
 #   run.sh --profile ai-preprod --port 8081 -y
 #
 # Requires: docker
@@ -44,13 +44,14 @@
 set -euo pipefail
 
 IMAGE=elm-ask
-# Offered by number at the prompt, dearest first. Typing any other model name
-# works too, so this list only needs touching when you want a newly released
-# model offered by number. Prices: https://www.anthropic.com/pricing
+# Offered by number at the prompt, dearest first. Lines, not models: elm-ask
+# answers with the newest model in the line, so a new release needs no edit
+# here. An exact model id typed at the prompt stays on that model.
+# Prices: https://www.anthropic.com/pricing
 MODELS=(
-    "claude-opus-5|most capable, and the dearest"
-    "claude-sonnet-5|mid-tier: more careful on multi-step questions"
-    "claude-haiku-4-5|cheapest, and the default; takes no effort setting"
+    "opus|most capable, and the dearest"
+    "sonnet|mid-tier: more careful on multi-step questions"
+    "haiku|cheapest, and the default"
 )
 # The default the image would use, read from the code next to this script so the
 # two cannot drift apart.

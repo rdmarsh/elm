@@ -155,13 +155,13 @@ effort to use:
 export ANTHROPIC_API_KEY=...        # once per terminal, or see below
 tools/elm-ask/run.sh                # asks, then starts
 tools/elm-ask/run.sh -y             # no questions, image defaults
-tools/elm-ask/run.sh -m claude-sonnet-5 -e medium -y
+tools/elm-ask/run.sh -m sonnet -e medium -y
 tools/elm-ask/run.sh --profile ai-preprod --port 8081 -y
 ```
 
-Asked for the model, it offers the usual few by number (dearest first, with a
-line on what each trades away); any other model name works too, and Enter keeps
-the image's default. It checks the key (with one free call to the Claude API)
+Asked for the model, it offers the three model lines by number (dearest first,
+with a line on what each trades away); an exact model id works too, and Enter
+keeps the image's default. It checks the key (with one free call to the Claude API)
 and the profile before starting, builds
 the image with `--build`, and prints the command instead of running it with
 `--dry-run`. Run at a terminal without `-y`, it opens the page in your browser
@@ -246,7 +246,7 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 | `ELM_ASK_ALLOW_UNRESTRICTED` | | Set to `1` to allow a profile without `allowed_commands` |
 | `ELM_CONFIG` | | Path to a specific `.ini` inside the container (overrides `ELM_PROFILE`) |
 | `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too; unnecessary if the CA was built in, see [Build](#behind-a-proxy-that-inspects-tls)) |
-| `ELM_ASK_MODEL` | the cheapest current model (see `agent.py`) | Claude model to answer with (the page footer shows the one in use) |
+| `ELM_ASK_MODEL` | `haiku` | Model line (`haiku`, `sonnet`, `opus`: the newest model in it answers), or an exact model id |
 | `ELM_ASK_EFFORT` | API default | How hard the model works per step; lower is faster and cheaper |
 | `ELM_ASK_MAX_STEPS` | `25` | Maximum model turns per question |
 
@@ -258,16 +258,23 @@ below), and neither needs a rebuild:
 
 ```shell
 docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
-  -e ANTHROPIC_API_KEY -e ELM_ASK_MODEL=claude-sonnet-5 -e ELM_ASK_EFFORT=medium \
+  -e ANTHROPIC_API_KEY -e ELM_ASK_MODEL=sonnet -e ELM_ASK_EFFORT=medium \
   -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
   elm-ask
 ```
 
-- **Model.** The default is the cheapest current model: these are lookup
-  questions, and every one costs money. A mid-tier or top model is more careful
-  on multi-step questions (joining alerts to devices, paging, noticing a filter
-  the API ignored) and costs several times as much. Names and prices are on
-  Anthropic's pricing page; the footer shows which model answered.
+- **Model.** Set a line, not a model: `haiku` (the default), `sonnet` or
+  `opus`. Each question goes to the newest model in the line, looked up from
+  the API once per run, so a new release needs no change. The default is
+  the cheapest: these are mostly lookup questions, and every one costs money.
+  When an answer falls short, **Try harder** under it asks the same question
+  again on the next line up (sonnet, then opus after a confirm), starting
+  fresh rather than from the weak answer; the next question goes back to the
+  default. Dearer lines are more careful on multi-step questions (joining
+  alerts to devices, paging, noticing a filter the API ignored) and cost
+  several times as much: prices are on Anthropic's pricing page. "Queries run"
+  under each answer names the model that answered. An exact model id
+  (`claude-sonnet-5-5`) stays on that model.
 - **Effort.** Lower effort means less thinking per step, so less money and less
   time, at some cost in care. Try it before dropping to a weaker model. Not
   every model takes it (the small ones refuse it); elm-ask notices, says so and
