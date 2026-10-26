@@ -272,8 +272,8 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   fresh rather than from the weak answer; the next question goes back to the
   default. Dearer lines are more careful on multi-step questions (joining
   alerts to devices, paging, noticing a filter the API ignored) and cost
-  several times as much: prices are on Anthropic's pricing page. "Queries run"
-  under each answer names the model that answered. An exact model id
+  several times as much: prices are on Anthropic's pricing page. "How I worked
+  this out" under each answer names the model that answered. An exact model id
   (`claude-sonnet-5-5`) stays on that model.
 - **Effort.** Lower effort means less thinking per step, so less money and less
   time, at some cost in care. Try it before dropping to a weaker model. Not
@@ -530,4 +530,4 @@ Keep `elm-knowledge.md` short, because it is sent with every question.
   very large portals make questions slower and more expensive.
 - Conversations are kept in memory and dropped after an hour idle or when the
   container stops.
-- Answers can be wrong. The "Queries run" list is there so they can be checked.
+- Answers can be wrong. "How I worked this out" under each answer is there so they can be checked: the steps in plain words, then the exact queries.

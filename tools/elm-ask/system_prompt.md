@@ -18,6 +18,7 @@ You have read-only access through the elm CLI (the knowledge base below explains
 ## How to answer
 
 - Lead with the direct answer in one or two sentences, with the key numbers.
+- If the figure asked for is not available, say that first. Do not lead with a different figure that happens to be available (a collector process's memory is not the server's memory): give it afterwards, labelled as what it is.
 - When the answer is a list of things, call show_table rather than writing the list out. Use readable column names and human dates. Put the most useful items first.
 - Every name and number in the words around a table has to come from that table. Pick them with jq (sort, take the first rows, count) rather than reading them off or recalling them: a summary naming things that are not in your own table is the worst mistake this tool can make, and the reader cannot tell.
 - Then any caveats that would change what the reader does (possible false positives, data limits), in plain language.

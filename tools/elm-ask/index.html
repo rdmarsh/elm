@@ -8,13 +8,13 @@
 <style>
   :root {
     --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e3de;
-    --accent: #2f5bd3; --accent-ink: #ffffff; --warn-bg: #fff4e0; --warn-ink: #7a4b00; --err: #b3261e;
+    --accent: #15803d; --accent-ink: #ffffff; --warn-bg: #fff4e0; --warn-ink: #7a4b00; --err: #b3261e;
     --code: #f0f0ec;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #151514; --panel: #1f1f1d; --ink: #ecece8; --muted: #9c9c96; --line: #34342f;
-      --accent: #7c9cff; --accent-ink: #0d0d0c; --warn-bg: #3a2a0c; --warn-ink: #ffd28a; --err: #ff8a80;
+      --accent: #86efac; --accent-ink: #0d0d0c; --warn-bg: #3a2a0c; --warn-ink: #ffd28a; --err: #ff8a80;
       --code: #2a2a27;
     }
   }
@@ -26,7 +26,8 @@
   header { text-align: center; margin: 8vh 0 24px; transition: margin .2s; }
   body.has-results header { margin: 0 0 16px; text-align: left; }
   h1 { font-size: 2rem; margin: 0; letter-spacing: -.02em; }
-  h1 a { color: inherit; text-decoration: none; }
+  h1 a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: .35em; }
+  h1 .mark { width: 1em; height: 1em; flex: none; }   /* the favicon, so the tab and page match */
   body.has-results h1 { font-size: 1.2rem; }
   header p { color: var(--muted); margin: 4px 0 0; }
   body.has-results header p { display: none; }
@@ -80,6 +81,9 @@
   .turn.earlier.open .question { margin-bottom: 8px; }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
   details.steps { font-size: .85rem; color: var(--muted); }
+  details.steps .worked { color: var(--ink); opacity: .85; }
+  details.steps .worked :first-child { margin-top: 6px; }
+  details.steps .queries-label { margin: 10px 0 0; font-weight: 600; }
   details.steps summary { cursor: pointer; }
   details.steps ol { padding-left: 20px; margin: 6px 0 0; }
   details.steps li { margin: 2px 0; overflow-wrap: anywhere; }
@@ -129,7 +133,7 @@
 <body>
 <main>
   <header>
-    <h1><a href="/">elm ask</a></h1>
+    <h1><a href="/"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14532d"/><path d="M17 21 L29 32 L17 43" fill="none" stroke="#86efac" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><rect x="33" y="38" width="16" height="5.5" rx="2.75" fill="#86efac"/></svg>elm ask</a></h1>
     <p id="subtitle">Ask about your LogicMonitor portal in plain English. Read-only.</p>
   </header>
 
@@ -295,10 +299,18 @@ form.addEventListener("submit", e => {
 // harder > 0 asks the last question again on a dearer model (see agent.py).
 const RETRY_NOTE = ["Rolling up my sleeves: asking again with a more capable model.",
                     "Really putting my back into it: asking the most capable model."];
-const workedOut = (n, model) => `Queries run (${n})${model ? ` · ${model}` : ""}`;
+const workedOut = (n, model) =>
+  `How I worked this out (${n} ${n === 1 ? "query" : "queries"}${model ? ` · ${model}` : ""})`;
+// The answer ends with the model's own "How I worked this out" section; fold it
+// in with the queries, so the answer reads short and the working is one click away.
+function splitWorked(text) {
+  const m = text.match(/^(?:#{1,4}\s+|\*\*)?How I worked this out\b.*$/im);
+  return m ? [text.slice(0, m.index), text.slice(m.index + m[0].length)] : [text, ""];
+}
 async function ask(question, harder) {
   document.body.classList.add("has-results");
   input.value = ""; go.disabled = true;
+  input.placeholder = "Ask a follow-up, or something new";
   // Only the newest answer can be retried: the server forgets the one it replaces.
   document.querySelectorAll(".harder").forEach(b => b.remove());
   const earlier = harder ? results.firstElementChild : null;
@@ -322,7 +334,8 @@ async function ask(question, harder) {
         <span class="note"></span></div>
     </div>
     <div class="turn-foot">
-      <details class="steps" hidden><summary>Queries run</summary><ol></ol></details>
+      <details class="steps" hidden><summary>How I worked this out</summary>
+        <div class="worked"></div><p class="queries-label" hidden>Queries run</p><ol></ol></details>
       <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
     </div>`;
   results.prepend(turn);
@@ -335,7 +348,7 @@ async function ask(question, harder) {
       case "model": md.model = ev.id; more = ev.more; break;
       case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;
       case "step":
-        steps.hidden = false;
+        steps.hidden = false; $(".queries-label", steps).hidden = false;
         $("ol", steps).insertAdjacentHTML("beforeend", `<li><code>${esc(ev.command)}</code> → ${esc(ev.result)}</li>`);
         md.steps.push(ev);
         $("summary", steps).textContent = workedOut(++stepCount, md.model);
@@ -347,7 +360,9 @@ async function ask(question, harder) {
         break;
       case "answer":
         md.answer = ev.markdown;
-        $(".answer", turn).innerHTML = markdown(ev.markdown);
+        const [main, worked] = splitWorked(ev.markdown);
+        $(".answer", turn).innerHTML = markdown(main);
+        if (worked.trim()) { $(".worked", steps).innerHTML = markdown(worked); steps.hidden = false; }
         $(".md-toggle", turn).hidden = false;
         if (more || harder) {   // a harder model left, or a note that there is none
           const b = $(".harder", turn);
