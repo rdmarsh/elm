@@ -22,7 +22,9 @@ shouldn't have to.
 
 ## the name
 
-A samara is the seed of an elm tree, the round one with the wing around it.
+A samara is an elm seed (the tree, not this program), the round one with a
+papery wing around it. Not the kind of seed you'd feed a random number
+generator.
 It seemed right for a small thing that grew out of elm.
 
 ## how it works
