@@ -46,6 +46,20 @@
            background: var(--accent); color: var(--accent-ink); }
   #go { min-width: 110px; }   /* wide enough to read as a button, not an icon */
   #go.stop { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  /* The top step, Ultrathink, in rainbow: a nod to Claude Code, where typing
+     ultrathink asks for the most thinking and lights up the same way. Brighter
+     colours in dark mode, a shimmer only on hover, none for reduced motion, and
+     plain text in Windows high-contrast mode, where gradient text can vanish. */
+  button.secondary.rainbow { background-image: linear-gradient(90deg, #d63031, #e67e22, #16a085, #2980b9, #8e44ad, #d63031);
+                   background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
+                   color: transparent; font-weight: 600; }
+  button.secondary.rainbow:hover { animation: shimmer 2s linear infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @media (prefers-color-scheme: dark) {
+    button.secondary.rainbow { background-image: linear-gradient(90deg, #ff7675, #fdcb6e, #55efc4, #74b9ff, #a29bfe, #ff7675); }
+  }
+  @media (prefers-reduced-motion: reduce) { button.secondary.rainbow:hover { animation: none; } }
+  @media (forced-colors: active) { button.secondary.rainbow { background: none; color: ButtonText; } }
   /* Quiet actions read as links (Tell me more, Try again); Think harder stays a button. */
   button.link { background: none; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted);
                 text-decoration: underline; font-size: .85rem; }
@@ -524,7 +538,8 @@ async function ask(question, harder) {
     if (t.more || harder) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
-      b.textContent = !t.more ? "That's my best" : harder ? "Think even harder" : "Think harder";
+      b.textContent = !t.more ? "That's my best" : harder ? "Ultrathink" : "Think harder";
+      b.classList.toggle("rainbow", b.textContent === "Ultrathink");
     }
     return "";
   });

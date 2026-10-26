@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Samara's second Think harder (the step to the most capable model) reads **Ultrathink**, in rainbow: a nod to Claude Code, where typing ultrathink asks for the most thinking and lights up the same way. It shimmers on hover (not with reduced motion) and falls back to plain text in high-contrast mode.
 - Samara shows what each answer cost, from the API's own token counts: "How I worked this out (5 queries · claude-haiku-5-5 · < $0.01)", with the exact figure on hover, summed with any Tell me more, and in the Markdown export's stamp. Prices are a small table from Anthropic's pricing page; a model not in it shows its token count instead, so a new release is never priced wrongly.
 
 ### Changed
