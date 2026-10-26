@@ -113,6 +113,19 @@ def redact(value):
     return value, 0
 
 
+def usable_tz(name):
+    """An IANA timezone name (Australia/Sydney) that is safe to hand jq, else None.
+
+    Times go through jq's strflocaltime, which applies daylight saving for each
+    date. A fixed offset cannot: +11 is right in October and an hour out for
+    August in Sydney.
+    """
+    if (name and len(name) < 64 and re.fullmatch(r"[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*", name)
+            and os.path.isfile(f"/usr/share/zoneinfo/{name}")):
+        return name
+    return None
+
+
 class Session:
     """Datasets fetched during one conversation, kept as jsonl files for jq."""
 
@@ -120,6 +133,7 @@ class Session:
         self.dir = tempfile.TemporaryDirectory(prefix="elm-ask-")
         self.datasets = {}   # id -> {"path", "rows", "description"}
         self.described = set()   # commands whose notes have been sent already
+        self.tz = None           # the reader's timezone for jq (usable_tz), if known
 
     def with_notes(self, command, text):
         """Attach a command's verified notes the first time it is used here."""
@@ -358,8 +372,13 @@ def _jq(session, expression):
     for ds_id, ds in session.datasets.items():
         args += ["--slurpfile", ds_id, str(ds["path"])]
     args.append(expression)
-    # Empty environment: jq's $ENV must not expose API keys to the model.
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=60, env={"PATH": os.environ.get("PATH", "")})
+    # Nearly empty environment: jq's $ENV must not expose API keys to the model.
+    # TZ is the reader's zone, so strflocaltime gives their local time.
+    env = {"PATH": os.environ.get("PATH", "")}
+    tz = session.tz or usable_tz(os.environ.get("TZ"))
+    if tz:
+        env["TZ"] = tz
+    proc = subprocess.run(args, capture_output=True, text=True, timeout=60, env=env)
     if proc.returncode != 0:
         raise ValueError(f"jq error: {proc.stderr.strip()}")
     return proc.stdout

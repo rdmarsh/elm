@@ -230,15 +230,22 @@ def _answer(client, conv, question, model, emit, where, start):
     minutes = (where or {}).get("utc_offset_minutes") or 0
     sign = "+" if minutes >= 0 else "-"
     offset = f"UTC{sign}{abs(minutes) // 60:02d}:{abs(minutes) % 60:02d}"
-    # A browser may report the offset without a zone name; then the offset is the name.
-    zone = (where or {}).get("timezone") or offset
     local = now + timedelta(minutes=minutes)
+    tz = elm_tools.usable_tz((where or {}).get("timezone"))
+    conv.session.tz = tz
+    if tz:
+        # jq runs in their zone: strflocaltime gets each date's own offset right,
+        # daylight saving included, which adding today's offset does not.
+        how = (f"jq runs in their timezone, so format an epoch with strflocaltime, e.g. "
+               f'`.startEpoch | strflocaltime("%d %b %Y, %H:%M %Z")`: it applies daylight saving '
+               f"for each date. Never add an offset yourself.")
+    else:
+        how = f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it."
     conv.messages.append({
         "role": "user",
         "content": (f"{question}\n\n"
-                    f"(Now: {local:%Y-%m-%d %H:%M} for the reader, timezone {zone}{'' if zone == offset else f' ({offset})'}; "
-                    f"{now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())}. "
-                    f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it.)"),
+                    f"(Now: {local:%Y-%m-%d %H:%M} for the reader, timezone {tz or offset}; "
+                    f"{now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())}. {how})"),
     })
     # Tokens for this turn, across its steps, for the cost shown with the answer.
     usage = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}

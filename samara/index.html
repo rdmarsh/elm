@@ -494,7 +494,7 @@ async function ask(question, harder) {
     e.target.textContent = turn.classList.toggle("open") ? "Hide earlier answer" : "Show earlier answer";
   });
   $(".harder", turn).addEventListener("click", () => {
-    if (harder && !confirm("Costs more tokens. Sure?")) return;
+    if (harder && !confirm("Uses more tokens. Proceed?")) return;
     ask(question, harder + 1);
   });
   $(".more-detail", turn).addEventListener("click", e => {

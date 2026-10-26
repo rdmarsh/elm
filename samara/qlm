@@ -58,6 +58,10 @@ cacert=
 
 # One container per profile, so a question can compare two portals, and so each
 # container holds only the one profile it uses -- not every credential you own.
+# The container's jq gives times in your timezone, daylight saving included
+# (system_prompt.md). Only a plain zone name goes into the JSON below.
+tz=${TZ:-$(readlink /etc/localtime 2>/dev/null | sed -n 's#.*zoneinfo/##p')}
+case $tz in ''|*[!A-Za-z0-9_+/-]*) tz=UTC ;; esac
 servers=
 allow=
 for profile in ${QLM_PROFILE:-ai}; do
@@ -73,7 +77,7 @@ for profile in ${QLM_PROFILE:-ai}; do
     servers="$servers${servers:+,}\"$name\":{\"command\":\"docker\",\"args\":[\
 \"run\",\"-i\",\"--rm\",\"--user\",\"$(id -u)\",\
 \"--cap-drop\",\"ALL\",\"--security-opt\",\"no-new-privileges\",\
-\"-e\",\"ELM_CONFIG=/creds/$profile.ini\",$cacert\
+\"-e\",\"ELM_CONFIG=/creds/$profile.ini\",\"-e\",\"TZ=$tz\",$cacert\
 \"-v\",\"$creds/$profile.ini:/creds/$profile.ini:ro\",\
 \"elm-ask\",\"python\",\"/opt/elm/samara/mcp_server.py\"]}"
     allow="$allow mcp__$name"

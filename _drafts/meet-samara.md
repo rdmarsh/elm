@@ -50,7 +50,7 @@ It starts with the cheapest model, Haiku. Most questions are lookups and it
 handles them fine.
 
 When it doesn't, **Think harder** asks the same question again on Sonnet, then
-Opus (after a "Costs more tokens. Sure?").
+Opus (after a "Uses more tokens. Proceed?").
 
 One thing I've found, the cheap model can be confidently wrong. I asked how
 much memory a test server was using. Haiku answered, in bold, that it was using

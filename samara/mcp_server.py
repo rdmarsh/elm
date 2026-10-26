@@ -12,6 +12,7 @@ client exits.
 
 import functools
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -37,6 +38,8 @@ def guide():
     return "\n\n".join([
         "There is no web page here: show_table returns a Markdown table, and it only reaches "
         "the reader if you put it in your reply.",
+        f"jq runs in the reader's timezone, {elm_tools.usable_tz(os.environ.get('TZ')) or 'UTC'}: format "
+        "epoch times with strflocaltime (it names the zone and applies daylight saving).",
         (HERE / "system_prompt.md").read_text(),
         "<elm_knowledge>\n" + (elm_tools.ELM_HOME / "elm-knowledge.md").read_text() + "\n</elm_knowledge>",
     ])
