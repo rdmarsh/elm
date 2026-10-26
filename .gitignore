@@ -156,7 +156,7 @@ SKILLS_USED.md
 .claude/settings.local.json
 
 # A corporate root CA for building behind a TLS-inspecting proxy lives in
-# tools/elm-ask/certs/ (see tools/elm-ask/README.md); the directory is kept,
+# samara/certs/ (see samara/README.md); the directory is kept,
 # the certificates are not committed.
-tools/elm-ask/certs/*
-!tools/elm-ask/certs/.gitkeep
+samara/certs/*
+!samara/certs/.gitkeep

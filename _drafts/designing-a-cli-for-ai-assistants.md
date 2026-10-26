@@ -125,7 +125,7 @@ trimmed, merged or deleted first.
 elm can print the exact request it would send, including a signed
 authorization header, which is useful for debugging. That is exactly what
 should never end up in an assistant's chat log. So
-[elm-ask](https://github.com/rdmarsh/elm/tree/main/tools/elm-ask), the
+[elm-ask](https://github.com/rdmarsh/elm/tree/main/samara), the
 plain-English question prototype, lets the model choose the command, filters
 and fields, but not elm's global flags. Before the model sees any rows, it
 also strips fields that can carry secrets, along with personal contact

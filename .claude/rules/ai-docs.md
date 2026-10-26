@@ -12,7 +12,7 @@ paths:
 Three files are written for AI assistants as much as for people, and cost
 tokens every time they are read:
 
-- `elm-knowledge.md` -- read in full before every question (tools/elm-ask
+- `elm-knowledge.md` -- read in full before every question (samara
   sends it with each one). Rules that hold across commands only.
 - `elm-notes.yaml` -- one command's entry is shown by `elm COMMAND --info`
   each time that command is looked up.

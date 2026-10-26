@@ -98,7 +98,7 @@ secret, and release binaries attached to a tag.
 
 ## elm-ask: one page for several portals (parked 2026-09-18)
 
-`tools/elm-ask` answers from one profile (`ai` by default), so one container
+`samara` answers from one profile (`ai` by default), so one container
 talks to one portal; the workaround is one container per portal on different
 ports. Idea, not started: take a list such as `ELM_PROFILES=ai-prod,ai-preprod`,
 require every listed profile to set `allowed_commands`, let the model choose a
@@ -107,7 +107,7 @@ in each answer which portal it came from. Parked until there is a real need.
 
 ## elm-ask: grow the checked question set
 
-Started 2026-10-26 in `tools/elm-ask/questions.md` (injection tests and the
+Started 2026-10-26 in `samara/questions.md` (injection tests and the
 memory case, with results). Next: confirm the "Not run yet" answers by hand
 against a known portal and add their check commands, then aim for 10-20.
 
@@ -118,7 +118,7 @@ elm and jq as a container image, run as
 
     docker run --rm -v "$HOME/.config/logicmonitor/credentials:/creds:ro" elm DeviceList -s0
 
-Most of the work exists already: the first stage of `tools/elm-ask/dockerfile`
+Most of the work exists already: the first stage of `samara/dockerfile`
 renders elm from `_jnja/` and the committed swagger. This would be a root
 `dockerfile` with `elm` as the entrypoint. Publishing it (e.g. to GHCR from a
 GitHub Action on a release tag) would let anyone `docker pull` it; the image must
@@ -139,7 +139,7 @@ elm-ask calls the Claude API directly, so it needs API credit even for someone
 who already pays for Claude Code or ChatGPT. Two ways round that, neither
 started:
 
-- **An MCP server** wrapping `tools/elm-ask/elm_tools.py` (the read-only elm
+- **An MCP server** wrapping `samara/elm_tools.py` (the read-only elm
   tools, secret stripping and the allowed_commands check). Claude Code and
   Claude Desktop could then query LM through a subscription instead of API
   tokens, with no web page to host. Probably the cheapest useful next step.

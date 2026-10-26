@@ -79,7 +79,7 @@ a scheduled check.
 ## Plain-English questions
 
 The newest piece is a prototype called
-[elm-ask](https://github.com/rdmarsh/elm/tree/main/tools/elm-ask): a small web
+[elm-ask](https://github.com/rdmarsh/elm/tree/main/samara): a small web
 page where someone who has never used a command line can type "which Windows
 devices have alerts?" and get back an answer, a sortable table and the exact
 elm queries used to produce it.

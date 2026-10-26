@@ -1,7 +1,8 @@
 # Samara
 
-Samara (the elm's winged seed) is the name people see; the code lives in
-`tools/elm-ask`, and its commands and settings keep that name.
+Samara (the elm's winged seed) is the name people see. Under the hood some
+names stay `elm-ask`: the Docker image, the `ELM_ASK_*` settings and the
+keychain item, so existing setups keep working.
 
 A local web page where anyone can ask questions about a LogicMonitor portal in
 plain English:
@@ -73,7 +74,7 @@ Python or jq installed.
 1. Docker (e.g. Docker Desktop, or Colima on macOS).
 2. A Claude API key (`ANTHROPIC_API_KEY`).
 3. An `ai` profile (`tools/elm-check-access.sh -p ai` reports which commands its
-   token can really reach): copy [`ai.example.ini`](../../ai.example.ini) to
+   token can really reach): copy [`ai.example.ini`](../ai.example.ini) to
    `~/.config/logicmonitor/credentials/ai.ini`, fill in an API token whose
    LogicMonitor role is read-only, and adjust `allowed_commands` if you need to.
    The page tells you if the profile is missing or has no `allowed_commands`.
@@ -83,7 +84,7 @@ Python or jq installed.
 From the repository root:
 
 ```shell
-docker build -f tools/elm-ask/dockerfile -t elm-ask .
+docker build -f samara/dockerfile -t elm-ask .
 ```
 
 The build renders elm from `_jnja/` and the committed swagger snapshots inside
@@ -91,9 +92,9 @@ the image. It does not use your local `venv/`, `_cmds/` or `_dist/`.
 
 The image holds its own copy of everything, so **rebuild after changing any of
 it**: the templates in `_jnja/`, `elm-notes.yaml`, `elm-knowledge.md`, or the
-files in `tools/elm-ask/`. Nothing in the running container reads your working
+files in `samara/`. Nothing in the running container reads your working
 tree, so an edit you have not rebuilt is simply not there. Docker caches the
-layers, so a rebuild after editing only `tools/elm-ask/` takes seconds; a
+layers, so a rebuild after editing only `samara/` takes seconds; a
 template change re-renders elm and takes longer. Credentials and the model are
 read at run time, so changing those needs no rebuild.
 
@@ -107,11 +108,11 @@ On a corporate network that decrypts outbound traffic, the build fails at
 `pip install` with `certificate verify failed: unable to get local issuer
 certificate`: the proxy presents its own certificate, and the image trusts
 neither it nor anything signed by it. Put your organisation's root CA in
-`tools/elm-ask/certs/`, as a file ending in `.crt`, and build again:
+`samara/certs/`, as a file ending in `.crt`, and build again:
 
 ```shell
-cp ~/corporate-root.pem tools/elm-ask/certs/corporate-root.crt
-docker build -f tools/elm-ask/dockerfile -t elm-ask .
+cp ~/corporate-root.pem samara/certs/corporate-root.crt
+docker build -f samara/dockerfile -t elm-ask .
 ```
 
 Both stages trust everything in that directory before they install anything
@@ -141,14 +142,14 @@ critical, Python 3.13 checks that by default (3.12 did not), and some corporate
 CAs do not comply. Check yours:
 
 ```shell
-openssl x509 -in tools/elm-ask/certs/your-root.crt -noout -text | grep -A1 'Basic Constraints'
+openssl x509 -in samara/certs/your-root.crt -noout -text | grep -A1 'Basic Constraints'
 ```
 
 Without the word `critical` there, ask for a compliant certificate, or build on
 the older Python, which does not enforce it:
 
 ```shell
-docker build --build-arg PYTHON_VERSION=3.12 -f tools/elm-ask/dockerfile -t elm-ask .
+docker build --build-arg PYTHON_VERSION=3.12 -f samara/dockerfile -t elm-ask .
 ```
 
 Getting the certificate is a local matter (Keychain Access on macOS exports it
@@ -158,15 +159,15 @@ that is a setting of your Docker runtime, not of this build.
 
 ## Run
 
-`tools/elm-ask/run.sh` wraps the `docker run` below and asks which model and
+`samara/run.sh` wraps the `docker run` below and asks which model and
 effort to use:
 
 ```shell
 export ANTHROPIC_API_KEY=...        # once per terminal, or see below
-tools/elm-ask/run.sh                # asks, then starts
-tools/elm-ask/run.sh -y             # no questions, image defaults
-tools/elm-ask/run.sh -m sonnet -e medium -y
-tools/elm-ask/run.sh --profile ai-preprod --port 8081 -y
+samara/run.sh                # asks, then starts
+samara/run.sh -y             # no questions, image defaults
+samara/run.sh -m sonnet -e medium -y
+samara/run.sh --profile ai-preprod --port 8081 -y
 ```
 
 Asked for the model, it offers the three model lines by number (cheapest first,
@@ -184,7 +185,7 @@ ever holds it. Store it, or replace a revoked one (it prompts, so the key stays
 out of your shell history):
 
 ```shell
-tools/elm-ask/run.sh --set-key
+samara/run.sh --set-key
 ```
 
 `run.sh` reads it from there whenever `ANTHROPIC_API_KEY` is unset, so a key
@@ -346,7 +347,7 @@ before the server connected, saying "the elm tools did not load"; 2.1.277 does
 both. qlm checks for the flag and says so, so the fix is `claude update`. Then put it on your `PATH`:
 
 ```shell
-ln -s "$PWD/tools/elm-ask/qlm" ~/bin/qlm
+ln -s "$PWD/samara/qlm" ~/bin/qlm
 ```
 
 qlm uses only profiles named `ai` or `ai-something` (`ai-acme`,
@@ -380,7 +381,7 @@ that one token and not every credential you own. It also runs with
   about LogicMonitor does not get this: it is answered from general knowledge
   and ends with a line saying so.) Check the server by hand:
   `echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run -i --rm
-  elm-ask python /opt/elm/tools/elm-ask/mcp_server.py` should print a tool list.
+  elm-ask python /opt/elm/samara/mcp_server.py` should print a tool list.
 - **`failed to connect to the Docker API at unix:///var/run/docker.sock ...
   connect: no such file or directory`** -- no Docker daemon is listening there.
   Either it is not running (start Docker Desktop, or `colima start`), or it
@@ -418,14 +419,14 @@ an interactive Claude Code session the tools:
 ```shell
 claude mcp add elm -- docker run -i --rm --user "$(id -u)" \
   -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
-  elm-ask python /opt/elm/tools/elm-ask/mcp_server.py
+  elm-ask python /opt/elm/samara/mcp_server.py
 ```
 
 To give them to Docker sandboxes (`sbx`), register the same command. It runs on
 the host, so the credentials stay there and the sandbox only sees the answers:
 
 ```shell
-sbx mcp add elm --command docker --args "run,-i,--rm,--user,$(id -u),-v,$HOME/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro,elm-ask,python,/opt/elm/tools/elm-ask/mcp_server.py"
+sbx mcp add elm --command docker --args "run,-i,--rm,--user,$(id -u),-v,$HOME/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro,elm-ask,python,/opt/elm/samara/mcp_server.py"
 ```
 
 Claude Code keeps only the first 2048 characters of a server's instructions,
@@ -437,8 +438,8 @@ so the server's say "call `guide` first", and the `guide` tool returns
 With elm built locally (`_cmds/`, `engine.py` and `elm.py` present) and `jq` on `PATH`:
 
 ```shell
-pip install -r requirements.txt -r tools/elm-ask/requirements.txt
-ANTHROPIC_API_KEY=... python tools/elm-ask/app.py      # http://127.0.0.1:8080
+pip install -r requirements.txt -r samara/requirements.txt
+ANTHROPIC_API_KEY=... python samara/app.py      # http://127.0.0.1:8080
 ```
 
 ## How it works
@@ -513,7 +514,7 @@ sequenceDiagram
 | `qlm` | Asks from the command line through `mcp_server.py` |
 | `elm_tools.py` | The five tools: `find_commands`, `describe_command`, `run_elm`, `jq` and `show_table` |
 | `system_prompt.md` | How to interpret questions and write answers |
-| `../../elm-knowledge.md` | Sent with every question: rules that apply across commands |
+| `../elm-knowledge.md` | Sent with every question: rules that apply across commands |
 | `elm COMMAND --info` | Per-command notes and fields (from `elm-notes.yaml` and the swagger). `describe_command` returns all of it; the first query against a command also gets that command's notes attached, so a model that skips the lookup still sees them |
 
 Each query's rows are saved as a dataset (`$d1`, `$d2`, ...) for that

@@ -7,7 +7,7 @@ the allowlist and secret removal are the same as the web page's (elm_tools.py).
 One process is one conversation, so datasets ($d1, $d2, ...) last until the
 client exits.
 
-    claude mcp add elm -- python tools/elm-ask/mcp_server.py
+    claude mcp add elm -- python samara/mcp_server.py
 """
 
 import functools

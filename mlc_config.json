@@ -34,7 +34,7 @@
     },
     {
       "pattern": "^https?://localhost",
-      "comment": "a service the reader runs themselves (tools/elm-ask); never up in CI"
+      "comment": "a service the reader runs themselves (samara); never up in CI"
     }
   ],
   "timeout": "20s",

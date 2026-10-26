@@ -41,7 +41,7 @@ Profiles and tokens
 - [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
 
-- [Ask in plain English](#ask-in-plain-english) — `tools/elm-ask/`
+- [Ask in plain English](#ask-in-plain-english) — `samara/`
 
 ## API speed test
 
@@ -68,11 +68,9 @@ Available list endpoints:
 
 ## Ask in plain English
 
-`tools/elm-ask/` is a prototype web page, packaged as a Docker container, where
-people who don't use elm can ask questions such as "what devices have alerting
-disabled?". Claude answers using read-only elm queries and shows the queries it
-ran. Setup, the safety model and settings are in
-[`tools/elm-ask/README.md`](elm-ask/README.md).
+Samara, the web page where people who don't use elm ask questions such as
+"what devices have alerting disabled?", grew out of this folder and now lives
+in [`samara/`](../samara/README.md) at the top of the repo.
 
 ## Check what a token can reach
 

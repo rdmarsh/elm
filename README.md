@@ -183,7 +183,7 @@ You will need the following items to run the program after building:
 * Pre-requisite software listed above
 
 `elm-logo.svg` is the project mark (an elm leaf: lopsided at the base and
-toothed, as elm leaves are). It is the page icon for Samara (`tools/elm-ask`)
+toothed, as elm leaves are). It is the page icon for Samara (`samara`)
 and can be reused for docs or slides.
 
 See `config.example.ini` for a documented example config file, and

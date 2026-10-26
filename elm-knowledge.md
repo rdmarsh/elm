@@ -1,7 +1,7 @@
 # elm + LogicMonitor Knowledge Base
 
 Rules that apply across commands. Kept short on purpose: AI assistants (and
-`tools/elm-ask`) read all of it before every question.
+`samara`) read all of it before every question.
 
 - One command's parameters, tested gotchas, example commands and fields:
   `elm COMMAND --info` (built from `elm-notes.yaml` and the swagger).

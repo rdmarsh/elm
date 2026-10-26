@@ -68,7 +68,7 @@ ASK=1
 DRY_RUN=0
 SET_KEY=0
 CREDS_DIR="$HOME/.config/logicmonitor/credentials"
-REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -167,9 +167,9 @@ if [[ -n "$EFFORT" && ! "$EFFORT" =~ ^(low|medium|high|xhigh|max)$ ]]; then
 fi
 
 if [[ $BUILD -eq 1 ]]; then
-    ( set -x; docker build -f "$REPO_ROOT/tools/elm-ask/dockerfile" -t "$IMAGE" "$REPO_ROOT" )
+    ( set -x; docker build -f "$REPO_ROOT/samara/dockerfile" -t "$IMAGE" "$REPO_ROOT" )
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; then
-    echo "No '$IMAGE' image yet. Run with --build (or: docker build -f tools/elm-ask/dockerfile -t $IMAGE .)" >&2
+    echo "No '$IMAGE' image yet. Run with --build (or: docker build -f samara/dockerfile -t $IMAGE .)" >&2
     exit 1
 fi
 

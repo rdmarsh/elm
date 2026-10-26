@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 
-ELM_HOME = Path(os.environ.get("ELM_HOME", Path(__file__).resolve().parents[2]))
+ELM_HOME = Path(os.environ.get("ELM_HOME", Path(__file__).resolve().parents[1]))
 ELM_CMD = [sys.executable, str(ELM_HOME / "elm.py")]
 # elm-ask runs as its own profile, `ai`, not the default `config`: the person
 # has to create it on purpose (from ai.example.ini), so a powerful everyday
