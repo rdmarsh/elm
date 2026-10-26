@@ -8,8 +8,12 @@ plain English:
 - "What devices have alerting disabled?"
 
 Claude works out which elm queries answer the question, runs them, and replies
-with a short answer, sortable tables, caveats, and a
-"How I worked this out" section plus the exact queries it ran.
+with just the facts: a short answer, sortable tables and caveats, with "How I
+worked this out" and the exact queries it ran folded underneath.
+
+Under each answer, **More detail** asks the same model for the analysis left
+out -- patterns, likely causes, what to check next -- and adds it to the
+answer; **Try harder** asks the question again on a more capable model.
 
 Each answer carries two buttons: **Markdown** shows the whole answer -- question,
 text, tables as Markdown tables, and the queries behind it -- ready to copy into

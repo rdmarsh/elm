@@ -20,6 +20,12 @@ LINES = ["haiku", "sonnet", "opus"]
 MODEL = os.environ.get("ELM_ASK_MODEL", "haiku")
 EFFORT = os.environ.get("ELM_ASK_EFFORT")          # low|medium|high|xhigh|max; unset = API default
 MAX_STEPS = int(os.environ.get("ELM_ASK_MAX_STEPS", "25"))
+# Sent for the page's More detail button. Answers stop at the facts (see
+# system_prompt.md); this asks for the analysis that was left out.
+DETAIL_REQUEST = ("More detail, please. Go beyond the facts in your last answer: patterns, likely causes and "
+                  "what to check next. Use the data you already fetched where you can, and fetch more only if it "
+                  "would change the analysis. Say which points the data shows and which are likely causes. "
+                  "Do not repeat the facts I already have.")
 HERE = Path(__file__).resolve().parent
 
 
@@ -106,6 +112,7 @@ class Conversation:
         self.messages = []
         self.question = None       # the last question, and where it starts in messages,
         self.asked_at = 0          # so "Try harder" can ask it again from there
+        self.model = None          # the model that answered it, for More detail
         self.session = elm_tools.Session()
         self.last_used = time.time()
 
@@ -123,21 +130,29 @@ def call_tool(conv, block):
         return {"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True}, event
 
 
-def ask(client, conv, question, emit, where=None, harder=0):
+def ask(client, conv, question, emit, where=None, harder=0, detail=False):
     """Answer one question, streaming progress events through emit(dict).
 
     `where` carries the reader's timezone from the browser, so answers can be in
     the time they keep rather than UTC. `harder` > 0 asks the last question
     again on a dearer model, from before it was first asked, so the new model
     starts fresh instead of building on the answer that was not good enough.
+    `detail` asks the model that answered for the analysis behind its answer;
+    it is not a new question, so Try harder still redoes the one before it.
     """
-    if harder:
+    if detail:
+        if conv.model is None:
+            return emit({"type": "error", "text": "Nothing to add detail to: ask the question again."})
+        question, model, more = DETAIL_REQUEST, conv.model, False
+    elif harder:
         if conv.question is None:
             return emit({"type": "error", "text": "Nothing to try harder on: ask the question again."})
         del conv.messages[conv.asked_at:]
         question = conv.question
-    conv.question, conv.asked_at = question, len(conv.messages)
-    model, more = pick_model(client, harder)
+    if not detail:
+        conv.question, conv.asked_at = question, len(conv.messages)
+        model, more = pick_model(client, harder)
+        conv.model = model
     emit({"type": "model", "id": model, "harder": harder, "more": more})
     now = datetime.now(timezone.utc)
     conv.last_used = time.time()

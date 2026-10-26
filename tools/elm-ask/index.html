@@ -74,7 +74,8 @@
 
   /* The card's last row: how it was worked out on the left, Try harder on the right. */
   .turn-foot { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-top: 12px; }
-  .turn-foot .harder { flex: none; margin-left: auto; }
+  .turn-foot .buttons { flex: none; margin-left: auto; display: flex; gap: 8px; }
+  .part.detail { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
   /* An answer replaced by Try harder folds to its question until asked for. */
   .turn.earlier:not(.open) > :not(.question), .turn.earlier:not(.open) .actions .icon { display: none; }
   .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
@@ -284,6 +285,7 @@ function answerMarkdown(a) {
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
     a.answer, "",
+    ...(a.detail ? ["## More detail", "", a.detail, ""] : []),
     "## Queries run", "",
     ...a.steps.map(s => `- \`${s.command}\` → ${s.result}`), "",
     `_elm ask${when} · ${new Date().toLocaleString()}_`,
@@ -309,10 +311,11 @@ function splitWorked(text) {
 }
 async function ask(question, harder) {
   document.body.classList.add("has-results");
-  input.value = ""; go.disabled = true;
+  input.value = "";
   input.placeholder = "Ask a follow-up, or something new";
-  // Only the newest answer can be retried: the server forgets the one it replaces.
-  document.querySelectorAll(".harder").forEach(b => b.remove());
+  // Only the newest answer can be retried or extended: the server forgets the
+  // one Try harder replaces, and More detail continues from the latest.
+  document.querySelectorAll(".harder, .more-detail").forEach(b => b.remove());
   const earlier = harder ? results.firstElementChild : null;
   if (earlier) { earlier.classList.add("earlier"); $(".earlier-toggle", earlier).hidden = false; }
 
@@ -325,8 +328,7 @@ async function ask(question, harder) {
         <button class="secondary earlier-toggle" type="button" hidden>Show earlier answer</button>
       </span></div>
     ${harder ? `<p class="retry-note">${RETRY_NOTE[harder - 1]}</p>` : ""}
-    <div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
-    <div class="tables"></div><div class="answer"></div>
+    <div class="part"></div>
     <div class="markdown-view" hidden>
       <textarea readonly></textarea>
       <div class="row"><button class="secondary copy" type="button">Copy</button>
@@ -336,46 +338,15 @@ async function ask(question, harder) {
     <div class="turn-foot">
       <details class="steps" hidden><summary>How I worked this out</summary>
         <div class="worked"></div><p class="queries-label" hidden>Queries run</p><ol></ol></details>
-      <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
+      <span class="buttons">
+        <button class="secondary more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>More detail</button>
+        <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
+      </span>
     </div>`;
   results.prepend(turn);
-  const statusText = $(".status-text", turn), steps = $(".steps", turn);
-  let stepCount = 0;
+  const t = { turn, steps: $(".steps", turn), stepCount: 0, more: false,
+              md: { question, answer: "", detail: "", tables: [], steps: [], model: "" } };
 
-  const handle = ev => {
-    switch (ev.type) {
-      case "conversation": conversationId = ev.id; break;
-      case "model": md.model = ev.id; more = ev.more; break;
-      case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;
-      case "step":
-        steps.hidden = false; $(".queries-label", steps).hidden = false;
-        $("ol", steps).insertAdjacentHTML("beforeend", `<li><code>${esc(ev.command)}</code> → ${esc(ev.result)}</li>`);
-        md.steps.push(ev);
-        $("summary", steps).textContent = workedOut(++stepCount, md.model);
-        break;
-      case "table":
-        md.tables.push(ev);
-        $(".tables", turn).append(renderTable(ev));
-        $(".csv", turn).hidden = false;
-        break;
-      case "answer":
-        md.answer = ev.markdown;
-        const [main, worked] = splitWorked(ev.markdown);
-        $(".answer", turn).innerHTML = markdown(main);
-        if (worked.trim()) { $(".worked", steps).innerHTML = markdown(worked); steps.hidden = false; }
-        $(".md-toggle", turn).hidden = false;
-        if (more || harder) {   // a harder model left, or a note that there is none
-          const b = $(".harder", turn);
-          if (b) { b.hidden = false; b.disabled = !more;
-                   b.textContent = !more ? "That's my best" : harder ? "Try even harder" : "Try harder"; }
-        }
-        break;
-      case "error": $(".answer", turn).insertAdjacentHTML("beforeend", `<p class="error">${esc(ev.text)}</p>`); break;
-    }
-  };
-
-  const md = { question, answer: "", tables: [], steps: [], model: "" };
-  let more = false;
   $(".earlier-toggle", turn).addEventListener("click", e => {
     e.target.textContent = turn.classList.toggle("open") ? "Hide earlier answer" : "Show earlier answer";
   });
@@ -383,11 +354,21 @@ async function ask(question, harder) {
     if (harder && !confirm("Costs more tokens. Sure?")) return;
     ask(question, harder + 1);
   });
+  $(".more-detail", turn).addEventListener("click", e => {
+    e.target.remove();
+    const part = document.createElement("div");
+    part.className = "part detail";
+    $(".markdown-view", turn).before(part);
+    stream(t, part, { detail: true }, ev => {
+      t.md.detail = ev.markdown;
+      return "More detail";
+    });
+  });
   const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
   $(".md-toggle", turn).addEventListener("click", () => {
     view.hidden = !view.hidden;
     $(".md-toggle", turn).textContent = view.hidden ? "Markdown" : "Hide Markdown";
-    if (!view.hidden) { box.value = answerMarkdown(md); note.textContent = ""; }
+    if (!view.hidden) { box.value = answerMarkdown(t.md); note.textContent = ""; }
   });
   $(".copy", turn).addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(box.value); note.textContent = "Copied"; }
@@ -397,16 +378,68 @@ async function ask(question, harder) {
     saveFile(slug(question) + ".md", box.value, "text/markdown"));
   $(".csv", turn).addEventListener("click", () => {
     // One table, one file; several tables, one file each, named after the table.
-    md.tables.forEach((t, i) => saveFile(
-      (md.tables.length === 1 ? slug(question) : slug(t.title)) + ".csv",
-      [t.columns, ...t.rows].map(r => r.map(csvCell).join(",")).join("\n"), "text/csv"));
+    t.md.tables.forEach(tb => saveFile(
+      (t.md.tables.length === 1 ? slug(question) : slug(tb.title)) + ".csv",
+      [tb.columns, ...tb.rows].map(r => r.map(csvCell).join(",")).join("\n"), "text/csv"));
   });
 
+  await stream(t, $(".part", turn), { question, harder }, ev => {
+    t.md.answer = ev.markdown;
+    $(".md-toggle", turn).hidden = false;
+    $(".more-detail", turn).hidden = false;
+    if (t.more || harder) {   // a harder model left, or a note that there is none
+      const b = $(".harder", turn);
+      b.hidden = false; b.disabled = !t.more;
+      b.textContent = !t.more ? "That's my best" : harder ? "Try even harder" : "Try harder";
+    }
+    return "";
+  });
+}
+
+// One request, streamed into `part` of a card: its status line, tables and
+// answer. Queries go into the card's shared "How I worked this out"; onAnswer
+// records the answer and returns a heading for its working ("" for none).
+async function stream(t, part, body, onAnswer) {
+  go.disabled = true;
+  t.turn.querySelectorAll(".buttons button").forEach(b => b.disabled = true);
+  part.innerHTML = `<div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
+    <div class="tables"></div><div class="answer"></div>`;
+  const statusText = $(".status-text", part), steps = t.steps;
+  const handle = ev => {
+    switch (ev.type) {
+      case "conversation": conversationId = ev.id; break;
+      case "model": if (!body.detail) { t.md.model = ev.id; t.more = ev.more; } break;
+      case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;
+      case "step":
+        steps.hidden = false; $(".queries-label", steps).hidden = false;
+        $("ol", steps).insertAdjacentHTML("beforeend", `<li><code>${esc(ev.command)}</code> → ${esc(ev.result)}</li>`);
+        t.md.steps.push(ev);
+        $("summary", steps).textContent = workedOut(++t.stepCount, t.md.model);
+        break;
+      case "table":
+        t.md.tables.push(ev);
+        $(".tables", part).append(renderTable(ev));
+        $(".csv", t.turn).hidden = false;
+        break;
+      case "answer": {
+        const [main, worked] = splitWorked(ev.markdown);
+        $(".answer", part).innerHTML = markdown(main);
+        const heading = onAnswer(ev);
+        if (worked.trim()) {
+          $(".worked", steps).insertAdjacentHTML("beforeend",
+            (heading ? `<p class="queries-label">${esc(heading)}</p>` : "") + markdown(worked));
+          steps.hidden = false;
+        }
+        break;
+      }
+      case "error": $(".answer", part).insertAdjacentHTML("beforeend", `<p class="error">${esc(ev.text)}</p>`); break;
+    }
+  };
   try {
     const resp = await fetch("/api/ask", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        question, harder, conversation_id: conversationId,
+        ...body, conversation_id: conversationId,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,     // e.g. Australia/Sydney
         utc_offset_minutes: -new Date().getTimezoneOffset(),            // e.g. 600
       }),
@@ -427,8 +460,9 @@ async function ask(question, harder) {
   } catch (err) {
     handle({ type: "error", text: `Request failed: ${err.message}` });
   } finally {
-    $(".status", turn).remove();
-    if (stepCount) $("summary", steps).textContent = workedOut(stepCount, md.model);
+    $(".status", part).remove();
+    if (t.stepCount) $("summary", steps).textContent = workedOut(t.stepCount, t.md.model);
+    t.turn.querySelectorAll(".buttons button").forEach(b => { if (b.textContent !== "That's my best") b.disabled = false; });
     go.disabled = false; input.focus();
   }
 }
