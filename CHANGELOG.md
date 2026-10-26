@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Samara's empty question box suggests "what alerts started in the last hour?" instead of "which devices are in downtime right now?", which read almost the same as the "Which devices are down?" button.
 - After Think harder or Ultrathink, Samara's follow-up questions stay on that model until Start over: they are usually about the same problem, and dropping back would leave the cheap model building on the dearer one's work. The question box says so ("Follow-ups keep thinking harder. Start over for quick answers."), and each answer shows its cost.
 - Samara answers at `high` effort by default (it was the API's default, medium on Haiku 5.5): the cheap model's slips were lapses of care, and high effort costs a little more thinking, far less than a dearer model. The footer and Markdown exports show the effort.
 - Markdown exports put the answer first, then its tables, as the page does, and no longer end with the queries run: they are on the page, under How I worked this out, to copy from there.
