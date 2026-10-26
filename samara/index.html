@@ -62,8 +62,7 @@
   .markdown-view { margin-top: 12px; }
   .markdown-view textarea { width: 100%; height: 320px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
       padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--code); color: var(--ink); resize: vertical; }
-  .markdown-view .row { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 6px; }
-  .markdown-view .row .note { order: -1; margin: 0 auto 0 0; }   /* "Copied" on the left, buttons right */
+  .markdown-view .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
   .status { color: var(--muted); font-size: .9rem; display: flex; gap: 8px; align-items: center; }
   .spinner { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent);
              border-radius: 50%; animation: spin 1s linear infinite; flex: none; }
@@ -91,7 +90,9 @@
   details.steps summary { cursor: pointer; }
   details.steps .queries-head { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
   details.steps .queries-head span { font-weight: 600; }
-  pre.script .res { color: var(--muted); user-select: none; }   /* shown, never copied */
+  /* Notes are drawn by CSS, which browsers never copy, so selecting the script by
+     hand gets only the commands (user-select: none was not enough in Safari). */
+  pre.script .ln[data-note]::after { content: attr(data-note); color: var(--muted); }
   details.steps .queries-head small { font-weight: 400; }
   pre.script { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--code); color: var(--ink);
                font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-x: auto; white-space: pre; }
@@ -355,7 +356,7 @@ function addScript(t, entry) {
   const pre = $("pre.script", t.steps);
   pre.hidden = false;
   pre.innerHTML = scriptOf(t.md.script).map(l =>
-    (l.cmd ? esc(l.cmd) : "") + (l.note ? `<span class="res">${l.cmd ? "   " : ""}${esc(l.note)}</span>` : "")).join("\n");
+    `<span class="ln"${l.note ? ` data-note="${esc((l.cmd ? "   " : "") + l.note)}"` : ""}>${esc(l.cmd)}</span>`).join("\n");
 }
 
 async function ask(question, harder) {
