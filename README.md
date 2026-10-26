@@ -182,8 +182,9 @@ You will need the following items to run the program after building:
   * If you don't have this, run `make cfg` and follow the directions
 * Pre-requisite software listed above
 
-`elm-logo.svg` is the project mark (a terminal prompt: elm is a CLI). It is the
-page icon for `tools/elm-ask` and can be reused for docs or slides.
+`elm-logo.svg` is the project mark (an elm leaf: lopsided at the base and
+toothed, as elm leaves are). It is the page icon for Samara (`tools/elm-ask`)
+and can be reused for docs or slides.
 
 See `config.example.ini` for a documented example config file, and
 `ai.example.ini` for a suggested restricted profile for AI assistants.

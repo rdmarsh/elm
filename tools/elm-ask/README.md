@@ -1,4 +1,7 @@
-# elm ask
+# Samara
+
+Samara (the elm's winged seed) is the name people see; the code lives in
+`tools/elm-ask`, and its commands and settings keep that name.
 
 A local web page where anyone can ask questions about a LogicMonitor portal in
 plain English:
