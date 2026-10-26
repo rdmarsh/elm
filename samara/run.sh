@@ -9,7 +9,7 @@
 #   --model, -m NAME     Claude model line (haiku, sonnet, opus: the newest of
 #                        that line answers) or one exact model id. Run without
 #                        it to see the lines by number, default in [brackets].
-#   --effort, -e LEVEL   low | medium | high | xhigh | max (default: the API's)
+#   --effort, -e LEVEL   low | medium | high | xhigh | max (default: high)
 #   --profile, -p NAME   elm credential profile (default: ai)
 #   --port NUM           port on this machine (default: 8080)
 #   --build              build the image first, from the repo root
@@ -158,7 +158,7 @@ if [[ $ASK -eq 1 && -t 0 ]]; then
             MODEL=${MODELS[MODEL - 1]%%|*}
         fi
     fi
-    [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [model default]: " EFFORT
+    [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [high]: " EFFORT
 fi
 
 if [[ -n "$EFFORT" && ! "$EFFORT" =~ ^(low|medium|high|xhigh|max)$ ]]; then
@@ -189,7 +189,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
 fi
 
 printf 'elm-ask: profile %s, model %s, effort %s\n' \
-    "$PROFILE" "${MODEL:-$DEFAULT_MODEL}" "${EFFORT:-none}"
+    "$PROFILE" "${MODEL:-$DEFAULT_MODEL}" "${EFFORT:-high}"
 URL="http://127.0.0.1:$PORT/"
 printf 'Open %s  (ctrl-c here to stop)\n\n' "$URL"
 

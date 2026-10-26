@@ -263,7 +263,7 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 | `ELM_CONFIG` | | Path to a specific `.ini` inside the container (overrides `ELM_PROFILE`) |
 | `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too; unnecessary if the CA was built in, see [Build](#behind-a-proxy-that-inspects-tls)) |
 | `ELM_ASK_MODEL` | `haiku` | Model line (`haiku`, `sonnet`, `opus`: the newest model in it answers), or an exact model id |
-| `ELM_ASK_EFFORT` | API default | How hard the model works per step; lower is faster and cheaper |
+| `ELM_ASK_EFFORT` | `high` | How hard the model works per step; lower is faster and cheaper |
 | `ELM_ASK_MAX_STEPS` | `25` | Maximum model turns per question |
 
 ### Cost: model and effort
@@ -291,10 +291,11 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   several times as much: prices are on Anthropic's pricing page. "How I worked
   this out" under each answer names the model that answered. An exact model id
   (`claude-sonnet-5-5`) stays on that model.
-- **Effort.** Lower effort means less thinking per step, so less money and less
-  time, at some cost in care. Try it before dropping to a weaker model. Not
-  every model takes it (the small ones refuse it); elm-ask notices, says so and
-  carries on without it, so the setting is safe to leave on.
+- **Effort.** High by default. Lower effort means less thinking per step, so
+  less money and less time, at some cost in care; higher effort is a cheaper
+  way to more care than a dearer model. The footer and Markdown exports show
+  the effort in use. Not every model takes it (Haiku 4.5 refuses it); Samara
+  notices, says so and carries on without it.
 
 Judge both on answers, not on price alone: a cheaper model that needs three
 attempts is not cheaper. That is what the checked questions in `questions.md` are for.

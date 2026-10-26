@@ -20,7 +20,10 @@ import elm_tools
 # questions.md is how to tell whether a dearer one answers better.
 LINES = ["haiku", "sonnet", "opus"]
 MODEL = os.environ.get("ELM_ASK_MODEL", "haiku")
-EFFORT = os.environ.get("ELM_ASK_EFFORT")          # low|medium|high|xhigh|max; unset = API default
+# low|medium|high|xhigh|max. High by default: the cheap model slips most on care
+# (a field elm warned about, words that drift from its own table), and high costs
+# a little more thinking, far less than moving up a model line. Empty = the API's.
+EFFORT = os.environ.get("ELM_ASK_EFFORT", "high")
 MAX_STEPS = int(os.environ.get("ELM_ASK_MAX_STEPS", "25"))
 # Sent for the page's Tell me more button. Answers stop at the facts (see
 # system_prompt.md); this asks for the analysis that was left out.

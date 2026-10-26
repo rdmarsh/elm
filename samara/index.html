@@ -225,7 +225,7 @@ fetch("/api/health").then(r => r.json()).then(h => {
   $("#footer").innerHTML = `<span class="caution">Answers can be wrong — check "How I worked this out".</span>`
     + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
     + `(<button id="show-commands" type="button">${scope}</button>) · `
-    + `Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}</span>`;
+    + `Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}, effort ${esc(h.effort)}</span>`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
@@ -326,7 +326,7 @@ function isoNow() {
 }
 
 function answerMarkdown(a) {
-  const when = health ? ` · ${health.profile} · ${a.model || health.model}` : "";
+  const when = health ? ` · ${health.profile} · ${a.model || health.model} · ${health.effort} effort` : "";
   return [`# ${a.question}`, "",
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,

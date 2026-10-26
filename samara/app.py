@@ -81,6 +81,7 @@ def health():
         "restricted": status["restricted"],
         "allowed": status["allowed"],
         "model": agent.MODEL,
+        "effort": agent.EFFORT or "default",
         "model_id": default_model_id(),
         "elm_version": elm_version(),
     }
