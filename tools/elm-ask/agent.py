@@ -16,7 +16,7 @@ import elm_tools
 # "Think harder" on the page re-asks a question one line further along. The
 # cheapest by default: most questions are lookups, and every one costs money.
 # ELM_ASK_MODEL picks another line, or a full model id to stay on one model; the
-# question set in todo.md is how to tell whether a dearer one answers better.
+# questions.md is how to tell whether a dearer one answers better.
 LINES = ["haiku", "sonnet", "opus"]
 MODEL = os.environ.get("ELM_ASK_MODEL", "haiku")
 EFFORT = os.environ.get("ELM_ASK_EFFORT")          # low|medium|high|xhigh|max; unset = API default

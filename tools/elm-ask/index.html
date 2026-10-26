@@ -73,12 +73,13 @@
   .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
-  /* The card's last row: how it was worked out on the left, Think harder on the right. */
-  .turn-foot { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-top: 12px; }
-  .turn-foot .buttons { flex: none; margin-left: auto; display: flex; gap: 8px; }
+  /* The card's last row: how it was worked out on the left, what to do with the
+     answer on the right (export, then Tell me more and Think harder). */
+  .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px; margin-top: 12px; }
+  .turn-foot .buttons { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
   .part.detail { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
   /* An answer replaced by Think harder folds to its question until asked for. */
-  .turn.earlier:not(.open) > :not(.question), .turn.earlier:not(.open) .actions .icon { display: none; }
+  .turn.earlier:not(.open) > :not(.question) { display: none; }
   .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
   .turn.earlier.open .question { margin-bottom: 8px; }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
@@ -328,25 +329,25 @@ async function ask(question, harder) {
   turn.className = "turn";
   turn.innerHTML = `<div class="question"><span>${esc(question)}</span>
       <span class="actions">
-        <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
-        <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown" hidden>${ICON.md}Markdown</button>
         <button class="secondary earlier-toggle" type="button" hidden>Show earlier answer</button>
       </span></div>
     ${harder ? `<p class="retry-note">${RETRY_NOTE[harder - 1]}</p>` : ""}
     <div class="part"></div>
-    <div class="markdown-view" hidden>
-      <textarea readonly></textarea>
-      <div class="row"><button class="secondary copy" type="button">Copy</button>
-        <button class="secondary download" type="button">Download .md</button>
-        <span class="note"></span></div>
-    </div>
     <div class="turn-foot">
       <details class="steps" hidden><summary>How I worked this out</summary>
         <div class="worked"></div><p class="queries-label" hidden>Queries run</p><ol></ol></details>
       <span class="buttons">
+        <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
+        <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown, to copy or download" hidden>${ICON.md}Markdown</button>
         <button class="secondary more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
+    </div>
+    <div class="markdown-view" hidden>
+      <textarea readonly></textarea>
+      <div class="row"><button class="secondary copy" type="button">Copy</button>
+        <button class="secondary download" type="button">Download</button>
+        <span class="note"></span></div>
     </div>`;
   results.prepend(turn);
   const t = { turn, steps: $(".steps", turn), stepCount: 0, more: false,
@@ -363,7 +364,7 @@ async function ask(question, harder) {
     e.target.remove();
     const part = document.createElement("div");
     part.className = "part detail";
-    $(".markdown-view", turn).before(part);
+    $(".turn-foot", turn).before(part);
     stream(t, part, { detail: true }, ev => {
       t.md.detail = ev.markdown;
       return "Tell me more";
@@ -372,7 +373,7 @@ async function ask(question, harder) {
   const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
   $(".md-toggle", turn).addEventListener("click", () => {
     view.hidden = !view.hidden;
-    $(".md-toggle", turn).textContent = view.hidden ? "Markdown" : "Hide Markdown";
+    $(".md-toggle", turn).innerHTML = ICON.md + (view.hidden ? "Markdown" : "Hide Markdown");
     if (!view.hidden) { box.value = answerMarkdown(t.md); note.textContent = ""; }
   });
   $(".copy", turn).addEventListener("click", async () => {

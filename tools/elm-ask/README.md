@@ -288,7 +288,7 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   carries on without it, so the setting is safe to leave on.
 
 Judge both on answers, not on price alone: a cheaper model that needs three
-attempts is not cheaper. That is what the question set in `todo.md` is for.
+attempts is not cheaper. That is what the checked questions in `questions.md` are for.
 
 ## qlm: ask from the command line
 
