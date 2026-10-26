@@ -375,6 +375,12 @@ def run_jq(session, expression):
 
 def show_table(session, title, expression, columns):
     """Send a table to the user's screen (the model does not see the rows)."""
+    # A table typed in by the model (jq -n '[{"Device": "x", ...}]') shows
+    # whatever it wrote, not what the portal returned, and its rerun script
+    # replays a snapshot. It must come from a fetched dataset.
+    if not re.search(r"\$d\d+", expression):
+        raise ValueError("Build the table from a fetched dataset ($d1, $d2 ...) with jq, "
+                         "not from values written into the expression.")
     out = _jq(session, expression).strip()
     try:
         rows = json.loads(out) if out else []
@@ -460,7 +466,8 @@ TOOLS = [
         "name": "show_table",
         "description": "Display a table to the user. expression is a jq expression producing ONE JSON array of objects; "
                        "columns lists the object keys to show, in order. Use readable keys (e.g. 'Device', 'Started') "
-                       "and convert epochs with todate in the expression.",
+                       "and convert epochs with todate in the expression. Build it from the datasets ($d1 ...), "
+                       "never from values typed into the expression.",
         "input_schema": {
             "type": "object",
             "properties": {

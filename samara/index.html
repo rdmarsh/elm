@@ -32,7 +32,7 @@
   header p { color: var(--muted); margin: 4px 0 0; }
   body.has-results header p { display: none; }
   /* Start over: only once there is a conversation to clear. */
-  body.has-results header { display: flex; justify-content: space-between; align-items: center; }
+  body.has-results header { display: flex; align-items: baseline; gap: 16px; }   /* Start over beside the title */
   #restart { color: var(--muted); font-size: .85rem; }
   body:not(.has-results) #restart { display: none; }
   /* Read by screen readers, not shown: "Answer ready", "Stopped", errors. */
@@ -216,9 +216,8 @@ fetch("/api/health").then(r => r.json()).then(h => {
   if (h.profile_problem) problems.push(esc(h.profile_problem));
   if (problems.length) { $("#banner").innerHTML = problems.join("<br>"); $("#banner").hidden = false; }
   if (h.elm_version) $("#elm-version").textContent = ` v${h.elm_version}`;
-  const scope = h.restricted ? `${h.allowed.length} allowed commands` : "all commands";
-  if (h.portal) $("#subtitle").textContent =
-    `Ask about ${h.portal} in plain English. Read-only, ${h.restricted ? `${h.allowed.length} commands` : "every command"}.`;
+  const scope = h.restricted ? `${h.allowed.length} allowed elm commands` : "all elm commands";
+  if (h.portal) $("#subtitle").textContent = `Ask about ${h.portal} in plain English. Read-only.`;
   const portal = h.portal
     ? `Portal: <a href="https://${esc(h.portal)}.logicmonitor.com" target="_blank" rel="noopener">${esc(h.portal)}</a> · `
     : "";
