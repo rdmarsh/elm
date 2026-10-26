@@ -3,6 +3,7 @@
 import json
 import os
 import random
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -118,6 +119,8 @@ class Conversation:
         self.question = None       # the last question, and where it starts in messages,
         self.asked_at = 0          # so "Think harder" can ask it again from there
         self.model = None          # the model that answered it, for Tell me more
+        self.lock = threading.Lock()    # one request at a time per conversation
+        self.stop = threading.Event()   # set by a newer request: the running one gives way
         self.session = elm_tools.Session()
         self.last_used = time.time()
 
@@ -135,7 +138,31 @@ def call_tool(conv, block):
         return {"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True}, event
 
 
+class Stopped(Exception):
+    """A newer request for the same conversation took over (Stop, then Try again)."""
+
+
+# What the status line says while a tool runs: the tool names mean nothing to a reader.
+DOING = {"run_elm": "Asking LogicMonitor", "jq": "Counting", "show_table": "Making a table",
+         "describe_command": "Reading the manual", "find_commands": "Finding the right query"}
+
+
 def ask(client, conv, question, emit, where=None, harder=0, detail=False):
+    """Answer one question, one request at a time per conversation.
+
+    A Stop only reaches the server at the request's next step, so Try again can
+    arrive while the stopped request is still running. Without the lock the two
+    share one message history: the retry answers from the stopped one's
+    half-finished results, then the stopped one's rollback deletes the retry's.
+    So a new request asks the running one to give way, and waits for it.
+    """
+    conv.stop.set()
+    with conv.lock:
+        conv.stop.clear()
+        return _ask(client, conv, question, emit, where, harder, detail)
+
+
+def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
     """Answer one question, streaming progress events through emit(dict).
 
     `where` carries the reader's timezone from the browser, so answers can be in
@@ -188,6 +215,8 @@ def _answer(client, conv, question, model, emit, where, start):
                     f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it.)"),
     })
     for _ in range(MAX_STEPS):
+        if conv.stop.is_set():
+            raise Stopped()
         emit({"type": "status", "text": random.choice(THINKING) + "..."})
         response = create(client, model, conv.messages, emit)
         if response.stop_reason == "refusal":
@@ -210,7 +239,9 @@ def _answer(client, conv, question, model, emit, where, start):
             emit({"type": "status", "text": text})
         results = []
         for block in tool_uses:
-            emit({"type": "status", "text": f"Running {block.name}..."})
+            if conv.stop.is_set():
+                raise Stopped()
+            emit({"type": "status", "text": DOING.get(block.name, "Working") + "..."})
             result, event = call_tool(conv, block)
             results.append(result)
             if event:

@@ -357,7 +357,7 @@ const workedOut = (n, model) =>
 // The answer ends with the model's own "How I worked this out" section; fold it
 // in with the queries, so the answer reads short and the working is one click away.
 function splitWorked(text) {
-  const m = text.match(/^(?:#{1,4}\s+|\*\*)?How I worked this out\b.*$/im);
+  const m = text.match(/^(?:#{1,4}\s+|\*\*)?How I worked (?:this |it )?out\b.*$/im);   // the model varies "this"/"it"
   return m ? [text.slice(0, m.index), text.slice(m.index + m[0].length)] : [text, ""];
 }
 // "Queries run" is a script: paste it into bash or zsh to get the same data

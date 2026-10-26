@@ -74,6 +74,9 @@ the instance data for each.
   "not available").
 - 2026-10-26 · claude-sonnet-5-5, claude-opus-5-5 · pass · led with "couldn't get
   a memory figure".
+- 2026-10-27 · claude-haiku-5-5 · partial (after the system prompt change) · still
+  led with the collector's 2.4 GB, but named it as the collector software's in
+  the headline and said server memory was not available in the next paragraph.
 
 ## Not run yet
 

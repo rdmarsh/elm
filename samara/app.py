@@ -153,7 +153,7 @@ class Handler(BaseHTTPRequestHandler):
             emit({"type": "error", "text": "Could not reach the Claude API. Check the network or proxy."})
         except anthropic.APIStatusError as exc:
             emit({"type": "error", "text": f"Claude API error {exc.status_code}: {exc.message}"})
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, agent.Stopped):
             pass  # Stop pressed or the tab closed; agent.ask has dropped the half-finished turn
         except Exception as exc:
             emit({"type": "error", "text": f"Unexpected error: {exc}"})

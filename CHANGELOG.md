@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Samara: Try again straight after Stop could run alongside the stopped request, answer from its half-finished results without running any queries, and then lose its own messages when the stopped one rolled back. Requests in one conversation now take turns: a new one asks the running one to give way and waits for it.
+- Samara: the status line showed internal tool names ("Running run_elm..."); it now says what is happening ("Asking LogicMonitor...", "Counting..."). An answer whose working was headed "How I worked it out" was not folded away.
 - Samara: a table could be built from values the model typed into its jq (`jq -n '[{"Device": ...}]'`) instead of from the fetched data, so it showed whatever the model wrote and its rerun script replayed a snapshot. A table now has to come from a fetched dataset.
 - Samara: a question stopped or failed part way (a rate limit, a refusal on a later step) left half an exchange in the conversation, so every later question in it failed. The turn is now dropped whole.
 - `-f sqlite` appending to an existing table now says the table has a different schema (and names the field) when the API returns a field the table lacks, instead of a pandas traceback. Fields that went missing were never a problem: they append as NULL.
