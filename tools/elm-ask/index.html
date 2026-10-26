@@ -73,23 +73,28 @@
   .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
-  /* The card's last row: how it was worked out on the left, what to do with the
-     answer on the right (export, then Tell me more and Think harder). */
-  .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px; margin-top: 12px; }
-  .turn-foot .buttons { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  /* The card's last row: show-and-take-away (Markdown, CSV) on the left, the
+     buttons that ask again (Tell me more, Think harder) on the right. */
+  .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
+  .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .turn-foot .buttons { margin-left: auto; }
   .part.detail { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
   /* An answer replaced by Think harder folds to its question until asked for. */
   .turn.earlier:not(.open) > :not(.question) { display: none; }
   .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
   .turn.earlier.open .question { margin-bottom: 8px; }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
-  details.steps { font-size: .85rem; color: var(--muted); }
+  details.steps { font-size: .85rem; color: var(--muted); margin-top: 12px; }
   details.steps .worked { color: var(--ink); opacity: .85; }
   details.steps .worked :first-child { margin-top: 6px; }
   details.steps .queries-label { margin: 10px 0 0; font-weight: 600; }
   details.steps summary { cursor: pointer; }
-  details.steps ol { padding-left: 20px; margin: 6px 0 0; }
-  details.steps li { margin: 2px 0; overflow-wrap: anywhere; }
+  details.steps .queries-head { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  details.steps .queries-head span { font-weight: 600; }
+  pre.script .res { color: var(--muted); user-select: none; }   /* shown, never copied */
+  details.steps .queries-head small { font-weight: 400; }
+  pre.script { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--code); color: var(--ink);
+               font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-x: auto; white-space: pre; }
   details.steps code { color: var(--ink); }
 
   .table-block { margin: 14px 0; }
@@ -292,8 +297,7 @@ function answerMarkdown(a) {
     a.tables.length ? "" : null,
     a.answer, "",
     ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
-    "## Queries run", "",
-    ...a.steps.map(s => `- \`${s.command}\` → ${s.result}`), "",
+    ...(a.script.length ? ["## Queries run", "", "```sh", scriptText(a.script), "```", ""] : []),
     `_Samara${when} · ${new Date().toLocaleString()}_`,
   ].filter(x => x !== null).join("\n");
 }
@@ -315,6 +319,45 @@ function splitWorked(text) {
   const m = text.match(/^(?:#{1,4}\s+|\*\*)?How I worked this out\b.*$/im);
   return m ? [text.slice(0, m.index), text.slice(m.index + m[0].length)] : [text, ""];
 }
+// "Queries run" is a script: paste it into bash or zsh to get the same data
+// again without Samara. Each elm query saves its rows to a file; each jq step
+// reads the ones it names ($d1, $d2 ...), as Samara itself does.
+const producers = {};   // dataset -> the elm command that made it, across questions
+const shq = s => `'${s.replace(/'/g, `'\\''`)}'`;
+function scriptOf(entries) {   // -> [{cmd, note}]; cmd is what gets copied
+  const out = [], made = new Set();
+  for (const e of entries) {
+    if (e.dataset) {
+      out.push({ cmd: `${e.command} > "$t/${e.dataset}.jsonl"`, note: e.result }); made.add(e.dataset);
+    } else if (e.expression !== undefined) {
+      const ds = [...new Set(e.expression.match(/\$d\d+/g) || [])].map(d => d.slice(1));
+      for (const d of ds) if (!made.has(d) && producers[d]) {   // made for an earlier question
+        out.push({ cmd: `${producers[d]} > "$t/${d}.jsonl"`, note: "from an earlier question" }); made.add(d);
+      }
+      const slurp = ds.map(d => `--slurpfile ${d} "$t/${d}.jsonl" `).join("");
+      out.push({ cmd: `jq -n ${slurp}${shq(e.expression)}`, note: e.title ? `the table "${e.title}"` : "" });
+    } else if (e.result === "failed") {
+      out.push({ cmd: "", note: `failed, left out: ${e.command}` });
+    } else {
+      out.push({ cmd: e.command, note: e.result });   // a total (-C)
+    }
+  }
+  if (made.size) out.unshift({ cmd: "t=$(mktemp -d)", note: "where each query's rows are saved" });
+  return out;
+}
+// No # comments in what is copied: zsh, the macOS shell, does not treat # as a
+// comment when pasted, so the notes would reach elm as arguments.
+const scriptText = entries => scriptOf(entries).filter(l => l.cmd).map(l => l.cmd).join("\n");
+function addScript(t, entry) {
+  t.md.script.push(entry);
+  t.steps.hidden = false;
+  $(".queries-head", t.steps).hidden = false;
+  const pre = $("pre.script", t.steps);
+  pre.hidden = false;
+  pre.innerHTML = scriptOf(t.md.script).map(l =>
+    (l.cmd ? esc(l.cmd) : "") + (l.note ? `<span class="res">${l.cmd ? "   " : ""}${esc(l.note)}</span>` : "")).join("\n");
+}
+
 async function ask(question, harder) {
   document.body.classList.add("has-results");
   input.value = "";
@@ -333,12 +376,17 @@ async function ask(question, harder) {
       </span></div>
     ${harder ? `<p class="retry-note">${RETRY_NOTE[harder - 1]}</p>` : ""}
     <div class="part"></div>
+    <details class="steps" hidden><summary>How I worked this out</summary>
+      <div class="worked"></div>
+      <div class="queries-head" hidden><span>Queries run <small>(paste into a shell to run them again; uses your default elm profile)</small></span>
+        <button class="secondary copy-script" type="button" title="Copy the queries as a script to run with elm">Copy</button></div>
+      <pre class="script" hidden></pre></details>
     <div class="turn-foot">
-      <details class="steps" hidden><summary>How I worked this out</summary>
-        <div class="worked"></div><p class="queries-label" hidden>Queries run</p><ol></ol></details>
-      <span class="buttons">
-        <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
+      <span class="exports">
         <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown, to copy or download" hidden>${ICON.md}Markdown</button>
+        <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
+      </span>
+      <span class="buttons">
         <button class="secondary more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
@@ -351,7 +399,7 @@ async function ask(question, harder) {
     </div>`;
   results.prepend(turn);
   const t = { turn, steps: $(".steps", turn), stepCount: 0, more: false,
-              md: { question, answer: "", detail: "", tables: [], steps: [], model: "" } };
+              md: { question, answer: "", detail: "", tables: [], script: [], model: "" } };
 
   $(".earlier-toggle", turn).addEventListener("click", e => {
     e.target.textContent = turn.classList.toggle("open") ? "Hide earlier answer" : "Show earlier answer";
@@ -364,11 +412,16 @@ async function ask(question, harder) {
     e.target.remove();
     const part = document.createElement("div");
     part.className = "part detail";
-    $(".turn-foot", turn).before(part);
+    $(".steps", turn).before(part);
     stream(t, part, { detail: true }, ev => {
       t.md.detail = ev.markdown;
       return "Tell me more";
     });
+  });
+  $(".copy-script", turn).addEventListener("click", async e => {
+    try { await navigator.clipboard.writeText(scriptText(t.md.script)); e.target.textContent = "Copied"; }
+    catch { e.target.textContent = "Select and copy"; }
+    setTimeout(() => e.target.textContent = "Copy", 2000);
   });
   const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
   $(".md-toggle", turn).addEventListener("click", () => {
@@ -417,12 +470,12 @@ async function stream(t, part, body, onAnswer) {
       case "model": if (!body.detail) { t.md.model = ev.id; t.more = ev.more; } break;
       case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;
       case "step":
-        steps.hidden = false; $(".queries-label", steps).hidden = false;
-        $("ol", steps).insertAdjacentHTML("beforeend", `<li><code>${esc(ev.command)}</code> → ${esc(ev.result)}</li>`);
-        t.md.steps.push(ev);
+        if (ev.dataset) producers[ev.dataset] = ev.command;
+        addScript(t, ev);
         $("summary", steps).textContent = workedOut(++t.stepCount, t.md.model);
         break;
       case "table":
+        addScript(t, { expression: ev.expression, title: ev.title });
         t.md.tables.push(ev);
         $(".tables", part).append(renderTable(ev));
         $(".csv", t.turn).hidden = false;

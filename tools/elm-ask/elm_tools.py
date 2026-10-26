@@ -10,6 +10,7 @@ as -f api/curl/wget, which would print the signed Authorization header.
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -58,7 +59,7 @@ REMOVED_FIELDS = SECRET_FIELDS | PERSONAL_FIELDS
 # SNMPv3 auth protocol (SHA, MD5), not a secret.
 SECRET_PROPERTY_NAME = re.compile(r"pass|secret|community|token|accesskey|privatekey|apikey", re.I)
 LM_MASK = re.compile(r"^\*+$")
-REDACTED = "[removed by elm-ask]"
+REDACTED = "[removed: secret]"
 
 
 def load_commands():
@@ -278,7 +279,8 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     that skips the lookup still cannot miss "-C gives no real total here".
     """
     args = build_elm_args(command, filter, fields, size, offset, params, total)
-    shown = "elm " + " ".join(a if re.fullmatch(r"[\w.,:/-]+", a) else repr(a) for a in args)
+    # Shell-quoted, so the page can offer the queries as a script to paste and rerun.
+    shown = "elm " + shlex.join(args)
     proc = subprocess.run(ELM_CMD + global_args() + args, capture_output=True, text=True, timeout=300)
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
@@ -326,7 +328,7 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         result["elm_warnings"] = truncate(stderr, 500)
     if removed:
         result["secrets_removed"] = f"{removed} secret-bearing or personal values were removed; request specific fields to avoid them."
-    step = {"type": "step", "command": shown, "result": f"{len(lines)} rows as ${ds_id}"}
+    step = {"type": "step", "command": shown, "result": f"{len(lines)} rows", "dataset": ds_id}
     return session.with_notes(command, truncate(json.dumps(result, indent=1, default=str))), step
 
 
@@ -366,7 +368,8 @@ def _jq(session, expression):
 def run_jq(session, expression):
     """Filter, join, count or reshape stored datasets with jq."""
     out = _jq(session, expression)
-    step = {"type": "step", "command": f"jq {expression}", "result": f"{len(out.splitlines())} line(s)"}
+    step = {"type": "step", "command": f"jq {expression}", "result": f"{len(out.splitlines())} line(s)",
+            "expression": expression}
     return truncate(out or "(no output)"), step
 
 
@@ -385,6 +388,7 @@ def show_table(session, title, expression, columns):
         "columns": columns,
         "rows": [[r.get(c) for c in columns] for r in rows[:MAX_TABLE_ROWS]],
         "total": len(rows),
+        "expression": expression,
     }
     note = f"Showed a table of {len(rows)} rows to the user."
     if len(rows) > MAX_TABLE_ROWS:
