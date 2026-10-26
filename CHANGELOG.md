@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Samara shows what each answer cost, from the API's own token counts: "How I worked this out (5 queries · claude-haiku-5-5 · ≈ $0.0032)", summed with any Tell me more, and in the Markdown export's stamp. Prices are a small table from Anthropic's pricing page; a model not in it shows its token count instead, so a new release is never priced wrongly.
+
 ### Changed
 
 - Samara answers at `high` effort by default (it was the API's default, medium on Haiku 5.5): the cheap model's slips were lapses of care, and high effort costs a little more thinking, far less than a dearer model. The footer and Markdown exports show the effort.

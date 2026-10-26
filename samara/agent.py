@@ -141,6 +141,29 @@ def call_tool(conv, block):
         return {"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True}, event
 
 
+# US$ per million tokens: input, output, cache read. Cache writes cost 1.25x
+# input. From https://www.anthropic.com/pricing, checked 2026-10-27 (Haiku's
+# rate is for prompts up to 100K tokens). A model not listed shows its token
+# count instead of a price, so a new release is never priced wrongly.
+PRICES = {
+    "claude-haiku-5-5": (0.10, 0.50, 0.01),
+    "claude-sonnet-5-5": (2.00, 10.00, 0.20),
+    "claude-opus-5-5": (4.00, 20.00, 0.20),
+}
+
+
+def spend(model, usage):
+    """{"tokens", "cost"} for one turn's summed usage; cost is None for an unpriced model."""
+    tokens = sum(usage.values())
+    price = PRICES.get(model)
+    if not price:
+        return {"tokens": tokens, "cost": None}
+    inp, out, read = price
+    cost = (usage["input"] * inp + usage["output"] * out + usage["cache_read"] * read
+            + usage["cache_write"] * inp * 1.25) / 1e6
+    return {"tokens": tokens, "cost": round(cost, 6)}
+
+
 class Stopped(Exception):
     """A newer request for the same conversation took over (Stop, then Try again)."""
 
@@ -217,13 +240,26 @@ def _answer(client, conv, question, model, emit, where, start):
                     f"{now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())}. "
                     f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it.)"),
     })
+    # Tokens for this turn, across its steps, for the cost shown with the answer.
+    usage = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+
+    def spent():
+        emit({"type": "usage", **spend(model, usage)})
+
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
         emit({"type": "status", "text": random.choice(THINKING) + "..."})
         response = create(client, model, conv.messages, emit)
+        u = getattr(response, "usage", None)
+        if u is not None:
+            usage["input"] += getattr(u, "input_tokens", 0) or 0
+            usage["output"] += getattr(u, "output_tokens", 0) or 0
+            usage["cache_read"] += getattr(u, "cache_read_input_tokens", 0) or 0
+            usage["cache_write"] += getattr(u, "cache_creation_input_tokens", 0) or 0
         if response.stop_reason == "refusal":
             del conv.messages[start:]   # the whole turn, not just its last message
+            spent()
             emit({"type": "error", "text": "The model declined to answer this question."})
             return
 
@@ -235,6 +271,7 @@ def _answer(client, conv, question, model, emit, where, start):
             answer = "\n\n".join(texts) or "(no answer)"
             if response.stop_reason == "max_tokens":
                 answer += "\n\n_(Answer was cut off at the length limit.)_"
+            spent()
             emit({"type": "answer", "markdown": answer})
             return
 
@@ -252,4 +289,5 @@ def _answer(client, conv, question, model, emit, where, start):
         conv.messages.append({"role": "user", "content": results})
 
     del conv.messages[start:]
+    spent()
     emit({"type": "error", "text": f"Stopped after {MAX_STEPS} steps without a final answer. Try a narrower question."})

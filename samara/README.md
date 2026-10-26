@@ -297,6 +297,11 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   the effort in use. Not every model takes it (Haiku 4.5 refuses it); Samara
   notices, says so and carries on without it.
 
+Each answer shows what it cost under How I worked this out, worked out from the
+API's token counts and the prices in `agent.py` (`PRICES`; update them when
+Anthropic's change). It is billed to whoever owns the API key. qlm runs on your
+Claude login instead, so it has no per-question cost.
+
 Judge both on answers, not on price alone: a cheaper model that needs three
 attempts is not cheaper. That is what the checked questions in `questions.md` are for.
 

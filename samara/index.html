@@ -225,7 +225,7 @@ fetch("/api/health").then(r => r.json()).then(h => {
   $("#footer").innerHTML = `<span class="caution">Answers can be wrong — check "How I worked this out".</span>`
     + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
     + `(<button id="show-commands" type="button">${scope}</button>) · `
-    + `Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}, effort ${esc(h.effort)}</span>`;
+    + `Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}${h.effort ? `, effort ${esc(h.effort)}` : ""}</span>`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
@@ -326,13 +326,14 @@ function isoNow() {
 }
 
 function answerMarkdown(a) {
-  const when = health ? ` · ${health.profile} · ${a.model || health.model} · ${health.effort} effort` : "";
+  const when = health ? ` · ${health.profile} · ${a.model || health.model}${health.effort ? ` · ${health.effort} effort` : ""}` : "";
+  const cost = a.costText ? ` · ${a.costText}` : "";
   return [`# ${a.question}`, "",
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
     a.answer, "",
     ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
-    `_Samara${when} · ${isoNow()}_`,
+    `_Samara${when}${cost} · ${isoNow()}_`,
   ].filter(x => x !== null).join("\n");
 }
 
@@ -352,8 +353,12 @@ go.addEventListener("click", e => {
 // harder > 0 asks the last question again on a dearer model (see agent.py).
 const RETRY_NOTE = ["Rolling up my sleeves: asking again with a more capable model.",
                     "Really putting my back into it: asking the most capable model."];
-const workedOut = (n, model) =>
-  `How I worked this out (${n} ${n === 1 ? "query" : "queries"}${model ? ` · ${model}` : ""})`;
+// What the answer cost, from the API's token counts (agent.spend): a price where
+// Samara knows the model's rates, otherwise the token count.
+const costText = t => t.cost != null ? `≈ $${t.cost < 0.01 ? t.cost.toFixed(4) : t.cost.toFixed(2)}`
+  : t.tokens ? `${(t.tokens / 1000).toFixed(1)}k tokens` : "";
+const workedOut = (n, model, t) => `How I worked this out (${[`${n} ${n === 1 ? "query" : "queries"}`,
+  model, t && costText(t)].filter(Boolean).join(" · ")})`;
 // The answer ends with the model's own "How I worked this out" section; fold it
 // in with the queries, so the answer reads short and the working is one click away.
 function splitWorked(text) {
@@ -477,7 +482,7 @@ async function ask(question, harder) {
   $(".md-toggle", turn).addEventListener("click", () => {
     view.hidden = !view.hidden;
     $(".md-toggle", turn).innerHTML = ICON.md + (view.hidden ? "Markdown" : "Hide Markdown");
-    if (!view.hidden) { box.value = answerMarkdown(t.md); note.textContent = ""; }
+    if (!view.hidden) { box.value = answerMarkdown({ ...t.md, costText: costText(t) }); note.textContent = ""; }
   });
   $(".copy", turn).addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(box.value); note.textContent = "Copied"; }
@@ -521,11 +526,17 @@ async function stream(t, part, body, onAnswer) {
     switch (ev.type) {
       case "conversation": conversationId = ev.id; break;
       case "model": if (!body.detail) { t.md.model = ev.id; t.more = ev.more; } break;
+      case "usage":   // summed over the card: the answer, then any Tell me more
+        t.tokens = (t.tokens || 0) + ev.tokens;
+        t.cost = ev.cost == null || t.cost === null ? null : (t.cost || 0) + ev.cost;
+        steps.hidden = false;
+        $("summary", steps).textContent = workedOut(t.stepCount, t.md.model, t);
+        break;
       case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;
       case "step":
         if (ev.dataset) producers[ev.dataset] = ev.command;
         addScript(t, ev);
-        $("summary", steps).textContent = workedOut(++t.stepCount, t.md.model);
+        $("summary", steps).textContent = workedOut(++t.stepCount, t.md.model, t);
         break;
       case "table":
         addScript(t, { expression: ev.expression, title: ev.title });
@@ -588,7 +599,7 @@ async function stream(t, part, body, onAnswer) {
       });
     }
     announce(failed || (answered ? "Answer ready" : ""));
-    if (t.stepCount) $("summary", steps).textContent = workedOut(t.stepCount, t.md.model);
+    if (t.stepCount || t.tokens) $("summary", steps).textContent = workedOut(t.stepCount, t.md.model, t);
     t.turn.querySelectorAll(".buttons button").forEach(b => { if (b.textContent !== "That's my best") b.disabled = false; });
     input.focus();
   }
@@ -596,7 +607,7 @@ async function stream(t, part, body, onAnswer) {
 
 // Forget a question's working before it is asked again (Try again).
 function resetWorking(t) {
-  t.md.script.length = 0; t.md.tables.length = 0; t.stepCount = 0;
+  t.md.script.length = 0; t.md.tables.length = 0; t.stepCount = 0; t.tokens = 0; t.cost = undefined;
   $(".worked", t.steps).innerHTML = ""; $("pre.script", t.steps).textContent = "";
   $(".queries-head", t.steps).hidden = true; t.steps.hidden = true;
   $("summary", t.steps).textContent = "How I worked this out";
