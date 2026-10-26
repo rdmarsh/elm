@@ -85,7 +85,7 @@ and a result line.
 
 - **Is DEVICE okay?** (front-page example) Should bring together the device's
   status, open alerts and any downtime in effect, in a line or two.
-- **Which devices are down right now?** (front-page example) A table of
+- **Which devices are down?** (front-page example) A table of
   devices whose host status is dead, with when they went down. Count
   collector-down devices separately or say they are included.
 - **How many alerts are open right now?** Count by severity. Open critical
