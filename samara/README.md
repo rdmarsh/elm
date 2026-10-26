@@ -285,8 +285,8 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   the cheapest: these are mostly lookup questions, and every one costs money.
   When an answer falls short, **Think harder** under it asks the same question
   again on the next line up (sonnet, then opus after a confirm), starting
-  fresh rather than from the weak answer; the next question goes back to the
-  default. Dearer lines are more careful on multi-step questions (joining
+  fresh rather than from the weak answer. Follow-ups stay on that line until
+  **Start over**, and the question box says so. Dearer lines are more careful on multi-step questions (joining
   alerts to devices, paging, noticing a filter the API ignored) and cost
   several times as much: prices are on Anthropic's pricing page. "How I worked
   this out" under each answer names the model that answered. An exact model id
