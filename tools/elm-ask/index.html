@@ -19,6 +19,7 @@
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }   /* or a display rule (button.icon) shows it anyway */
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 900px; margin: 0 auto; padding: 32px 16px 120px; }
@@ -73,6 +74,10 @@
   /* The card's last row: how it was worked out on the left, Try harder on the right. */
   .turn-foot { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-top: 12px; }
   .turn-foot .harder { flex: none; margin-left: auto; }
+  /* An answer replaced by Try harder folds to its question until asked for. */
+  .turn.earlier:not(.open) > :not(.question), .turn.earlier:not(.open) .actions .icon { display: none; }
+  .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
+  .turn.earlier.open .question { margin-bottom: 8px; }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
   details.steps { font-size: .85rem; color: var(--muted); }
   details.steps summary { cursor: pointer; }
@@ -275,7 +280,7 @@ function answerMarkdown(a) {
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
     a.answer, "",
-    "## How I worked this out", "",
+    "## Queries run", "",
     ...a.steps.map(s => `- \`${s.command}\` → ${s.result}`), "",
     `_elm ask${when} · ${new Date().toLocaleString()}_`,
   ].filter(x => x !== null).join("\n");
@@ -290,13 +295,14 @@ form.addEventListener("submit", e => {
 // harder > 0 asks the last question again on a dearer model (see agent.py).
 const RETRY_NOTE = ["Rolling up my sleeves: asking again with a more capable model.",
                     "Really putting my back into it: asking the most capable model."];
-const workedOut = (n, model) =>
-  `How I worked this out (${n} ${n === 1 ? "query" : "queries"}${model ? ` · ${model}` : ""})`;
+const workedOut = (n, model) => `Queries run (${n})${model ? ` · ${model}` : ""}`;
 async function ask(question, harder) {
   document.body.classList.add("has-results");
   input.value = ""; go.disabled = true;
   // Only the newest answer can be retried: the server forgets the one it replaces.
   document.querySelectorAll(".harder").forEach(b => b.remove());
+  const earlier = harder ? results.firstElementChild : null;
+  if (earlier) { earlier.classList.add("earlier"); $(".earlier-toggle", earlier).hidden = false; }
 
   const turn = document.createElement("section");
   turn.className = "turn";
@@ -304,6 +310,7 @@ async function ask(question, harder) {
       <span class="actions">
         <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
         <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown" hidden>${ICON.md}Markdown</button>
+        <button class="secondary earlier-toggle" type="button" hidden>Show earlier answer</button>
       </span></div>
     ${harder ? `<p class="retry-note">${RETRY_NOTE[harder - 1]}</p>` : ""}
     <div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
@@ -315,7 +322,7 @@ async function ask(question, harder) {
         <span class="note"></span></div>
     </div>
     <div class="turn-foot">
-      <details class="steps" hidden><summary>How I worked this out</summary><ol></ol></details>
+      <details class="steps" hidden><summary>Queries run</summary><ol></ol></details>
       <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
     </div>`;
   results.prepend(turn);
@@ -354,6 +361,9 @@ async function ask(question, harder) {
 
   const md = { question, answer: "", tables: [], steps: [], model: "" };
   let more = false;
+  $(".earlier-toggle", turn).addEventListener("click", e => {
+    e.target.textContent = turn.classList.toggle("open") ? "Hide earlier answer" : "Show earlier answer";
+  });
   $(".harder", turn).addEventListener("click", () => {
     if (harder && !confirm("Costs more tokens. Sure?")) return;
     ask(question, harder + 1);
