@@ -24,8 +24,8 @@ model wrote it, after reading portal data that anyone with edit rights can set.
 Under each answer, **Tell me more** asks the same model for the analysis left
 out -- patterns, likely causes, what to check next -- and adds it to the
 answer; **Think harder** asks the question again on a more capable model.
-While it works, **Ask** becomes **Stop**; a stopped or failed question has a
-**Try again**, and **Start over** clears the conversation.
+While it works, **Ask** becomes **Stop**; a stopped question has **Keep going**
+and a failed one **Try again**, and **Start over** clears the conversation.
 
 Each answer carries two buttons: **Markdown** shows the whole answer -- question,
 text, tables as Markdown tables, and the queries behind it -- ready to copy into

@@ -512,7 +512,7 @@ async function stream(t, part, body, onAnswer) {
   current = new AbortController();
   go.textContent = "Stop"; go.classList.add("stop");
   announce("Working on it");
-  let answered = false, failed = "";
+  let answered = false, failed = "", stopped = false;   // Keep going after a Stop, Try again after an error
   t.turn.querySelectorAll(".buttons button").forEach(b => b.disabled = true);
   part.innerHTML = `<div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
     <div class="answer"></div><div class="tables"></div>`;
@@ -571,7 +571,8 @@ async function stream(t, part, body, onAnswer) {
       }
     }
   } catch (err) {
-    failed = err.name === "AbortError" ? "Stopped." : `Request failed: ${err.message}`;
+    stopped = err.name === "AbortError";
+    failed = stopped ? "Stopped." : `Request failed: ${err.message}`;
   } finally {
     current = null;
     go.textContent = "Ask"; go.classList.remove("stop");
@@ -580,7 +581,7 @@ async function stream(t, part, body, onAnswer) {
     // already dropped the half-finished turn, so start this one clean too.
     if (failed) {
       $(".answer", part).insertAdjacentHTML("beforeend",
-        `<p class="error">${esc(failed)} <button class="link retry" type="button">Try again</button></p>`);
+        `<p class="error">${esc(failed)} <button class="link retry" type="button">${stopped ? "Keep going" : "Try again"}</button></p>`);
       $(".retry", part).addEventListener("click", () => {
         if (!body.detail) resetWorking(t);
         stream(t, part, body, onAnswer);
