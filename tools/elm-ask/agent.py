@@ -2,6 +2,7 @@
 
 import json
 import os
+import random
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,7 +13,7 @@ import elm_tools
 
 # A model line, not a model: each question goes to the newest model in the line,
 # looked up from the API, so a new release needs no edit here. Cheapest first;
-# "Try harder" on the page re-asks a question one line further along. The
+# "Think harder" on the page re-asks a question one line further along. The
 # cheapest by default: most questions are lookups, and every one costs money.
 # ELM_ASK_MODEL picks another line, or a full model id to stay on one model; the
 # question set in todo.md is how to tell whether a dearer one answers better.
@@ -20,13 +21,17 @@ LINES = ["haiku", "sonnet", "opus"]
 MODEL = os.environ.get("ELM_ASK_MODEL", "haiku")
 EFFORT = os.environ.get("ELM_ASK_EFFORT")          # low|medium|high|xhigh|max; unset = API default
 MAX_STEPS = int(os.environ.get("ELM_ASK_MAX_STEPS", "25"))
-# Sent for the page's More detail button. Answers stop at the facts (see
+# Sent for the page's Tell me more button. Answers stop at the facts (see
 # system_prompt.md); this asks for the analysis that was left out.
 DETAIL_REQUEST = ("More detail, please. Go beyond the facts in your last answer: patterns, likely causes and "
                   "what to check next. Use the data you already fetched where you can, and fetch more only if it "
                   "would change the analysis. Say which points the data shows and which are likely causes. "
                   "Do not repeat the facts I already have.")
 HERE = Path(__file__).resolve().parent
+# What the page says while the model thinks, one picked per step. Only for fun.
+THINKING = ["Branching out", "Putting down roots", "Leafing through it", "Rustling the leaves",
+            "Counting rings", "Photosynthesising", "Barking up the right tree", "Turning over a new leaf",
+            "Going out on a limb", "Getting to the root of it", "Sapping", "Thinking"]
 
 
 def load_system_prompt():
@@ -111,8 +116,8 @@ class Conversation:
     def __init__(self):
         self.messages = []
         self.question = None       # the last question, and where it starts in messages,
-        self.asked_at = 0          # so "Try harder" can ask it again from there
-        self.model = None          # the model that answered it, for More detail
+        self.asked_at = 0          # so "Think harder" can ask it again from there
+        self.model = None          # the model that answered it, for Tell me more
         self.session = elm_tools.Session()
         self.last_used = time.time()
 
@@ -137,8 +142,8 @@ def ask(client, conv, question, emit, where=None, harder=0, detail=False):
     the time they keep rather than UTC. `harder` > 0 asks the last question
     again on a dearer model, from before it was first asked, so the new model
     starts fresh instead of building on the answer that was not good enough.
-    `detail` asks the model that answered for the analysis behind its answer;
-    it is not a new question, so Try harder still redoes the one before it.
+    `detail` (Tell me more) asks the model that answered for the analysis behind its answer;
+    it is not a new question, so Think harder still redoes the one before it.
     """
     if detail:
         if conv.model is None:
@@ -170,7 +175,7 @@ def ask(client, conv, question, emit, where=None, harder=0, detail=False):
                     f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it.)"),
     })
     for _ in range(MAX_STEPS):
-        emit({"type": "status", "text": "Thinking..."})
+        emit({"type": "status", "text": random.choice(THINKING) + "..."})
         response = create(client, model, conv.messages, emit)
         if response.stop_reason == "refusal":
             conv.messages.pop()

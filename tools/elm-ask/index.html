@@ -62,7 +62,8 @@
   .markdown-view { margin-top: 12px; }
   .markdown-view textarea { width: 100%; height: 320px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
       padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--code); color: var(--ink); resize: vertical; }
-  .markdown-view .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  .markdown-view .row { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 6px; }
+  .markdown-view .row .note { order: -1; margin: 0 auto 0 0; }   /* "Copied" on the left, buttons right */
   .status { color: var(--muted); font-size: .9rem; display: flex; gap: 8px; align-items: center; }
   .spinner { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent);
              border-radius: 50%; animation: spin 1s linear infinite; flex: none; }
@@ -72,11 +73,11 @@
   .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
-  /* The card's last row: how it was worked out on the left, Try harder on the right. */
+  /* The card's last row: how it was worked out on the left, Think harder on the right. */
   .turn-foot { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-top: 12px; }
   .turn-foot .buttons { flex: none; margin-left: auto; display: flex; gap: 8px; }
   .part.detail { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
-  /* An answer replaced by Try harder folds to its question until asked for. */
+  /* An answer replaced by Think harder folds to its question until asked for. */
   .turn.earlier:not(.open) > :not(.question), .turn.earlier:not(.open) .actions .icon { display: none; }
   .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
   .turn.earlier.open .question { margin-bottom: 8px; }
@@ -289,7 +290,7 @@ function answerMarkdown(a) {
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
     a.answer, "",
-    ...(a.detail ? ["## More detail", "", a.detail, ""] : []),
+    ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
     "## Queries run", "",
     ...a.steps.map(s => `- \`${s.command}\` → ${s.result}`), "",
     `_elm ask${when} · ${new Date().toLocaleString()}_`,
@@ -318,7 +319,7 @@ async function ask(question, harder) {
   input.value = "";
   input.placeholder = "Ask a follow-up, or something new";
   // Only the newest answer can be retried or extended: the server forgets the
-  // one Try harder replaces, and More detail continues from the latest.
+  // one Think harder replaces, and Tell me more continues from the latest.
   document.querySelectorAll(".harder, .more-detail").forEach(b => b.remove());
   const earlier = harder ? results.firstElementChild : null;
   if (earlier) { earlier.classList.add("earlier"); $(".earlier-toggle", earlier).hidden = false; }
@@ -343,7 +344,7 @@ async function ask(question, harder) {
       <details class="steps" hidden><summary>How I worked this out</summary>
         <div class="worked"></div><p class="queries-label" hidden>Queries run</p><ol></ol></details>
       <span class="buttons">
-        <button class="secondary more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>More detail</button>
+        <button class="secondary more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
     </div>`;
@@ -365,7 +366,7 @@ async function ask(question, harder) {
     $(".markdown-view", turn).before(part);
     stream(t, part, { detail: true }, ev => {
       t.md.detail = ev.markdown;
-      return "More detail";
+      return "Tell me more";
     });
   });
   const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
@@ -394,7 +395,7 @@ async function ask(question, harder) {
     if (t.more || harder) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
-      b.textContent = !t.more ? "That's my best" : harder ? "Try even harder" : "Try harder";
+      b.textContent = !t.more ? "That's my best" : harder ? "Think even harder" : "Think harder";
     }
     return "";
   });

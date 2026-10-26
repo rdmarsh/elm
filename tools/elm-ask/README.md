@@ -11,9 +11,9 @@ Claude works out which elm queries answer the question, runs them, and replies
 with just the facts: a short answer, sortable tables and caveats, with "How I
 worked this out" and the exact queries it ran folded underneath.
 
-Under each answer, **More detail** asks the same model for the analysis left
+Under each answer, **Tell me more** asks the same model for the analysis left
 out -- patterns, likely causes, what to check next -- and adds it to the
-answer; **Try harder** asks the question again on a more capable model.
+answer; **Think harder** asks the question again on a more capable model.
 
 Each answer carries two buttons: **Markdown** shows the whole answer -- question,
 text, tables as Markdown tables, and the queries behind it -- ready to copy into
@@ -271,7 +271,7 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   `opus`. Each question goes to the newest model in the line, looked up from
   the API once per run, so a new release needs no change. The default is
   the cheapest: these are mostly lookup questions, and every one costs money.
-  When an answer falls short, **Try harder** under it asks the same question
+  When an answer falls short, **Think harder** under it asks the same question
   again on the next line up (sonnet, then opus after a confirm), starting
   fresh rather than from the weak answer; the next question goes back to the
   default. Dearer lines are more careful on multi-step questions (joining
