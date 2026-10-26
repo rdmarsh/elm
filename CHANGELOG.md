@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - A weekly `pip-audit` workflow (Mondays 06:00 UTC, or run by hand) checks `requirements.txt` for known vulnerabilities and fails if it finds one. `dependency-review.yml` only runs on pull requests, so before, a vulnerability published for a dependency that was already pinned never raised an alert.
+- `tools/elm-ask/run.sh --set-key` stores or replaces the Claude API key in the macOS keychain (it prompts, so the key never reaches your shell history). `run.sh` also checks the key with one free call to the Claude API before starting, and stops if it is rejected, saying whether the key came from `ANTHROPIC_API_KEY` in your shell, which overrides the keychain, or from the keychain. Before, a bad key only showed up as "The Claude API key is missing or invalid" on the page after the first question; that message now says to run `run.sh --set-key`.
 
 ### Fixed
 

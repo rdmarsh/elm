@@ -14,6 +14,8 @@
 #   --build              build the image first, from the repo root
 #   --yes, -y            don't ask anything; use the defaults for what is unset
 #   --dry-run            print the docker command instead of running it
+#   --set-key            store (or replace) the Claude API key in the macOS
+#                        keychain, then exit
 #   -h, --help           show this help
 #
 # Model and effort are the two dials that decide what a question costs. The
@@ -28,7 +30,8 @@
 #
 # Needs a Claude API key and a credential profile with allowed_commands (see
 # ai.example.ini). The key comes from ANTHROPIC_API_KEY, or from the macOS
-# keychain item named below, which run.sh tells you how to store.
+# keychain item named below (run.sh --set-key stores it). run.sh checks the key
+# with the Claude API before starting, so a bad one shows here, not on the page.
 #
 # Examples:
 #   run.sh                                   # prompts, then starts
@@ -62,6 +65,7 @@ PORT=8080
 BUILD=0
 ASK=1
 DRY_RUN=0
+SET_KEY=0
 CREDS_DIR="$HOME/.config/logicmonitor/credentials"
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
@@ -74,27 +78,64 @@ while [[ $# -gt 0 ]]; do
         --build)      BUILD=1; shift ;;
         --yes|-y)     ASK=0; shift ;;
         --dry-run)    DRY_RUN=1; shift ;;
+        --set-key)    SET_KEY=1; shift ;;
         -h|--help)    sed -n '2,/^$/p' "$0" | sed -E 's/^# ?//'; exit 0 ;;
         *)            printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
     esac
 done
 
 # The key can live in the macOS keychain instead of a file or your shell
-# history; store it once with:
-#   security add-generic-password -a "$USER" -s "$KEYCHAIN_ITEM" -w
-# (no value on the command line: it prompts, and history keeps nothing).
+# history. --set-key stores it there (-U replaces an old one); security prompts
+# for it, so no command line or history ever holds it.
+if [[ $SET_KEY -eq 1 ]]; then
+    command -v security >/dev/null || {
+        echo "--set-key needs the macOS keychain; elsewhere, export ANTHROPIC_API_KEY." >&2
+        exit 1
+    }
+    echo "Paste the Claude API key (from console.anthropic.com) at each prompt:" >&2
+    security add-generic-password -U -a "$USER" -s "$KEYCHAIN_ITEM" -w
+    echo "Stored as '$KEYCHAIN_ITEM' in your keychain." >&2
+    [[ -z "${ANTHROPIC_API_KEY:-}" ]] ||
+        echo "ANTHROPIC_API_KEY is set in this shell and wins over the keychain: unset it." >&2
+    exit 0
+fi
+
+KEY_FROM=ANTHROPIC_API_KEY
 if [[ -z "${ANTHROPIC_API_KEY:-}" ]] && command -v security >/dev/null; then
     ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "$KEYCHAIN_ITEM" -w 2>/dev/null) || true
     export ANTHROPIC_API_KEY
+    KEY_FROM="the keychain item '$KEYCHAIN_ITEM'"
 fi
 
 [[ -n "${ANTHROPIC_API_KEY:-}" ]] || {
     echo "ANTHROPIC_API_KEY is not set (get a key at console.anthropic.com), and" >&2
     echo "nothing is stored as '$KEYCHAIN_ITEM' in your keychain. Either export it," >&2
     echo "or store it once and run.sh will find it from now on:" >&2
-    echo "    security add-generic-password -a \"\$USER\" -s $KEYCHAIN_ITEM -w" >&2
+    echo "    $0 --set-key" >&2
     exit 1
 }
+
+# Check the key now, so a bad one stops here instead of failing the first
+# question on the page. Listing models costs nothing. The key reaches curl on
+# stdin, not its command line, where ps would show it. Only a 401 stops the
+# start: anything else (no network, a proxy) may not be the key's fault.
+if [[ $DRY_RUN -eq 0 ]]; then
+    status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H @- \
+        -H 'anthropic-version: 2023-06-01' https://api.anthropic.com/v1/models \
+        <<<"x-api-key: $ANTHROPIC_API_KEY") || true
+    case ${status:-000} in
+        200) ;;
+        401)
+            echo "The Claude API rejected the key from $KEY_FROM (revoked, or mistyped)." >&2
+            if [[ $KEY_FROM == ANTHROPIC_API_KEY ]]; then
+                echo "It is set in this shell, which overrides the keychain: unset it, or export a working key." >&2
+            else
+                echo "Replace it with a new key from console.anthropic.com:  $0 --set-key" >&2
+            fi
+            exit 1 ;;
+        *) echo "Could not check the Claude API key (HTTP ${status:-000}); starting anyway." >&2 ;;
+    esac
+fi
 
 [[ -f "$CREDS_DIR/$PROFILE.ini" || $DRY_RUN -eq 1 ]] || {
     echo "No profile '$PROFILE' in $CREDS_DIR." >&2

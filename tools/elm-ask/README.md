@@ -161,7 +161,8 @@ tools/elm-ask/run.sh --profile ai-preprod --port 8081 -y
 
 Asked for the model, it offers the usual few by number (dearest first, with a
 line on what each trades away); any other model name works too, and Enter keeps
-the image's default. It checks the key and the profile before starting, builds
+the image's default. It checks the key (with one free call to the Claude API)
+and the profile before starting, builds
 the image with `--build`, and prints the command instead of running it with
 `--dry-run`. Run at a terminal without `-y`, it opens the page in your browser
 once the server is up.
@@ -169,15 +170,16 @@ once the server is up.
 hand (and are what Windows needs).
 
 On macOS the key can live in the keychain instead, so no terminal and no file
-ever holds it. Store it once (the command prompts, so the key stays out of your
-shell history):
+ever holds it. Store it, or replace a revoked one (it prompts, so the key stays
+out of your shell history):
 
 ```shell
-security add-generic-password -a "$USER" -s anthropic-api-key -w
+tools/elm-ask/run.sh --set-key
 ```
 
-`run.sh` reads it from there whenever `ANTHROPIC_API_KEY` is unset, and says
-how to store it when there is nothing to read. `ELM_ASK_KEYCHAIN_ITEM` names a
+`run.sh` reads it from there whenever `ANTHROPIC_API_KEY` is unset, so a key
+exported in your shell wins over the keychain. If the API rejects the key, it
+stops before starting and says which of the two it came from. `ELM_ASK_KEYCHAIN_ITEM` names a
 different item. qlm needs none of this: it answers on your Claude login.
 
 macOS / Linux:

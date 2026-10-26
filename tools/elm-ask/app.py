@@ -133,7 +133,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             agent.ask(anthropic.Anthropic(), conv, question, emit, where)
         except anthropic.AuthenticationError:
-            emit({"type": "error", "text": "The Claude API key is missing or invalid."})
+            emit({"type": "error", "text": "The Claude API key is missing or invalid. Stop elm-ask, run run.sh --set-key, and start it again."})
         except anthropic.RateLimitError:
             emit({"type": "error", "text": "Claude API rate limit reached. Wait a minute and try again."})
         except anthropic.APIConnectionError:
