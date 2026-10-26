@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - A weekly `pip-audit` workflow (Mondays 06:00 UTC, or run by hand) checks `requirements.txt` for known vulnerabilities and fails if it finds one. `dependency-review.yml` only runs on pull requests, so before, a vulnerability published for a dependency that was already pinned never raised an alert.
 
+### Fixed
+
+- `-f sqlite` appending to an existing table now says the table has a different schema (and names the field) when the API returns a field the table lacks, instead of a pandas traceback. Fields that went missing were never a problem: they append as NULL.
+
 ## [1.14.1] - 2026-10-11
 
 ### Added

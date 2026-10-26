@@ -273,7 +273,14 @@ the manual `+ 'Z'`). The `make testsqlite` test asserts `fetched_at` ends with
 **Verify:** `make && make testbasic`, then `make testsqlite` (needs live LM,
 default profile).
 
-## [ ] 10. Friendlier error when a sqlite table's schema changed
+## [x] 10. Friendlier error when a sqlite table's schema changed
+
+Done 2026-10-26. Not quite as written: testing showed fewer columns append
+fine (missing ones become NULL), so only a field the table lacks fails. The
+fix catches just that `sqlite3.OperationalError` (other errors, such as a
+locked file, still show as they are) and `make testsqlite` now covers it. The
+**Verify** step below (fewer columns) does not trigger the error. The item as
+written follows.
 
 **Problem:** `-f sqlite` appends with `df.to_sql(..., if_exists='append')`.
 If the API returns different columns than the existing table has (LM added or

@@ -546,8 +546,17 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             df = df.map(lambda v: json.dumps(v) if isinstance(v, (dict, list)) else v)
             df.insert(0, 'fetched_at', datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'))
             conn = sqlite3.connect(filename)
-            df.to_sql(table, conn, if_exists='append', index=False)
-            conn.close()
+            try:
+                df.to_sql(table, conn, if_exists='append', index=False)
+            except sqlite3.OperationalError as e:
+                # a field the table lacks (LM added one since the table was made);
+                # fields that went missing are fine, they append as NULL
+                if 'has no column named' not in str(e):
+                    raise
+                click.secho(f"Error: table '{table}' in {filename} has a different schema ({e}); write to a new file or delete the old table", fg='red', err=True)
+                raise click.Abort()
+            finally:
+                conn.close()
             click.secho(f"Appended {len(df)} rows to table '{table}' in {filename}", fg='green', err=True)
             return
 

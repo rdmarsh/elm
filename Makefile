@@ -670,6 +670,11 @@ testsqlite: ## Test sqlite format with a temp file         (connects to LM)
 	echo "testing: sqlite format appends on second run" ; \
 	$(testbin) -f sqlite -o $$tmp MetricsUsage 2>/dev/null ; \
 	python3 -c "import sqlite3; c=sqlite3.connect('$$tmp'); n=c.execute('SELECT COUNT(*) FROM metrics_usage').fetchone()[0]; assert n>1, f'expected >1 rows after two appends, got {n}'; print(f'append ok: {n} rows')" || (rm -f $$tmp; exit 1) ; \
+	rm -f $$tmp ; \
+	echo "testing: sqlite format names a changed schema (table lacks a field)" ; \
+	tmp=$$(mktemp /tmp/elm-test-XXXXXX.sqlite) ; \
+	python3 -c "import sqlite3; c=sqlite3.connect('$$tmp'); c.execute('CREATE TABLE metrics_usage (fetched_at TEXT)'); c.commit()" ; \
+	$(testbin) -f sqlite -o $$tmp MetricsUsage 2>&1 | grep -q 'different schema' || (rm -f $$tmp; exit 1) ; \
 	rm -f $$tmp
 	@echo "$(OK_STRING) $@"
 
