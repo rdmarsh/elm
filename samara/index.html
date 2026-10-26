@@ -291,6 +291,13 @@ function tableMarkdown(t) {
     t.total > t.rows.length ? `\n(${t.total} rows, first ${t.rows.length} shown)` : ""].join("\n");
 }
 
+// ISO 8601 with the reader's offset, e.g. 2026-10-26T22:26:04+11:00.
+function isoNow() {
+  const d = new Date(), off = -d.getTimezoneOffset(), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:`
+    + `${p(d.getSeconds())}${off < 0 ? "-" : "+"}${p(Math.floor(Math.abs(off) / 60))}:${p(Math.abs(off) % 60)}`;
+}
+
 function answerMarkdown(a) {
   const when = health ? ` · ${health.profile} · ${a.model || health.model}` : "";
   return [`# ${a.question}`, "",
@@ -299,7 +306,7 @@ function answerMarkdown(a) {
     a.answer, "",
     ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
     ...(a.script.length ? ["## Queries run", "", "```sh", scriptText(a.script), "```", ""] : []),
-    `_Samara${when} · ${new Date().toLocaleString()}_`,
+    `_Samara${when} · ${isoNow()}_`,
   ].filter(x => x !== null).join("\n");
 }
 
@@ -325,25 +332,34 @@ function splitWorked(text) {
 // reads the ones it names ($d1, $d2 ...), as Samara itself does.
 const producers = {};   // dataset -> the elm command that made it, across questions
 const shq = s => `'${s.replace(/'/g, `'\\''`)}'`;
+// The script names the profile Samara used, so a rerun reaches the same portal
+// with the same allowed_commands, not whatever the reader's default points at.
+function withProfile(cmd) {
+  const prof = (health && health.profile || "").replace(/\.ini$/, "");
+  return /^[\w.-]+$/.test(prof) ? cmd.replace(/^elm /, `elm --profile ${prof} `) : cmd;
+}
 function scriptOf(entries) {   // -> [{cmd, note}]; cmd is what gets copied
   const out = [], made = new Set();
   for (const e of entries) {
     if (e.dataset) {
-      out.push({ cmd: `${e.command} > "$t/${e.dataset}.jsonl"`, note: e.result }); made.add(e.dataset);
+      out.push({ cmd: `${withProfile(e.command)} > "$t/${e.dataset}.jsonl"`, note: e.result }); made.add(e.dataset);
     } else if (e.expression !== undefined) {
       const ds = [...new Set(e.expression.match(/\$d\d+/g) || [])].map(d => d.slice(1));
       for (const d of ds) if (!made.has(d) && producers[d]) {   // made for an earlier question
-        out.push({ cmd: `${producers[d]} > "$t/${d}.jsonl"`, note: "from an earlier question" }); made.add(d);
+        out.push({ cmd: `${withProfile(producers[d])} > "$t/${d}.jsonl"`, note: "from an earlier question" }); made.add(d);
       }
       const slurp = ds.map(d => `--slurpfile ${d} "$t/${d}.jsonl" `).join("");
       out.push({ cmd: `jq -n ${slurp}${shq(e.expression)}`, note: e.title ? `the table "${e.title}"` : "" });
     } else if (e.result === "failed") {
       out.push({ cmd: "", note: `failed, left out: ${e.command}` });
     } else {
-      out.push({ cmd: e.command, note: e.result });   // a total (-C)
+      out.push({ cmd: withProfile(e.command), note: e.result });   // a total (-C)
     }
   }
-  if (made.size) out.unshift({ cmd: "t=$(mktemp -d)", note: "where each query's rows are saved" });
+  if (made.size) {   // the rows are portal data: keep them only while the script runs
+    out.unshift({ cmd: "t=$(mktemp -d)", note: "where each query's rows are saved" });
+    out.push({ cmd: 'rm -r "$t"', note: "and removed again" });
+  }
   return out;
 }
 // No # comments in what is copied: zsh, the macOS shell, does not treat # as a
@@ -379,7 +395,7 @@ async function ask(question, harder) {
     <div class="part"></div>
     <details class="steps" hidden><summary>How I worked this out</summary>
       <div class="worked"></div>
-      <div class="queries-head" hidden><span>Queries run <small>(paste into a shell to run them again; uses your default elm profile)</small></span>
+      <div class="queries-head" hidden><span>Queries run <small>(paste into a shell to run them again; read them first)</small></span>
         <button class="secondary copy-script" type="button" title="Copy the queries as a script to run with elm">Copy</button></div>
       <pre class="script" hidden></pre></details>
     <div class="turn-foot">

@@ -15,8 +15,11 @@ Claude works out which elm queries answer the question, runs them, and replies
 with just the facts: a short answer, sortable tables and caveats, with "How I
 worked this out" folded underneath. That ends with the queries it ran as a
 script: **Copy** it, paste it into a shell (or save it as a script) and you get
-the same data again from elm, without Samara or a model. It uses your default
-elm profile; the row counts shown beside it are not copied.
+the same data again from elm, without Samara or a model. It names the profile
+Samara used (`elm --profile ai ...`), so it reaches the same portal with the
+same allowed commands, and deletes the rows it saved when it finishes. The row
+counts shown beside it are not copied. Read a script before you run it: the
+model wrote it, after reading portal data that anyone with edit rights can set.
 
 Under each answer, **Tell me more** asks the same model for the analysis left
 out -- patterns, likely causes, what to check next -- and adds it to the
