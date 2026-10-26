@@ -83,6 +83,11 @@ the instance data for each.
 Confirm each answer by hand against your portal, then add the check command
 and a result line.
 
+- **Is DEVICE okay?** (front-page example) Should bring together the device's
+  status, open alerts and any downtime in effect, in a line or two.
+- **Which devices are down right now?** (front-page example) A table of
+  devices whose host status is dead, with when they went down. Count
+  collector-down devices separately or say they are included.
 - **How many alerts are open right now?** Count by severity. Open critical
   alerts: `elm AlertList -c -s0 -F cleared:false,severity:4`.
 - **Which collectors are down?** The names in the sentences must all be in the

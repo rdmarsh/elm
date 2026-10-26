@@ -53,7 +53,8 @@
   button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
 
-  /* Two, side by side: one plain lookup, one fill-in-the-blank. */
+  /* Two, side by side: the questions people ask most (one fill-in-the-blank,
+     one list), and ones that answer reliably. */
   .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px auto 0; max-width: 620px; }
   body.has-results .examples { display: none; }
   .examples button { background: var(--panel); color: var(--ink); border: 1px solid var(--line);
@@ -176,8 +177,8 @@
   </form>
 
   <div class="examples">
-    <button type="button">How many alerts are open right now?</button>
-    <button type="button">How much memory is DEVICE using?</button>
+    <button type="button">Is DEVICE okay?</button>
+    <button type="button">Which devices are down right now?</button>
   </div>
 
   <div id="banner" hidden></div>
