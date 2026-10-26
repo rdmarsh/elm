@@ -159,6 +159,19 @@ def ask(client, conv, question, emit, where=None, harder=0, detail=False):
         model, more = pick_model(client, harder)
         conv.model = model
     emit({"type": "model", "id": model, "harder": harder, "more": more})
+    start = len(conv.messages)
+    try:
+        _answer(client, conv, question, model, emit, where, start)
+    except BaseException:
+        # Stopped (the reader closed the request) or failed part way: drop the
+        # half-finished turn, or a tool call left without its result makes
+        # every later request in this conversation fail.
+        del conv.messages[start:]
+        raise
+
+
+def _answer(client, conv, question, model, emit, where, start):
+    """The loop for one turn of ask(): plan, call tools, answer."""
     now = datetime.now(timezone.utc)
     conv.last_used = time.time()
     minutes = (where or {}).get("utc_offset_minutes") or 0
@@ -178,7 +191,7 @@ def ask(client, conv, question, emit, where=None, harder=0, detail=False):
         emit({"type": "status", "text": random.choice(THINKING) + "..."})
         response = create(client, model, conv.messages, emit)
         if response.stop_reason == "refusal":
-            conv.messages.pop()
+            del conv.messages[start:]   # the whole turn, not just its last message
             emit({"type": "error", "text": "The model declined to answer this question."})
             return
 
@@ -204,4 +217,5 @@ def ask(client, conv, question, emit, where=None, harder=0, detail=False):
                 emit(event)
         conv.messages.append({"role": "user", "content": results})
 
+    del conv.messages[start:]
     emit({"type": "error", "text": f"Stopped after {MAX_STEPS} steps without a final answer. Try a narrower question."})

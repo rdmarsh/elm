@@ -31,6 +31,12 @@
   body.has-results h1 { font-size: 1.2rem; }
   header p { color: var(--muted); margin: 4px 0 0; }
   body.has-results header p { display: none; }
+  /* Start over: only once there is a conversation to clear. */
+  body.has-results header { display: flex; justify-content: space-between; align-items: center; }
+  #restart { color: var(--muted); font-size: .85rem; }
+  body:not(.has-results) #restart { display: none; }
+  /* Read by screen readers, not shown: "Answer ready", "Stopped", errors. */
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   form { display: flex; gap: 8px; }
   #q { flex: 1; min-width: 0; font: inherit; font-size: 1.05rem; padding: 12px 16px;
@@ -39,6 +45,10 @@
   button { font: inherit; border: 0; border-radius: 999px; padding: 0 20px; cursor: pointer;
            background: var(--accent); color: var(--accent-ink); }
   #go { min-width: 110px; }   /* wide enough to read as a button, not an icon */
+  #go.stop { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  /* Quiet actions read as links (Tell me more, Try again); Think harder stays a button. */
+  button.link { background: none; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted);
+                text-decoration: underline; font-size: .85rem; }
   button:disabled { opacity: .5; cursor: default; }
   button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
@@ -111,6 +121,14 @@
   th { position: sticky; top: 0; background: var(--panel); cursor: pointer; user-select: none; }
   tr:last-child td { border-bottom: 0; }
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+  th[aria-sort="ascending"]::after { content: " \25B2"; font-size: .7em; }
+  th[aria-sort="descending"]::after { content: " \25BC"; font-size: .7em; }
+  @media (max-width: 520px) {   /* phones: less padding, a smaller Ask button */
+    main { padding-top: 16px; }
+    #go { min-width: 72px; padding: 0 14px; }
+    .turn { padding: 14px; }
+    h1 { font-size: 1.6rem; }
+  }
   footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 32px; }
   /* The caution is the line that matters; the setup details sit quietly under it. */
   footer .caution { display: block; font-style: italic; color: var(--ink); opacity: .75;
@@ -148,7 +166,9 @@
   <header>
     <h1><a href="/"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14532d"/><path d="M20 46 C 13 33, 22 15, 49 13 C 51 33, 39 49, 20 46 Z" fill="#86efac"/><path d="M20 46 L 46 17" stroke="#14532d" stroke-width="2.4" stroke-linecap="round"/><path d="M26 39 L 20 33 M26 39 L 34 41 M32 32 L 27 24 M32 32 L 41 34 M38 25 L 35 18 M38 25 L 45 26" stroke="#14532d" stroke-width="1.8" stroke-linecap="round"/><path d="M20 46 L 13 53" stroke="#86efac" stroke-width="4" stroke-linecap="round"/></svg>Samara</a></h1>
     <p id="subtitle">Ask about your LogicMonitor portal in plain English. Read-only.</p>
+    <a id="restart" href="/" title="Clear this conversation and start again">Start over</a>
   </header>
+  <div id="announce" class="sr-only" aria-live="polite"></div>
 
   <form id="form">
     <input id="q" autocomplete="off" placeholder="e.g. which devices are in downtime right now?" autofocus>
@@ -197,6 +217,8 @@ fetch("/api/health").then(r => r.json()).then(h => {
   if (problems.length) { $("#banner").innerHTML = problems.join("<br>"); $("#banner").hidden = false; }
   if (h.elm_version) $("#elm-version").textContent = ` v${h.elm_version}`;
   const scope = h.restricted ? `${h.allowed.length} allowed commands` : "all commands";
+  if (h.portal) $("#subtitle").textContent =
+    `Ask about ${h.portal} in plain English. Read-only, ${h.restricted ? `${h.allowed.length} commands` : "every command"}.`;
   const portal = h.portal
     ? `Portal: <a href="https://${esc(h.portal)}.logicmonitor.com" target="_blank" rel="noopener">${esc(h.portal)}</a> · `
     : "";
@@ -267,6 +289,8 @@ function renderTable(ev) {
   draw(rows);
   block.querySelectorAll("th").forEach((th, i) => th.addEventListener("click", () => {
     dir = sortCol === i ? -dir : 1; sortCol = i;
+    block.querySelectorAll("th").forEach(h => h.removeAttribute("aria-sort"));
+    th.setAttribute("aria-sort", dir > 0 ? "ascending" : "descending");
     rows.sort((a, b) => {
       const x = a[i], y = b[i];
       if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
@@ -313,10 +337,17 @@ function answerMarkdown(a) {
   ].filter(x => x !== null).join("\n");
 }
 
+let current = null;   // the AbortController of the request in progress, if any
+const announce = text => $("#announce").textContent = text;
 form.addEventListener("submit", e => {
   e.preventDefault();
   const question = input.value.trim();
-  if (question) ask(question, 0);
+  if (question && !current) ask(question, 0);
+});
+// While Samara works, Ask is Stop. Closing the request makes the server stop at
+// its next step and drop the half-finished turn (agent.ask).
+go.addEventListener("click", e => {
+  if (current) { e.preventDefault(); current.abort(); }
 });
 
 // harder > 0 asks the last question again on a dearer model (see agent.py).
@@ -407,7 +438,7 @@ async function ask(question, harder) {
         <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
       </span>
       <span class="buttons">
-        <button class="secondary more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
+        <button class="link more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
     </div>
@@ -479,7 +510,10 @@ async function ask(question, harder) {
 // answer. Queries go into the card's shared "How I worked this out"; onAnswer
 // records the answer and returns a heading for its working ("" for none).
 async function stream(t, part, body, onAnswer) {
-  go.disabled = true;
+  current = new AbortController();
+  go.textContent = "Stop"; go.classList.add("stop");
+  announce("Working on it");
+  let answered = false, failed = "";
   t.turn.querySelectorAll(".buttons button").forEach(b => b.disabled = true);
   part.innerHTML = `<div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
     <div class="answer"></div><div class="tables"></div>`;
@@ -504,6 +538,7 @@ async function stream(t, part, body, onAnswer) {
         const [main, worked] = splitWorked(ev.markdown);
         $(".answer", part).innerHTML = markdown(main);
         const heading = onAnswer(ev);
+        answered = true;
         if (worked.trim()) {
           $(".worked", steps).insertAdjacentHTML("beforeend",
             (heading ? `<p class="queries-label">${esc(heading)}</p>` : "") + markdown(worked));
@@ -511,12 +546,12 @@ async function stream(t, part, body, onAnswer) {
         }
         break;
       }
-      case "error": $(".answer", part).insertAdjacentHTML("beforeend", `<p class="error">${esc(ev.text)}</p>`); break;
+      case "error": failed = ev.text; break;
     }
   };
   try {
     const resp = await fetch("/api/ask", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: current.signal,
       body: JSON.stringify({
         ...body, conversation_id: conversationId,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,     // e.g. Australia/Sydney
@@ -537,13 +572,35 @@ async function stream(t, part, body, onAnswer) {
       }
     }
   } catch (err) {
-    handle({ type: "error", text: `Request failed: ${err.message}` });
+    failed = err.name === "AbortError" ? "Stopped." : `Request failed: ${err.message}`;
   } finally {
+    current = null;
+    go.textContent = "Ask"; go.classList.remove("stop");
     $(".status", part).remove();
+    // A stopped or failed request can be sent again as it was. The server has
+    // already dropped the half-finished turn, so start this one clean too.
+    if (failed) {
+      $(".answer", part).insertAdjacentHTML("beforeend",
+        `<p class="error">${esc(failed)} <button class="link retry" type="button">Try again</button></p>`);
+      $(".retry", part).addEventListener("click", () => {
+        if (!body.detail) resetWorking(t);
+        stream(t, part, body, onAnswer);
+      });
+    }
+    announce(failed || (answered ? "Answer ready" : ""));
     if (t.stepCount) $("summary", steps).textContent = workedOut(t.stepCount, t.md.model);
     t.turn.querySelectorAll(".buttons button").forEach(b => { if (b.textContent !== "That's my best") b.disabled = false; });
-    go.disabled = false; input.focus();
+    input.focus();
   }
+}
+
+// Forget a question's working before it is asked again (Try again).
+function resetWorking(t) {
+  t.md.script.length = 0; t.md.tables.length = 0; t.stepCount = 0;
+  $(".worked", t.steps).innerHTML = ""; $("pre.script", t.steps).textContent = "";
+  $(".queries-head", t.steps).hidden = true; t.steps.hidden = true;
+  $("summary", t.steps).textContent = "How I worked this out";
+  $(".csv", t.turn).hidden = true;
 }
 </script>
 </body>
