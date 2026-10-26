@@ -291,11 +291,14 @@ function tableMarkdown(t) {
     t.total > t.rows.length ? `\n(${t.total} rows, first ${t.rows.length} shown)` : ""].join("\n");
 }
 
-// ISO 8601 with the reader's offset, e.g. 2026-10-26T22:26:04+11:00.
+// ISO date order and a 24-hour clock, with the zone, e.g. 2026-10-26 22:26:04 AEDT:
+// unambiguous like ISO 8601, easier to read than 2026-10-26T22:26:04+11:00.
 function isoNow() {
-  const d = new Date(), off = -d.getTimezoneOffset(), p = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:`
-    + `${p(d.getSeconds())}${off < 0 ? "-" : "+"}${p(Math.floor(Math.abs(off) / 60))}:${p(Math.abs(off) % 60)}`;
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  const zone = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" })
+    .formatToParts(d).find(x => x.type === "timeZoneName")?.value || "";
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} `
+    + `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${zone}`.trim();
 }
 
 function answerMarkdown(a) {
@@ -378,7 +381,7 @@ function addScript(t, entry) {
 async function ask(question, harder) {
   document.body.classList.add("has-results");
   input.value = "";
-  input.placeholder = "Ask a follow-up, or something new";
+  input.placeholder = "Ask a follow-up question, or something new";
   // Only the newest answer can be retried or extended: the server forgets the
   // one Think harder replaces, and Tell me more continues from the latest.
   document.querySelectorAll(".harder, .more-detail").forEach(b => b.remove());
