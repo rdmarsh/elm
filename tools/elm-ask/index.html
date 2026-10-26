@@ -95,7 +95,11 @@
   .table-head strong { font-size: .95rem; }
   .table-scroll { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: 8px; }
   table { border-collapse: collapse; width: 100%; font-size: .88rem; }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  /* Long cells wrap rather than run off the right edge, where macOS hides the
+     scrollbar; headings stay on one line. */
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { white-space: nowrap; }
+  td { overflow-wrap: anywhere; min-width: 6ch; }
   th { position: sticky; top: 0; background: var(--panel); cursor: pointer; user-select: none; }
   tr:last-child td { border-bottom: 0; }
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
@@ -403,7 +407,7 @@ async function stream(t, part, body, onAnswer) {
   go.disabled = true;
   t.turn.querySelectorAll(".buttons button").forEach(b => b.disabled = true);
   part.innerHTML = `<div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
-    <div class="tables"></div><div class="answer"></div>`;
+    <div class="answer"></div><div class="tables"></div>`;
   const statusText = $(".status-text", part), steps = t.steps;
   const handle = ev => {
     switch (ev.type) {
