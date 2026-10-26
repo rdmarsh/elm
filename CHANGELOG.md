@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Samara's second Think harder (the step to opus) reads "Leave no leaf unturned". Markdown exports no longer end with the queries run: they are on the page, under How I worked this out, to copy from there.
 - Samara's front-page examples are "Is DEVICE okay?" and "Which devices are down?", the questions people ask most. They replace "How many alerts are open right now?" (a bare number) and "How much memory is DEVICE using?" (a three-step read the cheapest model still gets partly wrong).
 
 ## [1.15.0] - 2026-10-27

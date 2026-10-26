@@ -332,7 +332,6 @@ function answerMarkdown(a) {
     a.tables.length ? "" : null,
     a.answer, "",
     ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
-    ...(a.script.length ? ["## Queries run", "", "```sh", scriptText(a.script), "```", ""] : []),
     `_Samara${when} · ${isoNow()}_`,
   ].filter(x => x !== null).join("\n");
 }
@@ -500,7 +499,7 @@ async function ask(question, harder) {
     if (t.more || harder) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
-      b.textContent = !t.more ? "That's my best" : harder ? "Think even harder" : "Think harder";
+      b.textContent = !t.more ? "That's my best" : harder ? "Leave no leaf unturned" : "Think harder";
     }
     return "";
   });
