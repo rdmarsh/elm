@@ -92,6 +92,12 @@ then `elm AlertListByDeviceId --id ID -F cleared:false -f severity,startEpoch`.
 - 2026-10-27 · claude-haiku-5-5 · partial · right verdict, status and 15 alerts,
   but the words dated the process errors 23 Oct where its own table said 22 Oct;
   table dates were ISO with "local (+11)", not human dates.
+- 2026-10-27 · claude-sonnet-5-5 · pass · same facts, words matched the table
+  (only a stray "Z" on its local times).
+- 2026-10-27 · claude-haiku-5-5, high effort · partial (a second test device with
+  no open alerts) · right verdict and a clean table of recent cleared alerts,
+  but the words gave the last one's start as 12:09 where the table said 01:09;
+  it also wrote an empty copy of the table header into its text.
 
 ### Which devices are down?
 

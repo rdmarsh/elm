@@ -118,7 +118,8 @@
      scrollbar; headings stay on one line. */
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { white-space: nowrap; }
-  td { overflow-wrap: anywhere; min-width: 6ch; }
+  td { white-space: nowrap; }
+  td.long { white-space: normal; overflow-wrap: anywhere; min-width: 16ch; }   /* only long cells wrap */
   th { position: sticky; top: 0; background: var(--panel); cursor: pointer; user-select: none; }
   tr:last-child td { border-bottom: 0; }
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
@@ -250,9 +251,25 @@ function inline(s) {
 function markdown(text) {
   const out = []; let list = null;
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
-  for (const line of text.split("\n")) {
+  const lines = text.split("\n"), isRow = l => /^\s*\|.*\|\s*$/.test(l);
+  const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     let m;
-    if ((m = line.match(/^#{1,4}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); }
+    if (isRow(line)) {   // a Markdown table: take all its lines, drop the |---| separator
+      close();
+      const rows = [];
+      while (i < lines.length && isRow(lines[i])) rows.push(lines[i++]);
+      i--;
+      const body = rows.filter(r => !/^[\s|:-]+$/.test(r));
+      // A header with no rows is the model echoing a table show_table already
+      // put on the page (seen with Haiku): show nothing rather than bare pipes.
+      if (body.length > 1) out.push(`<div class="table-scroll"><table><thead><tr>${
+        cells(body[0]).map(c => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${
+        body.slice(1).map(r => `<tr>${cells(r).map(c => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")
+        }</tbody></table></div>`);
+    }
+    else if ((m = line.match(/^#{1,4}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); }
     else if ((m = line.match(/^\s*[-*]\s+(.*)/))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(m[1])}</li>`); }
     else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(m[1])}</li>`); }
     else if (!line.trim()) { close(); }
@@ -284,7 +301,8 @@ function renderTable(ev) {
     <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > ev.rows.length ? ` (showing first ${ev.rows.length})` : ""} · click a heading to sort</div>`;
   const tbody = $("tbody", block);
   const draw = rows => tbody.innerHTML = rows.map(r =>
-    `<tr>${r.map(v => `<td>${esc(v && typeof v === "object" ? JSON.stringify(v) : v)}</td>`).join("")}</tr>`).join("");
+    `<tr>${r.map(v => { const text = v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
+      return `<td${text.length > 24 ? ' class="long"' : ""}>${esc(text)}</td>`; }).join("")}</tr>`).join("");
   let rows = ev.rows.slice(), sortCol = -1, dir = 1;
   draw(rows);
   block.querySelectorAll("th").forEach((th, i) => th.addEventListener("click", () => {
@@ -328,10 +346,10 @@ function isoNow() {
 function answerMarkdown(a) {
   const when = health ? ` · ${health.profile} · ${a.model || health.model}${health.effort ? ` · ${health.effort} effort` : ""}` : "";
   const cost = a.costText ? ` · ${a.costText}` : "";
-  return [`# ${a.question}`, "",
+  return [`# ${a.question}`, "",   // the same order as the page: the answer, then its tables
+    a.answer, "",
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
-    a.answer, "",
     ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
     `_Samara${when}${cost} · ${isoNow()}_`,
   ].filter(x => x !== null).join("\n");
@@ -355,7 +373,9 @@ const RETRY_NOTE = ["Rolling up my sleeves: asking again with a more capable mod
                     "Really putting my back into it: asking the most capable model."];
 // What the answer cost, from the API's token counts (agent.spend): a price where
 // Samara knows the model's rates, otherwise the token count.
-const costText = t => t.cost != null ? `≈ $${t.cost < 0.01 ? t.cost.toFixed(4) : t.cost.toFixed(2)}`
+// Under a cent shows as "< $0.01": fractions of a cent are noise to a reader.
+// The exact figure is on the summary's tooltip.
+const costText = t => t.cost != null ? (t.cost < 0.01 ? "< $0.01" : `≈ $${t.cost.toFixed(2)}`)
   : t.tokens ? `${(t.tokens / 1000).toFixed(1)}k tokens` : "";
 const workedOut = (n, model, t) => `How I worked this out (${[`${n} ${n === 1 ? "query" : "queries"}`,
   model, t && costText(t)].filter(Boolean).join(" · ")})`;
@@ -504,7 +524,7 @@ async function ask(question, harder) {
     if (t.more || harder) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
-      b.textContent = !t.more ? "That's my best" : harder ? "Leave no leaf unturned" : "Think harder";
+      b.textContent = !t.more ? "That's my best" : harder ? "Think even harder" : "Think harder";
     }
     return "";
   });
@@ -530,6 +550,7 @@ async function stream(t, part, body, onAnswer) {
         t.tokens = (t.tokens || 0) + ev.tokens;
         t.cost = ev.cost == null || t.cost === null ? null : (t.cost || 0) + ev.cost;
         steps.hidden = false;
+        $("summary", steps).title = t.cost != null ? `$${t.cost.toFixed(4)}, ${t.tokens} tokens` : `${t.tokens} tokens`;
         $("summary", steps).textContent = workedOut(t.stepCount, t.md.model, t);
         break;
       case "status": statusText.textContent = ev.text.length > 160 ? ev.text.slice(0, 160) + "..." : ev.text; break;

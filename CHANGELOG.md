@@ -8,13 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Samara shows what each answer cost, from the API's own token counts: "How I worked this out (5 queries · claude-haiku-5-5 · ≈ $0.0032)", summed with any Tell me more, and in the Markdown export's stamp. Prices are a small table from Anthropic's pricing page; a model not in it shows its token count instead, so a new release is never priced wrongly.
+- Samara shows what each answer cost, from the API's own token counts: "How I worked this out (5 queries · claude-haiku-5-5 · < $0.01)", with the exact figure on hover, summed with any Tell me more, and in the Markdown export's stamp. Prices are a small table from Anthropic's pricing page; a model not in it shows its token count instead, so a new release is never priced wrongly.
 
 ### Changed
 
 - Samara answers at `high` effort by default (it was the API's default, medium on Haiku 5.5): the cheap model's slips were lapses of care, and high effort costs a little more thinking, far less than a dearer model. The footer and Markdown exports show the effort.
-- Samara's second Think harder (the step to opus) reads "Leave no leaf unturned". Markdown exports no longer end with the queries run: they are on the page, under How I worked this out, to copy from there.
+- Markdown exports put the answer first, then its tables, as the page does, and no longer end with the queries run: they are on the page, under How I worked this out, to copy from there.
 - Samara's front-page examples are "Is DEVICE okay?" and "Which devices are down?", the questions people ask most. They replace "How many alerts are open right now?" (a bare number) and "How much memory is DEVICE using?" (a three-step read the cheapest model still gets partly wrong).
+
+### Fixed
+
+- Samara: the model sometimes wrote an empty copy of a table's header into its text, which showed as bare pipes (`| Datasource | Severity |`, `|---|---|`); the page now draws Markdown tables, drops a header-only one, and the system prompt says not to repeat a table. Only long table cells wrap, so short values like "No Data" stay on one line.
 
 ## [1.15.0] - 2026-10-27
 
