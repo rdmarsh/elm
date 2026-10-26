@@ -383,6 +383,12 @@ go.addEventListener("click", e => {
 });
 
 // harder > 0 asks the last question again on a dearer model (see agent.py).
+let level = 0;   // how far up this conversation has gone: 0 default, 1 Think harder, 2 Ultrathink
+// Follow-ups stay at the level asked for (agent.py); the box says so, as the
+// gentle nudge back to the cheaper default.
+const setPlaceholder = () => input.placeholder = ["Ask a follow-up question, or something new",
+  "Follow-ups keep thinking harder. Start over for quick answers.",
+  "Follow-ups keep ultrathinking. Start over for quick answers."][level] || input.placeholder;
 const RETRY_NOTE = ["Rolling up my sleeves: asking again with a more capable model.",
                     "Really putting my back into it: asking the most capable model."];
 // What the answer cost, from the API's token counts (agent.spend): a price where
@@ -450,7 +456,8 @@ function addScript(t, entry) {
 async function ask(question, harder) {
   document.body.classList.add("has-results");
   input.value = "";
-  input.placeholder = "Ask a follow-up question, or something new";
+  if (harder) level = harder;
+  setPlaceholder();
   // Only the newest answer can be retried or extended: the server forgets the
   // one Think harder replaces, and Tell me more continues from the latest.
   document.querySelectorAll(".harder, .more-detail").forEach(b => b.remove());
@@ -487,15 +494,15 @@ async function ask(question, harder) {
         <span class="note"></span></div>
     </div>`;
   results.prepend(turn);
-  const t = { turn, steps: $(".steps", turn), stepCount: 0, more: false,
+  const t = { turn, steps: $(".steps", turn), stepCount: 0, more: false, level,
               md: { question, answer: "", detail: "", tables: [], script: [], model: "" } };
 
   $(".earlier-toggle", turn).addEventListener("click", e => {
     e.target.textContent = turn.classList.toggle("open") ? "Hide earlier answer" : "Show earlier answer";
   });
   $(".harder", turn).addEventListener("click", () => {
-    if (harder && !confirm("Uses more tokens. Proceed?")) return;
-    ask(question, harder + 1);
+    if (t.level && !confirm("Uses more tokens. Proceed?")) return;
+    ask(question, t.level + 1);
   });
   $(".more-detail", turn).addEventListener("click", e => {
     e.target.remove();
@@ -535,10 +542,10 @@ async function ask(question, harder) {
     t.md.answer = ev.markdown;
     $(".md-toggle", turn).hidden = false;
     $(".more-detail", turn).hidden = false;
-    if (t.more || harder) {   // a harder model left, or a note that there is none
+    if (t.more || t.level) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
-      b.textContent = !t.more ? "That's my best" : harder ? "Ultrathink" : "Think harder";
+      b.textContent = !t.more ? "That's my best" : t.level ? "Ultrathink" : "Think harder";
       b.classList.toggle("rainbow", b.textContent === "Ultrathink");
     }
     return "";
@@ -560,7 +567,13 @@ async function stream(t, part, body, onAnswer) {
   const handle = ev => {
     switch (ev.type) {
       case "conversation": conversationId = ev.id; break;
-      case "model": if (!body.detail) { t.md.model = ev.id; t.more = ev.more; } break;
+      case "model":
+        if (!body.detail) {
+          t.md.model = ev.id; t.more = ev.more;
+          // The server's level is the truth (a conversation it forgot starts at 0 again).
+          if (ev.level !== undefined) { t.level = level = ev.level; setPlaceholder(); }
+        }
+        break;
       case "usage":   // summed over the card: the answer, then any Tell me more
         t.tokens = (t.tokens || 0) + ev.tokens;
         t.cost = ev.cost == null || t.cost === null ? null : (t.cost || 0) + ev.cost;

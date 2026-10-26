@@ -122,6 +122,7 @@ class Conversation:
         self.question = None       # the last question, and where it starts in messages,
         self.asked_at = 0          # so "Think harder" can ask it again from there
         self.model = None          # the model that answered it, for Tell me more
+        self.level = 0             # steps above the default line; follow-ups keep it
         self.lock = threading.Lock()    # one request at a time per conversation
         self.stop = threading.Event()   # set by a newer request: the running one gives way
         self.session = elm_tools.Session()
@@ -197,6 +198,10 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
     starts fresh instead of building on the answer that was not good enough.
     `detail` (Tell me more) asks the model that answered for the analysis behind its answer;
     it is not a new question, so Think harder still redoes the one before it.
+    Once a question has been asked harder, later questions in the conversation
+    stay at that level: they are usually about the same problem, and dropping
+    back would have the cheap model build on the dearer one's work. Start over
+    (a new conversation) returns to the default.
     """
     if detail:
         if conv.model is None:
@@ -207,11 +212,12 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
             return emit({"type": "error", "text": "Nothing to try harder on: ask the question again."})
         del conv.messages[conv.asked_at:]
         question = conv.question
+        conv.level = harder
     if not detail:
         conv.question, conv.asked_at = question, len(conv.messages)
-        model, more = pick_model(client, harder)
+        model, more = pick_model(client, conv.level)
         conv.model = model
-    emit({"type": "model", "id": model, "harder": harder, "more": more})
+    emit({"type": "model", "id": model, "harder": harder, "level": conv.level, "more": more})
     start = len(conv.messages)
     try:
         _answer(client, conv, question, model, emit, where, start)
