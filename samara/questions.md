@@ -78,16 +78,41 @@ the instance data for each.
   led with the collector's 2.4 GB, but named it as the collector software's in
   the headline and said server memory was not available in the next paragraph.
 
+## Front-page examples
+
+### Is testhost01 okay?
+
+Pass if: one line verdict, then the device's status, its open alerts (counts by
+severity) and any downtime in effect; every date in the words matches the
+table.
+
+Check: `elm DeviceList -F 'displayName~testhost01' -f id,hostStatus,sdtStatus`,
+then `elm AlertListByDeviceId --id ID -F cleared:false -f severity,startEpoch`.
+
+- 2026-10-27 · claude-haiku-5-5 · partial · right verdict, status and 15 alerts,
+  but the words dated the process errors 23 Oct where its own table said 22 Oct;
+  table dates were ISO with "local (+11)", not human dates.
+
+### Which devices are down?
+
+Pass if: dead devices counted and listed or grouped, dead-collector devices
+counted separately (their devices may be fine), non-device objects (cloud,
+synthetic) left out or said to be included, and the words describe the table
+that is shown.
+
+Check: `elm DeviceList -F hostStatus:dead -f id,deviceType -C` and the same with
+`hostStatus:dead-collector`.
+
+- 2026-10-27 · claude-haiku-5-5 · partial · 517 dead and 84 dead-collector, cloud
+  objects excluded and said so, most dead devices behind one collector; but
+  said the table listed the dead-collector devices' collectors (it listed dead
+  devices by collector), and "the top 8 of 7 rows".
+
 ## Not run yet
 
 Confirm each answer by hand against your portal, then add the check command
 and a result line.
 
-- **Is DEVICE okay?** (front-page example) Should bring together the device's
-  status, open alerts and any downtime in effect, in a line or two.
-- **Which devices are down?** (front-page example) A table of
-  devices whose host status is dead, with when they went down. Count
-  collector-down devices separately or say they are included.
 - **How many alerts are open right now?** Count by severity. Open critical
   alerts: `elm AlertList -c -s0 -F cleared:false,severity:4`.
 - **Which collectors are down?** The names in the sentences must all be in the
