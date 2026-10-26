@@ -60,6 +60,16 @@ def has_claude_key():
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
+def default_model_id():
+    """The model the default line answers with today, or None without a working key."""
+    if not has_claude_key():
+        return None
+    try:
+        return agent.pick_model(anthropic.Anthropic())[0]
+    except Exception:
+        return None
+
+
 def health():
     """What is and isn't configured, for the page's setup banner."""
     status = elm_tools.profile_status()
@@ -71,6 +81,7 @@ def health():
         "restricted": status["restricted"],
         "allowed": status["allowed"],
         "model": agent.MODEL,
+        "model_id": default_model_id(),
         "elm_version": elm_version(),
     }
 

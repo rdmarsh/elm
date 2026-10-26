@@ -38,9 +38,10 @@
            background: var(--accent); color: var(--accent-ink); }
   #go { min-width: 110px; }   /* wide enough to read as a button, not an icon */
   button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
 
-  /* Two by two, so the four examples read as a set rather than a row and a stray. */
+  /* Two, side by side: one plain lookup, one fill-in-the-blank. */
   .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px auto 0; max-width: 620px; }
   body.has-results .examples { display: none; }
   .examples button { background: var(--panel); color: var(--ink); border: 1px solid var(--line);
@@ -69,7 +70,11 @@
   .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
-  details.steps { margin-top: 12px; font-size: .85rem; color: var(--muted); }
+  /* The card's last row: how it was worked out on the left, Try harder on the right. */
+  .turn-foot { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-top: 12px; }
+  .turn-foot .harder { flex: none; margin-left: auto; }
+  .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
+  details.steps { font-size: .85rem; color: var(--muted); }
   details.steps summary { cursor: pointer; }
   details.steps ol { padding-left: 20px; margin: 6px 0 0; }
   details.steps li { margin: 2px 0; overflow-wrap: anywhere; }
@@ -129,10 +134,8 @@
   </form>
 
   <div class="examples">
-    <button type="button">How much memory is DEVICE using?</button>
     <button type="button">How many alerts are open right now?</button>
-    <button type="button">Which collectors are down?</button>
-    <button type="button">What devices have alerting disabled?</button>
+    <button type="button">How much memory is DEVICE using?</button>
   </div>
 
   <div id="banner" hidden></div>
@@ -177,7 +180,8 @@ fetch("/api/health").then(r => r.json()).then(h => {
     : "";
   $("#footer").innerHTML = `<span class="caution">Answers can be wrong — check "How I worked this out".</span>`
     + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
-    + `(<button id="show-commands" type="button">${scope}</button>) · Model: ${esc(h.model)}</span>`;
+    + `(<button id="show-commands" type="button">${scope}</button>) · `
+    + `Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}</span>`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
@@ -271,7 +275,7 @@ function answerMarkdown(a) {
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
     a.answer, "",
-    "## Queries run", "",
+    "## How I worked this out", "",
     ...a.steps.map(s => `- \`${s.command}\` → ${s.result}`), "",
     `_elm ask${when} · ${new Date().toLocaleString()}_`,
   ].filter(x => x !== null).join("\n");
@@ -284,6 +288,10 @@ form.addEventListener("submit", e => {
 });
 
 // harder > 0 asks the last question again on a dearer model (see agent.py).
+const RETRY_NOTE = ["Rolling up my sleeves: asking again with a more capable model.",
+                    "Really putting my back into it: asking the most capable model."];
+const workedOut = (n, model) =>
+  `How I worked this out (${n} ${n === 1 ? "query" : "queries"}${model ? ` · ${model}` : ""})`;
 async function ask(question, harder) {
   document.body.classList.add("has-results");
   input.value = ""; go.disabled = true;
@@ -296,8 +304,8 @@ async function ask(question, harder) {
       <span class="actions">
         <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
         <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown" hidden>${ICON.md}Markdown</button>
-        <button class="secondary harder" type="button" title="Ask again on a more capable model" hidden></button>
       </span></div>
+    ${harder ? `<p class="retry-note">${RETRY_NOTE[harder - 1]}</p>` : ""}
     <div class="status"><span class="spinner"></span><span class="status-text">Starting...</span></div>
     <div class="tables"></div><div class="answer"></div>
     <div class="markdown-view" hidden>
@@ -306,7 +314,10 @@ async function ask(question, harder) {
         <button class="secondary download" type="button">Download .md</button>
         <span class="note"></span></div>
     </div>
-    <details class="steps" hidden><summary>Queries run (0)</summary><ol></ol></details>`;
+    <div class="turn-foot">
+      <details class="steps" hidden><summary>How I worked this out</summary><ol></ol></details>
+      <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
+    </div>`;
   results.prepend(turn);
   const statusText = $(".status-text", turn), steps = $(".steps", turn);
   let stepCount = 0;
@@ -320,7 +331,7 @@ async function ask(question, harder) {
         steps.hidden = false;
         $("ol", steps).insertAdjacentHTML("beforeend", `<li><code>${esc(ev.command)}</code> → ${esc(ev.result)}</li>`);
         md.steps.push(ev);
-        $("summary", steps).textContent = `Queries run (${++stepCount})`;
+        $("summary", steps).textContent = workedOut(++stepCount, md.model);
         break;
       case "table":
         md.tables.push(ev);
@@ -392,7 +403,7 @@ async function ask(question, harder) {
     handle({ type: "error", text: `Request failed: ${err.message}` });
   } finally {
     $(".status", turn).remove();
-    if (md.model) $("summary", steps).textContent = `Queries run (${stepCount}) · ${md.model}`;
+    if (stepCount) $("summary", steps).textContent = workedOut(stepCount, md.model);
     go.disabled = false; input.focus();
   }
 }

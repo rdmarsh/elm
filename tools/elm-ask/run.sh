@@ -44,14 +44,14 @@
 set -euo pipefail
 
 IMAGE=elm-ask
-# Offered by number at the prompt, dearest first. Lines, not models: elm-ask
+# Offered by number at the prompt, cheapest first. Lines, not models: elm-ask
 # answers with the newest model in the line, so a new release needs no edit
 # here. An exact model id typed at the prompt stays on that model.
 # Prices: https://www.anthropic.com/pricing
 MODELS=(
-    "opus|most capable, and the dearest"
-    "sonnet|mid-tier: more careful on multi-step questions"
     "haiku|cheapest, and the default"
+    "sonnet|mid-tier: more careful on multi-step questions"
+    "opus|most capable, and the dearest"
 )
 # The default the image would use, read from the code next to this script so the
 # two cannot drift apart.
@@ -158,7 +158,7 @@ if [[ $ASK -eq 1 && -t 0 ]]; then
             MODEL=${MODELS[MODEL - 1]%%|*}
         fi
     fi
-    [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [none]: " EFFORT
+    [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [model default]: " EFFORT
 fi
 
 if [[ -n "$EFFORT" && ! "$EFFORT" =~ ^(low|medium|high|xhigh|max)$ ]]; then
