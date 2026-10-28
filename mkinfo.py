@@ -16,8 +16,12 @@ or wrong.
 The text is written to be read by people and by AI assistants, so it is kept
 compact: one line per field, no repeated boilerplate.
 
-A definition file is only rewritten when its info text changes, so editing one
-command's notes re-renders only that command.
+It also stores the response field names as "filter_fields" for commands that
+take -F, so elm can refuse a filter on a field the swagger does not list before
+sending it (the API ignores some unknown fields and returns every record).
+
+A definition file is only rewritten when its info text or filter fields change,
+so editing one command's notes re-renders only that command.
 
 `mkinfo.py --check` (make testdocs) enforces size budgets on what AI assistants
 read, so the notes and the knowledge base cannot quietly grow back into
@@ -312,8 +316,10 @@ def main():
         command = definition["command"]
         fields = response_fields(definition["path"], paths, definitions)
         info = build_info(definition, notes.get(command), blocks.get(command, []), fields)
-        if definition.get("info") != info:
+        filter_fields = sorted(fields) if any(o["name"] == "filter" for o in definition["options"]) else []
+        if definition.get("info") != info or definition.get("filter_fields", []) != filter_fields:
             definition["info"] = info
+            definition["filter_fields"] = filter_fields
             def_file.write_text(json.dumps(definition, separators=(",", ":")) + "\n")
             changed += 1
     print(f"mkinfo: {changed} command definition(s) updated", file=sys.stderr)

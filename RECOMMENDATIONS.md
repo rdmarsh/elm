@@ -365,7 +365,7 @@ LMv1 signature covers only the resource path, never the query string.
    LogicMonitor should decode these identically, but this MUST be confirmed
    against a live portal before merging.
 2. Two `make testbasic` assertions grep for exact encodings in the `-f api`
-   URL (search the Makefile for `filter=hostname~%22`); if the encoding of
+   URL (search the Makefile for `filter=name~%22`); if the encoding of
    `~` changes, update those grep patterns to match the new (correct) URL.
 
 **Verify (in this order):**

@@ -523,8 +523,8 @@ testmulti: ## Test the checks on several profiles (-p a,b) and on -e (offline)
 .PHONY: testbasic
 testbasic: testbasicoffline ## Test basic flags (the -f api/curl/wget/sqlite lines connect to LM)
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
-	@echo testing: trailing backslash in filter value is escaped ; $(testbin) -f api DeviceList -F 'hostname~foo\' -s1 2>/dev/null | grep -q 'filter=hostname~%22foo%5C%5C%22'
-	@echo testing: embedded quote in filter value is escaped ; $(testbin) -f api DeviceList -F 'hostname~a"b' -s1 2>/dev/null | grep -q 'filter=hostname~%22a%5C%22b%22'
+	@echo testing: trailing backslash in filter value is escaped ; $(testbin) -f api DeviceList -F 'name~foo\' -s1 2>/dev/null | grep -q 'filter=name~%22foo%5C%5C%22'
+	@echo testing: embedded quote in filter value is escaped ; $(testbin) -f api DeviceList -F 'name~a"b' -s1 2>/dev/null | grep -q 'filter=name~%22a%5C%22b%22'
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
 	@echo testing: sqlite format requires -o flag ; $(testbin) -f sqlite MetricsUsage 2>&1 | grep -q 'requires -o'
@@ -558,6 +558,8 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: --info needs no id for a command that requires one ; $(testbin) DeviceDatasourceList --info | grep -q -- '--deviceId integer (required)'
 	@echo testing: --info and --help need no credentials ; h=$$(mktemp -d) && HOME=$$h $(testbin) AlertList --info | grep -q '^GET ' && HOME=$$h $(testbin) AlertList --help | grep -q 'Usage:' ; rc=$$? ; rm -rf $$h ; exit $$rc
 	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
+	@echo testing: -F field not in the swagger is refused, with a suggestion ; $(testbin) AlertList -F sevrity:4 2>&1 | grep -q "no field 'sevrity' in AlertList (did you mean severity?"
+	@echo testing: -F with a dotted field checks the part before the dot ; ! $(testbin) DeviceList -F customProperties.name:x 2>&1 | grep -q 'no field'
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testoffline

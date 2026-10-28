@@ -650,7 +650,7 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
 
-def validate_filter(ctx, param, filters):
+def validate_filter(ctx, param, filters, fields=()):
     if filters:
         # multiple=True means Click passes a tuple; flatten to a single comma-joined string
         if isinstance(filters, tuple):
@@ -670,6 +670,18 @@ def validate_filter(ctx, param, filters):
                 logging.debug('field: %s', field)
                 logging.debug('operator: %s', operator)
                 logging.debug('value: %s', value)
+                #refuse a field the swagger does not list: the API ignores some
+                #unknown fields (AlertList returns every alert) and matches nothing
+                #on others (DeviceList), with no error either way. Check the part
+                #before any dot, so customProperties.name still passes.
+                if fields and field.split('.')[0] not in fields:
+                    import difflib
+                    close = difflib.get_close_matches(field.split('.')[0], fields, n=1)
+                    hint = f'did you mean {close[0]}? ' if close else ''
+                    raise click.BadParameter(
+                        f"no field {field!r} in {ctx.info_name} ({hint}"
+                        f"elm {ctx.info_name} --info lists them); "
+                        "LM would ignore it or match nothing, without an error")
                 #filter needs quotes around the value to work for strings
                 #this saves the user from having to escape quotes on the cli
                 #ints are not unaffected, so do it for everything

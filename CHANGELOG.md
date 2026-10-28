@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `-F` refuses a field the swagger does not list for that command, before sending anything, and suggests the nearest real one (`no field 'sevrity' in AlertList (did you mean severity? ...)`). The API gives no error for these: AlertList ignores the filter and returns every alert, DeviceList matches nothing. The field list comes from the swagger response schema (`mkinfo.py` stores it in `_defs/`), not a hand-kept list; a dotted field (`customProperties.name`) is checked by the part before the dot, and a command whose response the swagger does not describe is not checked. Of 167 filters in the docs, tools and Samara, the only ones it refuses were already broken.
+- elm-notes: AlertList paging stops at 10,000 rows with no error (verified live: the oldest and newest 10,000 cleared alerts shared no ids); split the range on `startEpoch`. CollectorList: a collector going down is not an AlertList alert; its state, ack and SDT live on the collector record.
+
 - Samara's second Think harder (the step to the most capable model) reads **Ultrathink**, in rainbow: a nod to Claude Code, where typing ultrathink asks for the most thinking and lights up the same way. It shimmers on hover (not with reduced motion) and falls back to plain text in high-contrast mode.
 - Samara shows what each answer cost, from the API's own token counts: "How I worked this out (5 queries · claude-haiku-5-5 · < $0.01)", with the exact figure on hover, summed with any Tell me more, and in the Markdown export's stamp. Prices are a small table from Anthropic's pricing page; a model not in it shows its token count instead, so a new release is never priced wrongly.
 
@@ -21,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `examples/users.md` offboarding check "devices created by the user" (`DeviceList -F createdBy~...`) always found nothing: devices have no `createdBy` field. It now says to look in the audit log, and the circular "see also" links between `users.md` and `devices.md` are gone.
 - Samara and qlm gave times on the far side of a daylight-saving change an hour out: the model added today's offset (+11 in Sydney now) to every timestamp, so an August alert at 10:49 AEST read 11:49 AEDT. jq now runs in the reader's timezone (the browser's, or your Mac's for qlm) and the model formats times with `strflocaltime`, which applies each date's own offset and names the zone ("27 Aug 2026, 10:49 AEST"). An unknown or odd zone name falls back to the old fixed offset.
 - Samara: the model sometimes wrote an empty copy of a table's header into its text, which showed as bare pipes (`| Datasource | Severity |`, `|---|---|`); the page now draws Markdown tables, drops a header-only one, and the system prompt says not to repeat a table. Only long table cells wrap, so short values like "No Data" stay on one line.
 

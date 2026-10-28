@@ -7,7 +7,6 @@ Includes filtering by OS type, custom/system properties, and group membership.
 - [collectors.md](collectors.md) for collector assignment and auto-balance queries
 - [datasources.md](datasources.md) for datasource coverage across devices
 - [alerts.md](alerts.md) for device alert and SDT queries
-- [users.md](users.md) for finding devices created by a specific user
 
 <!--ts-->
    * [Find all hosts in a group by name](#find-all-hosts-in-a-group-by-name)

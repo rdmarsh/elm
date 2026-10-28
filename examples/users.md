@@ -3,7 +3,6 @@
 Queries relating to user accounts, API tokens, roles, and offboarding.
 
 **See also:**
-- [devices.md](devices.md) for finding devices created by a specific user
 - [collectors.md](collectors.md) for finding collectors registered by a specific user
 
 <!--ts-->
@@ -82,12 +81,9 @@ elm CollectorList -s0 -f id,hostname,description,createdBy | \
   jq '.CollectorList[] | select((.createdBy // "") | ascii_downcase | contains("acme user"))'
 ```
 
-Check for devices created by the user:
-
-```shell
-elm DeviceList -s0 -f id,displayName,createdBy -F createdBy~"acme user" | \
-  jq '.DeviceList[]'
-```
+Devices have no `createdBy` field: DeviceList does not return one, and
+`-F createdBy~...` is refused (checked 2026-10-28). Who added a device is
+in the audit log (`AuditLogList`).
 
 The `apiTokens` field on the admin record will be an empty array if none exist.
 A suspended account with no API tokens, collectors, or devices is fully offboarded.

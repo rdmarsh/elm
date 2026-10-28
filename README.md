@@ -816,6 +816,16 @@ The text is built into each command at `make` time (by `mkinfo.py`), so the
 installed binary needs no extra files. It is written to be short, so it is also
 the cheapest way to give an AI assistant what it needs about a command.
 
+The same field list guards `-F`: a filter on a field the swagger does not list
+for that command is refused before anything is sent, because the API would
+quietly ignore it (AlertList returns every alert) or match nothing
+(DeviceList). A dotted field is checked by the part before the dot.
+
+```shell
+$ elm AlertList -F sevrity:4
+Error: Invalid value for '--filter' / '-F': no field 'sevrity' in AlertList (did you mean severity? elm AlertList --info lists them); LM would ignore it or match nothing, without an error
+```
+
 ### DeviceList help
 
 Every command has its own help, and they all share this shape: the API path it

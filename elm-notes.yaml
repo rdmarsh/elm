@@ -225,9 +225,9 @@ _global:
       backslash or double-quote in the value before wrapping it in quotes, so just
       type the literal value you want — elm handles it. Earlier versions wrapped the
       raw value, so a trailing backslash escaped the closing quote
-      (-F 'hostname~foo\\' became hostname~\"foo\\\" -> 400 Bad Request) and the
+      (-F 'name~foo\\' became name~\"foo\\\" -> 400 Bad Request) and the
       workaround was to double the backslash. That workaround is now wrong: with
-      auto-escaping, -F 'hostname~foo\\\\' matches TWO literal backslashes."
+      auto-escaping, -F 'name~foo\\\\' matches TWO literal backslashes."
     - "Comma is the filter-clause separator, so a literal comma in a search VALUE
       must be escaped as \\, — otherwise elm splits the value into two clauses and
       the second (which has no operator) errors with 'format must be FIELD[op]VALUE'.
@@ -1259,6 +1259,7 @@ AlertList:
     - "Without a cleared filter only active (uncleared) alerts are returned; -F cleared:true returns
       cleared ones instead (verified: same device, no filter 13, cleared:true 1000+)."
     - "-C does not return an exact total — LM API returns a negative sentinel; elm shows '>N' with a warning. Use '-c -s0' to count all active alerts (accurate when total ≤ 1000)"
+    - "Paging stops at 10,000 rows, with no error: pages past offset ~10,000 come back empty (\"no data found\"), and the last page can fall a little short. Verified 2026-10-28 on cleared alerts: oldest-first reached 9,982 rows, newest-first 9,702, and the two shared no ids, so everything between was unreachable. For more, split the range with -F startEpoch>:X,startEpoch<:Y so each piece is under 10,000."
     - "To find devices with alerting disabled, see DeviceList alertDisableStatus (a device's own setting is only part of it)."
   patterns:
     active_by_severity: "elm AlertList -s0 -F cleared:false -f id,severity | jq '[.AlertList[].severity] | group_by(.) | map({severity:.[0], count:length})'"
@@ -1429,6 +1430,7 @@ CollectorList:
     - "hostname and description are usually the 'DOMAIN\\HOSTNAME' form (e.g. 'CORP\\NEWEDGE03') or an FQDN, not the bare host label -- matching a collector by an exact bare name fails. Match by numeric id, or substring/partial. The tools/lm-collector-reach.ps1 and lm-collector-debug.ps1 collector options resolve id -> exact hostname/description -> unambiguous substring for this reason."
     - "tools/lm-collector-reach.ps1 -Group <id|name> -WithCollector <id|name> tests a collector NOT yet in a group against that group's device list (pre-add vetting): submits the group's device list to the new collector via Collector Debug and reports device+protocol combos the new collector fails to reach but an in-group collector does. Requires the new collector to already be installed and connected to LM (just not in the group)."
     - "status is always 1 for all collectors including DOWN ones -- use isDown for real health status"
+    - "A collector going down is not an AlertList alert: its state lives on the collector record (isDown, acked, ackedBy, ackedOn, inSDT). Verified 2026-10-28: 27 of 37 collectors down, yet active alerts were only dataSourceAlert, websiteAlert and eventAlert. Most down collectors were stale (acks from 2021); 5 had a lastSentNotificationOn from that day (still notifying), the rest 0. To watch for collector outages, poll -F isDown:true -f id,hostname,acked,inSDT,lastSentNotificationOn."
     - "build is a STRING holding the version as major*1000+minor, e.g. \"40001\" = 40.001 (matches CollectorVersionList majorVersion 40, minorVersion 1). There is no collectorVersion field. -F 'build<37000' and -S build work because builds are all 5 digits; use tonumber before comparing in jq."
     - "DOWN collectors (isDown: true) still report numberOfHosts. For \"in use\" or \"oldest version running\" questions filter -F isDown:false, and report down collectors and their host counts separately."
     - "Besides the *Conf fields, bearerToken, encodedConfigData, config, downloadUrl and copyUrl can carry secrets; a read-only token gets them empty (\"\"). Always pass -f so they are never fetched."

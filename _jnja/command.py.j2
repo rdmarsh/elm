@@ -6,6 +6,10 @@ import engine
 # response fields. Built by mkinfo.py; see the Makefile's _info target.
 INFO = {{ (info or '') | tojson }}
 
+# Fields -F may name, from the swagger response schema (mkinfo.py). Empty when
+# the swagger does not describe the response: nothing is checked then.
+FILTER_FIELDS = {{ (filter_fields or []) | tojson }}
+
 
 def _show_info(ctx, param, value):
     if not value or ctx.resilient_parsing:
@@ -31,7 +35,7 @@ def _show_info(ctx, param, value):
 {%- if option.required or option.in == "path" -%}, required=True{%- endif -%}
 {%- if option.in == "path" -%}, nargs=1{%- endif -%}
 {%- if option.name == "fields" -%}, nargs=1, metavar="FIELD,..."{% endif -%}
-{%- if option.name == "filter" -%}, nargs=1, multiple=True, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,...", callback=engine.validate_filter{% endif -%}
+{%- if option.name == "filter" -%}, nargs=1, multiple=True, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,...", callback=lambda ctx, param, value: engine.validate_filter(ctx, param, value, FILTER_FIELDS){% endif -%}
 {%- if option.name == "size" -%}, nargs=1{%- endif -%}
 {%- if option.description -%}, help="{{ option.description }}"
 {%- elif option.name == "fields" -%}, \
