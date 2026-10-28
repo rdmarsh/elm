@@ -7,6 +7,7 @@
 # Usage:
 #   sbx-creds.sh [-s SANDBOX] cp PROFILE [NAME]  # copy PROFILE.ini in as NAME.ini
 #                                                # (default: the same name)
+#   sbx-creds.sh [-s SANDBOX] mv NAME NEW        # rename it in the sandbox
 #   sbx-creds.sh [-s SANDBOX] rm NAME            # delete NAME.ini from the sandbox
 #   sbx-creds.sh [-s SANDBOX] ls                 # list the profiles in the sandbox
 #
@@ -18,9 +19,10 @@
 #   sbx-creds.sh -s claude-elm cp config       # the test portal, as the default
 #   sbx-creds.sh -s claude-elm cp busy         # another portal, under its own name
 #   sbx-creds.sh -s claude-elm cp test config  # test.ini in as the default
+#   sbx-creds.sh -s claude-elm mv config test  # keep it, but not as the default
 #   sbx-creds.sh -s claude-elm rm busy
 #
-# The file's contents are never printed. A sandbox that is recreated loses its
+# There is no cat, on purpose: the file's contents are never printed. A sandbox that is recreated loses its
 # profiles: run this again.
 #
 # Requires: sbx
@@ -52,6 +54,13 @@ case $1 in
   ls)
     sbx exec -u agent "$sandbox" sh -c "ls $dir 2>/dev/null | sed -n 's/\.ini\$//p'"
     ;;
+  mv)
+    name=${2:?mv needs a profile name}; name=${name%.ini}; new=${3:?mv needs a new name}; new=${new%.ini}
+    name_ok "$name"; name_ok "$new"
+    sbx exec -u agent "$sandbox" sh -c "test ! -e $dir/\"\$2\".ini && mv $dir/\"\$1\".ini $dir/\"\$2\".ini" sh "$name" "$new" ||
+      { echo "sbx-creds: no $name.ini in $sandbox, or $new.ini is there already" >&2; exit 1; }
+    echo "renamed $name.ini to $new.ini in $sandbox"
+    ;;
   rm)
     name=${2:?rm needs a profile name}; name=${name%.ini}; name_ok "$name"
     sbx exec -u agent "$sandbox" sh -c "rm $dir/\"\$1\".ini" sh "$name"
@@ -67,6 +76,6 @@ case $1 in
     echo "copied $profile.ini to $sandbox as $name.ini"
     ;;
   *)
-    echo "sbx-creds: '$1' is not cp, rm or ls" >&2; usage >&2; exit 2
+    echo "sbx-creds: '$1' is not cp, mv, rm or ls" >&2; usage >&2; exit 2
     ;;
 esac
