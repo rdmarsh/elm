@@ -663,48 +663,52 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
 TIME_CLAUSES = []
 COMPARE = ('>:', '<:', '>', '<')
 # s m h d w as in Prometheus, systemd and Grafana (m is minutes); M is a
-# calendar month, as in Grafana. /d /w /M round down to local midnight, Monday
-# or the 1st.
+# calendar month. /d /w /M make a period: that day, week (from Monday) or month.
 UNITS = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
 RELATIVE = re.compile(r'now((?:[+-]\d+[smhdwM])*)(?:/([dwM]))?')
 DATE = re.compile(r'(\d{4})-(\d{2})(?:-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?)?')
 
 
 def local_epoch(year, month, day, hour=0, minute=0, second=0):
-    """Epoch seconds of a local wall-clock time (daylight saving applied)."""
+    """Epoch seconds of a local wall-clock time (daylight saving applied).
+
+    mktime normalises out-of-range fields, so day + 1 or month + 1 roll over.
+    """
     return int(time.mktime((year, month, day, hour, minute, second, 0, 0, -1)))
 
 
-def add_months(t, months):
-    """t moved by whole calendar months, the day kept where the month has it."""
-    import calendar
-    lt = time.localtime(t)
-    year, month = divmod(lt.tm_mon - 1 + months, 12)
-    year, month = lt.tm_year + year, month + 1
-    day = min(lt.tm_mday, calendar.monthrange(year, month)[1])
-    return local_epoch(year, month, day, lt.tm_hour, lt.tm_min, lt.tm_sec)
+def relative_period(value):
+    """'now-1h' as (t, t); 'now/d', 'now-1M/M' as the (start, end) of that day or month.
 
-
-def relative_time(value):
-    """'now', 'now-1h', 'now+7d', 'now-1M/M' as epoch seconds."""
+    Units s m h d w M as in Prometheus, systemd and Grafana (m minutes, M
+    months). /d /w /M make it a period, as in Elasticsearch and Grafana date
+    maths: today, this week (from Monday), this month.
+    """
+    from dateutil.relativedelta import relativedelta
+    import datetime
     match = RELATIVE.fullmatch(value)
     if not match:
         raise click.BadParameter(
             f"{value!r} is not a relative time: use now, now-N or now+N with s, m, h, d, w "
-            "or M (m is minutes, M months), optionally /d, /w or /M for the start of the "
-            "day, week or month: now-1h, now+7d, now-1M/M")
+            "or M (m is minutes, M months), optionally /d, /w or /M for that day, week or "
+            "month: now-1h, now+7d, now-1M/M")
+    # s m h d w are fixed seconds, as in Prometheus; M moves the calendar date
     t = int(time.time())
     for sign, number, unit in re.findall(r'([+-])(\d+)([smhdwM])', match.group(1)):
         n = int(number) if sign == '+' else -int(number)
-        t = add_months(t, n) if unit == 'M' else t + n * UNITS[unit]
-    lt = time.localtime(t)
-    if match.group(2) == 'd':
-        t = local_epoch(lt.tm_year, lt.tm_mon, lt.tm_mday)
-    elif match.group(2) == 'w':
-        t = local_epoch(lt.tm_year, lt.tm_mon, lt.tm_mday - lt.tm_wday)   # mktime normalises the day
-    elif match.group(2) == 'M':
-        t = local_epoch(lt.tm_year, lt.tm_mon, 1)
-    return t
+        if unit == 'M':
+            moved = datetime.datetime.fromtimestamp(t) + relativedelta(months=n)
+            t = local_epoch(*moved.timetuple()[:6])
+        else:
+            t += n * UNITS[unit]
+    if not match.group(2):
+        return t, t
+    day = datetime.datetime.fromtimestamp(t).replace(hour=0, minute=0, second=0)
+    start, step = {'d': (day, relativedelta(days=1)),
+                   'w': (day - datetime.timedelta(days=day.weekday()), relativedelta(weeks=1)),
+                   'M': (day.replace(day=1), relativedelta(months=1))}[match.group(2)]
+    # local wall-clock midnights, so a period across a daylight-saving change is right
+    return local_epoch(*start.timetuple()[:3]), local_epoch(*(start + step).timetuple()[:3])
 
 
 def date_period(value):
@@ -719,7 +723,7 @@ def date_period(value):
     except ValueError as error:
         raise click.BadParameter(f'{value!r} is not a date: {error}')
     if day is None:
-        return local_epoch(year, month, 1), local_epoch(year + month // 12, month % 12 + 1, 1)
+        return local_epoch(year, month, 1), local_epoch(year, month + 1, 1)
     if hour is None:
         return local_epoch(year, month, day), local_epoch(year, month, day + 1)
     start = local_epoch(year, month, day, hour, minute, second or 0)
@@ -729,17 +733,25 @@ def date_period(value):
 def time_clauses(field, operator, value, ints):
     """The clauses for a time value (now..., or a date), or None if value is not one.
 
-    After a comparison the value becomes an epoch: >: and < compare with the
-    period's start, > and <: with its end, so <:2026-03-31 includes the 31st.
-    After : a date on a number field is the whole period: two clauses.
+    A rounded time (now/d, now-1M/M) or a date is a period, [start, end). As in
+    Elasticsearch's date maths, >: and < compare with its start, > and <: with
+    its end, so <:2026-03-31 includes the 31st and >:now-1M/M,<:now-1M/M is
+    last month. After : a period is the whole of it, two clauses.
     """
-    if operator in COMPARE and value.startswith('now'):
-        return [(operator, relative_time(value))]
-    if not DATE.fullmatch(value) or (operator not in COMPARE and operator != ':'):
+    is_now = value.startswith('now')
+    if not is_now and not DATE.fullmatch(value):
+        return None
+    if operator not in COMPARE and operator != ':':
         return None
     if ints and field.split('.')[0] not in ints:
         return None     # a string field: a date there is a plain value
-    start, end = date_period(value)
+    if is_now and operator not in COMPARE and '/' not in value:
+        raise click.BadParameter(
+            f"{field}:{value} matches one second: use >: or <: with it, or round it to a "
+            f"period ({field}:now/d is today)")
+    start, end = relative_period(value) if is_now else date_period(value)
+    if start == end:
+        return [(operator, start)]
     if operator == ':':
         return [('>:', start), ('<', end)]
     return [{'>:': ('>:', start), '<': ('<', start), '>': ('>:', end), '<:': ('<', end)}[operator]]

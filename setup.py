@@ -30,6 +30,7 @@ setup(
         'htmlmin2~=0.1.13',
         'lxml~=6.1',
         'pandas~=2.3',
+        'python-dateutil>=2.8.2',
         'Pygments~=2.20',
         'PySocks~=1.7.1',
         'requests~=2.33',

@@ -62,10 +62,10 @@ def _show_info(ctx, param, value):
                 !~ - Does not include
 
                 Times: after a comparison VALUE can be relative,
-                now, now-1h, now+7d, now-1M/M (s m h d w M; /d /w
-                /M round down to the start of the day, week or
-                month), or a date, 2026-07 or 2026-07-14. A date
-                after : on a time field means the whole period.
+                now-1h, now+7d (s m h d w M), a period, now/d,
+                now-1M/M (that day, week or month), or a date,
+                2026-07, 2026-07-14. >: and < use a period's start,
+                > and <: its end; after : it is the whole period.
 
                 """
 {%- elif option.name == "size" -%}, \

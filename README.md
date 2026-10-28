@@ -818,22 +818,24 @@ the cheapest way to give an AI assistant what it needs about a command.
 
 **Times and dates:** elm works out the epochs, so nobody has to.
 
-- After `>:`, `<:`, `>` or `<`, a value can be relative: `now`, `now-N` or
-  `now+N`, with `s`, `m`, `h`, `d`, `w` or `M` (as in Prometheus, systemd and
-  Grafana: `m` is minutes, `M` months). `/d`, `/w` and `/M` round down to the
-  start of the day, week (Monday) or month: `now/M` is midnight on the 1st,
-  `now-1M/M` the 1st of last month.
-- Or a date: `2026-07`, `2026-07-14`, `2026-07-14T09:30`. `>:` and `<` compare
-  with its start, `>` and `<:` with its end, so `<:2026-03-31` includes the 31st.
-- After `:`, a date on a time field means the whole period:
-  `startEpoch:2026-07` is all of July.
+- A relative time: `now`, `now-N` or `now+N`, with `s`, `m`, `h`, `d`, `w` or
+  `M` (as in Prometheus, systemd and Grafana: `m` is minutes, `M` months).
+  `s` to `w` are fixed lengths; `M` moves the calendar date.
+- A period: `/d`, `/w` or `/M` on the end makes it that day, week (from
+  Monday) or month. `now/d` is today, `now-1M/M` last month.
+- A date, which is also a period: `2026-07`, `2026-07-14`, `2026-07-14T09:30`.
+- With a period, `>:` and `<` compare with its start, `>` and `<:` with its
+  end, as in Elasticsearch's date maths: `<:2026-03-31` includes the 31st, and
+  Grafana's "previous month", `>:now-1M/M,<:now-1M/M`, is the whole month.
+  After `:` a period means all of it: `startEpoch:2026-07` is July.
 
 Times are local, daylight saving included (set `TZ` to use another zone).
 
 ```shell
 elm AlertList -F 'cleared:false,startEpoch>:now-1h'            # started in the last hour
 elm AlertList -F 'startEpoch>:now-30d'                         # the last 30 days
-elm AlertList -F 'startEpoch>:now-1M/M,startEpoch<now/M'       # last calendar month
+elm AlertList -F 'startEpoch:now-1M/M'                         # last calendar month
+elm AlertList -F 'startEpoch:now/d'                            # today
 elm AlertList -F 'startEpoch:2026-07'                          # July
 elm SDTList -F 'startDateTime<:now+7d'                         # SDTs starting in the next week
 ```
