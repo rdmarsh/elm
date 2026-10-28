@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Samara's system prompt spells out the two front-page questions: "Is DEVICE okay?" is up, open alerts and anything silencing them; "Which devices are down?" is `hostStatus` dead or dead-collector. A local 8B model answered the first from the device record alone and missed 15 open alerts.
 - Samara's Think harder button names the model it asks ("Think harder · sonnet"), and **Ultrathink** is always the ladder's top step, however many models `SAMARA_MODEL` lists. With four, the second and third steps both read Ultrathink, and the fourth printed "undefined" above its answer.
 - Samara's footer puts the portal and profile on one line and the model on the next.
 - Samara's settings are `SAMARA_*` (`SAMARA_MODEL`, `SAMARA_EFFORT`, `SAMARA_MAX_STEPS`, `SAMARA_ALLOW_UNRESTRICTED`, `SAMARA_KEYCHAIN_ITEM`, ...). The `ELM_ASK_*` names still work; the `SAMARA_` one wins. Rebuild the image (`samara/run.sh --build -y`).
