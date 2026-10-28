@@ -17,6 +17,11 @@ import tempfile
 from pathlib import Path
 
 
+def setting(name, default=None):
+    """SAMARA_<name>, or the older ELM_ASK_<name>, so setups from before the rename keep working."""
+    return os.environ.get(f"SAMARA_{name}", os.environ.get(f"ELM_ASK_{name}", default))
+
+
 ELM_HOME = Path(os.environ.get("ELM_HOME", Path(__file__).resolve().parents[1]))
 ELM_CMD = [sys.executable, str(ELM_HOME / "elm.py")]
 # elm-ask runs as its own profile, `ai`, not the default `config`: the person
@@ -26,7 +31,7 @@ ELM_CMD = [sys.executable, str(ELM_HOME / "elm.py")]
 ELM_PROFILE = os.environ.get("ELM_PROFILE") or "ai"   # --profile NAME
 ELM_CONFIG = os.environ.get("ELM_CONFIG")             # --config PATH (wins over profile)
 # Refuse to answer with a profile that has no allowed_commands, unless this is set.
-ALLOW_UNRESTRICTED = os.environ.get("ELM_ASK_ALLOW_UNRESTRICTED") == "1"
+ALLOW_UNRESTRICTED = setting("ALLOW_UNRESTRICTED") == "1"
 ELM_CACERT = os.environ.get("ELM_CACERT")        # --cacert PATH for TLS-inspecting proxies
 
 MAX_ROWS = 1000          # LM's page cap; -s0 means "up to 1000"
@@ -193,7 +198,7 @@ def profile_status():
                    f"ai.example.ini, with a read-only API token.")
     elif not restricted and not ALLOW_UNRESTRICTED:
         problem = (f"Profile '{name}' has no allowed_commands, so it can run every command. Add allowed_commands "
-                   f"(see ai.example.ini), or set ELM_ASK_ALLOW_UNRESTRICTED=1 to use it anyway.")
+                   f"(see ai.example.ini), or set SAMARA_ALLOW_UNRESTRICTED=1 to use it anyway.")
     return {"name": name, "account": account, "exists": exists, "restricted": restricted,
             "allowed": sorted(allowed), "problem": problem}
 

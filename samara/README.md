@@ -1,8 +1,8 @@
 # Samara
 
-Samara (the elm's winged seed) is the name people see. Under the hood some
-names stay `elm-ask`: the Docker image, the `ELM_ASK_*` settings and the
-keychain item, so existing setups keep working.
+Samara (the elm's winged seed) is the name people see. Under the hood the
+Docker image is still `elm-ask`. The settings are `SAMARA_*`; the older
+`ELM_ASK_*` names still work, so existing setups keep working.
 
 A local web page where anyone can ask questions about a LogicMonitor portal in
 plain English:
@@ -70,14 +70,17 @@ Python or jq installed.
 - **Local only.** The commands below publish the port on `127.0.0.1`, so only
   the person at that machine can open the page.
 - **What leaves the machine.** Questions and the query results the model reads
-  are sent to the Claude API. Tables shown on screen are rendered locally, but
-  counts, samples and summaries do go to the API. Check that this is acceptable
-  under your organisation's data policy.
+  are sent to the model's API: Claude's, unless you use a
+  [local model](#local-models-ollama-lm-studio), which keeps them on this
+  machine. Tables shown on screen are rendered locally, but counts, samples and
+  summaries do go to the API. When Think harder would send them somewhere the
+  answer so far did not (from a local model to Claude), the page asks first.
+  Check that this is acceptable under your organisation's data policy.
 
 ## What you need
 
 1. Docker (e.g. Docker Desktop, or Colima on macOS).
-2. A Claude API key (`ANTHROPIC_API_KEY`).
+2. A Claude API key (`ANTHROPIC_API_KEY`), or a [local model](#local-models-ollama-lm-studio).
 3. An `ai` profile (`tools/elm-check-access.sh -p ai` reports which commands its
    token can really reach): copy [`ai.example.ini`](../ai.example.ini) to
    `~/.config/logicmonitor/credentials/ai.ini`, fill in an API token whose
@@ -195,7 +198,7 @@ samara/run.sh --set-key
 
 `run.sh` reads it from there whenever `ANTHROPIC_API_KEY` is unset, so a key
 exported in your shell wins over the keychain. If the API rejects the key, it
-stops before starting and says which of the two it came from. `ELM_ASK_KEYCHAIN_ITEM` names a
+stops before starting and says which of the two it came from. `SAMARA_KEYCHAIN_ITEM` names a
 different item. qlm needs none of this: it answers on your Claude login.
 
 macOS / Linux:
@@ -245,7 +248,7 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
 `ELM_PROFILE=NAME` still works, for a container with the whole credentials
 folder mounted at `/home/app/.config/logicmonitor/credentials`; `ELM_CONFIG`
 wins when both are set. Either way the profile must set
-`allowed_commands`, unless you also add `-e ELM_ASK_ALLOW_UNRESTRICTED=1`. The
+`allowed_commands`, unless you also add `-e SAMARA_ALLOW_UNRESTRICTED=1`. The
 page footer names the portal and the profile, and its "N allowed commands" is a
 button that lists them.
 
@@ -256,15 +259,20 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | (required) | Claude API key |
+| `ANTHROPIC_API_KEY` | | Claude API key; needed when any step of `SAMARA_MODEL` is Claude |
 | `ANTHROPIC_BASE_URL` | Anthropic API | Send Claude requests through a gateway instead |
 | `ELM_PROFILE` | `ai` | Credential profile name, as `elm --profile`. Must set `allowed_commands` |
-| `ELM_ASK_ALLOW_UNRESTRICTED` | | Set to `1` to allow a profile without `allowed_commands` |
+| `SAMARA_ALLOW_UNRESTRICTED` | | Set to `1` to allow a profile without `allowed_commands` |
 | `ELM_CONFIG` | | Path to a specific `.ini` inside the container (overrides `ELM_PROFILE`) |
 | `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too; unnecessary if the CA was built in, see [Build](#behind-a-proxy-that-inspects-tls)) |
-| `ELM_ASK_MODEL` | `haiku` | Model line (`haiku`, `sonnet`, `opus`: the newest model in it answers), or an exact model id |
-| `ELM_ASK_EFFORT` | `high` | How hard the model works per step; lower is faster and cheaper |
-| `ELM_ASK_MAX_STEPS` | `25` | Maximum model turns per question |
+| `SAMARA_MODEL` | `haiku` | Model line (`haiku`, `sonnet`, `opus`: the newest model in it answers), an exact model id, or a comma list, one per Think harder step |
+| `SAMARA_MODEL_URL` | | OpenAI-compatible API for the models that are not Claude (see [Local models](#local-models-ollama-lm-studio)) |
+| `SAMARA_MODEL_KEY` | | API key for `SAMARA_MODEL_URL`, if it wants one (OpenAI does; Ollama and LM Studio don't) |
+| `SAMARA_EFFORT` | `high` | How hard a Claude model works per step; lower is faster and cheaper |
+| `SAMARA_MAX_STEPS` | `25` | Maximum model turns per question |
+
+Each `SAMARA_` setting is also read as `ELM_ASK_` (`ELM_ASK_MODEL`, ...), its
+name before Samara was renamed; the `SAMARA_` one wins.
 
 ### Cost: model and effort
 
@@ -274,7 +282,7 @@ below), and neither needs a rebuild:
 
 ```shell
 docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
-  -e ANTHROPIC_API_KEY -e ELM_ASK_MODEL=sonnet -e ELM_ASK_EFFORT=medium \
+  -e ANTHROPIC_API_KEY -e SAMARA_MODEL=sonnet -e SAMARA_EFFORT=medium \
   -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
   elm-ask
 ```
@@ -304,6 +312,42 @@ Claude login instead, so it has no per-question cost.
 
 Judge both on answers, not on price alone: a cheaper model that needs three
 attempts is not cheaper. That is what the checked questions in `questions.md` are for.
+
+### Local models (Ollama, LM Studio)
+
+Any model behind an OpenAI-compatible API can answer: Ollama or LM Studio on
+your own machine, so questions and portal data never leave it, or a hosted one
+such as OpenAI's. Name the model in `SAMARA_MODEL` and the API in
+`SAMARA_MODEL_URL`. Claude names (a line, or an id starting `claude-`) still go
+to Anthropic; everything else goes to that URL.
+
+```shell
+ollama pull qwen3:8b
+samara/run.sh -m qwen3:8b --url http://host.docker.internal:11434/v1 -y
+```
+
+`host.docker.internal` is your machine as seen from the container (`run.sh`
+adds it on Linux, where Docker does not). LM Studio's server is at
+`http://host.docker.internal:1234/v1` once started in its Developer tab. A
+comma list makes a ladder, one model per Think harder step, and can mix the
+two: `-m qwen3:8b,sonnet,opus` asks the local model, then Claude when an answer
+falls short. The Claude key is needed only when a step is Claude.
+
+Things to know:
+
+- **Size.** The model has to fit in memory beside Docker: on 16 GB, an 8B model
+  (or 14B at 4-bit). Small models get more wrong than Claude, so check their
+  answers against "How I worked this out", and run `questions.md` before
+  trusting one.
+- **Context.** The instructions, knowledge base and tools are about 4,500
+  tokens before the first question, and query results add more. Give the model
+  16K or more: Ollama's default is smaller, so start it with
+  `OLLAMA_CONTEXT_LENGTH=16384 ollama serve`; LM Studio sets it when you load
+  the model.
+- **Tools.** The model must support tool calls (Qwen3, Llama 3.1+, Mistral
+  Small and gpt-oss do).
+- **Cost and effort.** A local model shows tokens, not a price, and does not
+  take the effort setting.
 
 ## qlm: ask from the command line
 
@@ -500,7 +544,7 @@ sequenceDiagram
     participant L as LogicMonitor
 
     B->>A: POST /api/ask {question}
-    loop until Claude answers, up to ELM_ASK_MAX_STEPS
+    loop until Claude answers, up to SAMARA_MAX_STEPS
         A->>C: history + tool definitions
         C-->>A: tool request (e.g. run_elm DeviceList, filter)
         A->>T: run the tool
@@ -520,7 +564,8 @@ sequenceDiagram
 |---|---|
 | `run.sh` | Starts the container, asking for the model and effort |
 | `app.py` | Serves the page and streams answers from `/api/ask` as newline-delimited JSON |
-| `agent.py` | The Claude tool-use loop |
+| `agent.py` | The tool-use loop, and which model each Think harder step asks |
+| `openai_api.py` | Requests to an OpenAI-compatible API (Ollama, LM Studio, OpenAI) for models that are not Claude |
 | `mcp_server.py` | The same tools as an MCP server, for `qlm` and Claude Code |
 | `qlm` | Asks from the command line through `mcp_server.py` |
 | `elm_tools.py` | The five tools: `find_commands`, `describe_command`, `run_elm`, `jq` and `show_table` |

@@ -1,5 +1,6 @@
-"""The question-answering loop: Claude plans, calls the read-only elm tools, answers."""
+"""The question-answering loop: a model plans, calls the read-only elm tools, answers."""
 
+import ipaddress
 import json
 import os
 import random
@@ -7,24 +8,34 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import anthropic
 
 import elm_tools
+import openai_api
 
-# A model line, not a model: each question goes to the newest model in the line,
-# looked up from the API, so a new release needs no edit here. Cheapest first;
-# "Think harder" on the page re-asks a question one line further along. The
-# cheapest by default: most questions are lookups, and every one costs money.
-# ELM_ASK_MODEL picks another line, or a full model id to stay on one model; the
-# questions.md is how to tell whether a dearer one answers better.
+# The ladder: the model that answers, then the ones "Think harder" and
+# Ultrathink re-ask on. SAMARA_MODEL is one step or a comma list of them.
+# A Claude line (haiku, sonnet, opus) answers with the newest model in it,
+# looked up from the API, so a new release needs no edit here; one line alone
+# climbs the lines from there. A full Claude id alone stays on that model, then
+# climbs from its line. Anything else is a model at SAMARA_MODEL_URL, an
+# OpenAI-compatible API (Ollama, LM Studio, OpenAI): qwen3:8b,sonnet,opus asks
+# a local model first and Claude when it falls short. The cheapest by default:
+# most questions are lookups, and every one costs money; questions.md is how to
+# tell whether a dearer one answers better.
 LINES = ["haiku", "sonnet", "opus"]
-MODEL = os.environ.get("ELM_ASK_MODEL", "haiku")
+MODEL = elm_tools.setting("MODEL", "haiku")
+MODELS = [m.strip() for m in MODEL.split(",") if m.strip()] or ["haiku"]
+MODEL_URL = elm_tools.setting("MODEL_URL", "")
+MODEL_KEY = elm_tools.setting("MODEL_KEY", "")   # for an API that wants one (OpenAI); Ollama does not
 # low|medium|high|xhigh|max. High by default: the cheap model slips most on care
 # (a field elm warned about, words that drift from its own table), and high costs
 # a little more thinking, far less than moving up a model line. Empty = the API's.
-EFFORT = os.environ.get("ELM_ASK_EFFORT", "high")
-MAX_STEPS = int(os.environ.get("ELM_ASK_MAX_STEPS", "25"))
+# Claude only: OpenAI-compatible servers differ in what they take.
+EFFORT = elm_tools.setting("EFFORT", "high")
+MAX_STEPS = int(elm_tools.setting("MAX_STEPS", "25"))
 # Sent for the page's Tell me more button. Answers stop at the facts (see
 # system_prompt.md); this asks for the analysis that was left out.
 DETAIL_REQUEST = ("More detail, please. Go beyond the facts in your last answer: patterns, likely causes and "
@@ -66,25 +77,104 @@ def newest(client, line):
     return _newest[line]
 
 
+def is_claude(model):
+    return model in LINES or model.startswith("claude-")
+
+
+def where(model):
+    """None if this model runs on this machine, else who it sends questions and portal data to."""
+    if is_claude(model):
+        return "Anthropic"
+    host = urlparse(MODEL_URL).hostname or MODEL_URL
+    try:
+        if ipaddress.ip_address(host).is_loopback:
+            return None
+    except ValueError:
+        pass
+    return None if host in ("localhost", "host.docker.internal") else host
+
+
+def config_problem():
+    """What stops the ladder working, said before anything is asked, or None."""
+    others = [m for m in MODELS if not is_claude(m)]
+    if others and not MODEL_URL:
+        return (f"SAMARA_MODEL names {', '.join(others)}, which {'is not a Claude model' if len(others) == 1 else 'are not Claude models'}, "
+                f"so Samara needs SAMARA_MODEL_URL: the OpenAI-compatible API that serves "
+                f"{'it' if len(others) == 1 else 'them'} (Ollama: http://host.docker.internal:11434/v1).")
+    return None
+
+
+def ladder(client):
+    """The steps a question can climb, as SAMARA_MODEL gives them (see MODELS)."""
+    if len(MODELS) > 1 or not is_claude(MODELS[0]):
+        return MODELS
+    model = MODELS[0]
+    if model in LINES:
+        return LINES[LINES.index(model):]
+    if model not in _newest:   # a pinned Claude id: harder goes on from the line after its own
+        _newest[model] = getattr(client.models.retrieve(model), "line", None)
+    line = _newest[model]
+    return [model] + (LINES[LINES.index(line) + 1:] if line in LINES else [])
+
+
 def pick_model(client, harder=0):
-    """(model id, whether a harder one is left) for a question asked `harder` times."""
-    if MODEL in LINES:
-        start = LINES.index(MODEL)
-    else:  # a pinned model id: harder starts at the line after its own
-        if MODEL not in _newest:
-            _newest[MODEL] = getattr(client.models.retrieve(MODEL), "line", None)
-        line = _newest[MODEL]
-        if not harder:
-            return MODEL, line in LINES[:-1]
-        start = LINES.index(line) if line in LINES else len(LINES) - 1
-    i = min(start + harder, len(LINES) - 1)
-    return newest(client, LINES[i]), i < len(LINES) - 1
+    """(model id, whether a harder step is left, where it sends data if somewhere new, else None).
+
+    The last lets the page say before Think harder that it would send the
+    question and its portal data somewhere this step did not.
+    """
+    if is_claude(MODELS[0]) and len(MODELS) == 1 and not has_claude_key():
+        raise NoClaudeKey(MODELS[0])
+    steps = ladder(client)
+    i = min(harder, len(steps) - 1)
+    if is_claude(steps[i]) and not has_claude_key():
+        raise NoClaudeKey(steps[i])
+    model = newest(client, steps[i]) if steps[i] in LINES else steps[i]
+    if i + 1 == len(steps):
+        return model, False, None
+    off = where(steps[i + 1])
+    return model, True, off if off != where(steps[i]) else None
+
+
+class NoClaudeKey(Exception):
+    """The step to ask is a Claude model, and no key is set."""
+
+    def __str__(self):
+        return (f"{self.args[0]} is a Claude model, and no Claude API key is set. "
+                "Restart Samara with -e ANTHROPIC_API_KEY (run.sh finds it).")
+
+
+def has_claude_key():
+    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
 _effort_unsupported = set()
 
 
+class Reply:
+    """One model reply, the same shape from either API: content blocks, stop reason, tokens."""
+
+    def __init__(self, content, stop_reason, usage):
+        self.content, self.stop_reason, self.usage = content, stop_reason, usage
+
+
 def create(client, model, messages, emit):
+    """One request to whichever API serves this model, as a Reply."""
+    if not is_claude(model):
+        content, stop, usage = openai_api.create(MODEL_URL, MODEL_KEY, model, SYSTEM[0]["text"],
+                                                 elm_tools.TOOLS, messages, len(messages))
+        return Reply(content, stop, usage)
+    response = create_claude(client, model, messages, emit)
+    u = response.usage
+    return Reply(response.content, response.stop_reason, {
+        "input": getattr(u, "input_tokens", 0) or 0,
+        "output": getattr(u, "output_tokens", 0) or 0,
+        "cache_read": getattr(u, "cache_read_input_tokens", 0) or 0,
+        "cache_write": getattr(u, "cache_creation_input_tokens", 0) or 0,
+    })
+
+
+def create_claude(client, model, messages, emit):
     """One request to Claude, dropping effort if this model will not take it.
 
     Not every model accepts output_config.effort (Haiku 4.5 rejects it with a
@@ -111,7 +201,7 @@ def create(client, model, messages, emit):
             raise
         _effort_unsupported.add(model)
         emit({"type": "status", "text": f"{model} does not take an effort setting; continuing without it."})
-        return create(client, model, messages, emit)
+        return create_claude(client, model, messages, emit)
 
 
 class Conversation:
@@ -131,15 +221,18 @@ class Conversation:
 
 def call_tool(conv, block):
     """Run one tool_use block; return (tool_result, ui_event_or_None)."""
-    handler = elm_tools.HANDLERS.get(block.name)
+    name, args, use_id = (openai_api.block(block, k) for k in ("name", "input", "id"))
+    handler = elm_tools.HANDLERS.get(name)
     try:
         if handler is None:
-            raise ValueError(f"Unknown tool {block.name}")
-        text, event = handler(conv.session, **block.input)
-        return {"type": "tool_result", "tool_use_id": block.id, "content": text}, event
+            raise ValueError(f"Unknown tool {name}")
+        if "_unparsed" in args:
+            raise ValueError(f"The arguments were not valid JSON: {args['_unparsed'][:300]}")
+        text, event = handler(conv.session, **args)
+        return {"type": "tool_result", "tool_use_id": use_id, "content": text}, event
     except Exception as exc:  # errors go back to the model so it can correct itself
-        event = {"type": "step", "command": f"{block.name} {json.dumps(block.input)[:300]}", "result": f"error: {exc}"}
-        return {"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True}, event
+        event = {"type": "step", "command": f"{name} {json.dumps(args)[:300]}", "result": f"error: {exc}"}
+        return {"type": "tool_result", "tool_use_id": use_id, "content": str(exc), "is_error": True}, event
 
 
 # US$ per million tokens: input, output, cache read. Cache writes cost 1.25x
@@ -206,7 +299,7 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
     if detail:
         if conv.model is None:
             return emit({"type": "error", "text": "Nothing to add detail to: ask the question again."})
-        question, model, more = DETAIL_REQUEST, conv.model, False
+        question, model, more, off = DETAIL_REQUEST, conv.model, False, None
     elif harder:
         if conv.question is None:
             return emit({"type": "error", "text": "Nothing to try harder on: ask the question again."})
@@ -215,9 +308,9 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
         conv.level = harder
     if not detail:
         conv.question, conv.asked_at = question, len(conv.messages)
-        model, more = pick_model(client, conv.level)
+        model, more, off = pick_model(client, conv.level)
         conv.model = model
-    emit({"type": "model", "id": model, "harder": harder, "level": conv.level, "more": more})
+    emit({"type": "model", "id": model, "harder": harder, "level": conv.level, "more": more, "off": off})
     start = len(conv.messages)
     try:
         _answer(client, conv, question, model, emit, where, start)
@@ -264,12 +357,8 @@ def _answer(client, conv, question, model, emit, where, start):
             raise Stopped()
         emit({"type": "status", "text": random.choice(THINKING) + "..."})
         response = create(client, model, conv.messages, emit)
-        u = getattr(response, "usage", None)
-        if u is not None:
-            usage["input"] += getattr(u, "input_tokens", 0) or 0
-            usage["output"] += getattr(u, "output_tokens", 0) or 0
-            usage["cache_read"] += getattr(u, "cache_read_input_tokens", 0) or 0
-            usage["cache_write"] += getattr(u, "cache_creation_input_tokens", 0) or 0
+        for k, v in response.usage.items():
+            usage[k] += v
         if response.stop_reason == "refusal":
             del conv.messages[start:]   # the whole turn, not just its last message
             spent()
@@ -277,8 +366,10 @@ def _answer(client, conv, question, model, emit, where, start):
             return
 
         conv.messages.append({"role": "assistant", "content": response.content})
-        texts = [b.text for b in response.content if b.type == "text" and b.text.strip()]
-        tool_uses = [b for b in response.content if b.type == "tool_use"]
+        kind = lambda b: openai_api.block(b, "type")
+        texts = [openai_api.block(b, "text") for b in response.content
+                 if kind(b) == "text" and openai_api.block(b, "text").strip()]
+        tool_uses = [b for b in response.content if kind(b) == "tool_use"]
 
         if not tool_uses:
             answer = "\n\n".join(texts) or "(no answer)"
@@ -294,7 +385,7 @@ def _answer(client, conv, question, model, emit, where, start):
         for block in tool_uses:
             if conv.stop.is_set():
                 raise Stopped()
-            emit({"type": "status", "text": DOING.get(block.name, "Working") + "..."})
+            emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
             result, event = call_tool(conv, block)
             results.append(result)
             if event:

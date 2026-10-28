@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """elm-ask: a local web page where people ask LogicMonitor questions in plain English.
 
-Serves index.html and a streaming /api/ask endpoint. Answers come from Claude
-using read-only elm queries (see elm_tools.py). Intended to run on the user's
+Serves index.html and a streaming /api/ask endpoint. Answers come from Claude,
+or a model at an OpenAI-compatible API (see agent.py), using read-only elm queries (see elm_tools.py). Intended to run on the user's
 own machine, bound to localhost (see README.md for the Docker command).
 """
 
@@ -19,9 +19,10 @@ import anthropic
 
 import agent
 import elm_tools
+import openai_api
 
-HOST = os.environ.get("ELM_ASK_HOST", "127.0.0.1")
-PORT = int(os.environ.get("ELM_ASK_PORT", "8080"))
+HOST = elm_tools.setting("HOST", "127.0.0.1")
+PORT = int(elm_tools.setting("PORT", "8080"))
 IDLE_SECONDS = 3600
 HERE = Path(__file__).resolve().parent
 
@@ -56,13 +57,9 @@ def elm_version():
 _ELM_VERSION = None
 
 
-def has_claude_key():
-    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
-
-
 def default_model_id():
-    """The model the default line answers with today, or None without a working key."""
-    if not has_claude_key():
+    """The model the first step answers with today, or None without a working key."""
+    if agent.is_claude(agent.MODELS[0]) and not agent.has_claude_key():
         return None
     try:
         return agent.pick_model(anthropic.Anthropic())[0]
@@ -74,7 +71,11 @@ def health():
     """What is and isn't configured, for the page's setup banner."""
     status = elm_tools.profile_status()
     return {
-        "claude_key": has_claude_key(),
+        "claude_key": agent.has_claude_key(),
+        "needs_claude": any(agent.is_claude(m) for m in agent.MODELS),
+        "model_problem": agent.config_problem(),
+        # Who the first step sends questions and portal data to; None for this machine.
+        "off": agent.where(agent.MODELS[0]),
         "profile": Path(elm_tools.ELM_CONFIG).name if elm_tools.ELM_CONFIG else status["name"],
         "portal": status["account"],
         "profile_problem": status["problem"],
@@ -118,7 +119,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
             question = str(body.get("question") or "").strip()[:2000]
-            harder = max(0, min(int(body.get("harder") or 0), len(agent.LINES) - 1))
+            harder = max(0, min(int(body.get("harder") or 0), 9))   # agent.pick_model stops at the top step
             detail = bool(body.get("detail"))
             where = {"timezone": str(body.get("timezone") or "")[:64],
                      "utc_offset_minutes": int(body.get("utc_offset_minutes") or 0)}
@@ -139,9 +140,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
 
         emit({"type": "conversation", "id": conv_id})
-        if not has_claude_key():
-            return emit({"type": "error", "text": "No Claude API key is set. Restart the container with -e ANTHROPIC_API_KEY."})
-        problem = elm_tools.profile_status()["problem"]
+        problem = agent.config_problem() or elm_tools.profile_status()["problem"]
         if problem:
             return emit({"type": "error", "text": problem})
         try:
@@ -154,6 +153,8 @@ class Handler(BaseHTTPRequestHandler):
             emit({"type": "error", "text": "Could not reach the Claude API. Check the network or proxy."})
         except anthropic.APIStatusError as exc:
             emit({"type": "error", "text": f"Claude API error {exc.status_code}: {exc.message}"})
+        except (openai_api.ModelError, agent.NoClaudeKey) as exc:
+            emit({"type": "error", "text": str(exc)})
         except (BrokenPipeError, ConnectionResetError, agent.Stopped):
             pass  # Stop pressed or the tab closed; agent.ask has dropped the half-finished turn
         except Exception as exc:
@@ -162,7 +163,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"elm-ask listening on http://{HOST}:{PORT}  (model {agent.MODEL})", flush=True)
+    print(f"Samara listening on http://{HOST}:{PORT}  (model {agent.MODEL})", flush=True)
     server.serve_forever()
 
 

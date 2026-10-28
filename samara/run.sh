@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# elm-ask run: start the elm-ask container, choosing the model and effort.
+# Samara run: start the elm-ask container, choosing the model and effort.
 #
 # Usage:
 #   run.sh [options]                 # asks for anything not given
@@ -9,6 +9,10 @@
 #   --model, -m NAME     Claude model line (haiku, sonnet, opus: the newest of
 #                        that line answers) or one exact model id. Run without
 #                        it to see the lines by number, default in [brackets].
+#                        A comma list is the Think harder ladder, one model per
+#                        step: qwen3:8b,sonnet asks a local model, then Claude.
+#   --url URL            OpenAI-compatible API for models that are not Claude,
+#                        e.g. Ollama at http://host.docker.internal:11434/v1
 #   --effort, -e LEVEL   low | medium | high | xhigh | max (default: high)
 #   --profile, -p NAME   elm credential profile (default: ai)
 #   --port NUM           port on this machine (default: 8080)
@@ -28,16 +32,20 @@
 # Run at a terminal without --yes, it opens the page in your browser once the
 # server answers; with --yes, or with no terminal, it only prints the address.
 #
-# Needs a Claude API key and a credential profile with allowed_commands (see
-# ai.example.ini). The key comes from ANTHROPIC_API_KEY, or from the macOS
-# keychain item named below (run.sh --set-key stores it). run.sh checks the key
-# with the Claude API before starting, so a bad one shows here, not on the page.
+# Needs a credential profile with allowed_commands (see ai.example.ini), and a
+# Claude API key unless every model is at --url. The key comes from
+# ANTHROPIC_API_KEY, or from the macOS keychain item named below (run.sh
+# --set-key stores it). run.sh checks the key with the Claude API before
+# starting, so a bad one shows here, not on the page. SAMARA_MODEL,
+# SAMARA_MODEL_URL and SAMARA_MODEL_KEY (for an API that wants a key) are
+# passed on when exported; the options win.
 #
 # Examples:
 #   run.sh                                   # prompts, then starts
 #   run.sh -y                                # image defaults, no questions
 #   run.sh -m sonnet -e medium -y            # dearer line, less thinking
 #   run.sh --profile ai-preprod --port 8081 -y
+#   run.sh -m qwen3:8b,sonnet --url http://host.docker.internal:11434/v1 -y
 #
 # Requires: docker
 
@@ -55,11 +63,12 @@ MODELS=(
 )
 # The default the image would use, read from the code next to this script so the
 # two cannot drift apart.
-KEYCHAIN_ITEM=${ELM_ASK_KEYCHAIN_ITEM:-anthropic-api-key}   # macOS keychain item holding the key
-DEFAULT_MODEL=$(sed -n 's/^MODEL = os.environ.get("ELM_ASK_MODEL", "\([^"]*\)")/\1/p' \
+KEYCHAIN_ITEM=${SAMARA_KEYCHAIN_ITEM:-${ELM_ASK_KEYCHAIN_ITEM:-anthropic-api-key}}   # macOS keychain item holding the key
+DEFAULT_MODEL=$(sed -n 's/^MODEL = elm_tools.setting("MODEL", "\([^"]*\)")/\1/p' \
     "$(dirname "${BASH_SOURCE[0]}")/agent.py" 2>/dev/null) || true
 DEFAULT_MODEL=${DEFAULT_MODEL:-image default}
-MODEL=
+MODEL=${SAMARA_MODEL:-${ELM_ASK_MODEL:-}}
+URL=${SAMARA_MODEL_URL:-}
 EFFORT=
 PROFILE=ai
 PORT=8080
@@ -73,6 +82,7 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 while [[ $# -gt 0 ]]; do
     case $1 in
         --model|-m)   MODEL=$2; shift 2 ;;
+        --url)        URL=$2; shift 2 ;;
         --effort|-e)  EFFORT=$2; shift 2 ;;
         --profile|-p) PROFILE=$2; shift 2 ;;
         --port)       PORT=$2; shift 2 ;;
@@ -99,43 +109,6 @@ if [[ $SET_KEY -eq 1 ]]; then
     [[ -z "${ANTHROPIC_API_KEY:-}" ]] ||
         echo "ANTHROPIC_API_KEY is set in this shell and wins over the keychain: unset it." >&2
     exit 0
-fi
-
-KEY_FROM=ANTHROPIC_API_KEY
-if [[ -z "${ANTHROPIC_API_KEY:-}" ]] && command -v security >/dev/null; then
-    ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "$KEYCHAIN_ITEM" -w 2>/dev/null) || true
-    export ANTHROPIC_API_KEY
-    KEY_FROM="the keychain item '$KEYCHAIN_ITEM'"
-fi
-
-[[ -n "${ANTHROPIC_API_KEY:-}" ]] || {
-    echo "ANTHROPIC_API_KEY is not set (get a key at console.anthropic.com), and" >&2
-    echo "nothing is stored as '$KEYCHAIN_ITEM' in your keychain. Either export it," >&2
-    echo "or store it once and run.sh will find it from now on:" >&2
-    echo "    $0 --set-key" >&2
-    exit 1
-}
-
-# Check the key now, so a bad one stops here instead of failing the first
-# question on the page. Listing models costs nothing. The key reaches curl on
-# stdin, not its command line, where ps would show it. Only a 401 stops the
-# start: anything else (no network, a proxy) may not be the key's fault.
-if [[ $DRY_RUN -eq 0 ]]; then
-    status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H @- \
-        -H 'anthropic-version: 2023-06-01' https://api.anthropic.com/v1/models \
-        <<<"x-api-key: $ANTHROPIC_API_KEY") || true
-    case ${status:-000} in
-        200) ;;
-        401)
-            echo "The Claude API rejected the key from $KEY_FROM (revoked, or mistyped)." >&2
-            if [[ $KEY_FROM == ANTHROPIC_API_KEY ]]; then
-                echo "It is set in this shell, which overrides the keychain: unset it, or export a working key." >&2
-            else
-                echo "Replace it with a new key from console.anthropic.com:  $0 --set-key" >&2
-            fi
-            exit 1 ;;
-        *) echo "Could not check the Claude API key (HTTP ${status:-000}); starting anyway." >&2 ;;
-    esac
 fi
 
 [[ -f "$CREDS_DIR/$PROFILE.ini" || $DRY_RUN -eq 1 ]] || {
@@ -166,6 +139,58 @@ if [[ -n "$EFFORT" && ! "$EFFORT" =~ ^(low|medium|high|xhigh|max)$ ]]; then
     exit 1
 fi
 
+# The Claude key only matters if a step is a Claude model: a line, a claude- id,
+# or the default (a line). A ladder of local models needs none.
+NEEDS_CLAUDE=0
+IFS=, read -r -a steps <<<"${MODEL:-$DEFAULT_MODEL}"
+for m in "${steps[@]}"; do
+    [[ $m =~ ^\ *(haiku|sonnet|opus|claude-.*|image\ default)\ *$ ]] && NEEDS_CLAUDE=1
+done
+if [[ $NEEDS_CLAUDE -eq 0 && -z "$URL" ]]; then
+    echo "None of '$MODEL' is a Claude model, so they need --url: the OpenAI-compatible" >&2
+    echo "API that serves them (Ollama: http://host.docker.internal:11434/v1)." >&2
+    exit 1
+fi
+
+if [[ $NEEDS_CLAUDE -eq 1 ]]; then
+    KEY_FROM=ANTHROPIC_API_KEY
+    if [[ -z "${ANTHROPIC_API_KEY:-}" ]] && command -v security >/dev/null; then
+        ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "$KEYCHAIN_ITEM" -w 2>/dev/null) || true
+        export ANTHROPIC_API_KEY
+        KEY_FROM="the keychain item '$KEYCHAIN_ITEM'"
+    fi
+
+    [[ -n "${ANTHROPIC_API_KEY:-}" ]] || {
+        echo "ANTHROPIC_API_KEY is not set (get a key at console.anthropic.com), and" >&2
+        echo "nothing is stored as '$KEYCHAIN_ITEM' in your keychain. Either export it," >&2
+        echo "or store it once and run.sh will find it from now on:" >&2
+        echo "    $0 --set-key" >&2
+        exit 1
+    }
+
+    # Check the key now, so a bad one stops here instead of failing the first
+    # question on the page. Listing models costs nothing. The key reaches curl on
+    # stdin, not its command line, where ps would show it. Only a 401 stops the
+    # start: anything else (no network, a proxy) may not be the key's fault.
+    if [[ $DRY_RUN -eq 0 ]]; then
+        status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H @- \
+            -H 'anthropic-version: 2023-06-01' https://api.anthropic.com/v1/models \
+            <<<"x-api-key: $ANTHROPIC_API_KEY") || true
+        case ${status:-000} in
+            200) ;;
+            401)
+                echo "The Claude API rejected the key from $KEY_FROM (revoked, or mistyped)." >&2
+                if [[ $KEY_FROM == ANTHROPIC_API_KEY ]]; then
+                    echo "It is set in this shell, which overrides the keychain: unset it, or export a working key." >&2
+                else
+                    echo "Replace it with a new key from console.anthropic.com:  $0 --set-key" >&2
+                fi
+                exit 1 ;;
+            *) echo "Could not check the Claude API key (HTTP ${status:-000}); starting anyway." >&2 ;;
+        esac
+    fi
+fi
+
 if [[ $BUILD -eq 1 ]]; then
     ( set -x; docker build -f "$REPO_ROOT/samara/dockerfile" -t "$IMAGE" "$REPO_ROOT" )
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; then
@@ -177,10 +202,17 @@ fi
 # to hold the rest of your credentials. elm needs nothing dropped either.
 cmd=(docker run --rm -p "127.0.0.1:$PORT:8080" --user "$(id -u)"
      --cap-drop ALL --security-opt no-new-privileges
-     -e ANTHROPIC_API_KEY -e "ELM_CONFIG=/creds/$PROFILE.ini"
+     -e "ELM_CONFIG=/creds/$PROFILE.ini"
      -v "$CREDS_DIR/$PROFILE.ini:/creds/$PROFILE.ini:ro")
-[[ -n "$MODEL" ]] && cmd+=(-e "ELM_ASK_MODEL=$MODEL")
-[[ -n "$EFFORT" ]] && cmd+=(-e "ELM_ASK_EFFORT=$EFFORT")
+[[ $NEEDS_CLAUDE -eq 1 ]] && cmd+=(-e ANTHROPIC_API_KEY)
+[[ -n "$MODEL" ]] && cmd+=(-e "SAMARA_MODEL=$MODEL")
+[[ -n "$EFFORT" ]] && cmd+=(-e "SAMARA_EFFORT=$EFFORT")
+if [[ -n "$URL" ]]; then
+    cmd+=(-e "SAMARA_MODEL_URL=$URL")
+    [[ -n "${SAMARA_MODEL_KEY:-}" ]] && cmd+=(-e SAMARA_MODEL_KEY)
+    # Docker Desktop and Colima name the host already; Linux Docker does not.
+    [[ $(uname) == Linux ]] && cmd+=(--add-host host.docker.internal:host-gateway)
+fi
 cmd+=("$IMAGE")
 
 if [[ $DRY_RUN -eq 1 ]]; then
@@ -188,8 +220,8 @@ if [[ $DRY_RUN -eq 1 ]]; then
     exit 0
 fi
 
-printf 'elm-ask: profile %s, model %s, effort %s\n' \
-    "$PROFILE" "${MODEL:-$DEFAULT_MODEL}" "${EFFORT:-high}"
+printf 'Samara: profile %s, model %s, effort %s%s\n' \
+    "$PROFILE" "${MODEL:-$DEFAULT_MODEL}" "${EFFORT:-high}" "${URL:+, models not Claude at $URL}"
 URL="http://127.0.0.1:$PORT/"
 printf 'Open %s  (ctrl-c here to stop)\n\n' "$URL"
 

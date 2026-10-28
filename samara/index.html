@@ -228,7 +228,8 @@ document.querySelectorAll(".examples button").forEach(b =>
 fetch("/api/health").then(r => r.json()).then(h => {
   health = h;
   const problems = [];
-  if (!h.claude_key) problems.push("No Claude API key is set. Start the container with <code>-e ANTHROPIC_API_KEY=...</code>.");
+  if (h.model_problem) problems.push(esc(h.model_problem));
+  if (h.needs_claude && !h.claude_key) problems.push("No Claude API key is set. Start the container with <code>-e ANTHROPIC_API_KEY=...</code>.");
   if (h.profile_problem) problems.push(esc(h.profile_problem));
   if (problems.length) { $("#banner").innerHTML = problems.join("<br>"); $("#banner").hidden = false; }
   if (h.elm_version) $("#elm-version").textContent = ` v${h.elm_version}`;
@@ -240,7 +241,8 @@ fetch("/api/health").then(r => r.json()).then(h => {
   $("#footer").innerHTML = `<span class="caution">Answers can be wrong — check "How I worked this out".</span>`
     + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
     + `(<button id="show-commands" type="button">${scope}</button>) · `
-    + `Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}${h.effort ? `, effort ${esc(h.effort)}` : ""}</span>`;
+    + `Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}${h.effort ? `, effort ${esc(h.effort)}` : ""}`
+    + `${h.off ? `, sends questions and portal data to ${esc(h.off)}` : ", on this machine"}</span>`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
@@ -501,7 +503,9 @@ async function ask(question, harder) {
     e.target.textContent = turn.classList.toggle("open") ? "Hide earlier answer" : "Show earlier answer";
   });
   $(".harder", turn).addEventListener("click", () => {
-    if (t.level && !confirm("Uses more tokens. Proceed?")) return;
+    // Asked whenever the next step sends data somewhere this one did not (a local model, then Claude).
+    if (t.off && !confirm(`This sends your question, and the portal data Samara reads to answer it, to ${t.off}. Proceed?`)) return;
+    if (!t.off && t.level && !confirm("Uses more tokens. Proceed?")) return;
     ask(question, t.level + 1);
   });
   $(".more-detail", turn).addEventListener("click", e => {
@@ -545,6 +549,7 @@ async function ask(question, harder) {
     if (t.more || t.level) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
+      b.title = t.off ? `Ask this again on a more capable model, at ${t.off}` : "Ask this again on a more capable model";
       b.textContent = !t.more ? "That's my best" : t.level ? "Ultrathink" : "Think harder";
       b.classList.toggle("rainbow", b.textContent === "Ultrathink");
     }
@@ -569,7 +574,7 @@ async function stream(t, part, body, onAnswer) {
       case "conversation": conversationId = ev.id; break;
       case "model":
         if (!body.detail) {
-          t.md.model = ev.id; t.more = ev.more;
+          t.md.model = ev.id; t.more = ev.more; t.off = ev.off;
           // The server's level is the truth (a conversation it forgot starts at 0 again).
           if (ev.level !== undefined) { t.level = level = ev.level; setPlaceholder(); }
         }
