@@ -643,6 +643,10 @@
         "thresholdMetadata": {
           "type": "string",
           "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "customColumns": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
         }
       }
     },
@@ -1049,6 +1053,40 @@
         "displaySettings": {
           "type": "object",
           "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "Collector": {
+      "properties": {
+        "cpAgent": {
+          "type": "boolean",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "logCollectorGroupId": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "logCollectorGroupName": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "DeviceDataSourceInstanceData": {
+      "properties": {
+        "dataPoints": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
+        }
+      }
+    },
+    "DiagnosticsSource": {
+      "properties": {
+        "executionParams": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
         }
       }
     }
