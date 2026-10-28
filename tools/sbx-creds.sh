@@ -61,7 +61,7 @@ case $1 in
   rm)
     name=${2:?rm needs a profile name}; name=${name%.ini}; name_ok "$name"
     sbx exec -u agent "$sandbox" sh -c "rm $dir/\"\$1\".ini" sh "$name"
-    echo "removed $name.ini from $sandbox"
+    echo "removed $sandbox:~/.config/logicmonitor/credentials/$name.ini"
     ;;
   cp)
     profile=${2:?cp needs a profile name}; profile=${profile%.ini}; name=${3:-$profile}; name=${name%.ini}
@@ -70,7 +70,7 @@ case $1 in
     sbx exec -i -u agent "$sandbox" sh -c \
       "umask 077; mkdir -p $dir && cat > $dir/\"\$1\".ini && chmod 600 $dir/\"\$1\".ini" \
       sh "$name" < "$creds/$profile.ini"
-    echo "copied $profile.ini to $sandbox as $name.ini"
+    echo "copied $creds/$profile.ini to $sandbox:~/.config/logicmonitor/credentials/$name.ini"
     ;;
   *)
     echo "sbx-creds: '$1' is not cp, rm or ls" >&2; usage >&2; exit 2
