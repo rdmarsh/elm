@@ -14,8 +14,11 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 
 def setting(name, default=None):
@@ -306,12 +309,15 @@ def command_notes(command):
     return "Notes" + notes.rstrip()
 
 
-def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
-    """Run one read-only elm query and store the rows as a dataset.
+class Refused(Exception):
+    """elm failed or refused the query: (text for the model, step event)."""
 
-    The first use of a command in a conversation comes back with that command's
-    verified notes attached, whether or not describe_command was called: a model
-    that skips the lookup still cannot miss "-C gives no real total here".
+
+def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
+    """Run one elm query; return (jsonl lines, stderr, removed, shown), or the -C value for total.
+
+    The lines are redacted, so neither the model, jq nor the page sees a
+    secret; the caller stores them with session.add. Raises Refused on failure.
     """
     args = build_elm_args(command, filter, fields, size, offset, params, total)
     # Shell-quoted, so the page can offer the queries as a script to paste and rerun.
@@ -320,7 +326,7 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
         step = {"type": "step", "command": shown, "result": "failed"}
-        return f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step
+        raise Refused(f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step)
 
     unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line or "Warning: no row has" in line]
     if unknown:
@@ -329,11 +335,34 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         # model read past the warning and told the reader the data was missing
         # (qwen3-8b, 2026-10-28); a refusal makes it ask again with a real name.
         step = {"type": "step", "command": shown, "result": "failed"}
-        return (f"Refused, nothing saved: {command}: {'; '.join(u.split('Warning: ', 1)[1] for u in unknown)}. "
-                f"Ask again with fields these records have (describe_command {command} lists them).", step)
+        raise Refused(f"Refused, nothing saved: {command}: {'; '.join(u.split('Warning: ', 1)[1] for u in unknown)}. "
+                      f"Ask again with fields these records have (describe_command {command} lists them).", step)
+    if total:
+        return proc.stdout.strip(), stderr, 0, shown
+
+    lines, removed = [], 0
+    for line in proc.stdout.splitlines():
+        if line.strip():
+            row, n = redact(json.loads(line))
+            removed += n
+            lines.append(json.dumps(row))
+    return lines, stderr, removed, shown
+
+
+def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
+    """Run one read-only elm query and store the rows as a dataset.
+
+    The first use of a command in a conversation comes back with that command's
+    verified notes attached, whether or not describe_command was called: a model
+    that skips the lookup still cannot miss "-C gives no real total here".
+    """
+    try:
+        lines, stderr, removed, shown = fetch(command, filter, fields, size, offset, params, total)
+    except Refused as exc:
+        return exc.args
 
     if total:
-        value = proc.stdout.strip()
+        value = lines
         step = {"type": "step", "command": shown, "result": f"total {value}"}
         text = f"LM reports a total of {value} matching records."
         if not value.lstrip("-").isdigit():
@@ -343,12 +372,6 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
                     f"size 0 (add offset to page past 1000) and count what comes back.")
         return session.with_notes(command, text), step
 
-    lines, removed = [], 0
-    for line in proc.stdout.splitlines():
-        if line.strip():
-            row, n = redact(json.loads(line))
-            removed += n
-            lines.append(json.dumps(row))
     ds_id = session.add(lines, f"{command} filter={filter or '-'}")
     rows, sample_chars = [], 0
     for line in lines[:SAMPLE_ROWS]:   # keep the sample small enough to stay valid JSON after truncate()
@@ -478,7 +501,132 @@ def show_table(session, title, expression, columns):
     return note, table
 
 
+SEVERITY = {2: "warning", 3: "error", 4: "critical"}
+
+
+def local_time(session, epoch):
+    """'22 Oct 2026, 17:04 AEDT, 6 days ago' in the reader's timezone, else UTC."""
+    tz = session.tz or usable_tz(os.environ.get("TZ")) or "UTC"
+    at = datetime.fromtimestamp(epoch, ZoneInfo(tz))
+    days = (epoch - time.time()) / 86400
+    n = max(1, round(abs(days)))
+    span = f"{n} day{'s' * (n != 1)}"
+    when = (f"in about {span}" if days >= 1 else "within a day" if days > 0
+            else "less than a day ago" if days > -1 else f"{span} ago")
+    return f"{at:%d %b %Y, %H:%M} {at.tzname()}, {when}"
+
+
+def check_device(session, device):
+    """'Is DEVICE okay?' in one call: up or down, open alerts by severity, downtime, alerting disabled.
+
+    Small local models skipped the alerts, or counted them off the 5-row sample
+    (qwen3-8b, 4 of 5 runs wrong, 2026-10-29). Here the numbers and the summary
+    come from code, not the model. The device's description and properties are
+    never fetched, so text planted in them cannot steer the answer.
+    """
+    if not device or '"' in device:
+        raise ValueError("device must be a device's display name, without quotes")
+    events = []
+
+    def get(command, **kw):
+        try:
+            lines, _, _, shown = fetch(command, **kw)
+        except Refused as exc:
+            raise ValueError(exc.args[0])
+        ds_id = session.add(lines, f"{command} for check_device {device}")
+        events.append({"type": "step", "command": shown, "result": f"{len(lines)} rows", "dataset": ds_id})
+        return [json.loads(line) for line in lines], ds_id
+
+    fields = ["id", "displayName", "hostStatus", "sdtStatus", "alertDisableStatus", "currentCollectorId"]
+    found, _ = get("DeviceList", filter=f'displayName:"{device}"', fields=fields)
+    if not found:
+        found, _ = get("DeviceList", filter=f'displayName~"{device}"', fields=fields, size=20)
+    if len(found) != 1:
+        names = ", ".join(d["displayName"] for d in found)
+        some = "At least " if len(found) == 20 else ""   # the size of the second lookup
+        text = (f"{some}{len(found)} devices have a display name like {device!r}: {names}. Ask which one is meant, "
+                f"then call check_device with its exact name." if found else
+                f"No device has a display name like {device!r}. Say so; do not guess another device.")
+        return text, events
+    d = found[0]
+
+    alerts, alerts_ds = get("AlertListByDeviceId", params={"id": d["id"]}, filter="cleared:false",
+                            fields=["severity", "startEpoch", "acked", "sdted", "resourceTemplateName",
+                                    "instanceName", "dataPointName"])
+    sdts, _ = get("AllSDTListByDeviceId", params={"id": d["id"]},
+                  fields=["type", "sdtType", "isEffective", "startDateTime", "endDateTime"])
+    collector_down = None
+    if d.get("currentCollectorId"):
+        collector, _ = get("CollectorById", params={"id": d["currentCollectorId"]}, fields=["id", "isDown"])
+        collector_down = bool(collector and collector[0].get("isDown"))
+
+    up = {"normal": "up", "dead": "down (not responding)",
+          "dead-collector": "not being monitored: its collector is down"}.get(d["hostStatus"], d["hostStatus"])
+    by_severity = Counter(SEVERITY.get(a["severity"], str(a["severity"])) for a in alerts)
+    acked = sum(1 for a in alerts if a.get("acked"))
+    now = time.time() * 1000   # SDT times are epoch milliseconds
+    in_effect = [s for s in sdts if s.get("isEffective")]
+    upcoming = sorted((s for s in sdts if not s.get("isEffective") and s["startDateTime"] > now),
+                      key=lambda s: s["startDateTime"])
+    disabled = [where for where, part in zip(("a group it is in", "the device itself", "some of its instances"),
+                                             d["alertDisableStatus"].split("-")) if part == "disable"]
+
+    if alerts:
+        counts = ", ".join(f"{by_severity[s]} {s}" for s in ("critical", "error", "warning") if by_severity[s])
+        alert_text = f"{len(alerts)} open alert{'s' * (len(alerts) != 1)} ({counts})"
+        if acked:
+            alert_text += f", {acked} acknowledged"
+    else:
+        alert_text = "no open alerts"
+    if d["hostStatus"] != "normal":
+        verdict = "No"
+    elif by_severity["critical"] or by_severity["error"]:
+        verdict = "Needs a look"
+    else:
+        verdict = "Yes" if not alerts else "Mostly"
+    summary = f"{verdict}: {d['displayName']} is {up}, with {alert_text}"
+    if in_effect:
+        summary += f"; it is in scheduled downtime until {local_time(session, in_effect[0]['endDateTime'] / 1000)}"
+    else:
+        summary += "; no downtime is in effect"
+    if upcoming:
+        summary += f"; the next is scheduled for {local_time(session, upcoming[0]['startDateTime'] / 1000)}"
+    if disabled:
+        summary += f". Alerting is disabled by {' and on '.join(disabled)}, so problems there would not alert"
+    summary += "."
+
+    facts = {
+        "summary": summary,
+        "device": d["displayName"], "id": d["id"], "status": up,
+        "open_alerts": {"total": len(alerts), **{s: by_severity[s] for s in ("critical", "error", "warning")},
+                        "acknowledged": acked, "in_downtime": sum(1 for a in alerts if a.get("sdted"))},
+        "downtime_in_effect": [f"until {local_time(session, s['endDateTime'] / 1000)}" for s in in_effect],
+        "downtime_scheduled": [f"{local_time(session, s['startDateTime'] / 1000)} ({s.get('sdtType', '')})"
+                               for s in upcoming],
+        "alerting_disabled_by": disabled or "nothing",
+        "collector_down": collector_down,
+        "alerts_dataset": alerts_ds,
+    }
+    if len(alerts) >= MAX_ROWS:
+        facts["note"] = f"Over {MAX_ROWS} open alerts: the counts are a floor."
+    if alerts:
+        sev = json.dumps({str(k): v for k, v in SEVERITY.items()})
+        _, table = show_table(session, f"Open alerts on {d['displayName']}",
+                              f"${alerts_ds} | sort_by(-.severity, -.startEpoch) | map({{"
+                              f"Severity: ({sev}[.severity | tostring] // (.severity | tostring)), "
+                              f'Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), '
+                              f'Started: (.startEpoch | strflocaltime("%d %b %Y, %H:%M %Z")), '
+                              f'Acknowledged: (if .acked then "yes" else "no" end)}})',
+                              ["Severity", "Alert", "Started", "Acknowledged"])
+        events.append(table)
+    text = ("Lead with the summary below, in your own words but with exactly its facts and numbers. "
+            + ("The open alerts are shown to the reader as a table: do not write them out yourself. " if alerts else "")
+            + "Then a short How I worked this out.\n\n" + json.dumps(facts, indent=1))
+    return text, events
+
+
 HANDLERS = {
+    "check_device": check_device,
     "find_commands": find_commands,
     "describe_command": describe_command,
     "run_elm": run_elm,
@@ -487,6 +635,18 @@ HANDLERS = {
 }
 
 TOOLS = [
+    {
+        "name": "check_device",
+        "description": "Answer 'is DEVICE okay?' (or 'how is', 'any problems with') in one call: whether it is up, "
+                       "its open alerts counted by severity (shown to the user as a table), downtime in effect or "
+                       "scheduled, and whether alerting is disabled. Use it first for any question about one "
+                       "device's health.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"device": {"type": "string", "description": "The device's name as the person wrote it, e.g. 'web01'"}},
+            "required": ["device"],
+        },
+    },
     {
         "name": "find_commands",
         "description": "Search the elm command list (every command is a read-only LogicMonitor API GET). "
