@@ -424,8 +424,21 @@ def _jq(session, expression):
         env["TZ"] = tz
     proc = subprocess.run(args, capture_output=True, text=True, timeout=60, env=env)
     if proc.returncode != 0:
-        raise ValueError(f"jq error: {proc.stderr.strip()}")
+        raise ValueError(f"jq error: {proc.stderr.strip()}{jq_hint(expression, proc.stderr)}")
     return proc.stdout
+
+
+def jq_hint(expression, stderr):
+    """What a jq error usually means here. qwen3-8b sent 16 broken expressions
+    in a row, each with `.d1` for $d1 or `sort_by(-count)` for -.count, then
+    made the answer up (2026-10-29)."""
+    hints = []
+    if re.search(r"(?<![\w$])\.?d\d+\b", expression):
+        hints.append("datasets are jq variables: write $d1, not .d1 or d1")
+    word = re.search(r"error: (\w+)/0 is not defined", stderr)
+    if word and not re.fullmatch(r"d\d+", word[1]):
+        hints.append(f"a bare word like {word[1]} is a function call in jq; a field is .{word[1]}")
+    return "\nHint: " + "; ".join(hints) if hints else ""
 
 
 def run_jq(session, expression):
@@ -443,7 +456,7 @@ def show_table(session, title, expression, columns):
     # replays a snapshot. It must come from a fetched dataset.
     if not re.search(r"\$d\d+", expression):
         raise ValueError("Build the table from a fetched dataset ($d1, $d2 ...) with jq, "
-                         "not from values written into the expression.")
+                         "not from values written into the expression." + jq_hint(expression, ""))
     out = _jq(session, expression).strip()
     try:
         rows = json.loads(out) if out else []
