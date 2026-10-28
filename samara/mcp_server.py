@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import elm_tools
+import recipes  # noqa: F401  adds the recipe tool to elm_tools
 
 HERE = Path(__file__).resolve().parent
 
@@ -76,8 +77,11 @@ def call_tool(session, name, args):
         text, event = handler(session, **args)
     except Exception as exc:  # errors go back to the model so it can correct itself
         return str(exc), True
-    if event and event["type"] == "table":
-        text = "Put this table in your reply as it is:\n\n" + markdown_table(event)
+    # One event, or a list from a tool that runs several queries (a recipe).
+    tables = [e for e in (event if isinstance(event, list) else [event]) if e and e["type"] == "table"]
+    if tables:
+        table = "Put this table in your reply as it is:\n\n" + markdown_table(tables[0])
+        text = table if name == "show_table" else f"{text}\n\n{table}"
     return text, False
 
 

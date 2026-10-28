@@ -14,6 +14,7 @@ import anthropic
 
 import elm_tools
 import openai_api
+import recipes  # noqa: F401  adds the recipe tool to elm_tools
 
 # The ladder: the model that answers, then the ones "Think harder" and
 # Ultrathink re-ask on. SAMARA_MODEL is one step or a comma list of them.
@@ -266,7 +267,7 @@ class Stopped(Exception):
 
 
 # What the status line says while a tool runs: the tool names mean nothing to a reader.
-DOING = {"run_elm": "Asking LogicMonitor", "jq": "Counting", "show_table": "Making a table",
+DOING = {"recipe": "Following a recipe", "run_elm": "Asking LogicMonitor", "jq": "Counting", "show_table": "Making a table",
          "describe_command": "Reading the manual", "find_commands": "Finding the right query"}
 
 
@@ -390,9 +391,10 @@ def _answer(client, conv, question, model, emit, where, start):
             if conv.stop.is_set():
                 raise Stopped()
             emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
-            result, event = call_tool(conv, block)
+            result, events = call_tool(conv, block)
             results.append(result)
-            if event:
+            # One event, or a list from a tool that runs several queries (a recipe).
+            for event in events if isinstance(events, list) else [events] if events else []:
                 emit(event)
         conv.messages.append({"role": "user", "content": results})
 

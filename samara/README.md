@@ -368,7 +368,7 @@ flowchart TB
     cc["claude -p<br/>plans, calls tools, writes the answer"]
     subgraph box["docker run elm-ask (one per question, then removed)"]
         direction TB
-        mcp["mcp_server.py<br/>guide + the five tools"]
+        mcp["mcp_server.py<br/>guide + the tools"]
         tools["elm_tools.py<br/>allowlist, secret removal"]
         elm["elm"]
         jq["jq"]
@@ -571,6 +571,7 @@ sequenceDiagram
 | `mcp_server.py` | The same tools as an MCP server, for `qlm` and Claude Code |
 | `qlm` | Asks from the command line through `mcp_server.py` |
 | `elm_tools.py` | The five tools: `find_commands`, `describe_command`, `run_elm`, `jq` and `show_table` |
+| `recipes.py`, `recipes.yaml` | The `recipe` tool: checked answers to the common questions (queries, counting and summary worked out in advance), so a small local model only picks one |
 | `system_prompt.md` | How to interpret questions and write answers |
 | `../elm-knowledge.md` | Sent with every question: rules that apply across commands |
 | `elm COMMAND --info` | Per-command notes and fields (from `elm-notes.yaml` and the swagger). `describe_command` returns all of it; the first query against a command also gets that command's notes attached, so a model that skips the lookup still sees them |

@@ -1,0 +1,423 @@
+# Checked answers to the questions people ask most. Format: recipes.py.
+# Every summary and table is jq over the steps' rows ($<as>), with the
+# helpers in recipes.py PRELUDE (sev, at, n, severities, kind, updown, state,
+# disabled_by). Check a new or changed recipe against the portal with elm
+# and add it to questions.md.
+
+# --- One device -------------------------------------------------------------
+
+- name: device_health
+  asks: ["is DEVICE okay?", "what's wrong with DEVICE?", "what alerts are open on DEVICE?", "is DEVICE down and since when?", "why didn't DEVICE alert?"]
+  params: [device]
+  steps:
+    - as: alerts
+      run: AlertListByDeviceId
+      params: {id: "{device[id]}"}
+      filter: cleared:false
+      fields: [severity, startEpoch, acked, sdted, resourceTemplateName, instanceName, dataPointName]
+      size: all
+      says: fetched its open alerts
+    - as: sdts
+      run: AllSDTListByDeviceId
+      params: {id: "{device[id]}"}
+      fields: [isEffective, startDateTime, endDateTime, sdtType]
+      says: checked its scheduled downtime
+    - as: collector
+      run: CollectorById
+      params: {id: "{device[currentCollectorId]}"}
+      fields: [id, description, isDown]
+      when: $device[0].currentCollectorId > 0
+      says: checked its collector
+  summary: |
+    $device[0] as $d | (now * 1000) as $ms
+    | ($sdts | map(select(.isEffective))) as $on
+    | ($sdts | map(select((.isEffective | not) and .startDateTime > $ms)) | sort_by(.startDateTime)) as $next
+    | ($alerts | map(select(.resourceTemplateName == "Host Status" and .dataPointName == "idleInterval"))
+       | min_by(.startEpoch)) as $since
+    | ($d.alertDisableStatus | disabled_by) as $off
+    | ($alerts | map(select(.acked)) | length) as $acked
+    | (if $d.hostStatus != "normal" then "No"
+       elif any($alerts[]; .severity >= 3) then "Needs a look"
+       elif ($alerts | length) > 0 then "Mostly" else "Yes" end)
+    + ": \($d.displayName) is \($d.hostStatus | updown)"
+    + (if $since then " (since \($since.startEpoch | at))" else "" end)
+    + ", with "
+    + (if ($alerts | length) == 0 then "no open alerts"
+       else "\($alerts | length | n("open alert")) (\($alerts | severities))"
+            + (if $acked > 0 then ", \($acked) acknowledged" else "" end) end)
+    + (if ($on | length) > 0 then "; it is in scheduled downtime until \($on[0].endDateTime / 1000 | at)"
+       else "; no downtime is in effect" end)
+    + (if ($next | length) > 0 then "; the next is scheduled for \($next[0].startDateTime / 1000 | at)" else "" end)
+    + (if ($off | length) > 0 then ". Alerting is disabled by \($off | join(" and by ")), so problems there would not alert" else "" end)
+    + (if $collector[0].isDown then ". Its collector (\($collector[0].description)) is down, so its data is not current" else "" end)
+    + "."
+  table:
+    title: Open alerts on {device[displayName]}
+    columns: [Severity, Alert, Started, Acknowledged]
+    rows: |
+      $alerts | sort_by(-.severity, -.startEpoch) | map({
+        Severity: (.severity | sev),
+        Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
+        Started: (.startEpoch | at),
+        Acknowledged: (if .acked then "yes" else "no" end)})
+
+- name: device_downtime
+  asks: ["is any downtime scheduled for DEVICE?", "is DEVICE in maintenance?", "when is DEVICE's next SDT?"]
+  params: [device]
+  steps:
+    - as: sdts
+      run: AllSDTListByDeviceId
+      params: {id: "{device[id]}"}
+      fields: [type, isEffective, startDateTime, endDateTime, sdtType]
+      says: fetched the downtime that applies to it, its own and its groups'
+  summary: |
+    (now * 1000) as $ms
+    | ($sdts | map(select(.isEffective))) as $on
+    | ($sdts | map(select((.isEffective | not) and .startDateTime > $ms)) | sort_by(.startDateTime)) as $next
+    | "\($device[0].displayName): "
+    + (if ($on | length) > 0 then "in scheduled downtime now, until \($on[0].endDateTime / 1000 | at)"
+       else "no downtime in effect now" end)
+    + (($next | length) as $k | if $k > 0
+       then "; \($k) more \(if $k == 1 then "is" else "are" end) scheduled, the next \($next[0].startDateTime / 1000 | at)"
+       else "; nothing else is scheduled" end) + "."
+  table:
+    title: Downtime for {device[displayName]}
+    columns: [Starts, Ends, Repeats, Set on, In effect now]
+    rows: |
+      $sdts | sort_by(.startDateTime) | map({
+        Starts: (.startDateTime / 1000 | at), Ends: (.endDateTime / 1000 | when),
+        Repeats: ({"oneTime": "no", "daily": "daily", "weekly": "weekly", "monthly": "monthly",
+                   "monthlyByWeek": "monthly"}[.sdtType] // .sdtType),
+        "Set on": (if .type == "ResourceSDT" then "this device" elif .type == "DeviceGroupSDT" then "a group it is in"
+                   else .type end),
+        "In effect now": (if .isEffective then "yes" else "no" end)})
+
+- name: device_collector
+  asks: ["which collector monitors DEVICE?", "is DEVICE's collector okay?"]
+  params: [device]
+  steps:
+    - as: collector
+      run: CollectorById
+      params: {id: "{device[currentCollectorId]}"}
+      fields: [id, description, hostname, isDown, inSDT, numberOfHosts, collectorGroupName, backupAgentId, upTime, build]
+      when: $device[0].currentCollectorId > 0
+      says: fetched its collector
+  summary: |
+    $device[0] as $d | $collector[0] as $c
+    | if $c == null then "\($d.displayName) is not monitored through a collector (it is a \($d.deviceType | kind))."
+      else "\($d.displayName) is monitored by collector \($c.description) (id \($c.id), group \($c.collectorGroupName)). "
+      + "The collector is \(if $c.isDown then "DOWN" else "up" end)"
+      + (if $c.inSDT then ", in scheduled downtime" else "" end)
+      + (if $c.isDown | not then ", running for " + (if $c.upTime < 86400 then $c.upTime / 3600 | floor | n("hour")
+         else $c.upTime / 86400 | floor | n("day") end) else "" end)
+      + "; it monitors \($c.numberOfHosts | n("device"))"
+      + (if $c.backupAgentId > 0 then " and fails over to collector \($c.backupAgentId)" else " and has no failover collector" end)
+      + "." end
+
+- name: find_device
+  asks: ["is DEVICE monitored?", "do we monitor DEVICE?", "find DEVICE", "which device has IP or hostname X?"]
+  params: [device]
+  many: true
+  summary: |
+    if ($device | length) == 1 then $device[0] as $d
+      | "Yes: \($d.displayName) (hostname or IP \($d.name)) is monitored, a \($d.deviceType | kind), currently \($d.hostStatus | updown)."
+    else "\(if ($device | length) == 20 then "At least 20" else $device | length end) monitored objects match that name: see the table."
+    end
+  table:
+    title: Matching devices
+    columns: [Device, Hostname or IP, Kind, Status, Collector]
+    rows: |
+      $device | map({Device: .displayName, "Hostname or IP": .name, Kind: (.deviceType | kind),
+                     Status: (.hostStatus | state), Collector: .collectorDescription})
+
+# --- Whole portal -------------------------------------------------------------
+
+- name: devices_down
+  asks: ["which devices are down?", "what's offline?", "what's not responding?"]
+  steps:
+    - as: down
+      run: DeviceList
+      filter: hostStatus~dead
+      fields: [id, displayName, hostStatus, deviceType, collectorDescription]
+      size: all
+      says: fetched every device that is not responding or whose collector is down
+  summary: |
+    ($down | map(select(.deviceType == 0))) as $real | ($down | map(select(.deviceType != 0))) as $other
+    | ($real | map(select(.hostStatus == "dead"))) as $dead
+    | ($real | map(select(.hostStatus == "dead-collector"))) as $nocoll
+    | "\($real | length | n("device")) down: \($dead | length) not responding, and \($nocoll | length) not being "
+    + "monitored because their collector is down (\($nocoll | map(.collectorDescription) | unique | length | n("collector")))."
+    + (if ($other | length) > 0 then " Left out: \($other | length) objects that are not devices ("
+       + ($other | group_by(.deviceType) | map("\(.[0].deviceType | kind): \(length)") | join(", ")) + ")." else "" end)
+  table:
+    title: Devices that are down
+    columns: [Device, Status, Collector]
+    rows: |
+      $down | map(select(.deviceType == 0)) | sort_by(.hostStatus, .displayName)
+      | map({Device: .displayName, Status: (.hostStatus | state), Collector: .collectorDescription})
+
+- name: collectors_down
+  asks: ["which collectors are down?", "are any collectors down?"]
+  steps:
+    - as: collectors
+      run: CollectorList
+      fields: [id, description, hostname, collectorGroupName, isDown, inSDT, numberOfHosts]
+      size: all
+      says: fetched every collector and whether it is down
+  summary: |
+    ($collectors | map(select(.isDown))) as $dn
+    | "\($dn | length) of \($collectors | length) collectors are down"
+    + (if ($dn | length) > 0 then ", between them monitoring \($dn | map(.numberOfHosts) | add | n("device"))"
+       + (($dn | map(select(.inSDT)) | length) as $s | if $s > 0 then "; \($s) of them in scheduled downtime" else "; none is in scheduled downtime" end)
+       else "" end) + "."
+  table:
+    title: Collectors that are down
+    columns: [Collector, Hostname, Group, Devices, In downtime]
+    rows: |
+      $collectors | map(select(.isDown)) | sort_by(-.numberOfHosts)
+      | map({Collector: .description, Hostname: .hostname, Group: .collectorGroupName,
+             Devices: .numberOfHosts, "In downtime": (if .inSDT then "yes" else "no" end)})
+
+- name: open_alerts
+  asks: ["how many alerts are open?", "how many errors are there?", "how many alerts right now?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [severity, acked, sdted]
+      size: all
+      says: fetched every open alert
+  summary: |
+    "\($alerts | length | n("open alert")): \($alerts | severities). "
+    + "\($alerts | map(select(.acked)) | length) acknowledged; \($alerts | map(select(.sdted)) | length) on things in scheduled downtime."
+  table:
+    title: Open alerts by severity
+    columns: [Severity, Open, Acknowledged, In downtime]
+    rows: |
+      $alerts | group_by(.severity) | reverse | map({Severity: (.[0].severity | sev), Open: length,
+        Acknowledged: (map(select(.acked)) | length), "In downtime": (map(select(.sdted)) | length)})
+
+- name: critical_alerts
+  asks: ["what critical alerts are open?", "show me the critical alerts"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false,severity:4
+      fields: [monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked]
+      size: all
+      says: fetched every open critical alert
+  summary: |
+    if ($alerts | length) == 0 then "No critical alerts are open."
+    else "\($alerts | length | n("critical alert")) open, on \($alerts | map(.monitorObjectName) | unique | length) different devices or checks; "
+      + "the newest started \($alerts | max_by(.startEpoch).startEpoch | at), the oldest \($alerts | min_by(.startEpoch).startEpoch | at). "
+      + "\($alerts | map(select(.acked)) | length) acknowledged." end
+  table:
+    title: Open critical alerts, newest first
+    columns: [Device, Alert, Started, Acknowledged]
+    rows: |
+      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName,
+        Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
+        Started: (.startEpoch | at), Acknowledged: (if .acked then "yes" else "no" end)})
+
+- name: alerts_last_hour
+  asks: ["what alerts started in the last hour?", "anything new in the last hour?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: startEpoch>:now-1h,cleared:*
+      fields: [severity, cleared, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
+      size: all
+      says: fetched the alerts that started in the last hour, open or cleared
+  summary: &recent |
+    if ($alerts | length) == 0 then "No alerts started in that time."
+    else "\($alerts | length | n("alert")) started (\($alerts | severities)); "
+      + "\($alerts | map(select(.cleared | not)) | length) still open, \($alerts | map(select(.cleared)) | length) already cleared." end
+  table: &recent_table
+    title: Alerts that started, newest first
+    columns: [Device, Severity, Alert, Started, Still open]
+    rows: |
+      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
+        Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
+        Started: (.startEpoch | at), "Still open": (if .cleared then "no" else "yes" end)})
+
+- name: alerts_last_day
+  asks: ["what alerts started today?", "what alerts started in the last 24 hours?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: startEpoch>:now-24h,cleared:*
+      fields: [severity, cleared, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
+      size: all
+      says: fetched the alerts that started in the last 24 hours, open or cleared ("today" is taken as the last 24 hours)
+  summary: *recent
+  table: *recent_table
+
+- name: top_alert_devices
+  asks: ["which device has the most open alerts?", "what are the noisiest devices?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [monitorObjectName, severity]
+      size: all
+      says: fetched every open alert and counted them by device
+  summary: |
+    ($alerts | group_by(.monitorObjectName) | map({name: .[0].monitorObjectName, count: length, all: .})
+     | sort_by(-.count)) as $top
+    | if ($top | length) == 0 then "No alerts are open."
+      else "\($top[0].name) has the most open alerts: \($top[0].count) (\($top[0].all | severities))."
+      + (if ($top | length) > 1 then " Next: " + ($top[1:3] | map("\(.name) (\(.count))") | join(", ")) + "." else "" end) end
+  table:
+    title: Devices with the most open alerts
+    columns: [Device, Open alerts, Critical, Error, Warning]
+    rows: |
+      $alerts | group_by(.monitorObjectName) | map({Device: .[0].monitorObjectName, "Open alerts": length,
+        Critical: (map(select(.severity == 4)) | length), Error: (map(select(.severity == 3)) | length),
+        Warning: (map(select(.severity == 2)) | length)}) | sort_by(-."Open alerts") | .[:10]
+
+- name: alerting_disabled
+  asks: ["what devices have alerting disabled?", "which devices won't alert?"]
+  steps:
+    - as: devices
+      run: DeviceList
+      fields: [id, displayName, deviceType, alertDisableStatus]
+      size: all
+      says: fetched every device's alerting setting, including what its groups set
+  summary: |
+    ($devices | map(select(.alertDisableStatus | test("disable")))) as $off
+    | ($off | map(select(.deviceType == 0))) as $real
+    | ($devices | map(select(.deviceType == 0)) | length) as $all
+    | def by($w): $real | map(select(.alertDisableStatus | disabled_by | index($w))) | length;
+    "\($real | length) of \($all) devices have alerting disabled: \(by("a group")) by a group they are in, "
+    + "\(by("its own setting")) by their own setting, \(by("some instances")) on some instances (a device can have more than one)."
+    + (if ($off | length) > ($real | length) then " Another \(($off | length) - ($real | length)) objects that are not devices also have it disabled." else "" end)
+  table:
+    title: Devices with alerting disabled
+    columns: [Device, Disabled by]
+    rows: |
+      $devices | map(select(.deviceType == 0 and (.alertDisableStatus | test("disable")))) | sort_by(.displayName)
+      | map({Device: .displayName, "Disabled by": (.alertDisableStatus | disabled_by | join(", "))})
+
+- name: downtime
+  asks: ["what's in scheduled downtime now?", "what downtime is scheduled this week?", "what's in maintenance?"]
+  steps:
+    - as: sdts
+      run: SDTList
+      size: all
+      says: fetched every scheduled downtime
+  summary: |
+    (now * 1000) as $ms | ($ms + 7 * 86400000) as $week
+    | ($sdts | map(select(.isEffective)) | length) as $on
+    | ($sdts | map(select((.isEffective | not) and .startDateTime > $ms and .startDateTime < $week)) | length) as $soon
+    | "\($on) in effect now; \($soon) more \(if $soon == 1 then "starts" else "start" end) in the next 7 days; \($sdts | length) scheduled in all."
+  table:
+    title: Downtime in effect now or starting in the next 7 days
+    columns: [For, Starts, Ends, Repeats, In effect now]
+    rows: |
+      (now * 1000) as $ms
+      | $sdts | map(select(.isEffective or (.startDateTime > $ms and .startDateTime < $ms + 7 * 86400000)))
+      | sort_by(.startDateTime) | map({
+        For: (.deviceDisplayName // .deviceGroupFullPath // .websiteName // .websiteGroupName
+              // .collectorDescription // .type),
+        Starts: (.startDateTime / 1000 | at), Ends: (.endDateTime / 1000 | when),
+        Repeats: ({"oneTime": "no", "daily": "daily", "weekly": "weekly", "monthly": "monthly",
+                   "monthlyByWeek": "monthly"}[.sdtType] // .sdtType),
+        "In effect now": (if .isEffective then "yes" else "no" end)})
+
+- name: websites_failing
+  asks: ["which website checks are failing?", "are any websites down?"]
+  steps:
+    - as: sites
+      run: WebsiteList
+      fields: [id, name, type]
+      size: all
+      says: fetched every website check
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [monitorObjectType, monitorObjectName, severity, startEpoch]
+      size: all
+      says: fetched every open alert and kept the ones on website checks
+  summary: |
+    ($alerts | map(select(.monitorObjectType == "website"))) as $web
+    | "\($web | map(.monitorObjectName) | unique | length) of \($sites | length) website checks have open alerts"
+    + (if ($web | length) > 0 then " (\($web | length | n("alert")): \($web | severities))" else "" end) + "."
+  table:
+    title: Website checks with open alerts
+    columns: [Website, Open alerts, Worst, Since]
+    rows: |
+      $alerts | map(select(.monitorObjectType == "website")) | group_by(.monitorObjectName)
+      | map({Website: .[0].monitorObjectName, "Open alerts": length, Worst: (max_by(.severity).severity | sev),
+             Since: (min_by(.startEpoch).startEpoch | at), s: (max_by(.severity).severity)})
+      | sort_by(-.s, .Website)
+
+- name: device_counts
+  asks: ["how many devices do we monitor?", "how many devices are there?"]
+  steps:
+    - as: devices
+      run: DeviceList
+      fields: [deviceType, hostStatus]
+      size: all
+      says: fetched every monitored object's type and status
+  summary: |
+    ($devices | map(select(.deviceType == 0))) as $real
+    | "\($devices | length | n("monitored object")): \($real | length) devices"
+    + " (\($real | map(select(.hostStatus != "normal")) | length) of them down), and "
+    + ($devices | map(select(.deviceType != 0) | .kind = (.deviceType | kind)) | group_by(.kind)
+       | map("\(.[0].kind): \(length)") | join(", ")) + "."
+  table:
+    title: Monitored objects by kind
+    columns: [Kind, Count, Down]
+    rows: |
+      $devices | map(.kind = (.deviceType | kind)) | group_by(.kind) | map({Kind: .[0].kind, Count: length,
+        Down: (map(select(.hostStatus != "normal")) | length)}) | sort_by(-.Count)
+
+# --- One group ----------------------------------------------------------------
+
+- name: group_health
+  asks: ["how is GROUP doing?", "which devices in GROUP are down?", "any problems in GROUP?"]
+  params: [group]
+  steps:
+    - as: subgroups
+      run: DeviceGroupList
+      filter: fullPath~"{group[fullPath]}/"
+      fields: [id, fullPath]
+      size: all
+      says: found its subgroups
+    - as: down
+      run: DeviceList
+      filter: hostStatus~dead
+      fields: [id, displayName, hostStatus, hostGroupIds, deviceType]
+      size: all
+      says: fetched the devices that are down and kept the ones in this group or below it
+    - as: alerts
+      run: AlertListByDeviceGroupId
+      params: {id: "{group[id]}"}
+      filter: cleared:false
+      fields: [monitorObjectName, severity]
+      size: all
+      says: fetched the open alerts in the group, subgroups included
+  summary: |
+    $group[0] as $g
+    | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
+    | ($down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))) as $in
+    | "\($g.fullPath) has \($g.numOfHosts | n("device")) (subgroups included). "
+    + "\($in | length) down (\($in | map(select(.hostStatus == "dead")) | length) not responding, "
+    + "\($in | map(select(.hostStatus == "dead-collector")) | length) with their collector down). "
+    + (if ($alerts | length) == 0 then "No open alerts."
+       else "\($alerts | length | n("open alert")) (\($alerts | severities)) on \($alerts | map(.monitorObjectName) | unique | length | n("device"))." end)
+  table:
+    title: Devices down in {group[fullPath]}
+    columns: [Device, Status]
+    rows: |
+      $group[0] as $g
+      | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
+      | $down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))
+      | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Status: (.hostStatus | state)})
+
+# --- Things it cannot do ----------------------------------------------------
+
+- name: read_only
+  asks: ["acknowledge an alert", "put DEVICE in downtime", "change or delete anything"]
+  summary: |
+    "Samara is read-only: it cannot acknowledge alerts, schedule downtime or change anything in LogicMonitor. Do that in the LogicMonitor portal."

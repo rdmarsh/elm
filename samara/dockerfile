@@ -48,7 +48,7 @@ COPY --from=render /src/elm.py /src/engine.py /src/_version.py ./
 COPY --from=render /src/_cmds/ _cmds/
 COPY --from=render /src/_defs/commands.json _defs/commands.json
 COPY elm-knowledge.md ./
-COPY samara/app.py samara/agent.py samara/elm_tools.py samara/mcp_server.py samara/openai_api.py samara/system_prompt.md samara/index.html samara/
+COPY samara/app.py samara/agent.py samara/elm_tools.py samara/mcp_server.py samara/openai_api.py samara/recipes.py samara/recipes.yaml samara/system_prompt.md samara/index.html samara/
 # Host file modes are copied as-is (e.g. 0600); make everything readable by the app user.
 RUN chmod -R a+rX /opt/elm
 

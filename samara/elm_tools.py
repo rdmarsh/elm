@@ -306,12 +306,15 @@ def command_notes(command):
     return "Notes" + notes.rstrip()
 
 
-def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
-    """Run one read-only elm query and store the rows as a dataset.
+class Refused(Exception):
+    """elm failed or refused the query: (text for the model, step event)."""
 
-    The first use of a command in a conversation comes back with that command's
-    verified notes attached, whether or not describe_command was called: a model
-    that skips the lookup still cannot miss "-C gives no real total here".
+
+def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
+    """Run one elm query; return (jsonl lines, stderr, removed, shown), or the -C value for total.
+
+    The lines are redacted, so neither the model, jq nor the page sees a
+    secret; the caller stores them with session.add. Raises Refused on failure.
     """
     args = build_elm_args(command, filter, fields, size, offset, params, total)
     # Shell-quoted, so the page can offer the queries as a script to paste and rerun.
@@ -320,7 +323,7 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
         step = {"type": "step", "command": shown, "result": "failed"}
-        return f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step
+        raise Refused(f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step)
 
     unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line or "Warning: no row has" in line]
     if unknown:
@@ -329,11 +332,34 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         # model read past the warning and told the reader the data was missing
         # (qwen3-8b, 2026-10-28); a refusal makes it ask again with a real name.
         step = {"type": "step", "command": shown, "result": "failed"}
-        return (f"Refused, nothing saved: {command}: {'; '.join(u.split('Warning: ', 1)[1] for u in unknown)}. "
-                f"Ask again with fields these records have (describe_command {command} lists them).", step)
+        raise Refused(f"Refused, nothing saved: {command}: {'; '.join(u.split('Warning: ', 1)[1] for u in unknown)}. "
+                      f"Ask again with fields these records have (describe_command {command} lists them).", step)
+    if total:
+        return proc.stdout.strip(), stderr, 0, shown
+
+    lines, removed = [], 0
+    for line in proc.stdout.splitlines():
+        if line.strip():
+            row, n = redact(json.loads(line))
+            removed += n
+            lines.append(json.dumps(row))
+    return lines, stderr, removed, shown
+
+
+def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
+    """Run one read-only elm query and store the rows as a dataset.
+
+    The first use of a command in a conversation comes back with that command's
+    verified notes attached, whether or not describe_command was called: a model
+    that skips the lookup still cannot miss "-C gives no real total here".
+    """
+    try:
+        lines, stderr, removed, shown = fetch(command, filter, fields, size, offset, params, total)
+    except Refused as exc:
+        return exc.args
 
     if total:
-        value = proc.stdout.strip()
+        value = lines
         step = {"type": "step", "command": shown, "result": f"total {value}"}
         text = f"LM reports a total of {value} matching records."
         if not value.lstrip("-").isdigit():
@@ -343,12 +369,6 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
                     f"size 0 (add offset to page past 1000) and count what comes back.")
         return session.with_notes(command, text), step
 
-    lines, removed = [], 0
-    for line in proc.stdout.splitlines():
-        if line.strip():
-            row, n = redact(json.loads(line))
-            removed += n
-            lines.append(json.dumps(row))
     ds_id = session.add(lines, f"{command} filter={filter or '-'}")
     rows, sample_chars = [], 0
     for line in lines[:SAMPLE_ROWS]:   # keep the sample small enough to stay valid JSON after truncate()
