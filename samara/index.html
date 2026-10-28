@@ -430,7 +430,7 @@ function scriptOf(entries) {   // -> [{cmd, note}]; cmd is what gets copied
       }
       const slurp = ds.map(d => `--slurpfile ${d} "$t/${d}.jsonl" `).join("");
       out.push({ cmd: `jq -n ${slurp}${shq(e.expression)}`, note: e.title ? `the table "${e.title}"` : "" });
-    } else if (e.result === "failed") {
+    } else if (/^(failed|error)/.test(e.result)) {   // elm failed, or the tool call itself was wrong
       out.push({ cmd: "", note: `failed, left out: ${e.command}` });
     } else {
       out.push({ cmd: withProfile(e.command), note: e.result });   // a total (-C)

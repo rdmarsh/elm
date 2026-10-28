@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Samara's copyable script printed a tool call the model got wrong as a command (`run_elm {}`, seen from a local 8B model calling `run_elm` with no arguments). It is now left out with a note, as a failed elm query already was.
 - Samara on a small local model couldn't find "Luna": it filtered on `name`, which is the hostname (`luna.lan`). The knowledge base now says to look devices up by `displayName` (case doesn't matter, `~` for part of it).
 - A refused request (401, 403, ...) prints what the server said, as `Response: ...`. A 403 used to say only "You do not have permission", even when it came from a proxy or firewall on the way ("Approval required for HOST"), which sent people checking the token's role.
 - `examples/users.md` offboarding check "devices created by the user" (`DeviceList -F createdBy~...`) always found nothing: devices have no `createdBy` field. It now says to look in the audit log, and the circular "see also" links between `users.md` and `devices.md` are gone.
