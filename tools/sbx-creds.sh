@@ -19,10 +19,11 @@
 #   sbx-creds.sh -s claude-elm cp config       # the test portal, as the default
 #   sbx-creds.sh -s claude-elm cp busy         # another portal, under its own name
 #   sbx-creds.sh -s claude-elm cp test config  # test.ini in as the default
-#   sbx-creds.sh -s claude-elm mv config test  # keep it, but not as the default
+#   sbx-creds.sh -s claude-elm mv busy config  # swap busy in as the default
 #   sbx-creds.sh -s claude-elm rm busy
 #
-# There is no cat, on purpose: the file's contents are never printed. A sandbox that is recreated loses its
+# cp and mv overwrite, as the commands do: everything in the sandbox is a copy,
+# so cp it again. There is no cat, on purpose: the contents are never printed. A sandbox that is recreated loses its
 # profiles: run this again.
 #
 # Requires: sbx
@@ -57,8 +58,7 @@ case $1 in
   mv)
     name=${2:?mv needs a profile name}; name=${name%.ini}; new=${3:?mv needs a new name}; new=${new%.ini}
     name_ok "$name"; name_ok "$new"
-    sbx exec -u agent "$sandbox" sh -c "test ! -e $dir/\"\$2\".ini && mv $dir/\"\$1\".ini $dir/\"\$2\".ini" sh "$name" "$new" ||
-      { echo "sbx-creds: no $name.ini in $sandbox, or $new.ini is there already" >&2; exit 1; }
+    sbx exec -u agent "$sandbox" sh -c "mv $dir/\"\$1\".ini $dir/\"\$2\".ini" sh "$name" "$new"
     echo "renamed $name.ini to $new.ini in $sandbox"
     ;;
   rm)
