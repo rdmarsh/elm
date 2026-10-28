@@ -396,6 +396,7 @@ KEY GLOBAL FLAGS
   -l, --list          List available credential profiles and exit
   -p, --profile NAME  Select a credentials profile
   -f, --format FORMAT Output format (default: json)
+  -t, --localtime     Show epoch times in the results as local times
   -V, --version       Show version and exit
   -h, --help          Show help and exit
 
@@ -504,7 +505,7 @@ def _portals(names):
 
 class ELM(object):
     """Load config and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals=None, diff=False, explode=()):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals=None, diff=False, explode=(), localtime=False):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
@@ -522,6 +523,8 @@ class ELM(object):
         self.diff = diff
         # list fields to turn into one row per item (-e)
         self.explode = explode
+        # epochs in the results as local times (-t)
+        self.localtime = localtime
 
 def enforce_config_perms(config_path):
     if not os.path.exists(config_path):
@@ -569,6 +572,7 @@ enforce_config_perms(config_file)
 @click.option('-l', '--list',         is_flag=True, is_eager=True, expose_value=False, callback=_list_profiles_callback, help='List available credential profiles and exit')
 @click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name, shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini. Comma-separated names (a,b) run the command on each')
 @click.option('-e', '--explode',      multiple=True, metavar='FIELD', help='One row per item of this list field, its keys as FIELD.key columns. Repeat only for a list inside it (-e a -e a.b)')
+@click.option('-t', '--localtime',    is_flag=True, default=False, help='Show epoch times in the results as local times (2026-10-28 16:39:54 AEDT)')
 @click.option('-d', '--diff',         is_flag=True, default=False, help='With several profiles: show only the rows that are not the same on all of them')
 @click.option('-i', '--access_id',    help='API token access id')
 @click.option('-k', '--access_key',   help='API token access key')
@@ -585,7 +589,7 @@ enforce_config_perms(config_file)
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(__version__, '-V', '--version')
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile, diff, explode):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile, diff, explode, localtime):
     """A cli interface for extracting LogicMonitor data via the api
 
     Default config: ~/.config/logicmonitor/credentials/config.ini
@@ -681,7 +685,7 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     logging.info('cacert: %s', cacert)
     logging.info('diff: %s', diff)
     logging.info('explode: %s', explode)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals, diff, explode)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals, diff, explode, localtime)
 
 if __name__ == '__main__':
     cli()

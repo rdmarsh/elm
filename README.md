@@ -816,22 +816,44 @@ The text is built into each command at `make` time (by `mkinfo.py`), so the
 installed binary needs no extra files. It is written to be short, so it is also
 the cheapest way to give an AI assistant what it needs about a command.
 
-**Relative times:** after `>:`, `<:`, `>` or `<`, a filter value can be `now`,
-`now-N` or `now+N`, with `s`, `m`, `h`, `d` or `w` (`m` is minutes; for months
-use `30d`). elm turns it into an epoch when it sends the request, so nobody has
-to work one out:
+**Times and dates:** elm works out the epochs, so nobody has to.
+
+- After `>:`, `<:`, `>` or `<`, a value can be relative: `now`, `now-N` or
+  `now+N`, with `s`, `m`, `h`, `d`, `w` or `M` (as in Prometheus, systemd and
+  Grafana: `m` is minutes, `M` months). `/d`, `/w` and `/M` round down to the
+  start of the day, week (Monday) or month: `now/M` is midnight on the 1st,
+  `now-1M/M` the 1st of last month.
+- Or a date: `2026-07`, `2026-07-14`, `2026-07-14T09:30`. `>:` and `<` compare
+  with its start, `>` and `<:` with its end, so `<:2026-03-31` includes the 31st.
+- After `:`, a date on a time field means the whole period:
+  `startEpoch:2026-07` is all of July.
+
+Times are local, daylight saving included (set `TZ` to use another zone).
 
 ```shell
-elm AlertList -F 'cleared:false,startEpoch>:now-1h'     # alerts that started in the last hour
-elm SDTList -F 'startDateTime<:now+7d'                  # SDTs starting in the next week
-elm AuditLogList -F 'happenedOn>:now-7d'
+elm AlertList -F 'cleared:false,startEpoch>:now-1h'            # started in the last hour
+elm AlertList -F 'startEpoch>:now-30d'                         # the last 30 days
+elm AlertList -F 'startEpoch>:now-1M/M,startEpoch<now/M'       # last calendar month
+elm AlertList -F 'startEpoch:2026-07'                          # July
+elm SDTList -F 'startDateTime<:now+7d'                         # SDTs starting in the next week
 ```
 
 A few fields hold milliseconds, not seconds (SDT `startDateTime`, AlertList
-`lastUpdatedOnEpoch`), and the swagger rarely says which. So when a filter uses
-`now`, elm first asks LM for one value of that field: above 10^11 it can only
-be milliseconds, and elm sends the time in milliseconds. That costs one extra
-request per `now` field, and none otherwise.
+`lastUpdatedOnEpoch`), and the swagger rarely says which. So when a filter has
+a time in it, elm first asks LM for one value of that field: above 10^11 it
+can only be milliseconds, and elm sends the time in milliseconds. That costs one
+extra request per field, and none otherwise.
+
+**`-t` shows epochs in the results as local times.** A field is converted when
+its name ends like a time (`startEpoch`, `createdOn`) and its value is a
+plausible one, seconds or milliseconds, so `upTime` and a 0 ("never") stay
+numbers. The column keeps its name, so it matches what you put in `-f`:
+
+```shell
+$ elm -t -f txt AlertList -F 'cleared:false,startEpoch>:now-1h' -f startEpoch,endEpoch,monitorObjectName
+  monitorObjectName      endEpoch  startEpoch
+  web01                         0  2026-10-28 16:53:06 AEDT
+```
 
 The same field list guards `-F`: a filter on a field the swagger does not list
 for that command is refused before anything is sent, because the API would

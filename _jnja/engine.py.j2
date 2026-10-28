@@ -75,10 +75,10 @@ def engine(elm, **kwargs):
     resourcePath = elm.path
     logging.debug('resourcePath: %s', resourcePath)
 
-    #a now clause on a field that holds milliseconds needs its value in ms
-    if NOW_CLAUSES and 'filter' in flags:
+    #a time clause on a field that holds milliseconds needs its value in ms
+    if TIME_CLAUSES and 'filter' in flags:
         creds = elm.portals[0][1:] if elm.portals else (elm.access_id, elm.access_key, elm.account_name)
-        now_in_ms(elm, flags, resourcePath, creds)
+        time_in_ms(elm, flags, resourcePath, creds)
 
     #construct queryParams: a dict, so requests percent-encodes each value
     #(a filter with & + or # in it stays one value)
@@ -293,7 +293,8 @@ def report(elm, flags, obj, url, auth):
         click.echo(len(explode(project(flags, obj), elm.explode)) if elm.explode else len(obj['items']))
     else:
         items = project(flags, obj)
-        output(explode(items, elm.explode), elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
+        shown = localtime(items) if elm.localtime else items
+        output(explode(shown, elm.explode), elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
         warn(flags, obj, items)
 
 
@@ -465,7 +466,8 @@ def rows(elm, flags, obj, profile):
         click.secho(f'{profile}: Error: no valid fields selected', fg='red', err=True)
         return [], False
     truncated = warn(flags, obj, items, profile)
-    return explode(items, elm.explode, profile), truncated
+    shown = localtime(items) if elm.localtime else items
+    return explode(shown, elm.explode, profile), truncated
 
 
 def report_portals(elm, flags, results, failed):
@@ -655,43 +657,132 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
 
-# Filter clauses that used now (field, clause, operator): validate_filter
-# fills it, engine() checks each field's unit before sending.
-NOW_CLAUSES = []
-NOW_UNITS = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
+# Filter clauses whose value elm worked out from now or a date, as
+# (field, clause): validate_filter fills it, engine() checks each field's unit
+# (seconds or milliseconds) before sending.
+TIME_CLAUSES = []
+COMPARE = ('>:', '<:', '>', '<')
+# s m h d w as in Prometheus, systemd and Grafana (m is minutes); M is a
+# calendar month, as in Grafana. /d /w /M round down to local midnight, Monday
+# or the 1st.
+UNITS = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
+RELATIVE = re.compile(r'now((?:[+-]\d+[smhdwM])*)(?:/([dwM]))?')
+DATE = re.compile(r'(\d{4})-(\d{2})(?:-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?)?')
+
+
+def local_epoch(year, month, day, hour=0, minute=0, second=0):
+    """Epoch seconds of a local wall-clock time (daylight saving applied)."""
+    return int(time.mktime((year, month, day, hour, minute, second, 0, 0, -1)))
+
+
+def add_months(t, months):
+    """t moved by whole calendar months, the day kept where the month has it."""
+    import calendar
+    lt = time.localtime(t)
+    year, month = divmod(lt.tm_mon - 1 + months, 12)
+    year, month = lt.tm_year + year, month + 1
+    day = min(lt.tm_mday, calendar.monthrange(year, month)[1])
+    return local_epoch(year, month, day, lt.tm_hour, lt.tm_min, lt.tm_sec)
 
 
 def relative_time(value):
-    """'now', 'now-1h', 'now+7d' as epoch seconds (a string)."""
-    match = re.fullmatch(r'now(?:([+-])(\d+)([smhdw]))?', value)
+    """'now', 'now-1h', 'now+7d', 'now-1M/M' as epoch seconds."""
+    match = RELATIVE.fullmatch(value)
     if not match:
         raise click.BadParameter(
-            f"{value!r} is not a relative time: use now, or now-N / now+N with s, m, h, d "
-            "or w (m is minutes; for months use 30d)")
-    sign, number, unit = match.groups()
-    offset = int(number) * NOW_UNITS[unit] if number else 0
-    return str(int(time.time()) + (offset if sign == '+' else -offset))
+            f"{value!r} is not a relative time: use now, now-N or now+N with s, m, h, d, w "
+            "or M (m is minutes, M months), optionally /d, /w or /M for the start of the "
+            "day, week or month: now-1h, now+7d, now-1M/M")
+    t = int(time.time())
+    for sign, number, unit in re.findall(r'([+-])(\d+)([smhdwM])', match.group(1)):
+        n = int(number) if sign == '+' else -int(number)
+        t = add_months(t, n) if unit == 'M' else t + n * UNITS[unit]
+    lt = time.localtime(t)
+    if match.group(2) == 'd':
+        t = local_epoch(lt.tm_year, lt.tm_mon, lt.tm_mday)
+    elif match.group(2) == 'w':
+        t = local_epoch(lt.tm_year, lt.tm_mon, lt.tm_mday - lt.tm_wday)   # mktime normalises the day
+    elif match.group(2) == 'M':
+        t = local_epoch(lt.tm_year, lt.tm_mon, 1)
+    return t
 
 
-def now_in_ms(elm, flags, resourcePath, creds):
-    """Rewrite the now clauses of flags['filter'] for fields that hold milliseconds.
+def date_period(value):
+    """A local date as (start, end) epoch seconds, end being the next period's start.
+
+    2026-07 is the month, 2026-07-14 the day, 2026-07-14T09:30 the minute.
+    """
+    import datetime
+    year, month, day, hour, minute, second = (int(g) if g else None for g in DATE.fullmatch(value).groups())
+    try:
+        datetime.datetime(year, month, day or 1, hour or 0, minute or 0, second or 0)
+    except ValueError as error:
+        raise click.BadParameter(f'{value!r} is not a date: {error}')
+    if day is None:
+        return local_epoch(year, month, 1), local_epoch(year + month // 12, month % 12 + 1, 1)
+    if hour is None:
+        return local_epoch(year, month, day), local_epoch(year, month, day + 1)
+    start = local_epoch(year, month, day, hour, minute, second or 0)
+    return start, start + (1 if second is not None else 60)
+
+
+def time_clauses(field, operator, value, ints):
+    """The clauses for a time value (now..., or a date), or None if value is not one.
+
+    After a comparison the value becomes an epoch: >: and < compare with the
+    period's start, > and <: with its end, so <:2026-03-31 includes the 31st.
+    After : a date on a number field is the whole period: two clauses.
+    """
+    if operator in COMPARE and value.startswith('now'):
+        return [(operator, relative_time(value))]
+    if not DATE.fullmatch(value) or (operator not in COMPARE and operator != ':'):
+        return None
+    if ints and field.split('.')[0] not in ints:
+        return None     # a string field: a date there is a plain value
+    start, end = date_period(value)
+    if operator == ':':
+        return [('>:', start), ('<', end)]
+    return [{'>:': ('>:', start), '<': ('<', start), '>': ('>:', end), '<:': ('<', end)}[operator]]
+
+
+def time_in_ms(elm, flags, resourcePath, creds):
+    """Rewrite flags['filter'] for time clauses on fields that hold milliseconds.
 
     The swagger rarely says which do (AlertList lastUpdatedOnEpoch is ms, its
     name says epoch), so ask LM for one non-zero value of the field and look:
     above 1e11 can only be milliseconds (1e11 seconds is the year 5138).
     """
-    for field, clause, operator in NOW_CLAUSES:
+    for field in dict.fromkeys(f for f, _ in TIME_CLAUSES):
         probe = {'size': '1', 'fields': field.split('.')[0], 'filter': field + '>:"0"', 'sort': '-' + field}
         fetched = fetch(elm, probe, resourcePath, probe, *creds)
         items = (fetched[0].get('items') or []) if fetched and isinstance(fetched[0], dict) else []
         sample = items[0].get(field) if items else None
-        logging.debug('now: %s sample %s', field, sample)
+        logging.debug('time filter: %s sample %s', field, sample)
         if isinstance(sample, (int, float)) and sample > 1e11:
-            seconds = clause.rsplit('"', 2)[1]
-            flags['filter'] = flags['filter'].replace(clause, field + operator + '"' + seconds + '000"')
+            for f, clause in TIME_CLAUSES:
+                if f == field:
+                    flags['filter'] = flags['filter'].replace(clause, clause[:-1] + '000"')
 
 
-def validate_filter(ctx, param, filters, fields=()):
+# -t: epochs in the output as local times. A field is converted when its name
+# ends like a time (startEpoch, createdOn, upTime...) and its value is a plausible
+# time, seconds or milliseconds, 2001-2096; so upTime (seconds since start) and
+# 0 ("never") stay numbers.
+TIME_NAME = re.compile(r'(Epoch|On|Time|DateTime|Timestamp|At)$')
+
+
+def localtime(items):
+    def convert(key, value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not TIME_NAME.search(key):
+            return value
+        seconds = value / 1000 if 1e12 <= value < 4e12 else value
+        if not 1e9 <= seconds < 4e9:
+            return value
+        return time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(seconds))
+    return [{k: convert(k, v) for k, v in item.items()} if isinstance(item, dict) else item for item in items]
+
+
+def validate_filter(ctx, param, filters, fields=(), ints=()):
     if filters:
         # multiple=True means Click passes a tuple; flatten to a single comma-joined string
         if isinstance(filters, tuple):
@@ -723,12 +814,15 @@ def validate_filter(ctx, param, filters, fields=()):
                         f"no field {field!r} in {ctx.info_name} ({hint}"
                         f"elm {ctx.info_name} --info lists them); "
                         "LM would ignore it or match nothing, without an error")
-                #now, now-1h, now+7d: a time relative to now, in epoch seconds.
-                #Only after a comparison, so name:now stays a name. A few fields
-                #hold milliseconds; engine() checks a real value before sending.
-                if operator in ('>:', '<:', '>', '<') and value.startswith('now'):
-                    value = relative_time(value)
-                    NOW_CLAUSES.append((field, field + operator + '"' + value + '"', operator))
+                #now-1h, now+7d, 2026-07: elm works out the epoch (time_clauses).
+                #A few fields hold milliseconds; engine() checks before sending.
+                times = time_clauses(field, operator, value, ints)
+                if times:
+                    for op, seconds in times:
+                        clause = f'{field}{op}"{seconds}"'
+                        TIME_CLAUSES.append((field, clause))
+                        filters_fmtchkd.append(clause)
+                    continue
                 #filter needs quotes around the value to work for strings
                 #this saves the user from having to escape quotes on the cli
                 #ints are not unaffected, so do it for everything

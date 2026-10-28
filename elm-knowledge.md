@@ -73,9 +73,11 @@ literal comma with `\,`.
   OpsNoteList and CollectorEvents: don't compare them numerically.
 - Native filters handle more than they look: numeric comparison
   (`-F 'build<37000' -S build`) and nested fields (`-F apiTokens.status:2`).
-- **Time windows: `now`, never a typed epoch.** After `>:` `<:` `>` `<` a value
-  can be `now`, `now-1h` or `now+7d` (`s m h d w`): `-F 'startEpoch>:now-1h'`.
-  elm does the arithmetic, and sends milliseconds to fields that hold them.
+- **Time windows: never type an epoch.** After `>:` `<:` `>` `<` a value can be
+  `now-1h`, `now+7d`, `now-1M/M` (`s m h d w M`; `/d /w /M` = start of day,
+  week, month) or a date (`2026-07-14`); `startEpoch:2026-07` is all of July.
+  Last calendar month: `startEpoch>:now-1M/M,startEpoch<now/M`. elm does the
+  arithmetic in local time and sends ms to fields that hold them.
 
 ## Reading results
 

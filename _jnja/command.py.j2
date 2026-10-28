@@ -9,6 +9,9 @@ INFO = {{ (info or '') | tojson }}
 # Fields -F may name, from the swagger response schema (mkinfo.py). Empty when
 # the swagger does not describe the response: nothing is checked then.
 FILTER_FIELDS = {{ (filter_fields or []) | tojson }}
+# The number fields among them: a date after : (startEpoch:2026-07) means the
+# whole period only on these.
+FILTER_INTS = {{ (filter_ints or []) | tojson }}
 
 
 def _show_info(ctx, param, value):
@@ -35,7 +38,7 @@ def _show_info(ctx, param, value):
 {%- if option.required or option.in == "path" -%}, required=True{%- endif -%}
 {%- if option.in == "path" -%}, nargs=1{%- endif -%}
 {%- if option.name == "fields" -%}, nargs=1, metavar="FIELD,..."{% endif -%}
-{%- if option.name == "filter" -%}, nargs=1, multiple=True, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,...", callback=lambda ctx, param, value: engine.validate_filter(ctx, param, value, FILTER_FIELDS){% endif -%}
+{%- if option.name == "filter" -%}, nargs=1, multiple=True, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,...", callback=lambda ctx, param, value: engine.validate_filter(ctx, param, value, FILTER_FIELDS, FILTER_INTS){% endif -%}
 {%- if option.name == "size" -%}, nargs=1{%- endif -%}
 {%- if option.description -%}, help="{{ option.description }}"
 {%- elif option.name == "fields" -%}, \
@@ -58,8 +61,11 @@ def _show_info(ctx, param, value):
                 ~  - Includes
                 !~ - Does not include
 
-                After a comparison, VALUE can be a time relative to
-                now: now, now-1h, now+7d (s, m, h, d, w).
+                Times: after a comparison VALUE can be relative,
+                now, now-1h, now+7d, now-1M/M (s m h d w M; /d /w
+                /M round down to the start of the day, week or
+                month), or a date, 2026-07 or 2026-07-14. A date
+                after : on a time field means the whole period.
 
                 """
 {%- elif option.name == "size" -%}, \

@@ -18,7 +18,9 @@ compact: one line per field, no repeated boilerplate.
 
 It also stores the response field names as "filter_fields" for commands that
 take -F, so elm can refuse a filter on a field the swagger does not list before
-sending it (the API ignores some unknown fields and returns every record).
+sending it (the API ignores some unknown fields and returns every record), and
+the number fields among them as "filter_ints", where a date after : means the
+whole period (startEpoch:2026-07).
 
 A definition file is only rewritten when its info text or filter fields change,
 so editing one command's notes re-renders only that command.
@@ -316,10 +318,14 @@ def main():
         command = definition["command"]
         fields = response_fields(definition["path"], paths, definitions)
         info = build_info(definition, notes.get(command), blocks.get(command, []), fields)
-        filter_fields = sorted(fields) if any(o["name"] == "filter" for o in definition["options"]) else []
-        if definition.get("info") != info or definition.get("filter_fields", []) != filter_fields:
+        has_filter = any(o["name"] == "filter" for o in definition["options"])
+        filter_fields = sorted(fields) if has_filter else []
+        filter_ints = sorted(f for f in filter_fields if fields[f][0] in ("integer", "number"))
+        if (definition.get("info") != info or definition.get("filter_fields", []) != filter_fields
+                or definition.get("filter_ints", []) != filter_ints):
             definition["info"] = info
             definition["filter_fields"] = filter_fields
+            definition["filter_ints"] = filter_ints
             def_file.write_text(json.dumps(definition, separators=(",", ":")) + "\n")
             changed += 1
     print(f"mkinfo: {changed} command definition(s) updated", file=sys.stderr)
