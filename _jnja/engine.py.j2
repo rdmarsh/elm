@@ -198,13 +198,18 @@ def fetch(elm, flags, resourcePath, queryParams, access_id, access_key, account_
             status_code = e.response.status_code
             click.secho(f'HTTP error occurred: {e}', fg='red', err=True)
 
+            # What the server said: LM's errorMessage, or a proxy's own page
+            said = error_text(e.response)
+            if said:
+                click.secho(f'Response: {said}', fg='red', err=True)
+
             # Handle specific status codes
             if status_code == 400:
                 logging.error('Bad Request (400): The request was invalid or cannot be served.')
             elif status_code == 401:
                 logging.error('Unauthorized (401): Authentication is required and has failed or not been provided.')
             elif status_code == 403:
-                logging.error('Forbidden (403): You do not have permission to access this resource.')
+                logging.error('Forbidden (403): refused by LM (the token\'s role) or by a proxy or firewall on the way: see Response above.')
             elif status_code == 404:
                 logging.error('Not Found (404): The requested resource could not be found.')
             elif status_code == 429:
@@ -728,6 +733,22 @@ def date_period(value):
         return local_epoch(year, month, day), local_epoch(year, month, day + 1)
     start = local_epoch(year, month, day, hour, minute, second or 0)
     return start, start + (1 if second is not None else 60)
+
+
+def error_text(response, limit=300):
+    """An error response's message: LM's errorMessage, else the start of its text.
+
+    A proxy or firewall can answer for LM (the sandbox's says "Approval
+    required for HOST"), and its words say more than the status code does.
+    """
+    try:
+        body = response.json()
+        if isinstance(body, dict) and (body.get('errorMessage') or body.get('message')):
+            return str(body.get('errorMessage') or body.get('message'))
+    except ValueError:
+        pass
+    text = ' '.join((response.text or '').split())
+    return text[:limit] + ('...' if len(text) > limit else '')
 
 
 def time_clauses(field, operator, value, ints):
