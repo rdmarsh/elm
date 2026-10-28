@@ -82,7 +82,7 @@ def health():
         "restricted": status["restricted"],
         "allowed": status["allowed"],
         "model": agent.MODEL,
-        "effort": agent.EFFORT or "default",
+        "effort": (agent.EFFORT or "default") if agent.is_claude(agent.MODELS[0]) else None,   # Claude only
         "model_id": default_model_id(),
         "elm_version": elm_version(),
     }
