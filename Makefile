@@ -525,6 +525,8 @@ testbasic: testbasicoffline ## Test basic flags (the -f api/curl/wget/sqlite lin
 	@echo testing: multiple -F flags both appear in URL ; $(testbin) -f api DeviceList -F 'hostStatus:normal' -F 'displayName~foo' -s1 2>/dev/null | grep -q 'hostStatus'
 	@echo testing: trailing backslash in filter value is escaped ; $(testbin) -f api DeviceList -F 'name~foo\' -s1 2>/dev/null | grep -q 'filter=name~%22foo%5C%5C%22'
 	@echo testing: embedded quote in filter value is escaped ; $(testbin) -f api DeviceList -F 'name~a"b' -s1 2>/dev/null | grep -q 'filter=name~%22a%5C%22b%22'
+	@echo testing: -F now-1h is sent as epoch seconds ; t=$$(( $$(date +%s) - 3600 )) ; $(testbin) -f api AlertList -F 'startEpoch>:now-1h' -s1 2>/dev/null | grep -qE "startEpoch%3E%3A%22($$t|$$((t+1))|$$((t+2)))%22"
+	@echo testing: -F now on a millisecond field is sent in ms ; $(testbin) -f api SDTList -F 'startDateTime<:now+7d' -s1 2>/dev/null | grep -qE 'startDateTime%3C%3A%22[0-9]{13}%22'
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
 	@echo testing: sqlite format requires -o flag ; $(testbin) -f sqlite MetricsUsage 2>&1 | grep -q 'requires -o'
@@ -559,6 +561,8 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: --info and --help need no credentials ; h=$$(mktemp -d) && HOME=$$h $(testbin) AlertList --info | grep -q '^GET ' && HOME=$$h $(testbin) AlertList --help | grep -q 'Usage:' ; rc=$$? ; rm -rf $$h ; exit $$rc
 	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
 	@echo testing: -F field not in the swagger is refused, with a suggestion ; $(testbin) AlertList -F sevrity:4 2>&1 | grep -q "no field 'sevrity' in AlertList (did you mean severity?"
+	@echo testing: -F refuses a relative time with an unknown unit ; $(testbin) AlertList -F 'startEpoch>:now-1M' 2>&1 | grep -q 'for months use 30d'
+	@echo testing: -F keeps now as a plain value after : ; ! $(testbin) DeviceList -F 'displayName:now' 2>&1 | grep -q 'relative time'
 	@echo testing: -F with a dotted field checks the part before the dot ; ! $(testbin) DeviceList -F customProperties.name:x 2>&1 | grep -q 'no field'
 	@echo "$(OK_STRING) $@"
 

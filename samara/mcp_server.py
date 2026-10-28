@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import elm_tools
@@ -38,6 +39,7 @@ def guide():
     return "\n\n".join([
         "There is no web page here: show_table returns a Markdown table, and it only reaches "
         "the reader if you put it in your reply.",
+        f"When guide was called it was epoch {int(time.time())}.",
         f"jq runs in the reader's timezone, {elm_tools.usable_tz(os.environ.get('TZ')) or 'UTC'}: format "
         "epoch times with strflocaltime (it names the zone and applies daylight saving).",
         (HERE / "system_prompt.md").read_text(),

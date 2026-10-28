@@ -816,6 +816,23 @@ The text is built into each command at `make` time (by `mkinfo.py`), so the
 installed binary needs no extra files. It is written to be short, so it is also
 the cheapest way to give an AI assistant what it needs about a command.
 
+**Relative times:** after `>:`, `<:`, `>` or `<`, a filter value can be `now`,
+`now-N` or `now+N`, with `s`, `m`, `h`, `d` or `w` (`m` is minutes; for months
+use `30d`). elm turns it into an epoch when it sends the request, so nobody has
+to work one out:
+
+```shell
+elm AlertList -F 'cleared:false,startEpoch>:now-1h'     # alerts that started in the last hour
+elm SDTList -F 'startDateTime<:now+7d'                  # SDTs starting in the next week
+elm AuditLogList -F 'happenedOn>:now-7d'
+```
+
+A few fields hold milliseconds, not seconds (SDT `startDateTime`, AlertList
+`lastUpdatedOnEpoch`), and the swagger rarely says which. So when a filter uses
+`now`, elm first asks LM for one value of that field: above 10^11 it can only
+be milliseconds, and elm sends the time in milliseconds. That costs one extra
+request per `now` field, and none otherwise.
+
 The same field list guards `-F`: a filter on a field the swagger does not list
 for that command is refused before anything is sent, because the API would
 quietly ignore it (AlertList returns every alert) or match nothing

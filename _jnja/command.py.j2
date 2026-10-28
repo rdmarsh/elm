@@ -58,6 +58,9 @@ def _show_info(ctx, param, value):
                 ~  - Includes
                 !~ - Does not include
 
+                After a comparison, VALUE can be a time relative to
+                now: now, now-1h, now+7d (s, m, h, d, w).
+
                 """
 {%- elif option.name == "size" -%}, \
                 help="Quantity of results returned. [0-1000 inclusive, '0' returns all results (up to 1000)]"

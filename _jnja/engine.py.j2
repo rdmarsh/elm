@@ -75,6 +75,11 @@ def engine(elm, **kwargs):
     resourcePath = elm.path
     logging.debug('resourcePath: %s', resourcePath)
 
+    #a now clause on a field that holds milliseconds needs its value in ms
+    if NOW_CLAUSES and 'filter' in flags:
+        creds = elm.portals[0][1:] if elm.portals else (elm.access_id, elm.access_key, elm.account_name)
+        now_in_ms(elm, flags, resourcePath, creds)
+
     #construct queryParams: a dict, so requests percent-encodes each value
     #(a filter with & + or # in it stays one value)
     queryParams = {}
@@ -650,6 +655,42 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
     else:
         click.secho('Warning: no data found', fg='yellow', err=True)
 
+# Filter clauses that used now (field, clause, operator): validate_filter
+# fills it, engine() checks each field's unit before sending.
+NOW_CLAUSES = []
+NOW_UNITS = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
+
+
+def relative_time(value):
+    """'now', 'now-1h', 'now+7d' as epoch seconds (a string)."""
+    match = re.fullmatch(r'now(?:([+-])(\d+)([smhdw]))?', value)
+    if not match:
+        raise click.BadParameter(
+            f"{value!r} is not a relative time: use now, or now-N / now+N with s, m, h, d "
+            "or w (m is minutes; for months use 30d)")
+    sign, number, unit = match.groups()
+    offset = int(number) * NOW_UNITS[unit] if number else 0
+    return str(int(time.time()) + (offset if sign == '+' else -offset))
+
+
+def now_in_ms(elm, flags, resourcePath, creds):
+    """Rewrite the now clauses of flags['filter'] for fields that hold milliseconds.
+
+    The swagger rarely says which do (AlertList lastUpdatedOnEpoch is ms, its
+    name says epoch), so ask LM for one non-zero value of the field and look:
+    above 1e11 can only be milliseconds (1e11 seconds is the year 5138).
+    """
+    for field, clause, operator in NOW_CLAUSES:
+        probe = {'size': '1', 'fields': field.split('.')[0], 'filter': field + '>:"0"', 'sort': '-' + field}
+        fetched = fetch(elm, probe, resourcePath, probe, *creds)
+        items = (fetched[0].get('items') or []) if fetched and isinstance(fetched[0], dict) else []
+        sample = items[0].get(field) if items else None
+        logging.debug('now: %s sample %s', field, sample)
+        if isinstance(sample, (int, float)) and sample > 1e11:
+            seconds = clause.rsplit('"', 2)[1]
+            flags['filter'] = flags['filter'].replace(clause, field + operator + '"' + seconds + '000"')
+
+
 def validate_filter(ctx, param, filters, fields=()):
     if filters:
         # multiple=True means Click passes a tuple; flatten to a single comma-joined string
@@ -682,6 +723,12 @@ def validate_filter(ctx, param, filters, fields=()):
                         f"no field {field!r} in {ctx.info_name} ({hint}"
                         f"elm {ctx.info_name} --info lists them); "
                         "LM would ignore it or match nothing, without an error")
+                #now, now-1h, now+7d: a time relative to now, in epoch seconds.
+                #Only after a comparison, so name:now stays a name. A few fields
+                #hold milliseconds; engine() checks a real value before sending.
+                if operator in ('>:', '<:', '>', '<') and value.startswith('now'):
+                    value = relative_time(value)
+                    NOW_CLAUSES.append((field, field + operator + '"' + value + '"', operator))
                 #filter needs quotes around the value to work for strings
                 #this saves the user from having to escape quotes on the cli
                 #ints are not unaffected, so do it for everything

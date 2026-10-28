@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Relative times in `-F`: after a comparison, `now`, `now-1h`, `now+7d` (`s m h d w`) become an epoch when the request is sent, so `elm AlertList -F 'cleared:false,startEpoch>:now-1h'` needs no arithmetic. elm checks one real value of the field first and sends milliseconds to fields that hold them (SDT `startDateTime`/`endDateTime`, AlertList `lastUpdatedOnEpoch`: of 25 time fields sampled, those 3; the swagger flags only the SDT ones). From testing Samara's tools on a local 8B model, which made up "now" and turned the epochs into 2023 dates.
+- Samara's MCP `guide` gives the time it was called, as the web page already does with each question.
+
 - `-F` refuses a field the swagger does not list for that command, before sending anything, and suggests the nearest real one (`no field 'sevrity' in AlertList (did you mean severity? ...)`). The API gives no error for these: AlertList ignores the filter and returns every alert, DeviceList matches nothing. The field list comes from the swagger response schema (`mkinfo.py` stores it in `_defs/`), not a hand-kept list; a dotted field (`customProperties.name`) is checked by the part before the dot, and a command whose response the swagger does not describe is not checked. Of 167 filters in the docs, tools and Samara, the only ones it refuses were already broken.
 - elm-notes: AlertList paging stops at 10,000 rows with no error (verified live: the oldest and newest 10,000 cleared alerts shared no ids); split the range on `startEpoch`. CollectorList: a collector going down is not an AlertList alert; its state, ack and SDT live on the collector record.
 
