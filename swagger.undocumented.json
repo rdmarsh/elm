@@ -628,5 +628,429 @@
         ]
       }
     }
+  },
+  "definitions": {
+    "Admin": {
+      "properties": {
+        "setupWizardStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "Alert": {
+      "properties": {
+        "thresholdMetadata": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "AlertResponse": {
+      "properties": {
+        "thresholdMetadata": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "AlertRule": {
+      "properties": {
+        "alertRuleType": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "attributeFilters": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
+        },
+        "logPartition": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
+        }
+      }
+    },
+    "AppliesToFunction": {
+      "properties": {
+        "params": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "CollectorBase": {
+      "properties": {
+        "cpAgent": {
+          "type": "boolean",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "logCollectorGroupId": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "logCollectorGroupName": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "numberOfWebsites": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "userVisibleWebsitesNum": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "websiteConf": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "CollectorGroup": {
+      "properties": {
+        "logCollectorGroup": {
+          "type": "boolean",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "Dashboard": {
+      "properties": {
+        "effectiveTenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "tenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "widgetsOrder": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "DashboardGroup": {
+      "properties": {
+        "effectiveTenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "tenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "DataSource": {
+      "properties": {
+        "dataType": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "executionParams": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
+        },
+        "groovyScript": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "installationStatuses": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
+        },
+        "scriptType": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "Device": {
+      "properties": {
+        "alertDisableStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatusPriority": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertingDisabledOn": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "ancestorHasDisabledLogicModule": {
+          "type": "boolean",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "dedicatedLogCollectorGroupId": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "hasDisabledSubResource": {
+          "type": "boolean",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "isPreferredLogCollectorGroupConfigured": {
+          "type": "boolean",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "DeviceDataSourceInstance": {
+      "properties": {
+        "alertDisableStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatusPriority": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertingDisabledOn": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "groupsDisabledThisSource": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "lastCollectedTime": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "lastUpdatedTime": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtAt": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "DeviceDataSourceInstanceGroup": {
+      "properties": {
+        "alertDisableStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatusPriority": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertingDisabledOn": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "disabledInstancesNum": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "groupsDisabledThisSource": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "instancesNum": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtAt": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "DeviceGroup": {
+      "properties": {
+        "alertDisableStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatusPriority": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertingDisabledOn": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "autoVisualResult": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "clusterAlertStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "clusterAlertStatusPriority": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "tenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "RemediationSource": {
+      "properties": {
+        "executionParams": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
+        }
+      }
+    },
+    "ReportBase": {
+      "properties": {
+        "isIncludeDeletedResourceOrWebsite": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "logPartition": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "suppressionType": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "tenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "typeAlias": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "ReportGroup": {
+      "properties": {
+        "effectiveTenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "tenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "Role": {
+      "properties": {
+        "isSamlRole": {
+          "type": "boolean",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "tenantIdentifier": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "Website": {
+      "properties": {
+        "alertDisableStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatusPriority": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertingDisabledOn": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    },
+    "WebsiteGroup": {
+      "properties": {
+        "alertDisableStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertStatusPriority": {
+          "type": "integer",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "alertingDisabledOn": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "groupStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "sdtStatus": {
+          "type": "string",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        },
+        "subGroups": {
+          "type": "array",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29.",
+          "items": {}
+        }
+      }
+    },
+    "Widget": {
+      "properties": {
+        "displaySettings": {
+          "type": "object",
+          "description": "Not in LM's swagger: seen in API responses, 2026-10-29."
+        }
+      }
+    }
   }
 }

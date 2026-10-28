@@ -43,6 +43,21 @@ def engine(elm, **kwargs):
                 f"-f after the command name is --fields, and '{flags['fields']}' is an output format.\n"
                 f"Hint: for --format put it before the command name, e.g. elm -f {flags['fields']} {elm.command}")
 
+    #refuse a -f field the swagger does not list, before sending: LM leaves an
+    #unknown one out without an error, so with no rows back nothing showed it
+    #was wrong (the after-the-fact warning in warn() has nothing to compare).
+    #A real field this refuses is missing from the swagger: add it to
+    #swagger.undocumented.json. Commands that take no -F have no list, and
+    #are only checked after the fetch.
+    if 'fields' in flags and elm.filter_fields:
+        unknown = [n for n in requested(flags) if n.split('.')[0] not in elm.filter_fields]
+        if unknown:
+            hints = [f"{n!r}" + (f" (did you mean {nearest(n, elm.filter_fields)}?)" if nearest(n, elm.filter_fields) else '')
+                     for n in unknown]
+            raise click.UsageError(
+                f"no field {', '.join(hints)} in {elm.command} (elm {elm.command} --info lists them); "
+                "LM would leave it out without an error")
+
     #set size to max (1000) if size is 0
     #0 values are removed by ben magic above
     if 'size' in kwargs and kwargs['size'] == 0:
@@ -308,6 +323,17 @@ def requested(flags):
     return [f.strip() for f in flags.get('fields', '').split(',') if f.strip()]
 
 
+def nearest(name, known):
+    """The real field an unknown one probably meant, or None: a near spelling,
+    else a field it is part of (uptime -> upTimeInSeconds). The part before
+    any dot is what is checked."""
+    import difflib
+    top = name.split('.')[0]
+    close = (difflib.get_close_matches(top, known, n=1)
+             or sorted((k for k in known if top.lower() in k.lower()), key=len)[:1])
+    return close[0] if close else None
+
+
 def top_fields(fields):
     """What to ask LM for: the part of each -f name before any dot, once each."""
     return ','.join(dict.fromkeys(f.strip().split('.', 1)[0] for f in fields.split(',') if f.strip()))
@@ -445,16 +471,19 @@ def warn(flags, obj, items, profile=None, known=()):
         if any('.' in name for name in names):
             returned = paths(items)
         missing = set(names) - returned
-        if missing:
-            import difflib
-            noun = 'field' if len(missing) == 1 else 'fields'
+        #a field the swagger lists for only some kinds of record (a synthetic
+        #check's status on DeviceList) is real, just not on any row here
+        absent = sorted(m for m in missing if m.split('.')[0] in known)
+        unknown = sorted(missing - set(absent))
+        if unknown:
+            noun = 'field' if len(unknown) == 1 else 'fields'
             def hint(name):
-                top = name.split('.')[0]
-                #a near spelling, else a field it is part of (uptime -> upTimeInSeconds)
-                close = (difflib.get_close_matches(top, known, n=1)
-                         or sorted((k for k in known if top.lower() in k.lower()), key=len)[:1])
-                return f'{name} (did you mean {close[0]}?)' if close else name
-            click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(hint(m) for m in sorted(missing))),
+                close = nearest(name, known)
+                return f'{name} (did you mean {close}?)' if close else name
+            click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(hint(m) for m in unknown)),
+                        fg='yellow', err=True)
+        if absent:
+            click.secho(label + 'Warning: no row has {} (only some kinds of record do)'.format(', '.join(absent)),
                         fg='yellow', err=True)
     return truncated
 
@@ -859,9 +888,8 @@ def validate_filter(ctx, param, filters, fields=(), ints=()):
                 #on others (DeviceList), with no error either way. Check the part
                 #before any dot, so customProperties.name still passes.
                 if fields and field.split('.')[0] not in fields:
-                    import difflib
-                    close = difflib.get_close_matches(field.split('.')[0], fields, n=1)
-                    hint = f'did you mean {close[0]}? ' if close else ''
+                    close = nearest(field, fields)
+                    hint = f'did you mean {close}? ' if close else ''
                     raise click.BadParameter(
                         f"no field {field!r} in {ctx.info_name} ({hint}"
                         f"elm {ctx.info_name} --info lists them); "

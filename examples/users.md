@@ -2,9 +2,6 @@
 
 Queries relating to user accounts, API tokens, roles, and offboarding.
 
-**See also:**
-- [collectors.md](collectors.md) for finding collectors registered by a specific user
-
 <!--ts-->
    * [Export users by userid](#export-users-by-userid)
    * [Find a user account and check its status](#find-a-user-account-and-check-its-status)
@@ -74,16 +71,10 @@ elm -f csv AdminList -s0 -f username,firstName,lastName -F apiTokens.status:2
 
 After locating the user record above, check for resources they own.
 
-Check for collectors registered by the user:
-
-```shell
-elm CollectorList -s0 -f id,hostname,description,createdBy | \
-  jq '.CollectorList[] | select((.createdBy // "") | ascii_downcase | contains("acme user"))'
-```
-
-Devices have no `createdBy` field: DeviceList does not return one, and
-`-F createdBy~...` is refused (checked 2026-10-28). Who added a device is
-in the audit log (`AuditLogList`).
+Collectors and devices have no `createdBy` field: neither CollectorList nor
+DeviceList returns one, and elm refuses `-f createdBy` and `-F createdBy~...`
+(checked 2026-10-29). Who added a collector or a device is in the audit log
+(`AuditLogList`).
 
 The `apiTokens` field on the admin record will be an empty array if none exist.
 A suspended account with no API tokens, collectors, or devices is fully offboarded.

@@ -16,9 +16,11 @@ or wrong.
 The text is written to be read by people and by AI assistants, so it is kept
 compact: one line per field, no repeated boilerplate.
 
-It also stores the response field names as "filter_fields" for commands that
-take -F, so elm can refuse a filter on a field the swagger does not list before
-sending it (the API ignores some unknown fields and returns every record), and
+It also stores the response field names, a subtype's included, as
+"filter_fields" for commands that take -F, so elm can refuse a filter or a -f
+field the swagger does not list before sending it (the API ignores some unknown
+filter fields and returns every record; an unknown -f field just comes back
+empty), and
 the number fields among them as "filter_ints", where a date after : means the
 whole period (startEpoch:2026-07).
 
@@ -63,13 +65,24 @@ def clean(text):
 # --- swagger -----------------------------------------------------------------
 
 def load_swagger():
-    """Paths and definitions from both snapshots (documented wins for schemas)."""
+    """Paths and definitions from both snapshots; the documented one wins.
+
+    A definition in both is merged field by field: the undocumented snapshot
+    adds the fields LM returns that its swagger leaves out (DeviceList's
+    sdtStatus and alertDisableStatus among them).
+    """
     paths, definitions = {}, {}
     for swagger in SWAGGERS:
         spec = json.loads(swagger.read_text())
         for path, ops in spec.get("paths", {}).items():
             paths.setdefault(path, ops)
-        definitions.update(spec.get("definitions", {}))
+        for name, schema in spec.get("definitions", {}).items():
+            if name not in definitions:
+                definitions[name] = schema
+                continue
+            props = definitions[name].setdefault("properties", {})
+            for field, prop in schema.get("properties", {}).items():
+                props.setdefault(field, prop)
     return paths, definitions
 
 
@@ -111,6 +124,24 @@ def response_fields(api_path, paths, definitions):
     # exactly the useful part.
     return {name: (field_type(p), clean(p.get("description")), sub_fields(p, definitions))
             for name, p in props.items()}
+
+
+def subtype_fields(api_path, paths, definitions):
+    """Field names only a subtype of the returned record has (a website check's
+    host, a report's columns): real fields, documented on the subtype.
+
+    Known to -F and -f, but not listed by --info, which would not fit them.
+    """
+    responses = paths.get(api_path, {}).get("get", {}).get("responses", {})
+    schema = (responses.get("200") or responses.get("default") or {}).get("schema", {})
+    item = schema_properties(schema, definitions).get("items", {})
+    ref = item.get("items", {}).get("$ref", "") if item.get("type") == "array" else schema.get("$ref", "")
+    name = ref.rsplit("/", 1)[-1]
+    names = set()
+    for sub in definitions.values():
+        if name and any(p.get("$ref", "").endswith("/" + name) for p in sub.get("allOf", [])):
+            names |= set(schema_properties(sub, definitions))
+    return names
 
 
 def sub_fields(prop, definitions):
@@ -325,8 +356,8 @@ def main():
         fields = response_fields(definition["path"], paths, definitions)
         info = build_info(definition, notes.get(command), blocks.get(command, []), fields)
         has_filter = any(o["name"] == "filter" for o in definition["options"])
-        filter_fields = sorted(fields) if has_filter else []
-        filter_ints = sorted(f for f in filter_fields if fields[f][0] in ("integer", "number"))
+        filter_fields = sorted(set(fields) | subtype_fields(definition["path"], paths, definitions)) if has_filter else []
+        filter_ints = sorted(f for f in fields if f in filter_fields and fields[f][0] in ("integer", "number"))
         if (definition.get("info") != info or definition.get("filter_fields", []) != filter_fields
                 or definition.get("filter_ints", []) != filter_ints):
             definition["info"] = info

@@ -306,14 +306,15 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         step = {"type": "step", "command": shown, "result": "failed"}
         return f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step
 
-    unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line]
+    unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line or "Warning: no row has" in line]
     if unknown:
-        # Refused, not warned: LM sent back no such field. A small model read
-        # past the warning and told the reader the data was missing (qwen3-8b,
-        # 2026-10-28); a refusal makes it ask again with a real name.
+        # Refused, not warned: LM sent back no such field (elm refuses most
+        # before sending), or a field only other kinds of record have. A small
+        # model read past the warning and told the reader the data was missing
+        # (qwen3-8b, 2026-10-28); a refusal makes it ask again with a real name.
         step = {"type": "step", "command": shown, "result": "failed"}
         return (f"Refused, nothing saved: {command}: {'; '.join(u.split('Warning: ', 1)[1] for u in unknown)}. "
-                f"Ask again with real field names (describe_command {command} lists them).", step)
+                f"Ask again with fields these records have (describe_command {command} lists them).", step)
 
     if total:
         value = proc.stdout.strip()

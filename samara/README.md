@@ -62,7 +62,7 @@ Python or jq installed.
   another profile or config file.
 - **An allowlist limits commands, not data.** Several allowed commands carry
   people's names: `SDTList` has the `admin` who created the downtime, `AlertList`
-  has `ackedBy`, `DeviceList` has `createdBy`. Asked for "a list of users",
+  has `ackedBy`, `OpsNoteList` has `createdBy`. Asked for "a list of users",
   elm-ask correctly says it cannot produce one and points at the LogicMonitor
   UI, but it can still name whoever appears in those fields. If that matters,
   give the profile's token a LogicMonitor role that cannot see those areas; that

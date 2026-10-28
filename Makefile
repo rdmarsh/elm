@@ -571,6 +571,10 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: -F refuses a date that does not exist ; $(testbin) AlertList -F 'startEpoch:2026-02-30' 2>&1 | grep -q "'2026-02-30' is not a date"
 	@echo testing: -F keeps now as a plain value after : ; ! $(testbin) DeviceList -F 'displayName:now' 2>&1 | grep -q 'relative time'
 	@echo testing: -F with a dotted field checks the part before the dot ; ! $(testbin) DeviceList -F customProperties.name:x 2>&1 | grep -q 'no field'
+	@echo testing: -F takes a value in LM quotes as the value ; $(testbin) -vvv DeviceList -F 'displayName:"x y"' -s1 2>&1 | grep -q "filters_fmtchkd: \['displayName:\"x y\"'\]"
+	@echo testing: -f field not in the swagger is refused, with a suggestion ; $(testbin) DeviceList -f id,uptime 2>&1 | grep -q "no field 'uptime' (did you mean upTimeInSeconds?) in DeviceList"
+	@echo testing: -f takes a field LM returns that only the undocumented swagger lists ; ! $(testbin) DeviceList -f sdtStatus -s1 2>&1 | grep -q 'no field'
+	@echo testing: -f takes a field only a subtype has ; ! $(testbin) WebsiteList -f host -s1 2>&1 | grep -q 'no field'
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testoffline

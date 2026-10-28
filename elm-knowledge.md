@@ -62,9 +62,9 @@ literal comma with `\,`.
   `resourceTemplateId`, ... issue #56), `!:` and `!~` on AlertList and
   AuditLogList, every filter on V4Metadata, and `alertDisableStatus` on
   DeviceList. `--info` lists known cases. To test a filter: compare `-c` with
-  and without it; a count that doesn't move means it is ignored. A field the
-  swagger doesn't list for the command is refused before sending (exit 2,
-  with a "did you mean"), so the ignored ones are all real fields.
+  and without it; a count that doesn't move means it is ignored. An unknown
+  field, in `-F` or `-f`, is refused before sending (exit 2, with a "did
+  you mean"), so the ignored ones are all real fields.
 - **No OR, no "is empty".** Fetch a broader set and filter with jq. For OR
   across fields, run one query per condition and union by id.
 - **Look a device up by `displayName`**, the name people use: `name` is its
