@@ -53,9 +53,9 @@ the sandbox's own `~/.config/logicmonitor/credentials/` with mode 600, and is
 never printed.
 
 ```shell
-tools/sbx-creds.sh -s claude-elm config          # copy config.ini in
-tools/sbx-creds.sh -s claude-elm busy            # another portal, same name
-tools/sbx-creds.sh -s claude-elm test config     # test.ini in as the default
+tools/sbx-creds.sh -s claude-elm cp config       # copy config.ini in
+tools/sbx-creds.sh -s claude-elm cp busy         # another portal, same name
+tools/sbx-creds.sh -s claude-elm cp test config  # test.ini in as the default
 tools/sbx-creds.sh -s claude-elm ls              # what the sandbox has
 tools/sbx-creds.sh -s claude-elm rm busy         # take it out again
 ```

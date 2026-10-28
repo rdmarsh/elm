@@ -5,18 +5,19 @@
 # ~/.config/logicmonitor/credentials/, mode 600.
 #
 # Usage:
-#   sbx-creds.sh [-s SANDBOX] PROFILE [NAME]   # copy PROFILE.ini in as NAME.ini
-#                                              # (default: the same name)
-#   sbx-creds.sh [-s SANDBOX] rm NAME          # delete NAME.ini from the sandbox
-#   sbx-creds.sh [-s SANDBOX] ls               # list the profiles in the sandbox
+#   sbx-creds.sh [-s SANDBOX] cp PROFILE [NAME]  # copy PROFILE.ini in as NAME.ini
+#                                                # (default: the same name)
+#   sbx-creds.sh [-s SANDBOX] rm NAME            # delete NAME.ini from the sandbox
+#   sbx-creds.sh [-s SANDBOX] ls                 # list the profiles in the sandbox
 #
 # Options:
 #   -s SANDBOX   the sandbox name (sbx ls); defaults to $SBX
 #   -h, --help   show this help
 #
 # Examples:
-#   sbx-creds.sh -s claude-elm config          # the test portal, as the default
-#   sbx-creds.sh -s claude-elm busy            # another portal, under its own name
+#   sbx-creds.sh -s claude-elm cp config       # the test portal, as the default
+#   sbx-creds.sh -s claude-elm cp busy         # another portal, under its own name
+#   sbx-creds.sh -s claude-elm cp test config  # test.ini in as the default
 #   sbx-creds.sh -s claude-elm rm busy
 #
 # The file's contents are never printed. A sandbox that is recreated loses its
@@ -56,13 +57,16 @@ case $1 in
     sbx exec -u agent "$sandbox" sh -c "rm $dir/\"\$1\".ini" sh "$name"
     echo "removed $name.ini from $sandbox"
     ;;
-  *)
-    profile=${1%.ini}; name=${2:-$profile}; name=${name%.ini}
+  cp)
+    profile=${2:?cp needs a profile name}; profile=${profile%.ini}; name=${3:-$profile}; name=${name%.ini}
     name_ok "$profile"; name_ok "$name"
     [[ -r $creds/$profile.ini ]] || { echo "sbx-creds: no profile $creds/$profile.ini" >&2; exit 1; }
     sbx exec -i -u agent "$sandbox" sh -c \
       "umask 077; mkdir -p $dir && cat > $dir/\"\$1\".ini && chmod 600 $dir/\"\$1\".ini" \
       sh "$name" < "$creds/$profile.ini"
     echo "copied $profile.ini to $sandbox as $name.ini"
+    ;;
+  *)
+    echo "sbx-creds: '$1' is not cp, rm or ls" >&2; usage >&2; exit 2
     ;;
 esac
