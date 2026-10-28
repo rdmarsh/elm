@@ -361,7 +361,8 @@ function isoNow() {
 
 function answerMarkdown(a) {
   const when = health ? ` · ${health.profile} · ${a.model || health.model}${health.effort ? ` · ${health.effort} effort` : ""}` : "";
-  const cost = a.costText ? ` · ${a.costText}` : "";
+  // elm's version too: an answer can change with elm (a filter fix, a refused field)
+  const cost = (a.costText ? ` · ${a.costText}` : "") + (health && health.elm_version ? ` · elm ${health.elm_version}` : "");
   return [`# ${a.question}`, "",   // the same order as the page: the answer, then its tables
     a.answer, "",
     ...a.tables.map(tableMarkdown),

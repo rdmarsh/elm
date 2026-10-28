@@ -1430,6 +1430,7 @@ CollectorList:
     - "hostname and description are usually the 'DOMAIN\\HOSTNAME' form (e.g. 'CORP\\NEWEDGE03') or an FQDN, not the bare host label -- matching a collector by an exact bare name fails. Match by numeric id, or substring/partial. The tools/lm-collector-reach.ps1 and lm-collector-debug.ps1 collector options resolve id -> exact hostname/description -> unambiguous substring for this reason."
     - "tools/lm-collector-reach.ps1 -Group <id|name> -WithCollector <id|name> tests a collector NOT yet in a group against that group's device list (pre-add vetting): submits the group's device list to the new collector via Collector Debug and reports device+protocol combos the new collector fails to reach but an in-group collector does. Requires the new collector to already be installed and connected to LM (just not in the group)."
     - "status is always 1 for all collectors including DOWN ones -- use isDown for real health status"
+    - "Health beyond isDown: CollectorStatusCheck --collectorId N is the collector's own daily self-check (memory, proxy settings in agent.conf, modules, the share of each collection method's tasks returning NaN). Read-only token works."
     - "A collector going down is not an AlertList alert: its state lives on the collector record (isDown, acked, ackedBy, ackedOn, inSDT). Verified 2026-10-28: 27 of 37 collectors down, yet active alerts were only dataSourceAlert, websiteAlert and eventAlert. Most down collectors were stale (acks from 2021); 5 had a lastSentNotificationOn from that day (still notifying), the rest 0. To watch for collector outages, poll -F isDown:true -f id,hostname,acked,inSDT,lastSentNotificationOn."
     - "build is a STRING holding the version as major*1000+minor, e.g. \"40001\" = 40.001 (matches CollectorVersionList majorVersion 40, minorVersion 1). There is no collectorVersion field. -F 'build<37000' and -S build work because builds are all 5 digits; use tonumber before comparing in jq."
     - "DOWN collectors (isDown: true) still report numberOfHosts. For \"in use\" or \"oldest version running\" questions filter -F isDown:false, and report down collectors and their host counts separately."
@@ -1600,12 +1601,17 @@ CollectorEvents:
   gotchas:
     - "id is a string, not an integer — can't filter numerically"
     - "eCode 4 = agent restart; eCode 8 = sbproxy/health/lifecycle info"
+    - "No -s or -o: always the newest 50 events, newest first (11 days on the test portal's own collector, 2026-10-29). Older ones cannot be fetched."
 
 CollectorStatusCheck:
   path: /setting/collector/collectors/{collectorId}/services/getStatusCheck
   required_params:
     collectorId: integer
-  note: "Returns 403 Forbidden with read-only API token. May require admin token."
+  note: "The collector's own health self-check, as the Status Check page in LM's UI: one record whose checkPoints is a list of {name, status, detail}, 65-69 of them (memory, watchdog, proxy settings in agent.conf, each module, and per collection method the share of tasks that returned NaN). Works with a read-only token (verified 2026-10-29; an older note here said 403)."
+  gotchas:
+    - "Reading it does not run a check: lastTriggeredMills (ms) is the last scheduled run, within the past day on all 10 up collectors of the test portal. A collector that has never run one (every down collector tried) gives a 404 saying it 'has not trigger any healthcheck yet'."
+    - "status values seen: OK, WARN, DISABLED (a module turned off in agent.conf, e.g. module.Syslog). The findings are the checkpoints that are not OK; detail says what is wrong in words (free memory, an invalid proxy.host). Recipe across collectors: examples/collectors.md."
+    - "biz.DataSource.SNMP (or another method) WARN 'N of N tasks (100%) returned NaN' means that method is collecting nothing from that collector's devices: their datapoints show No Data."
 
 CollectorAgentLogLevels:
   path: /setting/collector/collectors/{id}/agentloglevels

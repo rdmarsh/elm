@@ -13,6 +13,7 @@ Queries relating to collectors, collector groups, and auto-balance settings.
       * [DOWN collectors with hosts attached](#down-collectors-with-hosts-attached)
       * [Collectors with no backup and hosts attached](#collectors-with-no-backup-and-hosts-attached)
       * [Backup pair health](#backup-pair-health)
+      * [What each collector's status check found](#what-each-collectors-status-check-found)
    * [Auto-balance groups](#auto-balance-groups)
       * [List auto-balance groups](#list-auto-balance-groups)
       * [Single-collector auto-balance groups](#single-collector-auto-balance-groups)
@@ -80,6 +81,26 @@ elm CollectorList -s0 -f id,hostname,isDown,numberOfHosts,backupAgentId,collecto
         bothDown: (map(.isDown) | all)
       })'
 ```
+
+### What each collector's status check found
+
+Each collector checks itself about once a day (memory, proxy settings, modules,
+how many collection tasks return nothing), as on the Status Check page in LM's
+UI. `CollectorStatusCheck` returns the last run; a read-only token is enough.
+List every finding on the up collectors, one per line:
+
+```shell
+for id in $(elm -f values CollectorList -s0 -F isDown:false -f id); do
+  elm -f jsonl CollectorStatusCheck --collectorId "$id" |
+    jq -c --argjson id "$id" '.checkPoints[] | select(.status != "OK") | {collector: $id, status, name, detail}'
+done
+```
+
+`WARN` is a problem to look at (`basic.Memory`: little free memory;
+`biz.CollectorConf`: a setting in agent.conf is wrong; `biz.DataSource.SNMP`:
+most SNMP tasks returned no data). `DISABLED` is a module turned off, often on
+purpose. A down collector has no result (404). Verified on a test portal,
+2026-10-29.
 
 ## Auto-balance groups
 

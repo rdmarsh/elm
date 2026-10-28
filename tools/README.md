@@ -21,6 +21,7 @@ Collectors
 - [Run commands and scripts on collectors](#run-commands-and-scripts-on-collectors) — `tools/lm-collector-debug.ps1`, example scripts in `tools/groovy/`
 - [Collector reachability](#collector-reachability) — `tools/lm-collector-reach.ps1`, `tools/elm-collector-reach-paste.sh`
 - [Collector capacity matrix](#collector-capacity-matrix) — `tools/collector-capacity-matrix.py`
+- [Collector status checks](#collector-status-checks) — `tools/elm-collector-status.py`
 
 LogicModules
 - [Module updates](#module-updates) — `tools/elm-module-updates.py`
@@ -42,6 +43,9 @@ Profiles and tokens
 - [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
 - [Profiles in a sandbox](#profiles-in-a-sandbox) — `tools/sbx-creds.sh`
+
+Maintaining elm
+- [Swagger gaps](#swagger-gaps) — `tools/elm-swagger-gaps.py`
 
 - [Ask in plain English](#ask-in-plain-english) — `samara/`
 
@@ -378,6 +382,24 @@ tools/collector-capacity-matrix.py              # 80% target, groups of 1..N
 tools/collector-capacity-matrix.py -t 70 --csv
 ```
 
+## Collector status checks
+
+`tools/elm-collector-status.py` makes one page of what every up collector's own
+status check found: the daily self-check on LM's Status Check page (memory,
+proxy settings in agent.conf, its modules, how many tasks of each collection
+method return no data). Findings are listed worst first with LM's words for
+what is wrong, then any check that has stopped running, then the down
+collectors, which have no result. A read-only token is enough, and reading the
+result does not start a new check.
+
+```shell
+tools/elm-collector-status.py > collectors.md && tools/report-pdf.sh collectors.md
+tools/elm-collector-status.py -p prod --jsonl | jq -r 'select(.status=="WARN") | .check' | sort | uniq -c
+```
+
+Run it from cron each morning (`-h` has the line) and open the HTML page.
+`--all` lists the collectors with nothing to report too.
+
 ## Datasource usage matrix
 
 `tools/elm-datasource-matrix.py` builds a device-by-datasource usage matrix for
@@ -483,6 +505,25 @@ tools/elm-page.py DeviceList -f id,displayName > devices.jsonl
 tools/elm-page.py -p busy --by hour --from 2026-10-27 --to 2026-10-28 \
     AlertList -F cleared:true -f id,startEpoch | wc -l
 ```
+
+## Swagger gaps
+
+`tools/elm-swagger-gaps.py` runs every elm command once against a portal and
+prints the fields LM returned that the swagger does not document, one
+`COMMAND FIELD TYPE` per line. Ids a command needs come from the first record
+of the list above it; `--seed deviceId=N` picks a device with more under it.
+`--write` adds the gaps to `swagger.undocumented.json`, then `make` puts them
+in `--info` and lets `-F` and `-f` take them. Only field names and types are
+read, never printed values.
+
+```shell
+tools/elm-swagger-gaps.py -p sandbox --seed deviceId=1234            # report
+tools/elm-swagger-gaps.py -p sandbox_manage --write && make           # record them
+```
+
+Run it after `make swagger`, and with a token that has more rights: it answers
+more commands. Commands the portal has no records for cannot be checked; it
+lists them on stderr.
 
 ## Host SDTs
 
