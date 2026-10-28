@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Samara on a small local model couldn't find "Luna": it filtered on `name`, which is the hostname (`luna.lan`). The knowledge base now says to look devices up by `displayName` (case doesn't matter, `~` for part of it).
 - A refused request (401, 403, ...) prints what the server said, as `Response: ...`. A 403 used to say only "You do not have permission", even when it came from a proxy or firewall on the way ("Approval required for HOST"), which sent people checking the token's role.
 - `examples/users.md` offboarding check "devices created by the user" (`DeviceList -F createdBy~...`) always found nothing: devices have no `createdBy` field. It now says to look in the audit log, and the circular "see also" links between `users.md` and `devices.md` are gone.
 - Samara and qlm gave times on the far side of a daylight-saving change an hour out: the model added today's offset (+11 in Sydney now) to every timestamp, so an August alert at 10:49 AEST read 11:49 AEDT. jq now runs in the reader's timezone (the browser's, or your Mac's for qlm) and the model formats times with `strflocaltime`, which applies each date's own offset and names the zone ("27 Aug 2026, 10:49 AEST"). An unknown or odd zone name falls back to the old fixed offset.

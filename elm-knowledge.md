@@ -67,6 +67,9 @@ literal comma with `\,`.
   with a "did you mean"), so the ignored ones are all real fields.
 - **No OR, no "is empty".** Fetch a broader set and filter with jq. For OR
   across fields, run one query per condition and union by id.
+- **Look a device up by `displayName`**, the name people use: `name` is its
+  hostname or IP (`luna.lan`), so `name:luna` finds nothing. Case doesn't
+  matter; `~` matches part of it (tested 2026-10-28).
 - **Prefer positive operators** and exclude client-side where `!:` is
   unreliable. (`!:` does work on DeviceList.)
 - **String IDs** on SDTList (`H_161`), AlertList (`DS395142385`), AuditLogList,
