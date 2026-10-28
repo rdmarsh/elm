@@ -41,6 +41,7 @@ import yaml
 DEFS = Path("_defs")
 NOTES = Path("elm-notes.yaml")
 KNOWLEDGE = Path("elm-knowledge.md")
+TIME_NAME = re.compile(r"(Epoch|On|(?<!up)Time|Timestamp|At)$")   # as engine.py.j2, less upTime (a duration)
 
 # Budgets for AI-facing text (characters). elm-knowledge.md is read before every
 # question; one command's --info is read each time that command is used. Raise
@@ -233,6 +234,11 @@ def build_info(definition, note, block, fields):
             out.append(f"  --{o['name']} {o.get('type', '')} ({flag})" + (f": {text}" if text else ""))
     if unique_text:
         out.append(f"  {unique_text}")
+    times = [f for f, (kind, _, _) in sorted(fields.items()) if kind in ("integer", "number")
+             and TIME_NAME.search(f)]
+    if times and any(o["name"] == "filter" for o in definition["options"]):
+        out.append(f"Time fields: {', '.join(times)}. In -F they take now-1h, now+7d, now/d (today),"
+                   " now-1M/M (last month), 2026-07: never work out an epoch (elm --ai, TIMES).")
     out.append("")
 
     if note:

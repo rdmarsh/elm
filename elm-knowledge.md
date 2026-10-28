@@ -78,7 +78,8 @@ literal comma with `\,`.
   dates `2026-07`, `2026-07-14`. After `:` a period is all of it:
   `startEpoch:now-1M/M` is last month, `startEpoch:2026-07` July. `>:` and `<`
   use a period's start, `>` and `<:` its end. elm does it in local time, in ms
-  where a field holds ms.
+  where a field holds ms. `--info` lists a command's time fields; `-t` shows
+  result epochs as local times.
 
 ## Reading results
 

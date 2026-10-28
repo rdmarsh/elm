@@ -397,6 +397,9 @@ Options:
                            FIELD.key columns. Repeat only for a list inside it
                            (-e a -e a.b)
 
+  -t, --localtime          Show epoch times in the results as local times
+                           (2026-10-28 16:39:54 AEDT)
+
   -d, --diff               With several profiles: show only the rows that are
                            not the same on all of them
 
@@ -818,25 +821,27 @@ the cheapest way to give an AI assistant what it needs about a command.
 
 **Times and dates:** elm works out the epochs, so nobody has to.
 
-- A relative time: `now`, `now-N` or `now+N`, with `s`, `m`, `h`, `d`, `w` or
-  `M` (as in Prometheus, systemd and Grafana: `m` is minutes, `M` months).
-  `s` to `w` are fixed lengths; `M` moves the calendar date.
-- A period: `/d`, `/w` or `/M` on the end makes it that day, week (from
-  Monday) or month. `now/d` is today, `now-1M/M` last month.
-- A date, which is also a period: `2026-07`, `2026-07-14`, `2026-07-14T09:30`.
-- With a period, `>:` and `<` compare with its start, `>` and `<:` with its
-  end, as in Elasticsearch's date maths: `<:2026-03-31` includes the 31st, and
-  Grafana's "previous month", `>:now-1M/M,<:now-1M/M`, is the whole month.
-  After `:` a period means all of it: `startEpoch:2026-07` is July.
+With "now" at Wed 28 Oct 2026 14:30:
 
-Times are local, daylight saving included (set `TZ` to use another zone).
+| You write | elm sends |
+|---|---|
+| `startEpoch>:now-1h` | `>:` 28 Oct 13:30 (`s m h d w M`; `m` minutes, `M` months) |
+| `startDateTime<:now+7d` | `<:` 4 Nov 14:30 |
+| `startEpoch:now/d` | `>:` 28 Oct 00:00 and `<` 29 Oct 00:00 (today) |
+| `startEpoch:now-1M/M` | `>:` 1 Sep and `<` 1 Oct (last month; `/w` is a week) |
+| `startEpoch:2026-07` | `>:` 1 Jul and `<` 1 Aug (also `2026-07-14`, `2026-07-14T09:30`) |
+| `startEpoch>:now-1M/M` | `>:` 1 Sep (from the start of the period) |
+| `startEpoch<:now-1M/M` | `<` 1 Oct (up to its end) |
+
+`/d` `/w` `/M` and dates are periods. `:` means all of it; `>:` and `<` use
+its start, `>` and `<:` its end, as in Elasticsearch and Grafana date maths.
+Times are local, daylight saving included (set `TZ` for another zone). Every
+form, with what it sends:
+[examples/filtering.md](examples/filtering.md#times-and-dates).
 
 ```shell
 elm AlertList -F 'cleared:false,startEpoch>:now-1h'            # started in the last hour
-elm AlertList -F 'startEpoch>:now-30d'                         # the last 30 days
 elm AlertList -F 'startEpoch:now-1M/M'                         # last calendar month
-elm AlertList -F 'startEpoch:now/d'                            # today
-elm AlertList -F 'startEpoch:2026-07'                          # July
 elm SDTList -F 'startDateTime<:now+7d'                         # SDTs starting in the next week
 ```
 
@@ -846,7 +851,7 @@ a time in it, elm first asks LM for one value of that field: above 10^11 it
 can only be milliseconds, and elm sends the time in milliseconds. That costs one
 extra request per field, and none otherwise.
 
-**`-t` shows epochs in the results as local times.** A field is converted when
+**`-t` (`--localtime`) shows epochs in the results as local times.** A field is converted when
 its name ends like a time (`startEpoch`, `createdOn`) and its value is a
 plausible one, seconds or milliseconds, so `upTime` and a 0 ("never") stay
 numbers. The column keeps its name, so it matches what you put in `-f`:
