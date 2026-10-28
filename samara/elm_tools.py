@@ -14,6 +14,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from pathlib import Path
 
 
@@ -254,7 +255,10 @@ def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=N
             raise ValueError(f"{command} has no parameter {name!r}. Allowed: {sorted(allowed) or 'none'}")
     missing = [n for n, o in allowed.items() if o.get("required") and n not in params]
     if missing:
-        raise ValueError(f"{command} requires: {missing}")
+        # Say where they go: qwen3-8b put deviceId in the filter and sent the
+        # same call six times against a bare "requires: ['deviceId']" (2026-10-29).
+        example = ", ".join(f'"{n}": 123' for n in missing)
+        raise ValueError(f"{command} requires {missing} in params, not in filter: params={{{example}}}")
     size = int(size)
     if not 0 <= size <= MAX_ROWS:
         raise ValueError("size must be 0-1000 (0 means up to 1000)")
@@ -279,6 +283,18 @@ def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=N
             raise ValueError(f"{command} takes no fields.")
         args += ["-f", ",".join(fields) if isinstance(fields, list) else str(fields)]
     return args
+
+
+def tally(lines, most=8):
+    """{field: {value: rows}} over every row, for scalar fields with at most `most` values."""
+    counts = {}
+    for line in lines:
+        for key, value in json.loads(line).items():
+            if not isinstance(value, (dict, list)):
+                value = value if isinstance(value, str) else json.dumps(value)   # 2 -> "2", true -> "true"
+                counts.setdefault(key, Counter())[value] += 1
+    # Two to `most` values: one value is in the sample already, and ids or names tell nothing counted.
+    return {k: dict(c.most_common()) for k, c in counts.items() if 1 < len(c) <= most}
 
 
 def command_notes(command):
@@ -349,8 +365,21 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         "fields": field_names,
         "sample": rows,
     }
+    if len(lines) > len(rows):
+        # A small model reads the sample as the whole result: "all warnings"
+        # from 5 of 15 alerts, "no device has alerting disabled" from 5 of
+        # 1000 (qwen3-8b, 2026-10-29). Counts of the few-valued fields over
+        # every row answer most "how many by X" questions without jq.
+        result["sample_note"] = (f"The sample is {len(rows)} of {len(lines)} rows. Count, list or check "
+                                 f"rows with jq on ${ds_id}, never from the sample. counts cover these {len(lines)} rows only.")
+        counts = tally(lines)
+        if counts:
+            result["counts"] = counts
     if result["may_have_more"]:
         result["note"] = f"Hit the {limit}-row page limit; fetch the next page with offset={offset + limit}."
+    if not lines and command == "DeviceList" and re.search(r"(^|,)name[:~]", filter or ""):
+        result["note"] = ("name is the hostname or IP, not the name people use: "
+                          "look the device up by displayName instead.")
     if stderr:
         # e.g. "results truncated" -- the query needs fixing (an unknown field is
         # refused above), and without this a gap looks like missing data.
