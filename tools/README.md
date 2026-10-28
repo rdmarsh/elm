@@ -55,8 +55,7 @@ never printed.
 ```shell
 tools/sbx-creds.sh -s claude-elm cp config       # copy config.ini in
 tools/sbx-creds.sh -s claude-elm cp busy         # another portal, same name
-tools/sbx-creds.sh -s claude-elm cp test config  # test.ini in as the default
-tools/sbx-creds.sh -s claude-elm mv busy config  # swap busy in as the default
+tools/sbx-creds.sh -s claude-elm cp busy config  # swap busy in as the default
 tools/sbx-creds.sh -s claude-elm ls              # what the sandbox has
 tools/sbx-creds.sh -s claude-elm rm busy         # take it out again
 ```
