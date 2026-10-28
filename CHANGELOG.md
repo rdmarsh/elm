@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Times and dates in `-F`, so nobody types an epoch: `now-1h`, `now+7d` (`s m h d w M` as in Prometheus, systemd and Grafana), periods (`now/d` today, `now-1M/M` last month, `/w` a week from Monday) and dates (`2026-07`, `2026-07-14`). A period rounds as in Elasticsearch's date maths: `>:` and `<` use its start, `>` and `<:` its end, so Grafana's `>:now-1M/M,<:now-1M/M` is the whole of last month; after `:` it is all of it (`startEpoch:2026-07`, `startEpoch:now/d`). Local time, daylight saving included. elm checks one real value of the field first and sends milliseconds to fields that hold them (SDT `startDateTime`/`endDateTime`, AlertList `lastUpdatedOnEpoch`: of 25 time fields sampled, those 3; the swagger flags only the SDT ones). From testing Samara's tools on a local 8B model, which made up "now" and turned the epochs into 2023 dates.
 - `-t` / `--localtime` shows epoch times in the results as local times (`2026-10-28 16:53:06 AEDT`), seconds or milliseconds; `upTime` and 0 ("never") stay numbers.
+- `tools/sbx-creds.sh` copies a credential profile into a Docker sandbox, or removes it, without it passing through the repo.
 - `--info` lists a command's time fields (those `-F` takes `now-1h` and dates for), and `--ai` has a TIMES section. [examples/filtering.md](examples/filtering.md#times-and-dates) shows every form with what elm sends.
 - Samara's MCP `guide` gives the time it was called, as the web page already does with each question.
 

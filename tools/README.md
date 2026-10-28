@@ -40,8 +40,30 @@ Portal reports and backups
 Profiles and tokens
 - [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
+- [Profiles in a sandbox](#profiles-in-a-sandbox) — `tools/sbx-creds.sh`
 
 - [Ask in plain English](#ask-in-plain-english) — `samara/`
+
+## Profiles in a sandbox
+
+`tools/sbx-creds.sh` copies a credential profile from your Mac into a Docker
+sandbox (`sbx`), so an assistant working there can run elm without the
+credentials being in the repo it mounts. Run it on the host. The file goes to
+the sandbox's own `~/.config/logicmonitor/credentials/` with mode 600, and is
+never printed.
+
+```shell
+tools/sbx-creds.sh -s claude-elm config          # copy config.ini in
+tools/sbx-creds.sh -s claude-elm busy            # another portal, same name
+tools/sbx-creds.sh -s claude-elm test config     # test.ini in as the default
+tools/sbx-creds.sh -s claude-elm ls              # what the sandbox has
+tools/sbx-creds.sh -s claude-elm rm busy         # take it out again
+```
+
+`SBX=claude-elm` saves typing `-s`. Inside the sandbox, `config` is the
+profile used without `-p`, and the one `make testbasic` needs, so make it the
+test portal. Give other portals their own name and an `allowed_commands` line.
+A recreated sandbox starts without them: run it again.
 
 ## API speed test
 
