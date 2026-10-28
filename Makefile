@@ -566,6 +566,7 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: --info and --help need no credentials ; h=$$(mktemp -d) && HOME=$$h $(testbin) AlertList --info | grep -q '^GET ' && HOME=$$h $(testbin) AlertList --help | grep -q 'Usage:' ; rc=$$? ; rm -rf $$h ; exit $$rc
 	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
 	@echo testing: -F field not in the swagger is refused, with a suggestion ; $(testbin) AlertList -F sevrity:4 2>&1 | grep -q "no field 'sevrity' in AlertList (did you mean severity?"
+	@echo testing: -F refuses a mistyped operator ; $(testbin) DeviceList -F 'displayName:~x' 2>&1 | grep -q "':~' in 'displayName:~x' is not an operator"
 	@echo testing: -F refuses a relative time with an unknown unit ; $(testbin) AlertList -F 'startEpoch>:now-1y' 2>&1 | grep -q 'is not a relative time'
 	@echo testing: -F refuses now after : without a period ; $(testbin) AlertList -F 'startEpoch:now' 2>&1 | grep -q 'matches one second'
 	@echo testing: -F refuses a date that does not exist ; $(testbin) AlertList -F 'startEpoch:2026-02-30' 2>&1 | grep -q "'2026-02-30' is not a date"

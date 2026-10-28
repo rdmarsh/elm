@@ -874,6 +874,15 @@ def validate_filter(ctx, param, filters, fields=(), ints=()):
             logging.debug(r'filter (rem \,): %s', filter)
             try:
                 field, operator, value = re.split(r'(>\:|<\:|>|<|\:|\!~|\!\:|~)', filter, 1)
+                #a value starting with an operator character is a mistyped
+                #operator: 'displayName:~luna' splits as ':' and '~luna', so LM
+                #looks for the literal '~luna' and matches nothing, with no
+                #error. A quoted value ('displayName:"~luna"') is taken as meant.
+                if value[:1] in ('~', ':', '!', '<', '>', '='):
+                    raise click.BadParameter(
+                        f"{operator + value[:1]!r} in {filter!r} is not an operator "
+                        "(expected FIELD[>:,<:,>,<,!:,:,~,!~]VALUE: ~ alone is contains, : is equals); "
+                        f"to match a value that starts with {value[:1]!r}, quote it: {field}{operator}\"{value}\"")
                 #LM's own syntax quotes the value (displayName:"luna"), and its docs
                 #show it that way. elm adds the quotes itself, so take a quoted value
                 #as that: kept, the quotes were sent escaped and matched nothing.
