@@ -714,7 +714,7 @@ def relative_period(value):
 def date_period(value):
     """A local date as (start, end) epoch seconds, end being the next period's start.
 
-    2026-07 is the month, 2026-07-14 the day, 2026-07-14T09:30 the minute.
+    2026-07 is the month (a bare year, 2026, is in time_clauses), 2026-07-14 the day, 2026-07-14T09:30 the minute.
     """
     import datetime
     year, month, day, hour, minute, second = (int(g) if g else None for g in DATE.fullmatch(value).groups())
@@ -739,8 +739,9 @@ def time_clauses(field, operator, value, ints):
     last month. After : a period is the whole of it, two clauses.
     """
     is_now = value.startswith('now')
-    if not is_now and not DATE.fullmatch(value):
-        return None
+    is_year = re.fullmatch(r'\d{4}', value) and TIME_NAME.search(field.split('.')[0])
+    if not is_now and not is_year and not DATE.fullmatch(value):
+        return None     # (a bare year only on a time field: id:2026 is a number)
     if operator not in COMPARE and operator != ':':
         return None
     if ints and field.split('.')[0] not in ints:
@@ -749,7 +750,12 @@ def time_clauses(field, operator, value, ints):
         raise click.BadParameter(
             f"{field}:{value} matches one second: use >: or <: with it, or round it to a "
             f"period ({field}:now/d is today)")
-    start, end = relative_period(value) if is_now else date_period(value)
+    if is_now:
+        start, end = relative_period(value)
+    elif is_year:
+        start, end = local_epoch(int(value), 1, 1), local_epoch(int(value) + 1, 1, 1)
+    else:
+        start, end = date_period(value)
     if start == end:
         return [(operator, start)]
     if operator == ':':
@@ -780,7 +786,7 @@ def time_in_ms(elm, flags, resourcePath, creds):
 # ends like a time (startEpoch, createdOn, upTime...) and its value is a plausible
 # time, seconds or milliseconds, 2001-2096; so upTime (seconds since start) and
 # 0 ("never") stay numbers.
-TIME_NAME = re.compile(r'(Epoch|On|Time|DateTime|Timestamp|At)$')
+TIME_NAME = re.compile(r'(Epoch|On|(?<!up)Time|Timestamp|At)$')     # upTime is a duration
 
 
 def localtime(items):

@@ -75,7 +75,7 @@ literal comma with `\,`.
   (`-F 'build<37000' -S build`) and nested fields (`-F apiTokens.status:2`).
 - **Time windows: never type an epoch.** Values like `now-1h`, `now+7d`
   (`s m h d w M`), periods `now/d`, `now-1M/M` (that day, month; `/w` week) and
-  dates `2026-07`, `2026-07-14`. After `:` a period is all of it:
+  dates `2026`, `2026-07`, `2026-07-14`. After `:` a period is all of it:
   `startEpoch:now-1M/M` is last month, `startEpoch:2026-07` July. `>:` and `<`
   use a period's start, `>` and `<:` its end. elm does it in local time, in ms
   where a field holds ms. `--info` lists a command's time fields; `-t` shows

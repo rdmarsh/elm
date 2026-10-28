@@ -829,7 +829,7 @@ With "now" at Wed 28 Oct 2026 14:30:
 | `startDateTime<:now+7d` | `<:` 4 Nov 14:30 |
 | `startEpoch:now/d` | `>:` 28 Oct 00:00 and `<` 29 Oct 00:00 (today) |
 | `startEpoch:now-1M/M` | `>:` 1 Sep and `<` 1 Oct (last month; `/w` is a week) |
-| `startEpoch:2026-07` | `>:` 1 Jul and `<` 1 Aug (also `2026-07-14`, `2026-07-14T09:30`) |
+| `startEpoch:2026-07` | `>:` 1 Jul and `<` 1 Aug (also `2026`, `2026-07-14`, `2026-07-14T09:30`) |
 | `startEpoch>:now-1M/M` | `>:` 1 Sep (from the start of the period) |
 | `startEpoch<:now-1M/M` | `<` 1 Oct (up to its end) |
 

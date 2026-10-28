@@ -178,18 +178,34 @@ day, week (Monday to Sunday) or month it falls in.
 | `startEpoch:now/M` | `>:` Thu 1 Oct 00:00 and `<` Sun 1 Nov 00:00 | this month |
 | `startEpoch:now-1M/M` | `>:` Tue 1 Sep 00:00 and `<` Thu 1 Oct 00:00 | last month |
 
-**A date is a period too:** `YYYY-MM`, `YYYY-MM-DD`, or with a time
-`YYYY-MM-DDTHH:MM`. No month names.
+**A date is a period too:** `YYYY`, `YYYY-MM`, `YYYY-MM-DD`, or with a time
+`YYYY-MM-DDTHH:MM`. No month names. A bare year counts only on a time field,
+so `id:2026` is still the number.
 
 | You write | elm sends | Which is |
 |---|---|---|
+| `startEpoch:2026` | `>:` Thu 1 Jan 2026 00:00 and `<` Fri 1 Jan 2027 00:00 | 2026 |
 | `startEpoch:2026-07` | `>:` Wed 1 Jul 00:00 and `<` Sat 1 Aug 00:00 | July |
 | `startEpoch:2026-07-14` | `>:` Tue 14 Jul 00:00 and `<` Wed 15 Jul 00:00 | 14 July |
 | `startEpoch:2026-07-14T09:30` | `>:` 09:30 and `<` 09:31 | that minute |
 
 **Round down or round up? The operator decides.** A period has a start and an
 end (the start of the next one). `:` means the whole period. With a comparison,
-elm picks the end that keeps the meaning of the words:
+elm picks the end that keeps the meaning of the words. For `now-1M/M`,
+September:
+
+```
+                         August    |        September         |  October
+                                   |##########################|
+                              1 Sep 00:00                1 Oct 00:00
+                                 start                        end
+
+  startEpoch:now-1M/M              |<------ all of it ------->|
+  startEpoch>:now-1M/M  (from)     |------------------------------------->
+  startEpoch<now-1M/M   (before) <-|
+  startEpoch>now-1M/M   (after)                               |---------->
+  startEpoch<:now-1M/M  (up to)  <----------------------------|
+```
 
 | You write | Means | elm sends |
 |---|---|---|
