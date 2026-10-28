@@ -306,6 +306,15 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         step = {"type": "step", "command": shown, "result": "failed"}
         return f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step
 
+    unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line]
+    if unknown:
+        # Refused, not warned: LM sent back no such field. A small model read
+        # past the warning and told the reader the data was missing (qwen3-8b,
+        # 2026-10-28); a refusal makes it ask again with a real name.
+        step = {"type": "step", "command": shown, "result": "failed"}
+        return (f"Refused, nothing saved: {command}: {'; '.join(u.split('Warning: ', 1)[1] for u in unknown)}. "
+                f"Ask again with real field names (describe_command {command} lists them).", step)
+
     if total:
         value = proc.stdout.strip()
         step = {"type": "step", "command": shown, "result": f"total {value}"}
@@ -342,8 +351,8 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     if result["may_have_more"]:
         result["note"] = f"Hit the {limit}-row page limit; fetch the next page with offset={offset + limit}."
     if stderr:
-        # e.g. "unknown field: uptime" -- the query needs fixing, and without this
-        # an empty column looks like missing data rather than a wrong field name.
+        # e.g. "results truncated" -- the query needs fixing (an unknown field is
+        # refused above), and without this a gap looks like missing data.
         result["elm_warnings"] = truncate(stderr, 500)
     if removed:
         result["secrets_removed"] = f"{removed} secret-bearing or personal values were removed; request specific fields to avoid them."

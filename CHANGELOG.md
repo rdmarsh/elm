@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Samara's Think harder button names the model it asks ("Think harder · sonnet"), and **Ultrathink** is always the ladder's top step, however many models `SAMARA_MODEL` lists. With four, the second and third steps both read Ultrathink, and the fourth printed "undefined" above its answer.
+- Samara's footer puts the portal and profile on one line and the model on the next.
 - Samara's settings are `SAMARA_*` (`SAMARA_MODEL`, `SAMARA_EFFORT`, `SAMARA_MAX_STEPS`, `SAMARA_ALLOW_UNRESTRICTED`, `SAMARA_KEYCHAIN_ITEM`, ...). The `ELM_ASK_*` names still work; the `SAMARA_` one wins. Rebuild the image (`samara/run.sh --build -y`).
 - Samara's empty question box suggests "what alerts started in the last hour?" instead of "which devices are in downtime right now?", which read almost the same as the "Which devices are down?" button.
 - After Think harder or Ultrathink, Samara's follow-up questions stay on that model until Start over: they are usually about the same problem, and dropping back would leave the cheap model building on the dearer one's work. The question box says so ("Follow-ups keep thinking harder. Start over for quick answers."), and each answer shows its cost.
@@ -33,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- An unknown `-f` field's warning suggests the real one, as `-F` already did: `unknown fields: lastCheckTime (did you mean lastDataTime?), status (did you mean hostStatus?)`, or a field the name is part of (`uptime` -> `upTimeInSeconds`). Samara's `run_elm` now refuses such a query instead of passing the warning on: a local 8B model read past it and told the reader the data was missing.
 - Samara's copyable script printed a tool call the model got wrong as a command (`run_elm {}`, seen from a local 8B model calling `run_elm` with no arguments). It is now left out with a note, as a failed elm query already was.
 - Samara on a small local model couldn't find "Luna": it filtered on `name`, which is the hostname (`luna.lan`). The knowledge base now says to look devices up by `displayName` (case doesn't matter, `~` for part of it).
 - A refused request (401, 403, ...) prints what the server said, as `Response: ...`. A 403 used to say only "You do not have permission", even when it came from a proxy or firewall on the way ("Approval required for HOST"), which sent people checking the token's role.

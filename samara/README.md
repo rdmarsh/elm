@@ -23,7 +23,9 @@ model wrote it, after reading portal data that anyone with edit rights can set.
 
 Under each answer, **Tell me more** asks the same model for the analysis left
 out -- patterns, likely causes, what to check next -- and adds it to the
-answer; **Think harder** asks the question again on a more capable model.
+answer; **Think harder** asks the question again on a more capable model, and
+names it ("Think harder · sonnet"). The top step of the ladder is **Ultrathink**
+("Ultrathink · opus"), however many models `SAMARA_MODEL` lists.
 While it works, **Ask** becomes **Stop**; a stopped question has **Keep going**
 and a failed one **Try again**, and **Start over** clears the conversation.
 

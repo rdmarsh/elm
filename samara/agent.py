@@ -118,9 +118,11 @@ def ladder(client):
 
 
 def pick_model(client, harder=0):
-    """(model id, whether a harder step is left, where it sends data if somewhere new, else None).
+    """(model id, the next step or None, where that step sends data if somewhere new, else None).
 
-    The last lets the page say before Think harder that it would send the
+    The next step is {"model": its name as SAMARA_MODEL gives it, "top": whether
+    it is the last}, for the button's label (Think harder, or Ultrathink at the
+    top). Where lets the page say before Think harder that it would send the
     question and its portal data somewhere this step did not.
     """
     if is_claude(MODELS[0]) and len(MODELS) == 1 and not has_claude_key():
@@ -131,9 +133,10 @@ def pick_model(client, harder=0):
         raise NoClaudeKey(steps[i])
     model = newest(client, steps[i]) if steps[i] in LINES else steps[i]
     if i + 1 == len(steps):
-        return model, False, None
+        return model, None, None
+    nxt = {"model": steps[i + 1], "top": i + 2 == len(steps)}
     off = where(steps[i + 1])
-    return model, True, off if off != where(steps[i]) else None
+    return model, nxt, off if off != where(steps[i]) else None
 
 
 class NoClaudeKey(Exception):
@@ -299,7 +302,7 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
     if detail:
         if conv.model is None:
             return emit({"type": "error", "text": "Nothing to add detail to: ask the question again."})
-        question, model, more, off = DETAIL_REQUEST, conv.model, False, None
+        question, model, nxt, off = DETAIL_REQUEST, conv.model, None, None
     elif harder:
         if conv.question is None:
             return emit({"type": "error", "text": "Nothing to try harder on: ask the question again."})
@@ -308,9 +311,10 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
         conv.level = harder
     if not detail:
         conv.question, conv.asked_at = question, len(conv.messages)
-        model, more, off = pick_model(client, conv.level)
+        model, nxt, off = pick_model(client, conv.level)
         conv.model = model
-    emit({"type": "model", "id": model, "harder": harder, "level": conv.level, "more": more, "off": off})
+    emit({"type": "model", "id": model, "harder": harder, "level": conv.level,
+          "more": nxt is not None, "next": nxt, "off": off})
     start = len(conv.messages)
     try:
         _answer(client, conv, question, model, emit, where, start)

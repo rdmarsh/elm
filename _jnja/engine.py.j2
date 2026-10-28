@@ -300,7 +300,7 @@ def report(elm, flags, obj, url, auth):
         items = project(flags, obj)
         shown = localtime(items) if elm.localtime else items
         output(explode(shown, elm.explode), elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
-        warn(flags, obj, items)
+        warn(flags, obj, items, known=elm.filter_fields)
 
 
 def requested(flags):
@@ -413,10 +413,11 @@ def paths(value, prefix=''):
     return found
 
 
-def warn(flags, obj, items, profile=None):
+def warn(flags, obj, items, profile=None, known=()):
     """Warn about truncated results and requested fields that did not come back.
 
-    Returns True if there were more rows than were fetched.
+    known is the command's documented fields (FILTER_FIELDS), for a "did you
+    mean". Returns True if there were more rows than were fetched.
     """
     label = f'{profile}: ' if profile else ''
     truncated = False
@@ -445,8 +446,15 @@ def warn(flags, obj, items, profile=None):
             returned = paths(items)
         missing = set(names) - returned
         if missing:
+            import difflib
             noun = 'field' if len(missing) == 1 else 'fields'
-            click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(sorted(missing))),
+            def hint(name):
+                top = name.split('.')[0]
+                #a near spelling, else a field it is part of (uptime -> upTimeInSeconds)
+                close = (difflib.get_close_matches(top, known, n=1)
+                         or sorted((k for k in known if top.lower() in k.lower()), key=len)[:1])
+                return f'{name} (did you mean {close[0]}?)' if close else name
+            click.secho(label + 'Warning: unknown {}: {}'.format(noun, ', '.join(hint(m) for m in sorted(missing))),
                         fg='yellow', err=True)
     return truncated
 
@@ -470,7 +478,7 @@ def rows(elm, flags, obj, profile):
     elif not any(items):
         click.secho(f'{profile}: Error: no valid fields selected', fg='red', err=True)
         return [], False
-    truncated = warn(flags, obj, items, profile)
+    truncated = warn(flags, obj, items, profile, elm.filter_fields)
     shown = localtime(items) if elm.localtime else items
     return explode(shown, elm.explode, profile), truncated
 

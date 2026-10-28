@@ -103,6 +103,7 @@ def {{ command }}(elm, **kwargs):
     """
     elm.command = '{{ command }}'
     elm.path = '{{ path }}'
+    elm.filter_fields = FILTER_FIELDS   # for "did you mean" on an unknown -f field
     logging.debug('elm.command: %s', elm.command)
     logging.debug('elm.path: %s', elm.path)
     logging.debug('kwargs: %s', kwargs)
