@@ -36,6 +36,7 @@ Portal reports and backups
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Group paths](#group-paths) — `tools/elm-group-paths.sh`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
+- [Every row, past 10,000](#every-row-past-10000) — `tools/elm-page.py`
 
 Profiles and tokens
 - [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
@@ -464,6 +465,24 @@ tools/elm-group-paths.sh -p preprod -p prod -d out/
 
 With several profiles and no `-d`, each line is prefixed with the profile name
 and a tab.
+
+## Every row, past 10,000
+
+`tools/elm-page.py` fetches every row of a query: it pages 1,000 at a time until
+a page comes back short, and prints one JSON record per line, each id once.
+
+LM stops paging at 10,000 rows with no error. With `--by hour|day|month`, it
+cuts `--from` to `--to` into pieces, fetches each on its own (`-F
+startEpoch>:START,startEpoch<END`; `--field` for another time field), and
+warns on stderr about any piece that reached 9,000 rows: that one was probably
+cut short, so use a smaller `--by`. A busy portal can have 7,000 cleared alerts
+in an hour.
+
+```shell
+tools/elm-page.py DeviceList -f id,displayName > devices.jsonl
+tools/elm-page.py -p busy --by hour --from 2026-10-27 --to 2026-10-28 \
+    AlertList -F cleared:true -f id,startEpoch | wc -l
+```
 
 ## Host SDTs
 
