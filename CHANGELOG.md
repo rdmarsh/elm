@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `-F` takes a value in LM's own quotes, as its docs write it: `displayName:"luna"` matches luna. elm quotes values itself, so the quotes were sent escaped and matched nothing, with no error (seen from a local 8B model, which then told the reader luna might not be a device).
 - An unknown `-f` field's warning suggests the real one, as `-F` already did: `unknown fields: lastCheckTime (did you mean lastDataTime?), status (did you mean hostStatus?)`, or a field the name is part of (`uptime` -> `upTimeInSeconds`). Samara's `run_elm` now refuses such a query instead of passing the warning on: a local 8B model read past it and told the reader the data was missing.
 - Samara's copyable script printed a tool call the model got wrong as a command (`run_elm {}`, seen from a local 8B model calling `run_elm` with no arguments). It is now left out with a note, as a failed elm query already was.
 - Samara on a small local model couldn't find "Luna": it filtered on `name`, which is the hostname (`luna.lan`). The knowledge base now says to look devices up by `displayName` (case doesn't matter, `~` for part of it).

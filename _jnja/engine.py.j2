@@ -845,6 +845,11 @@ def validate_filter(ctx, param, filters, fields=(), ints=()):
             logging.debug(r'filter (rem \,): %s', filter)
             try:
                 field, operator, value = re.split(r'(>\:|<\:|>|<|\:|\!~|\!\:|~)', filter, 1)
+                #LM's own syntax quotes the value (displayName:"luna"), and its docs
+                #show it that way. elm adds the quotes itself, so take a quoted value
+                #as that: kept, the quotes were sent escaped and matched nothing.
+                if len(value) >= 2 and value[0] == value[-1] == '"':
+                    value = value[1:-1]
 
                 logging.debug('field: %s', field)
                 logging.debug('operator: %s', operator)
