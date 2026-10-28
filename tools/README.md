@@ -60,7 +60,7 @@ tools/sbx-creds.sh -s claude-elm ls              # what the sandbox has
 tools/sbx-creds.sh -s claude-elm rm busy         # take it out again
 ```
 
-`SBX=claude-elm` saves typing `-s`. Inside the sandbox, `config` is the
+`export SBX=claude-elm` (in `~/.zshrc`, say) saves typing `-s`. Inside the sandbox, `config` is the
 profile used without `-p`, and the one `make testbasic` needs, so make it the
 test portal. Give other portals their own name and an `allowed_commands` line.
 A recreated sandbox starts without them: run it again.

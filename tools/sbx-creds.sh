@@ -14,6 +14,10 @@
 #   -s SANDBOX   the sandbox name (sbx ls); defaults to $SBX
 #   -h, --help   show this help
 #
+# To skip -s, set SBX once, for example in ~/.zshrc:
+#   export SBX=claude-elm
+#   sbx-creds.sh cp busy
+#
 # Examples:
 #   sbx-creds.sh -s claude-elm cp config       # the test portal, as the default
 #   sbx-creds.sh -s claude-elm cp busy         # another portal, under its own name
