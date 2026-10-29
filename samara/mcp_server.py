@@ -78,10 +78,14 @@ def call_tool(session, name, args):
     except Exception as exc:  # errors go back to the model so it can correct itself
         return str(exc), True
     # One event, or a list from a tool that runs several queries (a recipe).
-    tables = [e for e in (event if isinstance(event, list) else [event]) if e and e["type"] == "table"]
+    events = [e for e in (event if isinstance(event, list) else [event]) if e]
+    tables = [e for e in events if e["type"] == "table"]
     if tables:
         table = "Put this table in your reply as it is:\n\n" + markdown_table(tables[0])
         text = table if name == "show_table" else f"{text}\n\n{table}"
+    for e in events:
+        if e["type"] == "worked":   # what a recipe did, for How I worked this out
+            text += "\n\nHow it was worked out:\n" + "\n".join(f"- {line}" for line in e["lines"])
     return text, False
 
 

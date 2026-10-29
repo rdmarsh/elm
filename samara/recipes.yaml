@@ -7,7 +7,7 @@
 # --- One device -------------------------------------------------------------
 
 - name: device_health
-  asks: ["is DEVICE okay?", "what's wrong with DEVICE?", "what alerts are open on DEVICE?", "is DEVICE down and since when?", "why didn't DEVICE alert?"]
+  asks: ["is DEVICE okay?", "what's wrong with DEVICE?", "what alerts are open on DEVICE?", "how many open alerts does DEVICE have, by severity?", "what's the latest alert on DEVICE?", "is DEVICE down and since when?", "why didn't DEVICE alert?"]
   params: [device]
   steps:
     - as: alerts
@@ -113,6 +113,36 @@
       + "; it monitors \($c.numberOfHosts | n("device"))"
       + (if $c.backupAgentId > 0 then " and fails over to collector \($c.backupAgentId)" else " and has no failover collector" end)
       + "." end
+
+- name: device_properties
+  asks: ["what properties does DEVICE have?", "what custom properties does DEVICE have?", "what OS is DEVICE running?", "what is DEVICE's property X?"]
+  params: [device]
+  steps:
+    - as: props
+      run: DeviceById
+      params: {id: "{device[id]}"}
+      fields: [customProperties, inheritedProperties, systemProperties, autoProperties]
+      says: fetched its properties, its own and those it inherits from its groups
+  table_only: true
+  # Counts only: property values are free text anyone with access can set, and
+  # a small model repeated a planted "decommissioned" note as fact (qwen3-8b,
+  # 2026-10-29). The reader gets the values in the table; the model never does.
+  summary: |
+    $props[0] as $p
+    | "\($device[0].displayName) has \($p.customProperties | length) custom properties"
+    + " set on the device itself, \($p.inheritedProperties | length) inherited from its groups, "
+    + "\($p.systemProperties | length) system and \($p.autoProperties | length) discovered (auto) properties. "
+    + (if any($p.systemProperties[]; .name == "system.sysinfo" and .value != "")
+       then "Its operating system, as the device reports it, is the system.sysinfo row. " else "" end)
+    + "All of them are in the table: read the values there."
+  table:
+    title: Properties of {device[displayName]}
+    columns: [Property, Value, Set on]
+    rows: |
+      $props[0] as $p
+      | [["customProperties", "this device"], ["inheritedProperties", "a group it is in"],
+         ["systemProperties", "system"], ["autoProperties", "discovered"]]
+      | map(.[1] as $on | $p[.[0]] | sort_by(.name) | map({Property: .name, Value: .value, "Set on": $on})) | add
 
 - name: find_device
   asks: ["is DEVICE monitored?", "do we monitor DEVICE?", "find DEVICE", "which device has IP or hostname X?"]

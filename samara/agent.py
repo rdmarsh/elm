@@ -4,6 +4,7 @@ import ipaddress
 import json
 import os
 import random
+import re
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -223,6 +224,17 @@ class Conversation:
         self.last_used = time.time()
 
 
+# The heading the page folds into the steps (index.html splitWorked).
+WORKED = re.compile(r"^(?:#{1,4}\s+|\*\*)?How I worked (?:this |it )?out\b.*$", re.I | re.M)
+
+
+def with_worked(answer, lines):
+    """The answer with its How I worked this out replaced by these lines."""
+    m = WORKED.search(answer)
+    main = answer[:m.start()].rstrip() if m else answer.rstrip()
+    return main + "\n\n**How I worked this out**\n\n" + "\n".join(f"- {line}" for line in lines)
+
+
 def call_tool(conv, block):
     """Run one tool_use block; return (tool_result, ui_event_or_None)."""
     name, args, use_id = (openai_api.block(block, k) for k in ("name", "input", "id"))
@@ -357,6 +369,10 @@ def _answer(client, conv, question, model, emit, where, start):
     def spent():
         emit({"type": "usage", **spend(model, usage)})
 
+    # A recipe says what it did; used is every tool this turn called. Only a
+    # turn that used nothing but recipes gets their lines in place of the
+    # model's own How I worked this out, which listed queries that never ran.
+    worked, used = [], set()
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -378,6 +394,8 @@ def _answer(client, conv, question, model, emit, where, start):
 
         if not tool_uses:
             answer = "\n\n".join(texts) or "(no answer)"
+            if worked and used <= {"recipe"}:
+                answer = with_worked(answer, worked)
             if response.stop_reason == "max_tokens":
                 answer += "\n\n_(Answer was cut off at the length limit.)_"
             spent()
@@ -393,9 +411,14 @@ def _answer(client, conv, question, model, emit, where, start):
             emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
             result, events = call_tool(conv, block)
             results.append(result)
+            used.add(openai_api.block(block, "name"))
             # One event, or a list from a tool that runs several queries (a recipe).
             for event in events if isinstance(events, list) else [events] if events else []:
-                emit(event)
+                if event["type"] == "worked":
+                    worked += event["lines"]
+                    result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
+                else:
+                    emit(event)
         conv.messages.append({"role": "user", "content": results})
 
     del conv.messages[start:]
