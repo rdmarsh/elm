@@ -230,18 +230,29 @@ WORKED = re.compile(r"^(?:#{1,4}\s+|\*\*)?How I worked (?:this |it )?out\b.*$", 
 
 # Lines a small model copied from tool results into its answer.
 ECHOES = ("Samara puts the table", "add nothing else", "If the question asks something this does not cover",
-          "The values are for the reader")
+          "The values are for the reader", "Answer with this, keeping its facts", "This recipe answers only")
+
+
+def no_echoes(answer):
+    """The answer without instructions copied from a tool result.
+
+    Any answer, table or not: a small model handed "Answer with this, keeping
+    its facts and numbers exactly: ..." to the reader whenever it made another
+    call besides the recipe (qwen3-8b, 2026-10-30, 4 of 194 answers).
+    """
+    kept = [line for line in answer.splitlines() if not any(e in line for e in ECHOES)]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
 
 
 def tidy(answer):
-    """The answer without tables typed into it and without copied instructions.
+    """The answer without tables typed into it.
 
     Called when Samara has already put a real table on the page: the model's
     own copy was at best a duplicate, and once a made-up one (qwen3-8b,
     2026-10-29: invented SDT ids, dates and who set them under a right summary).
     """
     kept = [line for line in answer.splitlines()
-            if not line.lstrip().startswith("|") and not any(e in line for e in ECHOES)
+            if not line.lstrip().startswith("|")
             and not re.fullmatch(r"\s*</?table>\s*", line) and not re.search(r"\$d\d+ \(", line)]
     return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
 
@@ -283,15 +294,36 @@ def with_worked(answer, lines):
     return main + "\n\n**How I worked this out**\n\n" + "\n".join(f"- {line}" for line in lines)
 
 
+def with_covers(answer, covered):
+    """The answer with what its recipes answer said under it, above How I worked this out.
+
+    A recipe near the question answers its own question, not the one asked:
+    "this week" got "open now", a group got the whole portal, "CPU on DEVICE"
+    got its properties, with nothing to say so (qwen3-8b, 2026-10-30, about
+    40 of 194 answers). Saying what was answered lets the reader see it.
+    """
+    line = "_What this answers: " + "; ".join(covered) + "._"
+    m = WORKED.search(answer)
+    at = m.start() if m else len(answer)
+    return (answer[:at].rstrip() + "\n\n" + line + "\n\n" + answer[at:]).strip()
+
+
+# What the recipes cover, for the note on answers they did not give. Change
+# it with recipes.yaml.
+BEST_AT = "what is happening now: devices, groups, collectors, open alerts, downtime and website checks"
+
+
 def unchecked(partly, more):
     """The note on an answer the model worked out with its own queries.
 
     Recipes are checked in advance; run_elm queries are the model's own, and
     nearly every confident wrong answer in testing came from them (qwen3-8b,
-    2026-10-29). The reader should know which kind they are reading.
+    2026-10-29). The reader should know which kind they are reading, and what
+    to ask instead for a checked answer.
     """
-    note = ("_Part of this answer is" if partly else "_This answer is") + " not from a checked recipe"
-    return note + (": if it matters, use Think harder, which asks a bigger model._" if more else "._")
+    note = (f"_I'm best at {BEST_AT}. " + ("I worked part of this out myself" if partly
+                                           else "I worked this one out myself") + ", so check it")
+    return note + (": Think harder asks a bigger model._" if more else "._")
 
 
 def call_tool(conv, block):
@@ -433,6 +465,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     # model's own How I worked this out, which listed queries that never ran.
     worked, used, tabled = [], set(), False   # tabled: a real table is on the page
     summaries, recipe_calls = [], 0   # what each recipe that ran said, and how many were asked for
+    covered = []   # what each recipe that ran answers, for the line under the answer
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -453,7 +486,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         tool_uses = [b for b in response.content if kind(b) == "tool_use"]
 
         if not tool_uses:
-            answer = no_commands(CALL_TEXT.sub("", "\n\n".join(texts))) or "(no answer)"
+            answer = (no_echoes(no_commands(CALL_TEXT.sub("", "\n\n".join(texts))))
+                      or "\n\n".join(dict.fromkeys(summaries)) or "(no answer)")
             if tabled:
                 answer = tidy(answer)
             if worked and used <= {"recipe"}:
@@ -464,6 +498,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     # (qwen3-8b, 2026-10-29); with no other data it had nothing to add.
                     answer = "\n\n".join(dict.fromkeys(summaries))
                 answer = with_worked(answer, worked)
+            if covered:
+                answer = with_covers(answer, covered)
             if "run_elm" in used:
                 # Above How I worked this out, which the page folds away.
                 m = WORKED.search(answer)
@@ -491,6 +527,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 if event["type"] == "worked":
                     worked += [line for line in event["lines"] if line not in worked]   # a recipe run twice says it once
                     summaries.append(event["summary"])
+                    if event.get("covers") and event["covers"] not in covered:
+                        covered.append(event["covers"])
                     result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
                 else:
                     tabled = tabled or event["type"] == "table"

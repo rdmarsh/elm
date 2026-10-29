@@ -11,6 +11,9 @@ elm (see samara/questions.md); the model running Samara cannot change them.
 
 recipes.yaml, one entry per recipe:
   name, asks    the recipe's name and the questions it answers
+  covers        what it answers, in a few words, shown under the answer: a
+                near-miss recipe answering a different question ("this week"
+                answered as "now") then says so
   params        lookups, run first: device or group, found by name
   many          a lookup that may match several (find_device): no "which one?"
   steps         elm queries, each saved as `$<as>` for the jq below. Filters
@@ -68,11 +71,13 @@ LOOKUPS = {
     "device": ("DeviceList", ['displayName:"{}"', 'displayName~"{}"', 'name~"{}"'],
                ["id", "displayName", "name", "hostStatus", "sdtStatus", "alertDisableStatus",
                 "currentCollectorId", "collectorDescription", "deviceType"]),
-    "group": ("DeviceGroupList", ['name:"{}"', 'fullPath:"{}"', 'name~"{}"'],
+    # A path ("/Customers/acme") is matched as fullPath, which has no leading
+    # slash; ~ ignores case, for "/customers/ACME/".
+    "group": ("DeviceGroupList", ['name:"{}"', 'fullPath:"{}"', 'fullPath~"{}"', 'name~"{}"'],
               ["id", "name", "fullPath", "numOfHosts", "groupStatus"]),
     # Collector names are usually DOMAIN\HOST or an FQDN, so a bare host name
-    # needs the contains filters.
-    "collector": ("CollectorList", ['description:"{}"', 'hostname:"{}"', 'description~"{}"', 'hostname~"{}"'],
+    # needs the contains filters. A number is its id ("collector 281").
+    "collector": ("CollectorList", ['id:{}', 'description:"{}"', 'hostname:"{}"', 'description~"{}"', 'hostname~"{}"'],
                   ["id", "description", "hostname", "isDown", "inSDT", "collectorGroupName", "collectorDeviceId",
                    "numberOfHosts", "backupAgentId", "build", "upTime", "watchdogUpdatedOn"]),
 }
@@ -147,12 +152,26 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
             if not value or '"' in value:
                 raise ValueError(f"Recipe {recipe} needs {param}: the name as the person wrote it, without quotes.")
             command, filters, fields = LOOKUPS[param]
+            if param == "group":
+                value = value.strip("/")
+            if not value.isdigit():
+                filters = [f for f in filters if not f.startswith("id:")]
             for f in filters:
                 lines, _, _, shown = elm_tools.fetch(command, filter=f.format(value), fields=fields, size=20)
                 if lines:
                     break
             keep(param, lines, shown, f"{param} {value}", command)
             found = [json.loads(line) for line in lines]
+            if not found and param == "device":
+                # "What's alerting in Customers/acme?" was looked up as a device
+                # every time it lacked the word "group" (qwen3-8b, 2026-10-30).
+                command, filters, fields = LOOKUPS["group"]
+                for f in filters:
+                    groups = elm_tools.fetch(command, filter=f.format(value.strip("/")), fields=fields, size=20)[0]
+                    if groups:
+                        paths = ", ".join(json.loads(line)["fullPath"] for line in groups)
+                        return (f"No device has a name like {value!r}, but these groups do: {paths}. "
+                                f"Use a group recipe with group={value!r}."), events
             if not found:
                 return f"No {param} has a name like {value!r}. Say so; do not guess another {param}.", events
             if len(found) > 1 and not r.get("many"):
@@ -203,6 +222,9 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
     # are Samara's: a small model copied instructions about them into its
     # answers word for word, and listed queries that never ran.
     text = f"Answer with this, keeping its facts and numbers exactly:\n\n{summary}\n\n"
+    if r.get("covers"):
+        text += (f"This recipe answers only: {r['covers']}. If the question asked for more (another time, "
+                 f"place or measure), say what you could not check; add nothing else.\n\n")
     if r.get("table_only"):
         text += "The values are for the reader to read in the table, not for you: add nothing else."
     else:
@@ -217,7 +239,7 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
     worked = [f"Found the {p} by name." for p in r.get("params", [])]
     says = [step.get("says", step["as"]) for step in r.get("steps", []) if step["as"] not in skipped]
     worked += [line[:1].upper() + line[1:] + "." for line in says]
-    events.append({"type": "worked", "lines": worked, "summary": summary})
+    events.append({"type": "worked", "lines": worked, "summary": summary, "covers": r.get("covers")})
     return text, events
 
 
@@ -232,8 +254,8 @@ elm_tools.TOOLS.insert(0, {
         "properties": {
             "recipe": {"type": "string", "enum": list(RECIPES), "description": "The recipe's name"},
             "device": {"type": "string", "description": "For a device recipe: the device's name as the person wrote it"},
-            "group": {"type": "string", "description": "For a group recipe: the group's name as the person wrote it"},
-            "collector": {"type": "string", "description": "For a collector recipe: the collector's name as the person wrote it"},
+            "group": {"type": "string", "description": "For a group recipe: the group's name or path as the person wrote it"},
+            "collector": {"type": "string", "description": "For a collector recipe: the collector's name or number as the person wrote it"},
         },
         "required": ["recipe"],
     },

@@ -8,6 +8,7 @@
 
 - name: device_health
   asks: ["is DEVICE okay?", "what's wrong with DEVICE?", "what alerts are open on DEVICE?", "how many open alerts does DEVICE have, by severity?", "what's the latest alert on DEVICE?", "is DEVICE down and since when?", "why didn't DEVICE alert?"]
+  covers: "one device now: up or down, its open alerts, downtime and collector"
   params: [device]
   steps:
     - as: alerts
@@ -63,6 +64,7 @@
 
 - name: device_downtime
   asks: ["is any downtime scheduled for DEVICE?", "is DEVICE in maintenance?", "when is DEVICE's next SDT?"]
+  covers: "one device's downtime, now and scheduled"
   params: [device]
   steps:
     - as: sdts
@@ -94,6 +96,7 @@
 
 - name: device_collector
   asks: ["which collector monitors DEVICE?", "is DEVICE's collector okay?"]
+  covers: "which collector monitors one device, and whether it is up"
   params: [device]
   steps:
     - as: collector
@@ -116,6 +119,7 @@
 
 - name: device_properties
   asks: ["what properties does DEVICE have?", "what custom properties does DEVICE have?", "what OS is DEVICE running?", "what is DEVICE's property X?"]
+  covers: "how many properties one device has, and its OS (the values are in the table)"
   params: [device]
   steps:
     - as: props
@@ -157,6 +161,7 @@
 
 - name: device_memory
   asks: ["how much memory is DEVICE using?", "is DEVICE short of memory?", "what's DEVICE's memory usage?"]
+  covers: "one device's memory use over the last hour"
   params: [device]
   steps:
     - as: dss
@@ -217,6 +222,7 @@
 
 - name: find_device
   asks: ["is DEVICE monitored?", "do we monitor DEVICE?", "find DEVICE", "which device has IP or hostname X?"]
+  covers: "whether a device is monitored, and whether it is up"
   params: [device]
   many: true
   summary: |
@@ -235,6 +241,7 @@
 
 - name: portal_health
   asks: ["give me a health summary", "how is everything this morning?", "what needs attention first?", "is everything okay?"]
+  covers: "the whole portal now: collectors down, devices down, open alerts"
   steps:
     - as: collectors
       run: CollectorList
@@ -287,6 +294,7 @@
 
 - name: devices_down
   asks: ["which devices are down?", "what's offline?", "what's not responding?", "how many devices are dead, and since when?"]
+  covers: "devices down now, across the portal"
   steps:
     - as: down
       run: DeviceList
@@ -328,6 +336,7 @@
 
 - name: collectors_down
   asks: ["which collectors are down?", "are all our collectors up?", "how long have the collectors been down?"]
+  covers: "collectors down now"
   steps:
     - as: collectors
       run: CollectorList
@@ -355,6 +364,7 @@
 
 - name: collectors_out_of_date
   asks: ["which collectors are out of date?", "which collectors need upgrading?", "what versions are our collectors on?"]
+  covers: "collector versions now, against the newest release"
   steps:
     - as: collectors
       run: CollectorList
@@ -389,6 +399,7 @@
 
 - name: collectors_no_failover
   asks: ["which collectors have no failover?", "where are our single points of failure?", "which collectors have no backup?"]
+  covers: "collectors with no failover collector"
   steps:
     - as: collectors
       run: CollectorList
@@ -417,6 +428,7 @@
 
 - name: dead_devices_by_collector
   asks: ["is any collector carrying a lot of dead devices?", "which collectors have the most devices down?"]
+  covers: "devices down now, counted by collector"
   steps:
     - as: down
       run: DeviceList
@@ -452,6 +464,7 @@
 
 - name: open_alerts
   asks: ["how many alerts are open?", "how many errors are there?", "how many alerts right now?"]
+  covers: "open alerts now, across the portal, by severity"
   steps:
     - as: alerts
       run: AlertList
@@ -471,6 +484,7 @@
 
 - name: critical_alerts
   asks: ["what critical alerts are open?", "show me the critical alerts"]
+  covers: "open critical alerts now, across the portal"
   steps:
     - as: alerts
       run: AlertList
@@ -493,6 +507,7 @@
 
 - name: alerts_last_hour
   asks: ["what alerts started in the last hour?", "anything new in the last hour?"]
+  covers: "alerts that started in the last hour, open or cleared"
   steps:
     - as: alerts
       run: AlertList
@@ -514,6 +529,7 @@
 
 - name: alerts_last_day
   asks: ["what alerts started today?", "what alerts started in the last 24 hours?"]
+  covers: "alerts that started in the last 24 hours, open or cleared"
   steps:
     - as: alerts
       run: AlertList
@@ -526,6 +542,7 @@
 
 - name: top_alert_devices
   asks: ["which device has the most open alerts?", "what are the noisiest devices?"]
+  covers: "devices with the most open alerts now, across the portal"
   steps:
     - as: alerts
       run: AlertList
@@ -549,6 +566,7 @@
 
 - name: alerts_unacknowledged
   asks: ["which alerts have been open more than a day with no ack?", "what alerts is nobody looking at?", "what's the oldest open alert?"]
+  covers: "open alerts older than a day that nobody has acknowledged and no downtime covers"
   steps:
     - as: alerts
       run: AlertList
@@ -570,6 +588,7 @@
 
 - name: alert_types
   asks: ["what are the most common alerts?", "are there common issues across one type of device?", "what kind of problems do we have?", "is one problem hitting lots of devices?"]
+  covers: "open alerts now, grouped by what is alerting"
   steps:
     - as: alerts
       run: AlertList
@@ -596,6 +615,7 @@
 
 - name: certificates_expiring
   asks: ["which SSL certificates are close to expiry?", "are any certificates expiring?"]
+  covers: "open alerts on SSL certificates close to expiry"
   steps:
     - as: alerts
       run: AlertList
@@ -623,6 +643,7 @@
 
 - name: disks_filling
   asks: ["what disks are about to fill up?", "which filesystems are nearly full?", "is anything running out of disk space?"]
+  covers: "open alerts on disks past their space threshold"
   steps:
     - as: alerts
       run: AlertList
@@ -651,6 +672,7 @@
 
 - name: clocks_out_of_sync
   asks: ["are any clocks out of sync?", "any NTP or time problems?"]
+  covers: "open alerts on clocks out of sync"
   steps:
     - as: alerts
       run: AlertList
@@ -672,6 +694,7 @@
 
 - name: new_alerts
   asks: ["is anything worse than yesterday?", "what's new since yesterday?", "what started alerting today?"]
+  covers: "alerts that started in the last 24 hours (no comparison with earlier days)"
   steps:
     - as: alerts
       run: AlertList
@@ -698,6 +721,7 @@
 
 - name: noisiest_week
   asks: ["what's the noisiest alert or device this week?", "what alerted most in the last 7 days?", "what should we tune?"]
+  covers: "alerts that started in the last 7 days, counted by device and kind"
   steps:
     - as: alerts
       run: AlertList
@@ -724,6 +748,7 @@
 
 - name: long_downtime
   asks: ["which downtimes have no end date or last more than a week?", "is anything in downtime too long?"]
+  covers: "downtimes with no end or longer than a week"
   steps:
     - as: sdts
       run: SDTList
@@ -749,6 +774,7 @@
 
 - name: alerting_disabled
   asks: ["what devices have alerting disabled?", "which devices won't alert?"]
+  covers: "devices with alerting turned off, by themselves or a group"
   steps:
     - as: devices
       run: DeviceList
@@ -772,6 +798,7 @@
 
 - name: downtime
   asks: ["what's in scheduled downtime now?", "what downtime is scheduled this week?", "what's in maintenance?"]
+  covers: "scheduled downtime across the portal, now and coming"
   steps:
     - as: sdts
       run: SDTList
@@ -798,6 +825,7 @@
 
 - name: websites_failing
   asks: ["which website checks are failing?", "are any websites down?"]
+  covers: "website checks with open alerts now"
   steps:
     - as: sites
       run: WebsiteList
@@ -825,6 +853,7 @@
 
 - name: device_counts
   asks: ["how many devices do we monitor?", "how many devices are there?"]
+  covers: "how many objects are monitored, by kind and how many are down"
   steps:
     - as: devices
       run: DeviceList
@@ -848,6 +877,7 @@
 
 - name: group_health
   asks: ["how is GROUP doing?", "which devices in GROUP are down?", "any problems in GROUP?"]
+  covers: "one group now: its devices, how many are down, its open alerts"
   params: [group]
   steps:
     - as: subgroups
@@ -891,6 +921,7 @@
 
 - name: collector_health
   asks: ["is COLLECTOR healthy?", "is the COLLECTOR host itself okay?", "are there common issues on COLLECTOR?", "which devices on COLLECTOR are down?"]
+  covers: "one collector now: up or down, its devices and their alerts"
   params: [collector]
   steps:
     - as: host_alerts
