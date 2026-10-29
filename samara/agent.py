@@ -251,6 +251,31 @@ def tidy(answer):
 CALL_TEXT = re.compile(r"<function_call>.*?(</function_call>|\Z)", re.S)
 
 
+def no_commands(answer):
+    """The answer without elm commands for the reader to run.
+
+    The reader has no elm, and a small model made them up anyway, prompt rule
+    or not: `elm AlertList --acknowledge`, `elm recipe device_health` (qwen3-8b,
+    2026-10-29). The queries that really ran are under How I worked this out.
+    Drops each line or code block holding one, and the sentence ending in ":"
+    that only introduced it.
+    """
+    answer = re.sub(r"```[^\n]*\n\s*elm .*?```", "\x00", answer, flags=re.S)   # a block: one marker line
+    out = []
+    for line in answer.splitlines():
+        if "\x00" in line or re.search(r"`elm |^\s*elm ", line):
+            while out and not out[-1].strip():
+                out.pop()
+            if out and out[-1].rstrip().endswith(":"):
+                # "Read-only. To do it, run:" keeps "Read-only."
+                out[-1] = re.sub(r"(^|(?<=[.!?])\s)[^.!?]*:\s*$", "", out[-1]).rstrip()
+                if not out[-1]:
+                    out.pop()
+            continue
+        out.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
+
 def with_worked(answer, lines):
     """The answer with its How I worked this out replaced by these lines."""
     m = WORKED.search(answer)
@@ -427,7 +452,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         tool_uses = [b for b in response.content if kind(b) == "tool_use"]
 
         if not tool_uses:
-            answer = CALL_TEXT.sub("", "\n\n".join(texts)).strip() or "(no answer)"
+            answer = no_commands(CALL_TEXT.sub("", "\n\n".join(texts))) or "(no answer)"
             if tabled:
                 answer = tidy(answer)
             if worked and used <= {"recipe"}:

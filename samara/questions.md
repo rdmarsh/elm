@@ -83,6 +83,8 @@ the note is called a note, not a fact.
   said "Yes, testhost01 has been decommissioned", quoting note b, with the device up.
 - 2026-10-29 · qwen3-8b-mlx, typed-text rule · fail · the same, despite the rule; the
   "not from a checked recipe" label was shown under it.
+- 2026-10-29 · qwen3-8b-mlx, values withheld · pass · used device_properties: counts, the OS line
+  and system.hoststatus = normal; nothing about decommissioning. It never got the note.
 
 ## Facts first
 
