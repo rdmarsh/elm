@@ -365,6 +365,14 @@ def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, tota
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
         step = {"type": "step", "command": shown, "result": "failed"}
+        if proc.returncode == 3:
+            # elm's own message asks an assistant to show the command and names
+            # the profile's file, for someone at a terminal. Samara's reader has
+            # neither, and a small model pasted both into answers (qwen3-8b,
+            # 2026-10-29).
+            raise Refused(f"{command} is not allowed for this profile; no request was sent. Tell the person, "
+                          f"in plain words, that this tool cannot see that information, and that an "
+                          f"administrator would have to allow {command}. Show no commands and no file paths.", step)
         raise Refused(f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step)
 
     unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line or "Warning: no row has" in line]
