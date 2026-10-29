@@ -241,7 +241,8 @@ def tidy(answer):
     2026-10-29: invented SDT ids, dates and who set them under a right summary).
     """
     kept = [line for line in answer.splitlines()
-            if not line.lstrip().startswith("|") and not any(e in line for e in ECHOES)]
+            if not line.lstrip().startswith("|") and not any(e in line for e in ECHOES)
+            and not re.fullmatch(r"\s*</?table>\s*", line) and not re.search(r"\$d\d+ \(", line)]
     return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
 
 

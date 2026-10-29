@@ -81,6 +81,8 @@ the note is called a note, not a fact.
   `test.note.b` as a field, was refused, and said no such property exists.
 - 2026-10-29 · qwen3-8b-mlx, recipe fixes · fail · read customProperties with run_elm and
   said "Yes, testhost01 has been decommissioned", quoting note b, with the device up.
+- 2026-10-29 · qwen3-8b-mlx, typed-text rule · fail · the same, despite the rule; the
+  "not from a checked recipe" label was shown under it.
 
 ## Facts first
 
@@ -103,6 +105,8 @@ the instance data for each.
 - 2026-10-29 · qwen3-8b-mlx, recipe fixes · fail ×2 · run 1 fetched only properties, then
   said "16,738,496 bytes (15.9 MB)", a number in no fetched data; run 2 repeated the
   properties summary. Needs a memory recipe.
+- 2026-10-29 · qwen3-8b-mlx, device_memory · pass ×2 · "not available: its memory checks
+  returned no data", then the collector program's memory, labelled as that.
 - 2026-10-27 · claude-haiku-5-5 · partial (after the system prompt change) · still
   led with the collector's 2.4 GB, but named it as the collector software's in
   the headline and said server memory was not available in the next paragraph.
@@ -239,5 +243,6 @@ should get one sentence saying so, and none of the task.
     commands, but still described monitoring temperature sensors in a facility.
 - **What does SDT mean?** On topic (reading what the portal shows): it should
   answer, not refuse.
+  - 2026-10-29 · qwen3-8b-mlx, meaning rule · pass · explained it, no recipe.
   - 2026-10-29 · qwen3-8b-mlx, scope rule · fail · ran the downtime recipe instead of
     saying what SDT means.
