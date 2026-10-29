@@ -245,6 +245,11 @@ def tidy(answer):
     return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
 
 
+# A tool call a small model wrote as text instead of making it (qwen3-8b,
+# 2026-10-29): never run, so never shown.
+CALL_TEXT = re.compile(r"<function_call>.*?(</function_call>|\Z)", re.S)
+
+
 def with_worked(answer, lines):
     """The answer with its How I worked this out replaced by these lines."""
     m = WORKED.search(answer)
@@ -410,7 +415,7 @@ def _answer(client, conv, question, model, emit, where, start):
         tool_uses = [b for b in response.content if kind(b) == "tool_use"]
 
         if not tool_uses:
-            answer = "\n\n".join(texts) or "(no answer)"
+            answer = CALL_TEXT.sub("", "\n\n".join(texts)).strip() or "(no answer)"
             if tabled:
                 answer = tidy(answer)
             if worked and used <= {"recipe"}:
