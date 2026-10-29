@@ -432,6 +432,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     # turn that used nothing but recipes gets their lines in place of the
     # model's own How I worked this out, which listed queries that never ran.
     worked, used, tabled = [], set(), False   # tabled: a real table is on the page
+    summaries, recipe_calls = [], 0   # what each recipe that ran said, and how many were asked for
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -456,6 +457,12 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             if tabled:
                 answer = tidy(answer)
             if worked and used <= {"recipe"}:
+                if len(summaries) == recipe_calls:
+                    # Nothing but recipes, all of which ran: their summaries are the
+                    # answer, word for word. Retyping them, a small model changed a
+                    # group name and left in "the table below" and instructions
+                    # (qwen3-8b, 2026-10-29); with no other data it had nothing to add.
+                    answer = "\n\n".join(dict.fromkeys(summaries))
                 answer = with_worked(answer, worked)
             if "run_elm" in used:
                 # Above How I worked this out, which the page folds away.
@@ -478,10 +485,12 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             result, events = call_tool(conv, block)
             results.append(result)
             used.add(openai_api.block(block, "name"))
+            recipe_calls += openai_api.block(block, "name") == "recipe"
             # One event, or a list from a tool that runs several queries (a recipe).
             for event in events if isinstance(events, list) else [events] if events else []:
                 if event["type"] == "worked":
                     worked += [line for line in event["lines"] if line not in worked]   # a recipe run twice says it once
+                    summaries.append(event["summary"])
                     result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
                 else:
                     tabled = tabled or event["type"] == "table"

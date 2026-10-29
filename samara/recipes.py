@@ -217,7 +217,7 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
     worked = [f"Found the {p} by name." for p in r.get("params", [])]
     says = [step.get("says", step["as"]) for step in r.get("steps", []) if step["as"] not in skipped]
     worked += [line[:1].upper() + line[1:] + "." for line in says]
-    events.append({"type": "worked", "lines": worked})
+    events.append({"type": "worked", "lines": worked, "summary": summary})
     return text, events
 
 
