@@ -434,7 +434,7 @@ def _answer(client, conv, question, model, emit, where, start):
             # One event, or a list from a tool that runs several queries (a recipe).
             for event in events if isinstance(events, list) else [events] if events else []:
                 if event["type"] == "worked":
-                    worked += event["lines"]
+                    worked += [line for line in event["lines"] if line not in worked]   # a recipe run twice says it once
                     result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
                 else:
                     tabled = tabled or event["type"] == "table"

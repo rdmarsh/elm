@@ -226,7 +226,7 @@
          {Area: "Alerts unacknowledged for over a day", Count: ($al | map(select((.acked | not) and (.sdted | not) and .startEpoch < now - 86400)) | length), Detail: ""}]
 
 - name: devices_down
-  asks: ["which devices are down?", "what's offline?", "what's not responding?"]
+  asks: ["which devices are down?", "what's offline?", "what's not responding?", "how many devices are dead, and since when?"]
   steps:
     - as: down
       run: DeviceList
@@ -234,20 +234,37 @@
       fields: [id, displayName, hostStatus, deviceType, collectorDescription]
       size: all
       says: fetched every device that is not responding or whose collector is down
+    - as: hs
+      run: AlertList
+      filter: 'cleared:false,resourceTemplateName:"Host Status"'
+      fields: [monitorObjectId, startEpoch]
+      size: all
+      says: fetched the open Host Status alerts, whose start is when each device stopped responding
+  # LM keeps no "down since" on the device; its open Host Status alert started
+  # then. Devices behind a down collector usually have none.
   summary: |
     ($down | map(select(.deviceType == 0))) as $real | ($down | map(select(.deviceType != 0))) as $other
+    | ($hs | group_by(.monitorObjectId) | map({key: "\(.[0].monitorObjectId)", value: (map(.startEpoch) | min)}) | from_entries) as $since
     | ($real | map(select(.hostStatus == "dead"))) as $dead
+    | ($dead | map($since["\(.id)"] // empty)) as $starts
     | ($real | map(select(.hostStatus == "dead-collector"))) as $nocoll
     | "\($real | length | n("device")) down: \($dead | length) not responding, and \($nocoll | length) not being "
     + "monitored because their collector is down (\($nocoll | map(.collectorDescription) | unique | length | n("collector")))."
     + (if ($other | length) > 0 then " Left out: \($other | length) objects that are not devices ("
        + ($other | group_by(.deviceType) | map("\(.[0].deviceType | kind): \(length)") | join(", ")) + ")." else "" end)
+    + (if ($starts | length) > 0 then " Of the ones not responding, the longest has been down since \($starts | min | at)"
+       + "; \($starts | map(select(. > now - 86400)) | length) stopped in the last day, "
+       + "\($starts | map(select(. < now - 365 * 86400)) | length) over a year ago"
+       + (($dead | length) - ($starts | length) | if . > 0 then "; \(.) have no open Host Status alert, so no start date (alerting may be off for them)" else "" end)
+       + "." else "" end)
   table:
-    title: Devices that are down
-    columns: [Device, Status, Collector]
+    title: Devices that are down, longest first
+    columns: [Device, Status, Down since, Collector]
     rows: |
-      $down | map(select(.deviceType == 0)) | sort_by(.hostStatus, .displayName)
-      | map({Device: .displayName, Status: (.hostStatus | state), Collector: .collectorDescription})
+      ($hs | group_by(.monitorObjectId) | map({key: "\(.[0].monitorObjectId)", value: (map(.startEpoch) | min)}) | from_entries) as $since
+      | $down | map(select(.deviceType == 0)) | map(. + {s: $since["\(.id)"]}) | sort_by(.hostStatus, .s // 9e9, .displayName)
+      | map({Device: .displayName, Status: (.hostStatus | state), "Down since": (if .s then .s | at else "" end),
+             Collector: .collectorDescription})
 
 - name: collectors_down
   asks: ["which collectors are down?", "are all our collectors up?", "how long have the collectors been down?"]
@@ -592,6 +609,32 @@
       $alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))
       | sort_by(-.severity, .monitorObjectName) | map({Device: .monitorObjectName, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Value: .alertValue, Since: (.startEpoch | at)})
+
+- name: new_alerts
+  asks: ["is anything worse than yesterday?", "what's new since yesterday?", "what started alerting today?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: startEpoch>:now-24h,cleared:*
+      fields: [monitorObjectName, resourceTemplateName, dataPointName, severity, cleared, startEpoch]
+      size: all
+      says: fetched every alert that started in the last 24 hours, open or cleared
+  # Samara keeps no history, so "worse than yesterday" cannot compare totals;
+  # what started in the last day is the honest answer, and the summary says so.
+  summary: |
+    ($alerts | map(select(.cleared | not))) as $open
+    | "Samara keeps no history, so it cannot compare today's totals with yesterday's. What it can show: "
+    + if ($alerts | length) == 0 then "no alerts started in the last 24 hours."
+      else "\($alerts | length | n("alert")) started in the last 24 hours, \($open | length) still open"
+      + (if ($open | length) > 0 then " (\($open | severities))" else "" end)
+      + ", on \($alerts | map(.monitorObjectName) | unique | length) different devices or checks." end
+  table:
+    title: Alerts that started in the last 24 hours, newest first
+    columns: [Device, Alert, Severity, Started, Open]
+    rows: |
+      $alerts | sort_by(-.startEpoch)
+      | map({Device: .monitorObjectName, Alert: "\(.resourceTemplateName) / \(.dataPointName)", Severity: (.severity | sev),
+             Started: (.startEpoch | at), Open: (if .cleared then "cleared" else "open" end)})
 
 - name: noisiest_week
   asks: ["what's the noisiest alert or device this week?", "what alerted most in the last 7 days?", "what should we tune?"]
