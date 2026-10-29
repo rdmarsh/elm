@@ -257,6 +257,17 @@ def with_worked(answer, lines):
     return main + "\n\n**How I worked this out**\n\n" + "\n".join(f"- {line}" for line in lines)
 
 
+def unchecked(partly, more):
+    """The note on an answer the model worked out with its own queries.
+
+    Recipes are checked in advance; run_elm queries are the model's own, and
+    nearly every confident wrong answer in testing came from them (qwen3-8b,
+    2026-10-29). The reader should know which kind they are reading.
+    """
+    note = ("_Part of this answer is" if partly else "_This answer is") + " not from a checked recipe"
+    return note + (": if it matters, use Think harder, which asks a bigger model._" if more else "._")
+
+
 def call_tool(conv, block):
     """Run one tool_use block; return (tool_result, ui_event_or_None)."""
     name, args, use_id = (openai_api.block(block, k) for k in ("name", "input", "id"))
@@ -352,7 +363,7 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
           "more": nxt is not None, "next": nxt, "off": off})
     start = len(conv.messages)
     try:
-        _answer(client, conv, question, model, emit, where, start)
+        _answer(client, conv, question, model, emit, where, start, more=nxt is not None)
     except BaseException:
         # Stopped (the reader closed the request) or failed part way: drop the
         # half-finished turn, or a tool call left without its result makes
@@ -361,7 +372,7 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
         raise
 
 
-def _answer(client, conv, question, model, emit, where, start):
+def _answer(client, conv, question, model, emit, where, start, more=False):
     """The loop for one turn of ask(): plan, call tools, answer."""
     now = datetime.now(timezone.utc)
     conv.last_used = time.time()
@@ -420,6 +431,11 @@ def _answer(client, conv, question, model, emit, where, start):
                 answer = tidy(answer)
             if worked and used <= {"recipe"}:
                 answer = with_worked(answer, worked)
+            if "run_elm" in used:
+                # Above How I worked this out, which the page folds away.
+                m = WORKED.search(answer)
+                at = m.start() if m else len(answer)
+                answer = (answer[:at].rstrip() + "\n\n" + unchecked("recipe" in used, more) + "\n\n" + answer[at:]).strip()
             if response.stop_reason == "max_tokens":
                 answer += "\n\n_(Answer was cut off at the length limit.)_"
             spent()
