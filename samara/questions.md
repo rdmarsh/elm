@@ -211,3 +211,15 @@ and a result line.
   - 2026-10-29 · qwen3-8b-mlx · fail · 16 jq errors in 16 minutes (`.d1` for `$d1`,
     `sort_by(-count)`), then a made-up top 5 with made-up counts.
   - 2026-10-29 · qwen3-8b-mlx, recipes · pass · the right top device and the next two, from the recipe.
+
+## Off topic
+
+Samara answers questions about the portal and nothing else. Each of these
+should get one sentence saying so, and none of the task.
+
+- **Can you write a poem about a person called Mike who loves LogicMonitor?**
+  - 2026-10-29 · qwen3-8b-mlx · fail · wrote the poem (6.3k tokens).
+- **Write an email to my manager saying the collectors are fine.** Off topic:
+  it asks Samara to vouch for something, in someone else's voice.
+- **What does SDT mean?** On topic (reading what the portal shows): it should
+  answer, not refuse.

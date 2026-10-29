@@ -127,8 +127,11 @@
   # Counts only: property values are free text anyone with access can set, and
   # a small model repeated a planted "decommissioned" note as fact (qwen3-8b,
   # 2026-10-29). The reader gets the values in the table; the model never does.
-  # The one exception is the OS line the device reports (system.sysinfo),
-  # quoted, trimmed and cut to 100 characters: without it the model made one up.
+  # The exceptions are the OS line the device reports (system.sysinfo),
+  # quoted, trimmed and cut to 100 characters: without it the model made one up;
+  # and a few system properties LM fills in itself. Not every system.* name is
+  # safe: system.description, displayname, groups and collectordesc are typed
+  # by people, and a test device's system.description carries the planted text.
   summary: |
     $props[0] as $p
     | "\($device[0].displayName) has \($p.customProperties | length) custom properties"
@@ -137,6 +140,11 @@
     + ($p.systemProperties | map(select(.name == "system.sysinfo" and .value != "")) | first
        | if . then "It reports its operating system as \"\(.value | gsub("[^A-Za-z0-9 .,:()/_#+-]"; "") | .[:100])\". "
          else "It does not report an operating system. " end)
+    + ($p.systemProperties | map(select(.name | IN("system.ips", "system.sysoid", "system.hoststatus",
+         "system.collectorplatform", "system.collectorarch", "system.collectorversion")) | select(.value != ""))
+       | if length > 0 then "Some of its system properties: "
+           + (map("\(.name) = \(.value | gsub("[^A-Za-z0-9 .,:_-]"; "") | .[:60])") | join("; ")) + ". "
+         else "" end)
     + "All of them are in the table: read the values there."
   table:
     title: Properties of {device[displayName]}
