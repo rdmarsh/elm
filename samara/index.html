@@ -365,10 +365,12 @@ function answerMarkdown(a) {
   const when = health ? ` · ${health.profile} · ${a.model || health.model}${health.effort ? ` · ${health.effort} effort` : ""}` : "";
   // elm's version too: an answer can change with elm (a filter fix, a refused field)
   const cost = (a.costText ? ` · ${a.costText}` : "") + (health && health.elm_version ? ` · elm ${health.elm_version}` : "");
-  return [`# ${a.question}`, "",   // the same order as the page: the answer, then its tables
-    a.answer, "",
+  const [main, worked] = splitWorked(a.answer);
+  return [`# ${a.question}`, "",   // the same order as the page: the answer, its tables, how it was worked out
+    main.trim(), "",
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
+    ...(worked.trim() ? ["**How I worked this out**", "", worked.trim(), ""] : []),
     ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
     `_Samara${when}${cost} · ${isoNow()}_`,
   ].filter(x => x !== null).join("\n");
