@@ -54,6 +54,7 @@ def kind: {"0": "device", "2": "AWS resource", "4": "Azure resource", "6": "serv
 def updown: {"normal": "up", "dead": "not responding",
   "dead-collector": "not being monitored: its collector is down"}[.] // .;
 def state: {"normal": "up", "dead": "not responding", "dead-collector": "collector down"}[.] // .;   # for tables
+def ver: tostring | "\(.[:-3]).\(.[-3:])";   # collector build "41100" -> 41.100
 def disabled_by: [["a group", "its own setting", "some instances"], split("-")] | transpose
   | map(select(.[1] == "disable") | .[0]);   # alertDisableStatus is <group>-<device>-<instance>
 """
@@ -66,6 +67,11 @@ LOOKUPS = {
                 "currentCollectorId", "collectorDescription", "deviceType"]),
     "group": ("DeviceGroupList", ['name:"{}"', 'fullPath:"{}"', 'name~"{}"'],
               ["id", "name", "fullPath", "numOfHosts", "groupStatus"]),
+    # Collector names are usually DOMAIN\HOST or an FQDN, so a bare host name
+    # needs the contains filters.
+    "collector": ("CollectorList", ['description:"{}"', 'hostname:"{}"', 'description~"{}"', 'hostname~"{}"'],
+                  ["id", "description", "hostname", "isDown", "inSDT", "collectorGroupName", "collectorDeviceId",
+                   "numberOfHosts", "backupAgentId", "build", "upTime", "watchdogUpdatedOn"]),
 }
 
 
@@ -81,6 +87,7 @@ def tool_description():
             "already worked out, so the numbers are right. If one of these fits the question, use it first, "
             "before run_elm.\n\nAbout one device (pass device):\n" + listed(taking("device"))
             + "\n\nAbout one group (pass group):\n" + listed(taking("group"))
+            + "\n\nAbout one collector (pass collector):\n" + listed(taking("collector"))
             + "\n\nAbout the whole portal (pass no name):\n" + listed(taking(None)))
 
 
@@ -104,12 +111,12 @@ def fetch_all(command, **kw):
     return lines, shown, None if total == str(len(lines)) else total
 
 
-def run_recipe(session, recipe, device=None, group=None):
+def run_recipe(session, recipe, device=None, group=None, collector=None):
     """Run one recipe; return (text for the model, [step and table events])."""
     r = RECIPES.get(recipe)
     if not r:
         raise ValueError(f"No recipe {recipe!r}. Recipes: {', '.join(RECIPES)}")
-    given = {"device": device, "group": group}
+    given = {"device": device, "group": group, "collector": collector}
     for param, value in given.items():
         if value and param not in r.get("params", []):
             # A small model asked about one device's downtime ran the portal's
@@ -146,7 +153,8 @@ def run_recipe(session, recipe, device=None, group=None):
             if not found:
                 return f"No {param} has a name like {value!r}. Say so; do not guess another {param}.", events
             if len(found) > 1 and not r.get("many"):
-                listed = ", ".join(d.get("displayName") or d.get("fullPath") or d.get("name") for d in found)
+                listed = ", ".join(d.get("displayName") or d.get("fullPath") or d.get("description") or d.get("name")
+                                   for d in found)
                 some = "At least " if len(found) == 20 else ""
                 return (f"{some}{len(found)} {param}s have a name like {value!r}: {listed}. Ask which one "
                         f"is meant, then use the recipe again with its exact name."), events
@@ -212,6 +220,7 @@ elm_tools.TOOLS.insert(0, {
             "recipe": {"type": "string", "enum": list(RECIPES), "description": "The recipe's name"},
             "device": {"type": "string", "description": "For a device recipe: the device's name as the person wrote it"},
             "group": {"type": "string", "description": "For a group recipe: the group's name as the person wrote it"},
+            "collector": {"type": "string", "description": "For a collector recipe: the collector's name as the person wrote it"},
         },
         "required": ["recipe"],
     },

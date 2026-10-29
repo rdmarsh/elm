@@ -1,7 +1,7 @@
 # Checked answers to the questions people ask most. Format: recipes.py.
 # Every summary and table is jq over the steps' rows ($<as>), with the
 # helpers in recipes.py PRELUDE (sev, at, n, severities, kind, updown, state,
-# disabled_by). Check a new or changed recipe against the portal with elm
+# ver, disabled_by). Check a new or changed recipe against the portal with elm
 # and add it to questions.md.
 
 # --- One device -------------------------------------------------------------
@@ -162,6 +162,58 @@
 
 # --- Whole portal -------------------------------------------------------------
 
+- name: portal_health
+  asks: ["give me a health summary", "how is everything this morning?", "what needs attention first?", "is everything okay?"]
+  steps:
+    - as: collectors
+      run: CollectorList
+      fields: [id, description, isDown, numberOfHosts, backupAgentId, watchdogUpdatedOn]
+      size: all
+      says: fetched every collector
+    - as: down
+      run: DeviceList
+      filter: hostStatus~dead
+      fields: [id, hostStatus, deviceType]
+      size: all
+      says: fetched every device that is down
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [severity, acked, sdted, startEpoch, resourceTemplateName, monitorObjectName]
+      size: all
+      says: fetched every open alert
+  # Ranked the way an ops person works through it: collectors first (one down
+  # collector blinds every device on it), then devices not responding, then
+  # alerts. Host Status alerts are the dead devices again, so they are left
+  # out of the alert counts. Collectors silent for over 30 days are old news.
+  summary: |
+    ($collectors | map(select(.isDown))) as $cdown
+    | ($cdown | map(select(.watchdogUpdatedOn > now - 30 * 86400))) as $recent
+    | ($down | map(select(.deviceType == 0))) as $dev
+    | ($alerts | map(select(.resourceTemplateName != "Host Status"))) as $al
+    | ($al | map(select(.severity >= 3))) as $bad
+    | ($al | map(select((.acked | not) and (.sdted | not) and .startEpoch < now - 86400))) as $stale
+    | "1. Collectors: \($cdown | length) of \($collectors | length) down"
+    + (if ($recent | length) > 0 then ", \($recent | length) of them in the last 30 days (\($recent | map(.description) | join(", ")))"
+       else ", none in the last 30 days" end) + ".\n"
+    + "2. Devices: \($dev | map(select(.hostStatus == "dead")) | length) not responding, \($dev | map(select(.hostStatus == "dead-collector")) | length) behind a down collector.\n"
+    + "3. Alerts (besides devices down): \($al | length) open, \($bad | length) of them critical or error"
+    + (if ($bad | length) > 0 then ", most on " + ($bad | group_by(.resourceTemplateName) | map({t: .[0].resourceTemplateName, n: length})
+         | sort_by(-.n) | .[:2] | map("\(.t) (\(.n))") | join(" and ")) else "" end) + ".\n"
+    + "4. Neglected: \($stale | length) of those alerts open more than a day with nobody acknowledging them."
+  table:
+    title: Health summary
+    columns: [Area, Count, Detail]
+    rows: |
+      ($collectors | map(select(.isDown))) as $cdown
+      | ($down | map(select(.deviceType == 0))) as $dev
+      | ($alerts | map(select(.resourceTemplateName != "Host Status"))) as $al
+      | [{Area: "Collectors down", Count: ($cdown | length), Detail: "\($cdown | map(select(.watchdogUpdatedOn > now - 30 * 86400)) | length) in the last 30 days"},
+         {Area: "Devices not responding", Count: ($dev | map(select(.hostStatus == "dead")) | length), Detail: ""},
+         {Area: "Devices behind a down collector", Count: ($dev | map(select(.hostStatus == "dead-collector")) | length), Detail: ""},
+         {Area: "Open alerts (besides devices down)", Count: ($al | length), Detail: ($al | severities)},
+         {Area: "Alerts unacknowledged for over a day", Count: ($al | map(select((.acked | not) and (.sdted | not) and .startEpoch < now - 86400)) | length), Detail: ""}]
+
 - name: devices_down
   asks: ["which devices are down?", "what's offline?", "what's not responding?"]
   steps:
@@ -187,26 +239,128 @@
       | map({Device: .displayName, Status: (.hostStatus | state), Collector: .collectorDescription})
 
 - name: collectors_down
-  asks: ["which collectors are down?", "are any collectors down?"]
+  asks: ["which collectors are down?", "are all our collectors up?", "how long have the collectors been down?"]
   steps:
     - as: collectors
       run: CollectorList
-      fields: [id, description, hostname, collectorGroupName, isDown, inSDT, numberOfHosts]
+      fields: [id, description, hostname, collectorGroupName, isDown, inSDT, numberOfHosts, watchdogUpdatedOn]
       size: all
-      says: fetched every collector and whether it is down
+      says: fetched every collector, whether it is down and when it was last heard from
+  # A down collector's last heartbeat (watchdogUpdatedOn) is when it went
+  # quiet; most down collectors on a long-lived portal are old and forgotten,
+  # so the newest outage is the one worth naming.
   summary: |
     ($collectors | map(select(.isDown))) as $dn
     | "\($dn | length) of \($collectors | length) collectors are down"
     + (if ($dn | length) > 0 then ", between them monitoring \($dn | map(.numberOfHosts) | add | n("device"))"
        + (($dn | map(select(.inSDT)) | length) as $s | if $s > 0 then "; \($s) of them in scheduled downtime" else "; none is in scheduled downtime" end)
+       + ($dn | max_by(.watchdogUpdatedOn) | ". The most recent to go down is \(.description), last heard from \(.watchdogUpdatedOn | at)")
+       + ($dn | map(select(.watchdogUpdatedOn < now - 365 * 86400)) | length | if . > 0 then "; \(.) have not been heard from for over a year" else "" end)
        else "" end) + "."
   table:
-    title: Collectors that are down
-    columns: [Collector, Hostname, Group, Devices, In downtime]
+    title: Collectors that are down, most recent first
+    columns: [Collector, Group, Devices, Last heard from, In downtime]
     rows: |
-      $collectors | map(select(.isDown)) | sort_by(-.numberOfHosts)
-      | map({Collector: .description, Hostname: .hostname, Group: .collectorGroupName,
-             Devices: .numberOfHosts, "In downtime": (if .inSDT then "yes" else "no" end)})
+      $collectors | map(select(.isDown)) | sort_by(-.watchdogUpdatedOn)
+      | map({Collector: .description, Group: .collectorGroupName, Devices: .numberOfHosts,
+             "Last heard from": (.watchdogUpdatedOn | at), "In downtime": (if .inSDT then "yes" else "no" end)})
+
+- name: collectors_out_of_date
+  asks: ["which collectors are out of date?", "which collectors need upgrading?", "what versions are our collectors on?"]
+  steps:
+    - as: collectors
+      run: CollectorList
+      fields: [id, description, collectorGroupName, isDown, numberOfHosts, build]
+      size: all
+      says: fetched every collector's version
+    - as: versions
+      run: CollectorVersionList
+      fields: [majorVersion, minorVersion, stable, feature, releaseEpoch]
+      size: all
+      says: fetched LogicMonitor's collector releases and took the newest general release
+  # The newest general release: stable, released, not a feature build
+  # (majorVersion 10000). Down collectors are counted apart: upgrading one
+  # that is down does nothing.
+  summary: |
+    ($versions | map(select(.stable and (.feature | not) and .releaseEpoch > 0))
+     | max_by(.majorVersion * 1000 + .minorVersion) | .majorVersion * 1000 + .minorVersion) as $latest
+    | ($collectors | map(select(.isDown | not))) as $up
+    | ($up | map(select((.build | tonumber) < $latest))) as $old
+    | "The newest collector release is \($latest | ver). \($old | length) of \($up | length) running collectors are older"
+    + (if ($old | length) > 0 then " (oldest: \($old | min_by(.build | tonumber) | "\(.description) on \(.build | ver)"))" else "" end)
+    + (($up | map(select((.build | tonumber) > $latest)) | length) as $k | if $k > 0 then "; \($k) \(if $k == 1 then "runs a" else "run" end) pre-release build" else "" end)
+    + ". \($collectors | length - ($up | length)) down collectors are left out."
+  table:
+    title: Running collectors older than the newest release
+    columns: [Collector, Version, Group, Devices]
+    rows: |
+      ($versions | map(select(.stable and (.feature | not) and .releaseEpoch > 0))
+       | max_by(.majorVersion * 1000 + .minorVersion) | .majorVersion * 1000 + .minorVersion) as $latest
+      | $collectors | map(select((.isDown | not) and (.build | tonumber) < $latest)) | sort_by(.build | tonumber)
+      | map({Collector: .description, Version: (.build | ver), Group: .collectorGroupName, Devices: .numberOfHosts})
+
+- name: collectors_no_failover
+  asks: ["which collectors have no failover?", "where are our single points of failure?", "which collectors have no backup?"]
+  steps:
+    - as: collectors
+      run: CollectorList
+      fields: [id, description, collectorGroupName, isDown, numberOfHosts, backupAgentId]
+      size: all
+      says: fetched every collector and its failover collector
+  # A failover collector that is itself down protects nothing.
+  summary: |
+    ($collectors | map({key: (.id | tostring), value: .}) | from_entries) as $by
+    | ($collectors | map(select((.isDown | not) and .numberOfHosts > 0))) as $up
+    | ($up | map(select(.backupAgentId == 0))) as $none
+    | ($up | map(select(.backupAgentId > 0 and ($by[.backupAgentId | tostring].isDown // true)))) as $dead
+    | "\($none | length) of \($up | length) running collectors with devices have no failover collector, "
+    + "between them monitoring \($none | map(.numberOfHosts) | add // 0 | n("device"))"
+    + (if ($dead | length) > 0 then "; \($dead | length) more fail over to a collector that is down" else "" end) + "."
+  table:
+    title: Running collectors with no working failover, most devices first
+    columns: [Collector, Group, Devices, Failover]
+    rows: |
+      ($collectors | map({key: (.id | tostring), value: .}) | from_entries) as $by
+      | $collectors | map(select((.isDown | not) and .numberOfHosts > 0
+          and (.backupAgentId == 0 or ($by[.backupAgentId | tostring].isDown // true))))
+      | sort_by(-.numberOfHosts)
+      | map({Collector: .description, Group: .collectorGroupName, Devices: .numberOfHosts,
+             Failover: (if .backupAgentId == 0 then "none" else "\($by[.backupAgentId | tostring].description // .backupAgentId) (down)" end)})
+
+- name: dead_devices_by_collector
+  asks: ["is any collector carrying a lot of dead devices?", "which collectors have the most devices down?"]
+  steps:
+    - as: down
+      run: DeviceList
+      filter: hostStatus:dead
+      fields: [id, deviceType, currentCollectorId, collectorDescription]
+      size: all
+      says: fetched every device that is not responding and counted them by collector
+    - as: collectors
+      run: CollectorList
+      fields: [id, description, isDown, numberOfHosts]
+      size: all
+      says: fetched every collector's device count
+  # hostStatus:dead only: dead-collector devices are down because their
+  # collector is, which collectors_down already covers.
+  summary: |
+    ($collectors | map({key: (.id | tostring), value: .}) | from_entries) as $by
+    | ($down | map(select(.deviceType == 0)) | group_by(.currentCollectorId)
+       | map({c: $by[.[0].currentCollectorId | tostring], dead: length}) | sort_by(-.dead)) as $per
+    | if ($per | length) == 0 then "No devices are failing to respond."
+      else "\($per | map(.dead) | add) devices are not responding, on \($per | length | n("collector")). Most: "
+      + ($per[:3] | map("\(.c.description // "an unknown collector") (\(.dead) of its \(.c.numberOfHosts // "?"))") | join(", "))
+      + ". (Devices down because their collector is down are not counted here.)" end
+  table:
+    title: Devices not responding, by collector
+    columns: [Collector, Not responding, Devices on it, Collector up]
+    rows: |
+      ($collectors | map({key: (.id | tostring), value: .}) | from_entries) as $by
+      | $down | map(select(.deviceType == 0)) | group_by(.currentCollectorId)
+      | map($by[.[0].currentCollectorId | tostring] as $c | {Collector: ($c.description // "id \(.[0].currentCollectorId)"),
+             "Not responding": length, "Devices on it": $c.numberOfHosts,
+             "Collector up": (if $c.isDown then "no" else "yes" end)})
+      | sort_by(-."Not responding")
 
 - name: open_alerts
   asks: ["how many alerts are open?", "how many errors are there?", "how many alerts right now?"]
@@ -304,6 +458,180 @@
       $alerts | group_by(.monitorObjectName) | map({Device: .[0].monitorObjectName, "Open alerts": length,
         Critical: (map(select(.severity == 4)) | length), Error: (map(select(.severity == 3)) | length),
         Warning: (map(select(.severity == 2)) | length)}) | sort_by(-."Open alerts") | .[:10]
+
+- name: alerts_unacknowledged
+  asks: ["which alerts have been open more than a day with no ack?", "what alerts is nobody looking at?", "what's the oldest open alert?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false,acked:false,sdted:false,startEpoch<:now-24h
+      fields: [severity, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
+      size: all
+      says: fetched the open alerts older than a day that nobody has acknowledged and no downtime covers
+  summary: |
+    if ($alerts | length) == 0 then "Every alert open for more than a day has been acknowledged or is in scheduled downtime."
+    else "\($alerts | length | n("alert")) have been open for more than a day with no acknowledgement (\($alerts | severities)). "
+      + ($alerts | min_by(.startEpoch) | "The oldest, on \(.monitorObjectName), started \(.startEpoch | at).")
+      + (($alerts | map(select(.startEpoch < now - 30 * 86400)) | length) as $k | if $k > 0 then " \($k) are over 30 days old." else "" end) end
+  table:
+    title: Open alerts with no acknowledgement for more than a day, oldest first
+    columns: [Device, Severity, Alert, Started]
+    rows: |
+      $alerts | sort_by(.startEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
+        Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Started: (.startEpoch | at)})
+
+- name: alert_types
+  asks: ["what are the most common alerts?", "are there common issues across one type of device?", "what kind of problems do we have?", "is one problem hitting lots of devices?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [monitorObjectName, severity, resourceTemplateName, dataPointName]
+      size: all
+      says: fetched every open alert and grouped them by what is alerting
+  # The same alert on many devices points at one cause (an expired password,
+  # a changed community string, a bad threshold) rather than many faults.
+  summary: |
+    ($alerts | group_by(.resourceTemplateName)
+     | map({t: .[0].resourceTemplateName, d: (map(.monitorObjectName) | unique | length), all: .}) | sort_by(-.d)) as $types
+    | if ($alerts | length) == 0 then "No alerts are open."
+      else "\($alerts | length | n("open alert")) of \($types | length) kinds. Most widespread: "
+      + ($types[:3] | map("\(.t) on \(.d | n("device")) (\(.all | severities))") | join("; ")) + "." end
+  table:
+    title: Open alerts by what is alerting, most widespread first
+    columns: [Alert, Datapoints, Devices, Alerts, Worst]
+    rows: |
+      $alerts | group_by(.resourceTemplateName)
+      | map({Alert: .[0].resourceTemplateName, Datapoints: (map(.dataPointName) | unique | join(", ")),
+             Devices: (map(.monitorObjectName) | unique | length), Alerts: length, Worst: (max_by(.severity).severity | sev)})
+      | sort_by(-.Devices, -.Alerts)
+
+- name: certificates_expiring
+  asks: ["which SSL certificates are close to expiry?", "are any certificates expiring?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [monitorObjectName, monitorObjectType, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      size: all
+      says: fetched every open alert and kept the certificate ones (SSL certificate checks and website certificate expiry)
+  # From alerts, so "close" means past the warning threshold the portal sets;
+  # a certificate no check covers cannot show up here.
+  summary: |
+    ($alerts | map(select((.resourceTemplateName + " " + .dataPointName) | test("(?i)ssl|certif|days ?(remaining|until ?expir)")))) as $c
+    | if ($c | length) == 0 then "No certificate alerts are open: no monitored certificate is past its expiry warning."
+      else "\($c | length | n("certificate alert")) open (\($c | severities)), on \($c | map(.monitorObjectName) | unique | length) devices or websites"
+        + (($c | map(select((.alertValue | tonumber? // 1) < 0)) | length) as $x | if $x > 0 then "; \($x) of the certificates have already expired" else "" end)
+        + "." end
+    + " This covers only certificates that a check watches and that have passed its warning threshold."
+  table:
+    title: Certificates past their expiry warning
+    columns: [Where, Severity, Alert, Days left, Since]
+    rows: |
+      $alerts | map(select((.resourceTemplateName + " " + .dataPointName) | test("(?i)ssl|certif|days ?(remaining|until ?expir)")))
+      | sort_by(.alertValue | tonumber? // 0) | map({Where: .monitorObjectName, Severity: (.severity | sev),
+        Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
+        "Days left": (.alertValue | tonumber? // . | if type == "number" then floor else . end), Since: (.startEpoch | at)})
+
+- name: disks_filling
+  asks: ["what disks are about to fill up?", "which filesystems are nearly full?", "is anything running out of disk space?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      size: all
+      says: fetched every open alert and kept the disk space ones (used or free percent on a disk, volume or filesystem)
+  # hrStorage covers memory as well as disks: its memory instances are left out
+  # by name. From alerts, so "about to fill" means past the portal's threshold.
+  summary: |
+    ($alerts | map(select((.dataPointName | test("(?i)used ?percent|percent ?used|free ?percent|percent ?free|capacity"))
+       and ((.instanceName // "") | test("(?i)memory|swap|ram\\b|buffer|cache") | not)))) as $d
+    | if ($d | length) == 0 then "No disk space alerts are open: no monitored disk is past its threshold."
+      else "\($d | length | n("disk space alert")) open (\($d | severities)), on \($d | map(.monitorObjectName) | unique | length | n("device"))."
+        + ($d | max_by(.alertValue | tonumber? // 0) | " The fullest: \(.instanceName) on \(.monitorObjectName) at \(.alertValue).") end
+    + " This covers only disks past the alert threshold; it is not a forecast."
+  table:
+    title: Disks past their space threshold, fullest first
+    columns: [Device, Disk, Severity, Value, Since]
+    rows: |
+      $alerts | map(select((.dataPointName | test("(?i)used ?percent|percent ?used|free ?percent|percent ?free|capacity"))
+         and ((.instanceName // "") | test("(?i)memory|swap|ram\\b|buffer|cache") | not)))
+      | sort_by(-(.alertValue | tonumber? // 0))
+      | map({Device: .monitorObjectName, Disk: (.instanceName // .resourceTemplateName), Severity: (.severity | sev),
+             Value: .alertValue, Since: (.startEpoch | at)})
+
+- name: clocks_out_of_sync
+  asks: ["are any clocks out of sync?", "any NTP or time problems?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      size: all
+      says: fetched every open alert and kept the time ones (NTP, clock offset)
+  summary: |
+    ($alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))) as $t
+    | if ($t | length) == 0 then "No time or NTP alerts are open."
+      else "\($t | length | n("time alert")) open (\($t | severities)), on \($t | map(.monitorObjectName) | unique | length | n("device"))." end
+  table:
+    title: Time and NTP alerts
+    columns: [Device, Severity, Alert, Value, Since]
+    rows: |
+      $alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))
+      | sort_by(-.severity, .monitorObjectName) | map({Device: .monitorObjectName, Severity: (.severity | sev),
+        Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Value: .alertValue, Since: (.startEpoch | at)})
+
+- name: noisiest_week
+  asks: ["what's the noisiest alert or device this week?", "what alerted most in the last 7 days?", "what should we tune?"]
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: startEpoch>:now-7d,cleared:*
+      fields: [monitorObjectName, resourceTemplateName, dataPointName, severity]
+      size: all
+      says: fetched every alert that started in the last 7 days, open or cleared, and counted them
+  # Alerts that fire and clear over and over are what tuning fixes, so count
+  # starts, not what is open now.
+  summary: |
+    ($alerts | group_by([.monitorObjectName, .resourceTemplateName, .dataPointName])
+     | map({d: .[0].monitorObjectName, a: "\(.[0].resourceTemplateName) / \(.[0].dataPointName)", n: length}) | sort_by(-.n)) as $top
+    | ($alerts | group_by(.monitorObjectName) | map({d: .[0].monitorObjectName, n: length}) | sort_by(-.n)) as $dev
+    | if ($alerts | length) == 0 then "No alerts started in the last 7 days."
+      else "\($alerts | length | n("alert")) started in the last 7 days. Noisiest: \($top[0].a) on \($top[0].d), \($top[0].n) times. "
+      + "The noisiest devices: " + ($dev[:3] | map("\(.d) (\(.n))") | join(", ")) + "." end
+  table:
+    title: Alerts that fired most in the last 7 days
+    columns: [Device, Alert, Times, Worst]
+    rows: |
+      $alerts | group_by([.monitorObjectName, .resourceTemplateName, .dataPointName])
+      | map({Device: .[0].monitorObjectName, Alert: "\(.[0].resourceTemplateName) / \(.[0].dataPointName)",
+             Times: length, Worst: (max_by(.severity).severity | sev)}) | sort_by(-.Times) | .[:20]
+
+- name: long_downtime
+  asks: ["which downtimes have no end date or last more than a week?", "is anything in downtime too long?"]
+  steps:
+    - as: sdts
+      run: SDTList
+      size: all
+      says: fetched every scheduled downtime and kept the one-off ones lasting more than 7 days
+  # Repeating SDTs (daily, weekly) are short windows by design; a one-off SDT
+  # running for weeks usually means something was forgotten. Who set it is
+  # left out: it is a person's email address.
+  summary: |
+    ($sdts | map(select(.sdtType == "oneTime" and (.endDateTime - .startDateTime) > 7 * 86400000))) as $long
+    | if ($long | length) == 0 then "No one-off downtime lasts more than 7 days."
+      else "\($long | length | n("one-off downtime")) \(if ($long | length) == 1 then "lasts" else "last" end) more than 7 days; "
+      + "\($long | map(select(.isEffective)) | length) in effect now. The longest runs until \($long | max_by(.endDateTime) | .endDateTime / 1000 | at)." end
+  table:
+    title: One-off downtime lasting more than 7 days
+    columns: [For, Starts, Ends, Days, In effect now]
+    rows: |
+      $sdts | map(select(.sdtType == "oneTime" and (.endDateTime - .startDateTime) > 7 * 86400000))
+      | sort_by(-.endDateTime) | map({
+        For: (.deviceDisplayName // .deviceGroupFullPath // .websiteName // .websiteGroupName // .collectorDescription // .type),
+        Starts: (.startDateTime / 1000 | when), Ends: (.endDateTime / 1000 | at),
+        Days: ((.endDateTime - .startDateTime) / 86400000 | floor), "In effect now": (if .isEffective then "yes" else "no" end)})
 
 - name: alerting_disabled
   asks: ["what devices have alerting disabled?", "which devices won't alert?"]
@@ -444,6 +772,58 @@
       | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
       | $down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))
       | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Status: (.hostStatus | state)})
+
+# --- One collector -------------------------------------------------------------
+
+- name: collector_health
+  asks: ["is COLLECTOR healthy?", "is the COLLECTOR host itself okay?", "are there common issues on COLLECTOR?", "which devices on COLLECTOR are down?"]
+  params: [collector]
+  steps:
+    - as: host_alerts
+      run: AlertListByDeviceId
+      params: {id: "{collector[collectorDeviceId]}"}
+      filter: cleared:false
+      fields: [severity, resourceTemplateName, instanceName, dataPointName, startEpoch]
+      when: $collector[0].collectorDeviceId > 0
+      says: fetched the open alerts on the collector's own host
+    - as: devices
+      run: DeviceList
+      filter: currentCollectorId:{collector[id]}
+      fields: [id, displayName, hostStatus, deviceType]
+      size: all
+      says: fetched the devices it monitors
+    - as: alerts
+      run: AlertList
+      filter: cleared:false
+      fields: [monitorObjectId, monitorObjectName, severity, resourceTemplateName, dataPointName]
+      size: all
+      says: fetched every open alert and kept the ones on its devices, grouped by what is alerting
+  summary: |
+    $collector[0] as $c
+    | ($devices | map(.id)) as $ids
+    | ($alerts | map(select(.monitorObjectId as $i | $ids | index($i)))) as $mine
+    | ($devices | map(select(.deviceType == 0 and .hostStatus == "dead"))) as $dead
+    | ($mine | group_by(.resourceTemplateName) | map({t: .[0].resourceTemplateName, d: (map(.monitorObjectId) | unique | length), a: length})
+       | sort_by(-.d, -.a)) as $types
+    | "Collector \($c.description) (group \($c.collectorGroupName), version \($c.build | ver)) is "
+    + (if $c.isDown then "DOWN, last heard from \($c.watchdogUpdatedOn | at)" else "up" end)
+    + (if $c.backupAgentId > 0 then ", failing over to collector \($c.backupAgentId)" else ", with no failover collector" end) + ". "
+    + (if $c.collectorDeviceId == 0 then "Its own host is not monitored as a device, so its CPU and memory cannot be checked. "
+       elif ($host_alerts | length) == 0 then "Its own host has no open alerts. "
+       else "Its own host has \($host_alerts | length | n("open alert")) (\($host_alerts | severities)). " end)
+    + "It monitors \($devices | length | n("device")), \($dead | length) not responding"
+    + (if ($mine | length) == 0 then "; none has open alerts."
+       else "; \($mine | length | n("open alert")) on them (\($mine | severities)). Most widespread: "
+       + ($types[:3] | map("\(.t) (\(.d | n("device")))") | join(", ")) + "." end)
+  table:
+    title: Open alerts on devices monitored by {collector[description]}, by what is alerting
+    columns: [Alert, Devices, Alerts, Worst]
+    rows: |
+      ($devices | map(.id)) as $ids
+      | $alerts | map(select(.monitorObjectId as $i | $ids | index($i))) | group_by(.resourceTemplateName)
+      | map({Alert: .[0].resourceTemplateName, Devices: (map(.monitorObjectId) | unique | length), Alerts: length,
+             Worst: (max_by(.severity).severity | sev)})
+      | sort_by(-.Devices, -.Alerts)
 
 # --- Things it cannot do ----------------------------------------------------
 
