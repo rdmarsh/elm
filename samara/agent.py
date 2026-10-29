@@ -228,6 +228,23 @@ class Conversation:
 WORKED = re.compile(r"^(?:#{1,4}\s+|\*\*)?How I worked (?:this |it )?out\b.*$", re.I | re.M)
 
 
+# Lines a small model copied from tool results into its answer.
+ECHOES = ("Samara puts the table", "add nothing else", "If the question asks something this does not cover",
+          "The values are for the reader")
+
+
+def tidy(answer):
+    """The answer without tables typed into it and without copied instructions.
+
+    Called when Samara has already put a real table on the page: the model's
+    own copy was at best a duplicate, and once a made-up one (qwen3-8b,
+    2026-10-29: invented SDT ids, dates and who set them under a right summary).
+    """
+    kept = [line for line in answer.splitlines()
+            if not line.lstrip().startswith("|") and not any(e in line for e in ECHOES)]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+
+
 def with_worked(answer, lines):
     """The answer with its How I worked this out replaced by these lines."""
     m = WORKED.search(answer)
@@ -372,7 +389,7 @@ def _answer(client, conv, question, model, emit, where, start):
     # A recipe says what it did; used is every tool this turn called. Only a
     # turn that used nothing but recipes gets their lines in place of the
     # model's own How I worked this out, which listed queries that never ran.
-    worked, used = [], set()
+    worked, used, tabled = [], set(), False   # tabled: a real table is on the page
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -394,6 +411,8 @@ def _answer(client, conv, question, model, emit, where, start):
 
         if not tool_uses:
             answer = "\n\n".join(texts) or "(no answer)"
+            if tabled:
+                answer = tidy(answer)
             if worked and used <= {"recipe"}:
                 answer = with_worked(answer, worked)
             if response.stop_reason == "max_tokens":
@@ -418,6 +437,7 @@ def _answer(client, conv, question, model, emit, where, start):
                     worked += event["lines"]
                     result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
                 else:
+                    tabled = tabled or event["type"] == "table"
                     emit(event)
         conv.messages.append({"role": "user", "content": results})
 
