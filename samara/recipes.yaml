@@ -155,6 +155,66 @@
          ["systemProperties", "system"], ["autoProperties", "discovered"]]
       | map(.[1] as $on | $p[.[0]] | sort_by(.name) | map({Property: .name, Value: .value, "Set on": $on})) | add
 
+- name: device_memory
+  asks: ["how much memory is DEVICE using?", "is DEVICE short of memory?", "what's DEVICE's memory usage?"]
+  params: [device]
+  steps:
+    - as: dss
+      run: DeviceDatasourceList
+      params: {deviceId: "{device[id]}"}
+      fields: [id, dataSourceName, instanceNumber]
+      size: all
+      says: listed the checks (DataSources) applied to it
+    - as: insts
+      run: DeviceDatasourceInstanceList
+      each: |
+        $dss | map(select(.instanceNumber > 0 and (.dataSourceName | test("(?i)mem|hostperformance"))
+          and (.dataSourceName | test("(?i)jvm|memcache") | not)))
+      params: {deviceId: "{device[id]}", hdsId: "{row[id]}"}
+      fields: [id, name]
+      says: found the instances of its memory checks
+    - as: data
+      run: DeviceDatasourceInstanceData
+      each: '$insts | map({hds: .of.id, id})'
+      params: {deviceId: "{device[id]}", hdsId: "{row[hds]}", id: "{row[id]}", period: 1}
+      says: fetched the last hour of each one's data
+  # Memory checks differ by device type (NetSNMP, Windows, vendor ones), so
+  # this takes any applied DataSource with "mem" in its name, plus VMware's
+  # HostPerformance (memory datapoints in a general check) for its mem* values. A collector's own
+  # memory check is the collector program, not the server: a model once gave it
+  # as the server's memory (questions.md), so it is named separately, last.
+  # Values come newest first; "No Data" is LM's word for a missed poll.
+  summary: |
+    def latest: [range(.dataPoints | length) as $i
+      | {ds: .dataSourceName, dp: .dataPoints[$i], v: (first(.values[] | .[$i] | select(. != "No Data")) // null)}]
+      | map(select((.ds | test("(?i)mem")) or (.dp | test("(?i)mem"))));
+    def num: if type == "number" then (. * 10 | round / 10) else . end;
+    ($data | map(latest) | add // []) as $all
+    | ($all | map(select(.ds | test("(?i)^LogicMonitor_Collector") | not))) as $os
+    | ($all | map(select(.ds | test("(?i)^LogicMonitor_Collector")))) as $coll
+    | ($os | map(select(.v != null and (.dp | test("(?i)percent|util")) and (.dp | test("(?i)swap") | not)))) as $pct
+    | ($os | map(.ds) | unique) as $checks
+    | $device[0].displayName as $name
+    | (if ($pct | length) > 0 then "\($name)'s memory, latest in the last hour: "
+         + ($pct | map("\(.dp) \(.v | num)% (\(.ds))") | join("; ")) + "."
+       elif ($os | map(select(.v != null)) | length) > 0 then "\($name)'s memory checks (\($checks | join(", "))) "
+         + "report values but no percentage: they are in the table."
+       elif ($checks | length) > 0 then "\($name)'s memory use is not available: its memory checks "
+         + "(\($checks | join(", "))) returned no data in the last hour."
+       else "\($name)'s memory use is not available: none of its \($dss | length) checks is a memory check this recipe knows." end)
+    + ($coll | map(select(.dp == "CollectorMemory" and .v != null)) | first
+       | if . then " Separately, the LogicMonitor collector program running on it is using "
+           + "\(.v / 1048576 | round) MB; that is the collector, not the server's memory." else "" end)
+  table:
+    title: Memory checks on {device[displayName]}, last hour
+    columns: [Check, Datapoint, Latest value]
+    rows: |
+      $data | map(. as $d | [range(.dataPoints | length) as $i
+        | {Check: $d.dataSourceName, Datapoint: $d.dataPoints[$i],
+           "Latest value": (first($d.values[] | .[$i] | select(. != "No Data")) // "no data")}]) | add // []
+      | map(select(((.Check | test("(?i)^LogicMonitor_Collector") | not) or .Datapoint == "CollectorMemory")
+          and ((.Check | test("(?i)mem")) or (.Datapoint | test("(?i)mem")))))
+
 - name: find_device
   asks: ["is DEVICE monitored?", "do we monitor DEVICE?", "find DEVICE", "which device has IP or hostname X?"]
   params: [device]

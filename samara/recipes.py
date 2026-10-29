@@ -16,7 +16,9 @@ recipes.yaml, one entry per recipe:
   steps         elm queries, each saved as `$<as>` for the jq below. Filters
                 and params are str.format templates over the lookups
                 ({device[id]}); `size: all` pages past 1000 rows; `when` is a
-                jq test that skips the step when false
+                jq test that skips the step when false; `each` is jq giving a
+                list: the step runs once per item ({row[id]}, at most MAX_EACH)
+                and every result row carries its item as `of`
   summary       jq giving the answer's text
   table_only    the rows hold free text (properties): the model is not told
                 where they are, so planted text reaches only the reader
@@ -34,6 +36,7 @@ import elm_tools
 HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
 MAX_PAGES = 10   # LM stops paging at 10,000 rows
+MAX_EACH = 10    # an `each` step's queries, one per item
 
 # Defined in front of every recipe expression. Times are the reader's (jq
 # runs in their timezone); SDT times are milliseconds, so divide first.
@@ -164,6 +167,16 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
             if "when" in step and elm_tools._jq(session, jq(step["when"])).strip() != "true":
                 names[step["as"]] = session.add([], f"recipe {recipe}: {step['as']} (skipped)")   # still bound for jq
                 skipped.add(step["as"])
+                continue
+            if "each" in step:
+                items = json.loads(elm_tools._jq(session, jq(step["each"])))[:MAX_EACH]
+                lines, shown = [], f"{step['run']}: nothing to fetch"
+                for i, row in enumerate(items):
+                    params = {k: str(v).format(**records, row=row) for k, v in step.get("params", {}).items()}
+                    got, _, _, one = elm_tools.fetch(step["run"], fields=step.get("fields"), params=params, size=0)
+                    lines += [json.dumps(json.loads(line) | {"of": row}) for line in got]
+                    shown = one if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
+                keep(step["as"], lines, shown, step["as"])
                 continue
             kw = {"filter": step["filter"].format(**records) if "filter" in step else None,
                   "fields": step.get("fields"),
