@@ -1050,6 +1050,8 @@ ReportList:
   path: /report/reports
   unique_options:
     showNextGenReports: "--showNextGenReports / --dont-showNextGenReports — no visible effect on count or results in testing (75 either way); may be account-specific or the account may not have Next Gen reports"
+  gotchas:
+    - "delivery is 'email' or 'none' (a report nobody gets sent). Filters on it run server-side, !: and !~ included (verified 2026-10-29 on a 76-report portal: -C gave 76 total, delivery:none 71, delivery!:none 5, delivery:bogus 0, delivery!:bogus 76; rows matched each count). -C is a real total here. Scheduled reports only: -F 'delivery!:none'."
 
 # ---
 # Datasource types with LM API --format param (see _global gotcha)

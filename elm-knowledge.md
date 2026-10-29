@@ -71,7 +71,7 @@ literal comma with `\,`.
   hostname or IP (`luna.lan`), so `name:luna` finds nothing. Case doesn't
   matter; `~` matches part of it (tested 2026-10-28).
 - **Prefer positive operators** and exclude client-side where `!:` is
-  unreliable. (`!:` does work on DeviceList.)
+  unreliable. (`!:` does work on DeviceList and ReportList.)
 - **String IDs** on SDTList (`H_161`), AlertList (`DS395142385`), AuditLogList,
   OpsNoteList and CollectorEvents: don't compare them numerically.
 - Native filters handle more than they look: numeric comparison
