@@ -63,6 +63,8 @@
   /* Quiet actions read as links (Tell me more, Try again); Think harder stays a button. */
   button.link { background: none; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted);
                 text-decoration: underline; font-size: .85rem; }
+  button.link.md-toggle { font-size: 1.05rem; line-height: 1; text-decoration: none; }
+  button.link.md-toggle[aria-pressed="true"] { color: var(--ink); background: var(--code); }
   button:disabled { opacity: .5; cursor: default; }
   button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
@@ -97,7 +99,7 @@
   .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
-  /* The card's last row: take-away (Copy, CSV, Show) on the left, the
+  /* The card's last row: take-away (Copy, CSV, ¶ for the Markdown) on the left, the
      buttons that ask again (Tell me more, Think harder) on the right. */
   .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
   .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -487,7 +489,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
       <span class="exports">
         <button class="secondary icon copy" type="button" title="Copy this answer as Markdown" hidden>${ICON.md}Copy</button>
         <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
-        <button class="link md-toggle" type="button" title="Show this answer as Markdown, to read or download" hidden>Show</button>
+        <button class="link md-toggle" type="button" title="Show the Markdown, to read or download" aria-label="Show the Markdown" aria-pressed="false" hidden>¶</button>
       </span>
       <span class="buttons">
         <button class="link more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
@@ -530,7 +532,9 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
   const showMarkdown = open => {
     view.hidden = !open;
-    $(".md-toggle", turn).textContent = open ? "Hide" : "Show";
+    const b = $(".md-toggle", turn);   // the pilcrow, as in a word processor's show-formatting button
+    b.setAttribute("aria-pressed", open);
+    b.title = open ? "Hide the Markdown" : "Show the Markdown, to read or download";
     if (open) { box.value = answerMarkdown({ ...t.md, costText: costText(t) }); note.textContent = ""; }
   };
   $(".md-toggle", turn).addEventListener("click", () => showMarkdown(view.hidden));
