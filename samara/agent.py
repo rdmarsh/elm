@@ -4,6 +4,7 @@ import ipaddress
 import json
 import os
 import random
+import re
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -223,6 +224,51 @@ class Conversation:
         self.last_used = time.time()
 
 
+# The heading the page folds into the steps (index.html splitWorked).
+WORKED = re.compile(r"^(?:#{1,4}\s+|\*\*)?How I worked (?:this |it )?out\b.*$", re.I | re.M)
+
+
+# Lines a small model copied from tool results into its answer.
+ECHOES = ("Samara puts the table", "add nothing else", "If the question asks something this does not cover",
+          "The values are for the reader")
+
+
+def tidy(answer):
+    """The answer without tables typed into it and without copied instructions.
+
+    Called when Samara has already put a real table on the page: the model's
+    own copy was at best a duplicate, and once a made-up one (qwen3-8b,
+    2026-10-29: invented SDT ids, dates and who set them under a right summary).
+    """
+    kept = [line for line in answer.splitlines()
+            if not line.lstrip().startswith("|") and not any(e in line for e in ECHOES)
+            and not re.fullmatch(r"\s*</?table>\s*", line) and not re.search(r"\$d\d+ \(", line)]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+
+
+# A tool call a small model wrote as text instead of making it (qwen3-8b,
+# 2026-10-29): never run, so never shown.
+CALL_TEXT = re.compile(r"<function_call>.*?(</function_call>|\Z)", re.S)
+
+
+def with_worked(answer, lines):
+    """The answer with its How I worked this out replaced by these lines."""
+    m = WORKED.search(answer)
+    main = answer[:m.start()].rstrip() if m else answer.rstrip()
+    return main + "\n\n**How I worked this out**\n\n" + "\n".join(f"- {line}" for line in lines)
+
+
+def unchecked(partly, more):
+    """The note on an answer the model worked out with its own queries.
+
+    Recipes are checked in advance; run_elm queries are the model's own, and
+    nearly every confident wrong answer in testing came from them (qwen3-8b,
+    2026-10-29). The reader should know which kind they are reading.
+    """
+    note = ("_Part of this answer is" if partly else "_This answer is") + " not from a checked recipe"
+    return note + (": if it matters, use Think harder, which asks a bigger model._" if more else "._")
+
+
 def call_tool(conv, block):
     """Run one tool_use block; return (tool_result, ui_event_or_None)."""
     name, args, use_id = (openai_api.block(block, k) for k in ("name", "input", "id"))
@@ -318,7 +364,7 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
           "more": nxt is not None, "next": nxt, "off": off})
     start = len(conv.messages)
     try:
-        _answer(client, conv, question, model, emit, where, start)
+        _answer(client, conv, question, model, emit, where, start, more=nxt is not None)
     except BaseException:
         # Stopped (the reader closed the request) or failed part way: drop the
         # half-finished turn, or a tool call left without its result makes
@@ -327,7 +373,7 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
         raise
 
 
-def _answer(client, conv, question, model, emit, where, start):
+def _answer(client, conv, question, model, emit, where, start, more=False):
     """The loop for one turn of ask(): plan, call tools, answer."""
     now = datetime.now(timezone.utc)
     conv.last_used = time.time()
@@ -357,6 +403,10 @@ def _answer(client, conv, question, model, emit, where, start):
     def spent():
         emit({"type": "usage", **spend(model, usage)})
 
+    # A recipe says what it did; used is every tool this turn called. Only a
+    # turn that used nothing but recipes gets their lines in place of the
+    # model's own How I worked this out, which listed queries that never ran.
+    worked, used, tabled = [], set(), False   # tabled: a real table is on the page
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -377,7 +427,16 @@ def _answer(client, conv, question, model, emit, where, start):
         tool_uses = [b for b in response.content if kind(b) == "tool_use"]
 
         if not tool_uses:
-            answer = "\n\n".join(texts) or "(no answer)"
+            answer = CALL_TEXT.sub("", "\n\n".join(texts)).strip() or "(no answer)"
+            if tabled:
+                answer = tidy(answer)
+            if worked and used <= {"recipe"}:
+                answer = with_worked(answer, worked)
+            if "run_elm" in used:
+                # Above How I worked this out, which the page folds away.
+                m = WORKED.search(answer)
+                at = m.start() if m else len(answer)
+                answer = (answer[:at].rstrip() + "\n\n" + unchecked("recipe" in used, more) + "\n\n" + answer[at:]).strip()
             if response.stop_reason == "max_tokens":
                 answer += "\n\n_(Answer was cut off at the length limit.)_"
             spent()
@@ -393,9 +452,15 @@ def _answer(client, conv, question, model, emit, where, start):
             emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
             result, events = call_tool(conv, block)
             results.append(result)
+            used.add(openai_api.block(block, "name"))
             # One event, or a list from a tool that runs several queries (a recipe).
             for event in events if isinstance(events, list) else [events] if events else []:
-                emit(event)
+                if event["type"] == "worked":
+                    worked += [line for line in event["lines"] if line not in worked]   # a recipe run twice says it once
+                    result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
+                else:
+                    tabled = tabled or event["type"] == "table"
+                    emit(event)
         conv.messages.append({"role": "user", "content": results})
 
     del conv.messages[start:]

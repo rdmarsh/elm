@@ -16,8 +16,12 @@ recipes.yaml, one entry per recipe:
   steps         elm queries, each saved as `$<as>` for the jq below. Filters
                 and params are str.format templates over the lookups
                 ({device[id]}); `size: all` pages past 1000 rows; `when` is a
-                jq test that skips the step when false
+                jq test that skips the step when false; `each` is jq giving a
+                list: the step runs once per item ({row[id]}, at most MAX_EACH)
+                and every result row carries its item as `of`
   summary       jq giving the answer's text
+  table_only    the rows hold free text (properties): the model is not told
+                where they are, so planted text reaches only the reader
   table         {title, columns, rows}: jq giving the rows; shown on the page
 """
 
@@ -32,6 +36,7 @@ import elm_tools
 HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
 MAX_PAGES = 10   # LM stops paging at 10,000 rows
+MAX_EACH = 10    # an `each` step's queries, one per item
 
 # Defined in front of every recipe expression. Times are the reader's (jq
 # runs in their timezone); SDT times are milliseconds, so divide first.
@@ -52,6 +57,7 @@ def kind: {"0": "device", "2": "AWS resource", "4": "Azure resource", "6": "serv
 def updown: {"normal": "up", "dead": "not responding",
   "dead-collector": "not being monitored: its collector is down"}[.] // .;
 def state: {"normal": "up", "dead": "not responding", "dead-collector": "collector down"}[.] // .;   # for tables
+def ver: tostring | "\(.[:-3]).\(.[-3:])";   # collector build "41100" -> 41.100
 def disabled_by: [["a group", "its own setting", "some instances"], split("-")] | transpose
   | map(select(.[1] == "disable") | .[0]);   # alertDisableStatus is <group>-<device>-<instance>
 """
@@ -64,36 +70,65 @@ LOOKUPS = {
                 "currentCollectorId", "collectorDescription", "deviceType"]),
     "group": ("DeviceGroupList", ['name:"{}"', 'fullPath:"{}"', 'name~"{}"'],
               ["id", "name", "fullPath", "numOfHosts", "groupStatus"]),
+    # Collector names are usually DOMAIN\HOST or an FQDN, so a bare host name
+    # needs the contains filters.
+    "collector": ("CollectorList", ['description:"{}"', 'hostname:"{}"', 'description~"{}"', 'hostname~"{}"'],
+                  ["id", "description", "hostname", "isDown", "inSDT", "collectorGroupName", "collectorDeviceId",
+                   "numberOfHosts", "backupAgentId", "build", "upTime", "watchdogUpdatedOn"]),
 }
 
 
+def taking(param):
+    """The recipes that take this lookup (device, group), or none (the whole portal)."""
+    return [name for name, r in RECIPES.items() if r.get("params", [None])[0] == param]
+
+
 def tool_description():
-    lines = [f"- {name}{' (' + ', '.join(r['params']) + ')' if r.get('params') else ''}: {'; '.join(r['asks'])}"
-             for name, r in RECIPES.items()]
+    def listed(names):
+        return "\n".join(f"- {name}: {'; '.join(RECIPES[name]['asks'])}" for name in names)
     return ("Checked answers to the questions people ask most: the queries, the counting and the summary are "
             "already worked out, so the numbers are right. If one of these fits the question, use it first, "
-            "before run_elm. Recipes:\n" + "\n".join(lines))
+            "before run_elm.\n\nAbout one device (pass device):\n" + listed(taking("device"))
+            + "\n\nAbout one group (pass group):\n" + listed(taking("group"))
+            + "\n\nAbout one collector (pass collector):\n" + listed(taking("collector"))
+            + "\n\nAbout the whole portal (pass no name):\n" + listed(taking(None)))
 
 
 def fetch_all(command, **kw):
-    """Every row, a page of 1000 at a time; (lines, shown) of the first page's command."""
+    """Every row, a page of 1000 at a time; (lines, shown, cut).
+
+    shown is the first page's command. cut is None when every row came back,
+    else what is known of the real total: LM stops paging at 10,000 rows with
+    no error, and the last page can fall a little short, so reaching the last
+    page means the rows may be cut short. -C says by how much (AlertList gives
+    only ">N"), or that nothing was cut after all.
+    """
     lines, shown = [], None
     for page in range(MAX_PAGES):
         got, _, _, cmd = elm_tools.fetch(command, size=0, offset=page * elm_tools.MAX_ROWS, **kw)
         lines += got
         shown = shown or cmd
-        if len(got) < elm_tools.MAX_ROWS:
-            break
-    return lines, shown
+        if len(got) < elm_tools.MAX_ROWS and page < MAX_PAGES - 1:
+            return lines, shown, None
+    total = elm_tools.fetch(command, total=True, filter=kw.get("filter"), params=kw.get("params"))[0]
+    return lines, shown, None if total == str(len(lines)) else total
 
 
-def run_recipe(session, recipe, device=None, group=None):
+def run_recipe(session, recipe, device=None, group=None, collector=None):
     """Run one recipe; return (text for the model, [step and table events])."""
     r = RECIPES.get(recipe)
     if not r:
         raise ValueError(f"No recipe {recipe!r}. Recipes: {', '.join(RECIPES)}")
-    given = {"device": device, "group": group}
+    given = {"device": device, "group": group, "collector": collector}
+    for param, value in given.items():
+        if value and param not in r.get("params", []):
+            # A small model asked about one device's downtime ran the portal's
+            # and reported every SDT as the device's (qwen3-8b, 2026-10-29).
+            return (f"Not run: {recipe} is not about one {param}, so it cannot answer a question about {value}. "
+                    f"Use one of these with {param}={value!r}: {', '.join(taking(param))}; "
+                    f"or, if none fits, run_elm."), []
     names, records, events = {}, {}, []   # names: step name -> dataset id
+    cut, skipped = [], set()   # steps LM's 10,000-row limit cut short; steps whose `when` was false
 
     def keep(name, lines, shown, what):
         ds_id = session.add(lines, f"recipe {recipe}: {what}")
@@ -121,7 +156,8 @@ def run_recipe(session, recipe, device=None, group=None):
             if not found:
                 return f"No {param} has a name like {value!r}. Say so; do not guess another {param}.", events
             if len(found) > 1 and not r.get("many"):
-                listed = ", ".join(d.get("displayName") or d.get("fullPath") or d.get("name") for d in found)
+                listed = ", ".join(d.get("displayName") or d.get("fullPath") or d.get("description") or d.get("name")
+                                   for d in found)
                 some = "At least " if len(found) == 20 else ""
                 return (f"{some}{len(found)} {param}s have a name like {value!r}: {listed}. Ask which one "
                         f"is meant, then use the recipe again with its exact name."), events
@@ -130,12 +166,26 @@ def run_recipe(session, recipe, device=None, group=None):
         for step in r.get("steps", []):
             if "when" in step and elm_tools._jq(session, jq(step["when"])).strip() != "true":
                 names[step["as"]] = session.add([], f"recipe {recipe}: {step['as']} (skipped)")   # still bound for jq
+                skipped.add(step["as"])
+                continue
+            if "each" in step:
+                items = json.loads(elm_tools._jq(session, jq(step["each"])))[:MAX_EACH]
+                lines, shown = [], f"{step['run']}: nothing to fetch"
+                for i, row in enumerate(items):
+                    params = {k: str(v).format(**records, row=row) for k, v in step.get("params", {}).items()}
+                    got, _, _, one = elm_tools.fetch(step["run"], fields=step.get("fields"), params=params, size=0)
+                    lines += [json.dumps(json.loads(line) | {"of": row}) for line in got]
+                    shown = one if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
+                keep(step["as"], lines, shown, step["as"])
                 continue
             kw = {"filter": step["filter"].format(**records) if "filter" in step else None,
                   "fields": step.get("fields"),
                   "params": {k: str(v).format(**records) for k, v in step.get("params", {}).items()} or None}
             if step.get("size") == "all":
-                lines, shown = fetch_all(step["run"], **kw)
+                lines, shown, total = fetch_all(step["run"], **kw)
+                if total:
+                    cut.append(f"{step['as']}: {len(lines)} rows, " +
+                               ("possibly more" if total.startswith(">") else f"of {total}"))
             else:
                 lines, _, _, shown = elm_tools.fetch(step["run"], size=step.get("size", 0), **kw)
             keep(step["as"], lines, shown, step["as"])
@@ -145,17 +195,29 @@ def run_recipe(session, recipe, device=None, group=None):
         return f"The recipe could not run: {text}", events
 
     summary = json.loads(elm_tools._jq(session, jq(r["summary"])))
-    text = f"Lead with this, keeping its facts and numbers exactly:\n\n{summary}\n\n"
+    if cut:
+        # The counts are over the rows that came back, so they may be too low.
+        summary = (f"Only part of the data could be fetched ({'; '.join(cut)}: LogicMonitor returns at most "
+                   f"10,000 rows), so the counts below may be too low. {summary}")
+    # Only the summary goes to the model. The table and How I worked this out
+    # are Samara's: a small model copied instructions about them into its
+    # answers word for word, and listed queries that never ran.
+    text = f"Answer with this, keeping its facts and numbers exactly:\n\n{summary}\n\n"
+    if r.get("table_only"):
+        text += "The values are for the reader to read in the table, not for you: add nothing else."
+    else:
+        data = ", ".join(f"${ds_id} ({name})" for name, ds_id in names.items())
+        text += (f"If the question asks something this does not cover, get it from the recipe's rows with jq "
+                 f"({data}); add nothing else.")
     if "table" in r:
         t = r["table"]
         note, table = elm_tools.show_table(session, t["title"].format(**records), jq(t["rows"]), t["columns"])
         if table["total"]:
             events.append(table)
-            text += f"A table of {table['total']} rows is shown to the reader: do not write it out yourself.\n"
-    worked = [f"found the {p} by name" for p in r.get("params", [])]
-    worked += [step.get("says", step["as"]) for step in r.get("steps", []) if step["as"] in names]
-    if worked:
-        text += "Then a short How I worked this out, one line each: " + "; ".join(worked) + "."
+    worked = [f"Found the {p} by name." for p in r.get("params", [])]
+    says = [step.get("says", step["as"]) for step in r.get("steps", []) if step["as"] not in skipped]
+    worked += [line[:1].upper() + line[1:] + "." for line in says]
+    events.append({"type": "worked", "lines": worked})
     return text, events
 
 
@@ -171,6 +233,7 @@ elm_tools.TOOLS.insert(0, {
             "recipe": {"type": "string", "enum": list(RECIPES), "description": "The recipe's name"},
             "device": {"type": "string", "description": "For a device recipe: the device's name as the person wrote it"},
             "group": {"type": "string", "description": "For a group recipe: the group's name as the person wrote it"},
+            "collector": {"type": "string", "description": "For a collector recipe: the collector's name as the person wrote it"},
         },
         "required": ["recipe"],
     },

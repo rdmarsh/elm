@@ -97,7 +97,7 @@
   .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
-  /* The card's last row: show-and-take-away (Markdown, CSV) on the left, the
+  /* The card's last row: take-away (Copy, CSV, Show) on the left, the
      buttons that ask again (Tell me more, Think harder) on the right. */
   .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
   .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -485,8 +485,9 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
       <pre class="script" hidden></pre></details>
     <div class="turn-foot">
       <span class="exports">
-        <button class="secondary icon md-toggle" type="button" title="Show this answer as Markdown, to copy or download" hidden>${ICON.md}Markdown</button>
+        <button class="secondary icon copy" type="button" title="Copy this answer as Markdown" hidden>${ICON.md}Copy</button>
         <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
+        <button class="link md-toggle" type="button" title="Show this answer as Markdown, to read or download" hidden>Show</button>
       </span>
       <span class="buttons">
         <button class="link more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
@@ -495,8 +496,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     </div>
     <div class="markdown-view" hidden>
       <textarea readonly></textarea>
-      <div class="row"><button class="secondary copy" type="button">Copy</button>
-        <button class="secondary download" type="button">Download</button>
+      <div class="row"><button class="secondary download" type="button">Download</button>
         <span class="note"></span></div>
     </div>`;
   results.prepend(turn);
@@ -528,14 +528,23 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     setTimeout(() => e.target.textContent = "Copy", 2000);
   });
   const view = $(".markdown-view", turn), box = $("textarea", view), note = $(".note", view);
-  $(".md-toggle", turn).addEventListener("click", () => {
-    view.hidden = !view.hidden;
-    $(".md-toggle", turn).innerHTML = ICON.md + (view.hidden ? "Markdown" : "Hide Markdown");
-    if (!view.hidden) { box.value = answerMarkdown({ ...t.md, costText: costText(t) }); note.textContent = ""; }
-  });
-  $(".copy", turn).addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(box.value); note.textContent = "Copied"; }
-    catch { box.select(); note.textContent = "Press ctrl/cmd-C to copy"; }
+  const showMarkdown = open => {
+    view.hidden = !open;
+    $(".md-toggle", turn).textContent = open ? "Hide" : "Show";
+    if (open) { box.value = answerMarkdown({ ...t.md, costText: costText(t) }); note.textContent = ""; }
+  };
+  $(".md-toggle", turn).addEventListener("click", () => showMarkdown(view.hidden));
+  // Copy in one click. The clipboard needs a secure page (https or localhost):
+  // elsewhere, open the Markdown and select it for ctrl/cmd-C instead.
+  $(".copy", turn).addEventListener("click", async e => {
+    const b = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(answerMarkdown({ ...t.md, costText: costText(t) }));
+      b.innerHTML = ICON.md + "Copied";
+      setTimeout(() => b.innerHTML = ICON.md + "Copy", 2000);
+    } catch {
+      showMarkdown(true); box.select(); note.textContent = "Press ctrl/cmd-C to copy";
+    }
   });
   $(".download", turn).addEventListener("click", () =>
     saveFile(slug(question) + ".md", box.value, "text/markdown"));
@@ -548,6 +557,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
 
   await stream(t, $(".part", turn), { question, harder }, ev => {
     t.md.answer = ev.markdown;
+    $(".copy", turn).hidden = false;
     $(".md-toggle", turn).hidden = false;
     $(".more-detail", turn).hidden = false;
     if (t.more || t.level) {   // a harder model left, or a note that there is none
