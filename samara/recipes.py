@@ -130,8 +130,8 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
     names, records, events = {}, {}, []   # names: step name -> dataset id
     cut, skipped = [], set()   # steps LM's 10,000-row limit cut short; steps whose `when` was false
 
-    def keep(name, lines, shown, what):
-        ds_id = session.add(lines, f"recipe {recipe}: {what}")
+    def keep(name, lines, shown, what, command):
+        ds_id = session.add(lines, f"recipe {recipe}: {what}", command)
         names[name] = ds_id
         events.append({"type": "step", "command": shown, "result": f"{len(lines)} rows", "dataset": ds_id})
 
@@ -151,7 +151,7 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
                 lines, _, _, shown = elm_tools.fetch(command, filter=f.format(value), fields=fields, size=20)
                 if lines:
                     break
-            keep(param, lines, shown, f"{param} {value}")
+            keep(param, lines, shown, f"{param} {value}", command)
             found = [json.loads(line) for line in lines]
             if not found:
                 return f"No {param} has a name like {value!r}. Say so; do not guess another {param}.", events
@@ -176,7 +176,7 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
                     got, _, _, one = elm_tools.fetch(step["run"], fields=step.get("fields"), params=params, size=0)
                     lines += [json.dumps(json.loads(line) | {"of": row}) for line in got]
                     shown = one if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
-                keep(step["as"], lines, shown, step["as"])
+                keep(step["as"], lines, shown, step["as"], step["run"])
                 continue
             kw = {"filter": step["filter"].format(**records) if "filter" in step else None,
                   "fields": step.get("fields"),
@@ -188,7 +188,7 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
                                ("possibly more" if total.startswith(">") else f"of {total}"))
             else:
                 lines, _, _, shown = elm_tools.fetch(step["run"], size=step.get("size", 0), **kw)
-            keep(step["as"], lines, shown, step["as"])
+            keep(step["as"], lines, shown, step["as"], step["run"])
     except elm_tools.Refused as exc:
         text, step = exc.args
         events.append(step)

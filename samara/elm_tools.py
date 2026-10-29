@@ -67,6 +67,19 @@ SECRET_PROPERTY_NAME = re.compile(r"pass|secret|community|token|accesskey|privat
 LM_MASK = re.compile(r"^\*+$")
 REDACTED = "[removed: secret]"
 
+# Free text anyone with access can type: descriptions, SDT comments, property
+# values. A small model repeated a planted "[LM Admin] Decommissioned" note as
+# fact about a device that was up, whatever the prompt said (qwen3-8b,
+# 2026-10-29). So the model never gets these values: jq and run_elm's sample
+# read a copy without them, and show_table, which only the reader sees, reads
+# the real rows. Kept: system properties LM fills in itself, and a collector's
+# description, which is its name.
+FREE_TEXT_FIELDS = {"description", "comment", "note"}
+PROPERTY_LISTS = {"customProperties", "inheritedProperties", "systemProperties", "autoProperties"}
+LM_SET_PROPERTIES = {"system.sysinfo", "system.ips", "system.sysoid", "system.hoststatus", "system.devicetype",
+                     "system.collectorplatform", "system.collectorarch", "system.collectorversion"}
+WITHHELD = "(withheld; show_table shows it to the reader)"
+
 
 def load_commands():
     """Return {command: definition} from the generated _defs/commands.json."""
@@ -119,6 +132,26 @@ def redact(value):
     return value, 0
 
 
+def lm_set(prop):
+    """An LM-set property as the model sees it. sysinfo is what the device
+    reports about itself, so whoever runs the device chooses it: plain
+    characters only, and short."""
+    return prop | {"value": re.sub(r"[^A-Za-z0-9 .,:()/_#+-]", "", str(prop.get("value", "")))[:100]}
+
+
+def withhold(record, command):
+    """The record as the model sees it: free text replaced by WITHHELD."""
+    out = dict(record)
+    for key, item in record.items():
+        if key in FREE_TEXT_FIELDS and item not in ("", None) and not command.startswith("Collector"):
+            out[key] = WITHHELD
+        elif key in PROPERTY_LISTS and isinstance(item, list):
+            out[key] = [lm_set(p) if p.get("name") in LM_SET_PROPERTIES
+                        else p | {"value": WITHHELD} if p.get("value") not in ("", None) else p
+                        for p in item if isinstance(p, dict)]
+    return out
+
+
 def usable_tz(name):
     """An IANA timezone name (Australia/Sydney) that is safe to hand jq, else None.
 
@@ -149,13 +182,22 @@ class Session:
         notes = command_notes(command)
         return f"{text}\n\n{notes}" if notes else text
 
-    def add(self, lines, description):
-        """Store jsonl lines as a new dataset and return its id."""
+    def add(self, lines, description, command=""):
+        """Store jsonl lines as a new dataset and return its id.
+
+        Each dataset is kept twice: as fetched, for show_table and recipes, and
+        with free text withheld (withhold), for everything the model reads.
+        """
         ds_id = f"d{len(self.datasets) + 1}"
         path = Path(self.dir.name) / f"{ds_id}.jsonl"
         path.write_text("".join(line + "\n" for line in lines))
-        self.datasets[ds_id] = {"path": path, "rows": len(lines), "description": description}
+        model_path = Path(self.dir.name) / f"{ds_id}.model.jsonl"
+        model_path.write_text("".join(json.dumps(withhold(json.loads(line), command)) + "\n" for line in lines))
+        self.datasets[ds_id] = {"path": path, "model_path": model_path, "rows": len(lines), "description": description}
         return ds_id
+
+    def model_lines(self, ds_id):
+        return self.datasets[ds_id]["model_path"].read_text().splitlines()
 
     def close(self):
         self.dir.cleanup()
@@ -369,7 +411,8 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
                     f"size 0 (add offset to page past 1000) and count what comes back.")
         return session.with_notes(command, text), step
 
-    ds_id = session.add(lines, f"{command} filter={filter or '-'}")
+    ds_id = session.add(lines, f"{command} filter={filter or '-'}", command)
+    lines = session.model_lines(ds_id)   # from here on, what the model may read
     rows, sample_chars = [], 0
     for line in lines[:SAMPLE_ROWS]:   # keep the sample small enough to stay valid JSON after truncate()
         if rows and sample_chars + len(line) > MAX_SAMPLE_CHARS:
@@ -430,11 +473,14 @@ def describe_command(session, command):
     raise ValueError(f"elm {command} --info failed: {proc.stderr.strip()[:500]}")
 
 
-def _jq(session, expression):
-    """Evaluate a jq expression with every dataset bound as $d1, $d2, ... (arrays)."""
+def _jq(session, expression, model=False):
+    """Evaluate a jq expression with every dataset bound as $d1, $d2, ... (arrays).
+
+    model: the output goes to the model, so read the copies with free text withheld.
+    """
     args = ["jq", "-c", "-n"]
     for ds_id, ds in session.datasets.items():
-        args += ["--slurpfile", ds_id, str(ds["path"])]
+        args += ["--slurpfile", ds_id, str(ds["model_path" if model else "path"])]
     args.append(expression)
     # Nearly empty environment: jq's $ENV must not expose API keys to the model.
     # TZ is the reader's zone, so strflocaltime gives their local time.
@@ -463,7 +509,7 @@ def jq_hint(expression, stderr):
 
 def run_jq(session, expression):
     """Filter, join, count or reshape stored datasets with jq."""
-    out = _jq(session, expression)
+    out = _jq(session, expression, model=True)
     step = {"type": "step", "command": f"jq {expression}", "result": f"{len(out.splitlines())} line(s)",
             "expression": expression}
     return truncate(out or "(no output)"), step
