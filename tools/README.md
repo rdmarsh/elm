@@ -43,11 +43,27 @@ Profiles and tokens
 - [Check what a token can reach](#check-what-a-token-can-reach) — `tools/elm-check-access.sh`
 - [API speed test](#api-speed-test) — `tools/elm-speedtest.sh`
 - [Profiles in a sandbox](#profiles-in-a-sandbox) — `tools/sbx-creds.sh`
+- [A profile limited to some commands](#a-profile-limited-to-some-commands) — `tools/elm-profile-limit.sh`
 
 Maintaining elm
 - [Swagger gaps](#swagger-gaps) — `tools/elm-swagger-gaps.py`
 
 - [Ask in plain English](#ask-in-plain-english) — `samara/`
+
+## A profile limited to some commands
+
+`tools/elm-profile-limit.sh SET PORTAL` makes `PORTAL_SET.ini` from
+`PORTAL.ini` in `~/.config/logicmonitor/credentials`: the same credentials, no
+`format` line, and `allowed_commands` set to the commands in SET. Any other
+command exits 3 without sending a request. The new file is mode 600 and never
+printed. `-l` lists the sets; add one with a line in the script's `SETS`.
+
+```shell
+tools/elm-profile-limit.sh collector portal01 portal02  # portal01_collector.ini, portal02_collector.ini
+tools/elm-profile-limit.sh rules portal01                # alert rules, escalation chains, integrations ...
+tools/elm-profile-limit.sh -c 'DeviceList,Alert*' noc portal01   # your own list: portal01_noc.ini
+elm -p portal01_collector CollectorList -F isDown:true
+```
 
 ## Profiles in a sandbox
 
