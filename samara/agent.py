@@ -520,6 +520,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         tool_uses = [b for b in response.content if kind(b) == "tool_use"]
 
         if not tool_uses:
+            # The model's own words, before Samara tidies them: for the bug report (index.html).
+            emit({"type": "draft", "text": "\n\n".join(texts)})
             answer = (no_echoes(no_commands(CALL_TEXT.sub("", "\n\n".join(texts))))
                       or "\n\n".join(dict.fromkeys(summaries)) or "(no answer)")
             if tabled:
@@ -572,6 +574,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 raise Stopped()
             emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
             call = f"{openai_api.block(block, 'name')} {json.dumps(openai_api.block(block, 'input'), sort_keys=True)}"
+            emit({"type": "call", "name": openai_api.block(block, "name"), "input": openai_api.block(block, "input")})
             if call in done_calls:
                 # The same call again, after it worked: its result is already in
                 # the conversation. Run again, a recipe put its table on the page

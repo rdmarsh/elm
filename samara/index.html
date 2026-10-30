@@ -63,8 +63,8 @@
   /* Quiet actions read as links (Dig deeper, Try again); Think harder stays a button. */
   button.link { background: none; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted);
                 text-decoration: underline; font-size: .85rem; }
-  button.link.md-toggle { display: inline-flex; align-items: center; text-decoration: none; }
-  button.link.md-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6;
+  button.link.md-toggle, button.link.debug { display: inline-flex; align-items: center; text-decoration: none; }
+  button.link.md-toggle svg, button.link.debug svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6;
                               stroke-linecap: round; stroke-linejoin: round; }
   button.link.md-toggle[aria-pressed="true"] { color: var(--ink); background: var(--code); }
   button:disabled { opacity: .5; cursor: default; }
@@ -215,6 +215,7 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const ICON = {
   csv: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="12" rx="2"/><path d="M1 6h14M6 6v8"/></svg>`,
   source: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 1.5 8l4 4M10.5 4l4 4-4 4M9 2.5 7 13.5"/></svg>`,
+  bug: `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="9.5" rx="3.5" ry="4.5"/><path d="M6 5a2 2 0 0 1 4 0M8 5.5V14M4.5 8H2M4.5 11.5H2.5M11.5 8H14M11.5 11.5h2M5.5 5.5 4 4M10.5 5.5 12 4"/></svg>`,
   md: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M4 11V6l2 2.5L8 6v5M11 6v3.5M11 10l1.5-1.5M11 10 9.5 8.5"/></svg>`,
 };
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
@@ -384,6 +385,14 @@ function answerMarkdown(a) {
   ].filter(x => x !== null).join("\n");
 }
 
+// For a bug report: the answer as copied, the server's health, then each event
+// as one JSON line. No credentials ever reach the page, so none are in it.
+function debugText(t) {
+  return [answerMarkdown({ ...t.md, costText: costText(t) }), "", "## Debug", "",
+    "```json", JSON.stringify({ health, page: location.pathname + location.search, browser: navigator.userAgent }),
+    ...t.events.map(ev => JSON.stringify(ev)), "```"].join("\n");
+}
+
 let current = null;   // the AbortController of the request in progress, if any
 const announce = text => $("#announce").textContent = text;
 form.addEventListener("submit", e => {
@@ -514,6 +523,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
         <button class="secondary icon copy" type="button" title="Copy this answer as Markdown" hidden>${ICON.md}Copy</button>
         <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
         <button class="link md-toggle" type="button" title="Show the Markdown, to read or download" aria-label="Show the Markdown" aria-pressed="false" hidden>${ICON.source}</button>
+        <button class="link debug" type="button" title="Copy everything about this answer, for a bug report" aria-label="Copy for a bug report" hidden>${ICON.bug}</button>
       </span>
       <span class="buttons">
         <button class="link more-detail" type="button" title="Look further in the portal: patterns, likely causes, what to check next" hidden>Dig deeper</button>
@@ -527,7 +537,8 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     </div>`;
   results.prepend(turn);
   const t = { turn, steps: $(".steps", turn), stepCount: 0, more: false, level,
-              md: { question, answer: "", detail: "", tables: [], script: [], model: "" } };
+              md: { question, answer: "", detail: "", tables: [], script: [], model: "" },
+              events: [] };   // everything the server sent, for the bug-report copy
 
   $(".earlier-toggle", turn).addEventListener("click", e => {
     e.target.textContent = turn.classList.toggle("open") ? "Hide earlier answer" : "Show earlier answer";
@@ -565,6 +576,18 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     if (open) { box.value = answerMarkdown({ ...t.md, costText: costText(t) }); note.textContent = ""; }
   };
   $(".md-toggle", turn).addEventListener("click", () => showMarkdown(view.hidden));
+  // The bug: the answer, what Samara and elm were, and every event the server
+  // sent (the model's own calls and draft among them), in one paste.
+  $(".debug", turn).addEventListener("click", async e => {
+    const b = e.currentTarget, text = debugText(t);
+    try {
+      await navigator.clipboard.writeText(text);
+      b.title = "Copied"; setTimeout(() => b.title = "Copy everything about this answer, for a bug report", 2000);
+      announce("Copied for a bug report");
+    } catch {
+      showMarkdown(true); box.value = text; box.select(); note.textContent = "Press ctrl/cmd-C to copy";
+    }
+  });
   // Copy in one click. The clipboard needs a secure page (https or localhost):
   // elsewhere, open the Markdown and select it for ctrl/cmd-C instead.
   $(".copy", turn).addEventListener("click", async e => {
@@ -616,6 +639,8 @@ async function stream(t, part, body, onAnswer) {
     <div class="answer"></div><div class="tables"></div>`;
   const statusText = $(".status-text", part), steps = t.steps;
   const handle = ev => {
+    // A table's first rows are enough to see its shape.
+    t.events.push(ev.type === "table" ? { ...ev, rows: ev.rows.slice(0, 5), shown: ev.rows.length } : ev);
     switch (ev.type) {
       case "conversation": conversationId = ev.id; break;
       case "model":
@@ -688,6 +713,8 @@ async function stream(t, part, body, onAnswer) {
   } finally {
     current = null;
     go.textContent = "Ask"; go.classList.remove("stop");
+    if (failed) t.events.push({ type: "page", text: failed });
+    $(".debug", t.turn).hidden = false;   // a failed answer is when it is most wanted
     $(".status", part).remove();
     // A stopped or failed request can be sent again as it was. The server has
     // already dropped the half-finished turn, so start this one clean too.
