@@ -797,7 +797,8 @@
       | map({Device: .displayName, "Disabled by": (.alertDisableStatus | disabled_by | join(", "))})
 
 - name: downtime
-  asks: ["what's in scheduled downtime now?", "what downtime is scheduled this week?", "what's in maintenance?"]
+  asks: ["what's in scheduled downtime now?", "what downtime is scheduled this week?", "what's in maintenance?",
+         "is any work planned this weekend?", "is there a maintenance window coming up?"]
   covers: "scheduled downtime across the portal, now and coming"
   steps:
     - as: sdts
