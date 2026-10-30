@@ -438,8 +438,13 @@ function withProfile(cmd) {
 }
 function scriptOf(entries) {   // -> [{cmd, note}]; cmd is what gets copied
   const out = [], made = new Set();
+  // Only rows a jq step reads go to a file; the rest print, so a script of
+  // plain queries shows its results instead of saving and deleting them.
+  const read = new Set(entries.flatMap(e => (e.expression || "").match(/\$d\d+/g) || []).map(d => d.slice(1)));
   for (const e of entries) {
-    if (e.dataset) {
+    if (e.dataset && !read.has(e.dataset)) {
+      out.push({ cmd: withProfile(e.command), note: e.result });
+    } else if (e.dataset) {
       out.push({ cmd: `${withProfile(e.command)} > "$t/${e.dataset}.jsonl"`, note: e.result }); made.add(e.dataset);
     } else if (e.expression !== undefined) {
       const ds = [...new Set(e.expression.match(/\$d\d+/g) || [])].map(d => d.slice(1));
