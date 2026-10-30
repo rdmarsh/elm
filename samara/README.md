@@ -21,8 +21,9 @@ same allowed commands, and deletes the rows it saved when it finishes. The row
 counts shown beside it are not copied. Read a script before you run it: the
 model wrote it, after reading portal data that anyone with edit rights can set.
 
-Under each answer, **Tell me more** asks the same model for the analysis left
-out -- patterns, likely causes, what to check next -- and adds it to the
+Under each answer, **Dig deeper** asks the same model to look further in the
+portal and give the analysis left out -- patterns, likely causes, what to check
+next, each marked as shown by the data or a guess -- and adds it to the
 answer; **Think harder** asks the question again on a more capable model, and
 names it ("Think harder · sonnet"). The top step of the ladder is **Ultrathink**
 ("Ultrathink · opus"), however many models `SAMARA_MODEL` lists.

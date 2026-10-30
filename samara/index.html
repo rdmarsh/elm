@@ -60,7 +60,7 @@
   }
   @media (prefers-reduced-motion: reduce) { button.secondary.rainbow:hover { animation: none; } }
   @media (forced-colors: active) { button.secondary.rainbow { background: none; color: ButtonText; } }
-  /* Quiet actions read as links (Tell me more, Try again); Think harder stays a button. */
+  /* Quiet actions read as links (Dig deeper, Try again); Think harder stays a button. */
   button.link { background: none; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted);
                 text-decoration: underline; font-size: .85rem; }
   button.link.md-toggle { display: inline-flex; align-items: center; text-decoration: none; }
@@ -102,7 +102,7 @@
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
   /* The card's last row: take-away (Copy, CSV, </> for the Markdown) on the left, the
-     buttons that ask again (Tell me more, Think harder) on the right. */
+     buttons that ask again (Dig deeper, Think harder) on the right. */
   .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
   .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .turn-foot .buttons { margin-left: auto; }
@@ -378,7 +378,7 @@ function answerMarkdown(a) {
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
     ...(worked.trim() ? ["**How I worked this out**", "", worked.trim(), ""] : []),
-    ...(a.detail ? ["## Tell me more", "", a.detail, ""] : []),
+    ...(a.detail ? ["## Dig deeper", "", a.detail, ""] : []),
     `_Samara${when}${cost} · ${isoNow()}_`,
   ].filter(x => x !== null).join("\n");
 }
@@ -479,7 +479,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   if (harder) { level = harder; atTop = next.top; }
   setPlaceholder();
   // Only the newest answer can be retried or extended: the server forgets the
-  // one Think harder replaces, and Tell me more continues from the latest.
+  // one Think harder replaces, and Dig deeper continues from the latest.
   document.querySelectorAll(".harder, .more-detail").forEach(b => b.remove());
   const earlier = harder ? results.firstElementChild : null;
   if (earlier) { earlier.classList.add("earlier"); $(".earlier-toggle", earlier).hidden = false; }
@@ -504,7 +504,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
         <button class="link md-toggle" type="button" title="Show the Markdown, to read or download" aria-label="Show the Markdown" aria-pressed="false" hidden>${ICON.source}</button>
       </span>
       <span class="buttons">
-        <button class="link more-detail" type="button" title="Patterns, likely causes and what to check next" hidden>Tell me more</button>
+        <button class="link more-detail" type="button" title="Look further in the portal: patterns, likely causes, what to check next" hidden>Dig deeper</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
     </div>
@@ -533,7 +533,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     $(".steps", turn).before(part);
     stream(t, part, { detail: true }, ev => {
       t.md.detail = ev.markdown;
-      return "Tell me more";
+      return "Dig deeper";
     });
   });
   $(".copy-script", turn).addEventListener("click", async e => {
@@ -610,7 +610,7 @@ async function stream(t, part, body, onAnswer) {
           if (ev.level !== undefined) { t.level = level = ev.level; atTop = !ev.more; setPlaceholder(); }
         }
         break;
-      case "usage":   // summed over the card: the answer, then any Tell me more
+      case "usage":   // summed over the card: the answer, then any Dig deeper
         t.tokens = (t.tokens || 0) + ev.tokens;
         t.seconds = (t.seconds || 0) + (Date.now() - began) / 1000;
         t.cost = ev.cost == null || t.cost === null ? null : (t.cost || 0) + ev.cost;
