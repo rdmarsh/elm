@@ -38,12 +38,16 @@ MODEL_KEY = elm_tools.setting("MODEL_KEY", "")   # for an API that wants one (Op
 # Claude only: OpenAI-compatible servers differ in what they take.
 EFFORT = elm_tools.setting("EFFORT", "high")
 MAX_STEPS = int(elm_tools.setting("MAX_STEPS", "25"))
-# Sent for the page's Tell me more button. Answers stop at the facts (see
+# Sent for the page's Dig deeper button. Answers stop at the facts (see
 # system_prompt.md); this asks for the analysis that was left out.
-DETAIL_REQUEST = ("More detail, please. Go beyond the facts in your last answer: patterns, likely causes and "
-                  "what to check next. Use the data you already fetched where you can, and fetch more only if it "
-                  "would change the analysis. Say which points the data shows and which are likely causes. "
-                  "Do not repeat the facts I already have.")
+# Asked as "Tell me more", it gave generic causes (DNS, SNMP settings) and
+# checks it never ran, nearly every time (qwen3-8b, 2026-10-30): so it is asked
+# to look, and to keep what it found apart from what it guesses.
+DETAIL_REQUEST = ("Dig deeper into your last answer. Look further in the portal: fetch what would confirm or rule "
+                  "out a cause (when the alerts started, what else alerted then, other devices on the same "
+                  "collector or in the same group). Then give the patterns and likely causes, saying for each "
+                  "whether the data shows it or it is a guess, and what to check next. Do not repeat the facts "
+                  "I already have.")
 HERE = Path(__file__).resolve().parent
 # What the page says while the model thinks, one picked per step. Only for fun.
 THINKING = ["Branching out", "Putting down roots", "Leafing through it", "Rustling the leaves",
@@ -216,7 +220,7 @@ class Conversation:
         self.messages = []
         self.question = None       # the last question, and where it starts in messages,
         self.asked_at = 0          # so "Think harder" can ask it again from there
-        self.model = None          # the model that answered it, for Tell me more
+        self.model = None          # the model that answered it, for Dig deeper
         self.level = 0             # steps above the default line; follow-ups keep it
         self.lock = threading.Lock()    # one request at a time per conversation
         self.stop = threading.Event()   # set by a newer request: the running one gives way
@@ -411,7 +415,7 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
     the time they keep rather than UTC. `harder` > 0 asks the last question
     again on a dearer model, from before it was first asked, so the new model
     starts fresh instead of building on the answer that was not good enough.
-    `detail` (Tell me more) asks the model that answered for the analysis behind its answer;
+    `detail` (Dig deeper) asks the model that answered for the analysis behind its answer;
     it is not a new question, so Think harder still redoes the one before it.
     Once a question has been asked harder, later questions in the conversation
     stay at that level: they are usually about the same problem, and dropping
@@ -466,7 +470,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     conv.messages.append({
         "role": "user",
         "content": (f"{question}\n\n"
-                    f"(Now: {local:%Y-%m-%d %H:%M} for the reader, timezone {tz or offset}; "
+                    + (f"(Portal: {elm_tools.portal()}.) " if elm_tools.portal() else "")
+                    + f"(Now: {local:%Y-%m-%d %H:%M} for the reader, timezone {tz or offset}; "
                     f"{now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())}. {how})"),
     })
     # Tokens for this turn, across its steps, for the cost shown with the answer.

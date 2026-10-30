@@ -179,8 +179,18 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
                 how = {"device": "display name, then part of it, then hostname or IP",
                        "group": "name, then path, then part of either",
                        "collector": "id, then description, then hostname"}[param]
-                events.append({"type": "worked", "lines": [f"Looked for a {param} named {value!r} by {how}: none found."],
-                               "summary": f"No {param} has a name like {value!r} in this portal.",
+                # How many this profile sees at all: a token whose role hides a group
+                # finds collectors but not that group's devices (a second machine's
+                # ai.ini, 2026-10-30), and "not found" alone reads as "not monitored".
+                try:
+                    seen = elm_tools.fetch(LOOKUPS[param][0], total=True)[0]
+                except elm_tools.Refused:
+                    seen = ""
+                where = elm_tools.portal() or "this portal"
+                among = f" (this profile can see {seen} {param}s there)" if seen.isdigit() else ""
+                events.append({"type": "worked", "lines": [f"Looked for a {param} named {value!r} by {how}: none found."]
+                               + ([f"Counted the {param}s this profile can see: {seen}."] if seen.isdigit() else []),
+                               "summary": f"No {param} in {where} has a name like {value!r}{among}.",
                                "covers": None})
                 return f"No {param} has a name like {value!r}. Say so; do not guess another {param}.", events
             if len(found) > 1 and not r.get("many"):
