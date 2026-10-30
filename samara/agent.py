@@ -487,11 +487,16 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     summaries, recipe_calls = [], 0   # what each recipe that ran said, and how many were asked for
     covered = []   # what each recipe that ran answers, for the line under the answer
     ran = []   # the model's own queries, for How I worked this out
+    failed_calls = {}   # tool call -> times it failed, to stop a model retrying the same one
+    forced = None   # set to end the turn without asking the model again: the answer's own text
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
-        emit({"type": "status", "text": random.choice(THINKING) + "..."})
-        response = create(client, model, conv.messages, emit)
+        if forced is None:
+            emit({"type": "status", "text": random.choice(THINKING) + "..."})
+            response = create(client, model, conv.messages, emit)
+        else:
+            response = Reply([{"type": "text", "text": forced}], "end_turn", {})
         for k, v in response.usage.items():
             usage[k] += v
         if response.stop_reason == "refusal":
@@ -539,7 +544,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 answer += "\n\n_Nothing in this answer was looked up in the portal._"
             if covered:
                 answer = with_covers(answer, covered)
-            if "run_elm" in used:
+            if "run_elm" in used and forced is None:
                 # Above How I worked this out, which the page folds away.
                 m = WORKED.search(answer)
                 at = m.start() if m else len(answer)
@@ -557,6 +562,19 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             if conv.stop.is_set():
                 raise Stopped()
             emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
+            call = f"{openai_api.block(block, 'name')} {json.dumps(openai_api.block(block, 'input'), sort_keys=True)}"
+            if failed_calls.get(call):
+                # The same call again, after it failed: not run. A model retried
+                # one failing show_table a dozen times after the portal could not
+                # be reached (gpt-oss-20b, 2026-10-30).
+                failed_calls[call] += 1
+                results.append({"type": "tool_result", "tool_use_id": openai_api.block(block, "id"), "is_error": True,
+                                "content": "Not run: this exact call already failed. Do something different, "
+                                           "or answer with what you have."})
+                if sum(failed_calls.values()) - len(failed_calls) >= 3:
+                    # three repeats: answer now, from what came back
+                    forced = forced or "I could not finish this: the same step kept failing."
+                continue
             result, events = call_tool(conv, block)
             results.append(result)
             used.add(openai_api.block(block, "name"))
@@ -573,7 +591,19 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     tabled = tabled or event["type"] == "table"
                     if event["type"] == "step" and openai_api.block(block, "name") != "recipe":
                         ran.append(ran_line(event))
+                    if event["type"] == "step" and str(event.get("result", "")).startswith("failed: Request failed:"):
+                        # The portal cannot be reached (TLS, proxy, DNS): every other
+                        # query would fail the same way, so answer with the reason now.
+                        why = f"I could not get an answer from {elm_tools.portal() or 'the portal'}: the query " \
+                              f"failed. elm said: {event['result'].removeprefix('failed: ')}"
+                        if why not in summaries and not any("could not get an answer" in s for s in summaries):
+                            summaries.append(why)
+                        forced = ""
                     emit(event)
+            if result.get("is_error") or any(str(e.get("result", "")).startswith(("failed", "error"))
+                                             for e in (events if isinstance(events, list) else [events] if events else [])
+                                             if e.get("type") == "step"):
+                failed_calls[call] = failed_calls.get(call, 0) + 1
         conv.messages.append({"role": "user", "content": results})
 
     del conv.messages[start:]

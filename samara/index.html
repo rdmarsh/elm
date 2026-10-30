@@ -549,7 +549,10 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     });
   });
   $(".copy-script", turn).addEventListener("click", async e => {
-    try { await navigator.clipboard.writeText(scriptText(t.md.script)); e.target.textContent = "Copied"; }
+    const text = scriptText(t.md.script);
+    // Every query failed: there is no script, and copying "" said "Copied" (2026-10-30).
+    if (!text) { e.target.textContent = "Nothing to copy: every query failed"; setTimeout(() => e.target.textContent = "Copy", 3000); return; }
+    try { await navigator.clipboard.writeText(text); e.target.textContent = "Copied"; }
     catch { e.target.textContent = "Select and copy"; }
     setTimeout(() => e.target.textContent = "Copy", 2000);
   });
