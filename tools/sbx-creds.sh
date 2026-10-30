@@ -14,7 +14,8 @@
 #
 # Options:
 #   -s SANDBOX   the sandbox name (sbx ls); defaults to $SBX
-#   -a           every sandbox sbx ls lists, one after another
+#   -a           every running sandbox, one after another (a stopped one is
+#                skipped: sbx exec would start it)
 #   -h, --help   show this help
 #
 # To skip -s, set SBX once, for example in ~/.zshrc:
@@ -103,10 +104,13 @@ one() {   # one command, in one sandbox (-a runs it after ||, where set -e is of
 }
 
 if [[ -n $all ]]; then
-  # -a: the first column of sbx ls, less its header. A sandbox that fails is
-  # reported and skipped, so one stopped sandbox does not stop the rest.
-  sandboxes=$(sbx ls | awk 'NR > 1 && NF { print $1 }')
-  [[ -n $sandboxes ]] || { echo "sbx-creds: sbx ls lists no sandboxes" >&2; exit 1; }
+  # -a: the running sandboxes, from the STATUS column of sbx ls ("● running").
+  # A sandbox that fails is reported and skipped, and the rest still run.
+  list=$(sbx ls)
+  sandboxes=$(awk '{ for (i = 2; i <= NF; i++) if ($i == "running") { print $1; next } }' <<< "$list")
+  stopped=$(awk '{ for (i = 2; i <= NF; i++) if ($i == "stopped") { n++; next } } END { print n + 0 }' <<< "$list")
+  [[ $stopped == 0 ]] || echo "sbx-creds: skipping $stopped stopped sandboxes" >&2
+  [[ -n $sandboxes ]] || { echo "sbx-creds: no sandbox is running" >&2; exit 1; }
 else
   [[ -n $sandbox ]] || { echo "sbx-creds: no sandbox: use -s SANDBOX, -a, or set SBX" >&2; exit 2; }
   sandboxes=$sandbox
