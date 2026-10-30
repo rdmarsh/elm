@@ -126,6 +126,7 @@
   pre.script { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--code); color: var(--ink);
                font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-x: auto; white-space: pre; }
   details.steps code { color: var(--ink); }
+  details.steps .failed-steps p { margin: 8px 0 0; overflow-wrap: anywhere; }
 
   .table-block { margin: 14px 0; }
   .table-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
@@ -454,7 +455,7 @@ function scriptOf(entries) {   // -> [{cmd, note}]; cmd is what gets copied
       const slurp = ds.map(d => `--slurpfile ${d} "$t/${d}.jsonl" `).join("");
       out.push({ cmd: `jq -n ${slurp}${shq(e.expression)}`, note: e.title ? `the table "${e.title}"` : "" });
     } else if (/^(failed|error)/.test(e.result)) {   // elm failed, or the tool call itself was wrong
-      out.push({ cmd: "", note: `failed, left out: ${e.command}` });
+      out.push({ cmd: "", note: "failed, left out (see below)" });
     } else {
       out.push({ cmd: withProfile(e.command), note: e.result });   // a total (-C)
     }
@@ -476,6 +477,12 @@ function addScript(t, entry) {
   pre.hidden = false;
   pre.innerHTML = scriptOf(t.md.script).map(l =>
     `<span class="ln"${l.note ? ` data-note="${esc((l.cmd ? "   " : "") + l.note)}"` : ""}>${esc(l.cmd)}</span>`).join("\n");
+  // Failures as plain text under the script, where they can be selected and
+  // pasted: the notes beside the script are CSS, which cannot be (2026-10-30).
+  let failed = $(".failed-steps", t.steps);
+  if (!failed) { failed = document.createElement("div"); failed.className = "failed-steps"; pre.after(failed); }
+  failed.innerHTML = t.md.script.filter(e => /^(failed|error)/.test(e.result || "")).map(e =>
+    `<p><strong>Failed:</strong> <code>${esc(withProfile(e.command))}</code><br>${esc(e.result.replace(/^failed: /, ""))}</p>`).join("");
 }
 
 async function ask(question, harder, next) {   // next: {model, top} of the step Think harder asks

@@ -378,7 +378,7 @@ def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, tota
                           capture_output=True, text=True, timeout=300)
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
-        step = {"type": "step", "command": shown, "result": "failed"}
+        step = {"type": "step", "command": shown, "result": f"failed: {why_failed(stderr)}"}
         if proc.returncode == 3:
             # elm's own message asks an assistant to show the command and names
             # the profile's file, for someone at a terminal. Samara's reader has
@@ -408,6 +408,22 @@ def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, tota
             removed += n
             lines.append(json.dumps(row))
     return lines, stderr, removed, shown
+
+
+def why_failed(stderr):
+    """elm's reason for a failed request, in one line, for the page and the answer.
+
+    The model alone was told, and passed it on as "a connection issue"
+    (gpt-oss-20b, 2026-10-30), which left nothing to act on.
+    """
+    lines = [line.split(":", 2)[-1].strip() if line.startswith(("ERROR:", "WARNING:")) else line.strip()
+             for line in stderr.splitlines() if line.strip()]
+    keep = [line for line in lines if re.search(
+        r"Request failed|HTTP error|Response:|not JSON|certificate|SSL|not allowed|Error:", line)
+        and line != "Error: request failed"]
+    keep = [re.sub(r" for url: \S+", "", line) for line in keep or lines[-1:]]   # the query, already shown
+    reason = " · ".join(dict.fromkeys(keep)) or "no message"
+    return reason if len(reason) <= 300 else reason[:299] + "…"
 
 
 def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):

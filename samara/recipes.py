@@ -230,6 +230,12 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
     except elm_tools.Refused as exc:
         text, step = exc.args
         events.append(step)
+        # Samara's words, not the model's: the reason is what someone can act on.
+        reason = step["result"].removeprefix("failed: ")
+        events.append({"type": "worked", "lines": [f"Asked {elm_tools.portal() or 'the portal'}: the query failed."],
+                       "summary": f"I could not get an answer from {elm_tools.portal() or 'the portal'}: "
+                                  f"the query failed. elm said: {reason}",
+                       "covers": None})
         return f"The recipe could not run: {text}", events
 
     summary = json.loads(elm_tools._jq(session, jq(r["summary"])))
