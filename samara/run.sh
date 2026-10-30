@@ -16,7 +16,9 @@
 #   --effort, -e LEVEL   low | medium | high | xhigh | max (default: high)
 #   --profile, -p NAME   elm credential profile (default: ai)
 #   --port NUM           port on this machine (default: 8080)
-#   --build              build the image first, from the repo root
+#   --build              build the image first, from the repo root; with
+#                        PYTHON_VERSION=3.12 exported, on that Python (for a
+#                        TLS-inspecting proxy whose CA Python 3.13 rejects)
 #   --yes, -y            don't ask anything: use the model (and --url) chosen
 #                        last time, else the defaults
 #   --dry-run            print the docker command instead of running it
@@ -235,8 +237,10 @@ fi
 
 if [[ $BUILD -eq 1 ]]; then
     build=$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null) || build=unknown
+    pyver=()
+    [[ -n "${PYTHON_VERSION:-}" ]] && pyver=(--build-arg "PYTHON_VERSION=$PYTHON_VERSION")
     ( set -x; docker build -f "$REPO_ROOT/samara/dockerfile" --build-arg "SAMARA_BUILD=$build" \
-        -t "$IMAGE" "$REPO_ROOT" )
+        ${pyver[@]+"${pyver[@]}"} -t "$IMAGE" "$REPO_ROOT" )
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; then
     echo "No '$IMAGE' image yet. Run with --build (or: docker build -f samara/dockerfile -t $IMAGE .)" >&2
     exit 1

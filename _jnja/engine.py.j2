@@ -116,8 +116,11 @@ def engine(elm, **kwargs):
     #one portal, unless several profiles were given (-p a,b)
     if not elm.portals:
         fetched = fetch(elm, flags, resourcePath, queryParams, elm.access_id, elm.access_key, elm.account_name)
-        if fetched:
-            report(elm, flags, *fetched)
+        if not fetched:
+            # The error is on stderr; exit 1 as with several profiles, so a failed
+            # request (a TLS proxy, a 403) never reads as an empty result.
+            sys.exit(1)
+        report(elm, flags, *fetched)
         return
 
     results = []

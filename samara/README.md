@@ -160,8 +160,11 @@ Without the word `critical` there, ask for a compliant certificate, or build on
 the older Python, which does not enforce it:
 
 ```shell
-docker build --build-arg PYTHON_VERSION=3.12 -f samara/dockerfile -t elm-ask .
+PYTHON_VERSION=3.12 samara/run.sh --build
 ```
+
+Before Samara passed elm `--halt-on-api-error`, a rejected certificate showed
+up only as devices "not found"; now the answer says the query failed and why.
 
 Getting the certificate is a local matter (Keychain Access on macOS exports it
 as a `.pem`, which can simply be renamed); your IT people are the source of
