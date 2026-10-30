@@ -341,15 +341,38 @@ Things to know:
   (or 14B at 4-bit). Small models get more wrong than Claude, so check their
   answers against "How I worked this out", and run `questions.md` before
   trusting one.
-- **Context.** The instructions, knowledge base and tools are about 4,500
-  tokens before the first question, and query results add more. Give the model
-  16K or more: Ollama's default is smaller, so start it with
-  `OLLAMA_CONTEXT_LENGTH=16384 ollama serve`; LM Studio sets it when you load
-  the model.
+- **Context.** The instructions, knowledge base and tools are about 6,800
+  tokens before the first question, and every follow-up in a conversation adds
+  more. Give the model 32K, which is **32768**: in LM Studio, Context Length
+  when you load the model; for Ollama, `OLLAMA_CONTEXT_LENGTH=32768 ollama
+  serve`. Both cut a prompt that does not fit without saying so, and the model
+  then answers the wrong question or ignores its rules.
 - **Tools.** The model must support tool calls (Qwen3, Llama 3.1+, Mistral
   Small and gpt-oss do).
 - **Cost and effort.** A local model shows tokens, not a price, and does not
   take the effort setting.
+
+`run.sh` without `-y` lists the models LM Studio or Ollama has loaded beside
+the Claude lines, and remembers the one you pick for the next `run.sh -y`.
+
+A rough guide by memory. Count the model, plus 3-5 GB for a 32K context, plus
+macOS and Docker: a 16 GB Mac leaves about 8-9 GB for the model. Only the rows
+marked tested have been run against `questions.md`.
+
+| Mac memory | Model (size at 4-bit) | Context | With Samara |
+|---|---|---|---|
+| 16 GB | Qwen3 8B (~5 GB) | 32768 | Tested 2026-10-30: about 1 in 4 of 194 questions right; good when a recipe fits, weak otherwise |
+| 16 GB | Qwen3 14B (~9 GB) | 16384-32768 | Not tested; tight beside Docker |
+| 24-32 GB | Qwen3 30B-A3B 2507 (~17 GB) | 32768 | Tried briefly: muddled follow-ups, context length not yet ruled out |
+| 24-32 GB | gpt-oss 20B (~13 GB) | 32768 | Not tested; made for tool use |
+| 24-32 GB | Mistral Small 3.2 24B (~14 GB) | 32768 | Not tested |
+| 48-64 GB | Qwen3 32B (~19 GB) | 32768-65536 | Not tested |
+| 96 GB+ | gpt-oss 120B (~63 GB) | 65536 | Not tested |
+| any | Claude Haiku, Sonnet (hosted) | | Tested: Haiku passed most checked questions, Sonnet the hard ones; costs money, and data leaves the machine |
+
+Tool calling matters more than size: a model that writes its tool calls as
+text cannot use Samara. And a recipe helps a small model more than extra
+parameters do: the 8B was right nearly every time one fitted.
 
 ## qlm: ask from the command line
 
