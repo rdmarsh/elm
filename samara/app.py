@@ -85,6 +85,7 @@ def health():
         "effort": (agent.EFFORT or "default") if agent.is_claude(agent.MODELS[0]) else None,   # Claude only
         "model_id": default_model_id(),
         "elm_version": elm_version(),
+        "build": os.environ.get("SAMARA_BUILD") or None,   # git describe at docker build
     }
 
 

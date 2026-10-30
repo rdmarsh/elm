@@ -63,6 +63,11 @@ ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
     SAMARA_HOST=0.0.0.0 \
     SAMARA_PORT=8080 \
     PYTHONUNBUFFERED=1
+# Which commit the image was built from (git describe: last release, commits
+# since, -dirty for uncommitted changes), shown in each answer's footer. Last,
+# so a new commit rebuilds nothing above it.
+ARG SAMARA_BUILD=unknown
+ENV SAMARA_BUILD=${SAMARA_BUILD}
 USER app
 EXPOSE 8080
 CMD ["python", "/opt/elm/samara/app.py"]

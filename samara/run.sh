@@ -17,7 +17,8 @@
 #   --profile, -p NAME   elm credential profile (default: ai)
 #   --port NUM           port on this machine (default: 8080)
 #   --build              build the image first, from the repo root
-#   --yes, -y            don't ask anything; use the defaults for what is unset
+#   --yes, -y            don't ask anything: use the model (and --url) chosen
+#                        last time, else the defaults
 #   --dry-run            print the docker command instead of running it
 #   --set-key            store (or replace) the Claude API key in the macOS
 #                        keychain, then exit
@@ -28,6 +29,11 @@
 # question on the next line up; lower effort means less thinking per step. Names and prices: https://www.anthropic.com/pricing
 # Judge them on answers, not price: a cheaper model that needs three attempts
 # is not cheaper.
+#
+# At the prompt, models on this machine are offered too: those LM Studio
+# (port 1234) or Ollama (11434) list, or the --url server has. Picking one
+# sets --url. The choice is kept in ~/.config/samara/last, so the next
+# run.sh --build -y starts the same model.
 #
 # Run at a terminal without --yes, it opens the page in your browser once the
 # server answers; with --yes, or with no terminal, it only prints the address.
@@ -77,6 +83,7 @@ ASK=1
 DRY_RUN=0
 SET_KEY=0
 CREDS_DIR="$HOME/.config/logicmonitor/credentials"
+LAST="${XDG_CONFIG_HOME:-$HOME/.config}/samara/last"   # MODEL<tab>URL of the last start
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 while [[ $# -gt 0 ]]; do
@@ -117,18 +124,53 @@ fi
     exit 1
 }
 
+# Models a server on this machine lists: "id|url for the container" lines.
+# run.sh runs on the host, where the container's host.docker.internal is
+# localhost. Embedding models cannot answer, so they are left out.
+local_models() {
+    local url probe
+    for url in ${URL:-http://host.docker.internal:1234/v1 http://host.docker.internal:11434/v1}; do
+        probe=${url/host.docker.internal/localhost}
+        curl -fsS --max-time 3 "$probe/models" 2>/dev/null | grep -o '"id" *: *"[^"]*"' |
+            sed 's/.*"\([^"]*\)"$/\1/' | grep -vi embed | sed "s#\$#|$url#" || true
+    done
+}
+
+# -y and no model given: the last one started, if any.
+if [[ -z "$MODEL" && $ASK -eq 0 && -f "$LAST" ]]; then
+    IFS=$'\t' read -r MODEL last_url <"$LAST" || true
+    URL=${URL:-$last_url}
+fi
+
 # Ask only when there is a terminal to ask at, and only for what was not given.
 if [[ $ASK -eq 1 && -t 0 ]]; then
     if [[ -z "$MODEL" ]]; then
+        CHOICES=("${MODELS[@]}")
+        while IFS= read -r line; do
+            [[ -n $line ]] && CHOICES+=("${line%%|*}|on this machine, at ${line#*|}|${line#*|}")
+        done < <(local_models)
         echo "Model:"
-        for i in "${!MODELS[@]}"; do
-            printf '  %d) %-18s %s\n' "$((i + 1))" "${MODELS[i]%%|*}" "${MODELS[i]#*|}"
+        for i in "${!CHOICES[@]}"; do
+            desc=${CHOICES[i]#*|}
+            printf '  %d) %-18s %s\n' "$((i + 1))" "${CHOICES[i]%%|*}" "${desc%%|*}"
         done
+        echo "  (a comma list is the Think harder ladder, e.g. qwen3-8b-mlx,sonnet)"
         read -r -p "  number or a model name [$DEFAULT_MODEL]: " MODEL
         # A number picks from the list; anything else is taken as a model name.
         if [[ "$MODEL" =~ ^[0-9]+$ ]]; then
-            (( MODEL >= 1 && MODEL <= ${#MODELS[@]} )) || { echo "No model $MODEL in the list." >&2; exit 1; }
-            MODEL=${MODELS[MODEL - 1]%%|*}
+            (( MODEL >= 1 && MODEL <= ${#CHOICES[@]} )) || { echo "No model $MODEL in the list." >&2; exit 1; }
+            pick=${CHOICES[MODEL - 1]}
+            MODEL=${pick%%|*}
+            # A local model brings its server's address.
+            [[ $(tr -cd '|' <<<"$pick") == "||" ]] && URL=${URL:-${pick##*|}}
+        fi
+        # A local model typed by name: the server that lists it.
+        if [[ -z "$URL" && -n "$MODEL" ]]; then
+            IFS=, read -r -a typed <<<"$MODEL"
+            for m in "${typed[@]}"; do
+                found=$(local_models | grep -m1 "^${m// /}|") || true
+                [[ -n $found ]] && { URL=${found#*|}; break; }
+            done
         fi
     fi
     [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [high]: " EFFORT
@@ -192,7 +234,9 @@ if [[ $NEEDS_CLAUDE -eq 1 ]]; then
 fi
 
 if [[ $BUILD -eq 1 ]]; then
-    ( set -x; docker build -f "$REPO_ROOT/samara/dockerfile" -t "$IMAGE" "$REPO_ROOT" )
+    build=$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null) || build=unknown
+    ( set -x; docker build -f "$REPO_ROOT/samara/dockerfile" --build-arg "SAMARA_BUILD=$build" \
+        -t "$IMAGE" "$REPO_ROOT" )
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; then
     echo "No '$IMAGE' image yet. Run with --build (or: docker build -f samara/dockerfile -t $IMAGE .)" >&2
     exit 1
@@ -218,6 +262,11 @@ cmd+=("$IMAGE")
 if [[ $DRY_RUN -eq 1 ]]; then
     printf '%q ' "${cmd[@]}"; echo
     exit 0
+fi
+
+# Kept for the next run.sh -y (only what was chosen, never a key).
+if [[ -n "$MODEL" ]]; then
+    mkdir -p "$(dirname "$LAST")" && printf '%s\t%s\n' "$MODEL" "$URL" >"$LAST" || true
 fi
 
 printf 'Samara: profile %s, model %s, effort %s%s\n' \
