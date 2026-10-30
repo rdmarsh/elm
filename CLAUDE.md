@@ -69,6 +69,12 @@ on Linux additionally needs `binutils` and a shared `libpython`).
 There is no pytest/unittest suite. Tests are Makefile-driven and run against the built
 PyInstaller binary (_dist/elm/elm):
 
+- No test target rebuilds the binary. `make testbinary` (first in `test`,
+  `testoffline`, `testlong` and the offline targets) prints which binary runs,
+  when it was built and `git describe`, and fails if a source it is built from
+  (`_jnja/`, `elm-notes.yaml`, the swagger snapshots ...) is newer: rebuild
+  with `make` or `make install`, then test.
+
 - `make testbasic` is mostly offline — CLI flags, help/version, `--list`,
   `--ai`, profile/config resolution, and the per-command `<cmd> --help` loop
   never contact LM. But its `-f api`, `-f curl`, `-f wget` and `-f sqlite`

@@ -476,12 +476,26 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testdocs testbasic testallow testmulti testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
+test: testbinary testdocs testbasic testallow testmulti testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
-testlong: testhelp testcount testtotal testtext ## Tests that take a long time to complete
+testlong: testbinary testhelp testcount testtotal testtext ## Tests that take a long time to complete
 	@echo "$(OK_STRING) $@"
+
+# The tests run the built binary and do not rebuild it. Say which binary, and
+# stop if what it is built from changed after it was built: on 2026-10-30 two
+# machines failed testoffline on a binary from before the change under test.
+# elm's version stays put between releases, so the build time and git describe
+# say more.
+BINSOURCES := _jnja elm-notes.yaml mkinfo.$(PY) _version.$(PY) swagger.documented.json swagger.undocumented.json requirements.txt
+
+.PHONY: testbinary
+testbinary: ## Show which binary the tests run, and stop if it is older than its sources
+	@test -x $(testbin) || { echo "$(ER_STRING) no $(testbin): run make (or make install) first" ; exit 1 ; }
+	@echo "testing: $(testbin) is $$($(testbin) --version), built $$(date -r $(testbin) '+%Y-%m-%d %H:%M'), tree $$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"
+	@newer=$$(find $(BINSOURCES) -type f -newer $(testbin) 2>/dev/null | head -3 | xargs) ; \
+	  test -z "$$newer" || { echo "$(ER_STRING) $(testbin) is older than its sources ($$newer): rebuild with make (or make install), then test" ; exit 1 ; }
 
 .PHONY: testdocs
 testdocs: _info ## Check AI-facing docs stay within their size budgets (offline; see mkinfo.py)
@@ -494,7 +508,7 @@ ALLOWHOME = h=$$(mktemp -d) && c=$$h/.config/logicmonitor/credentials && mkdir -
 ALLOWDONE = rc=$$? ; rm -rf $$h ; exit $$rc
 
 .PHONY: testallow
-testallow: ## Test allowed_commands in a profile (offline)
+testallow: testbinary ## Test allowed_commands in a profile (offline)
 	@echo testing: a command the profile does not allow exits 3 ; $(ALLOWHOME) && { $(testbin) -p limited AdminList -s1 >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
 	@echo testing: the refusal names the profile and the command to run ; $(ALLOWHOME) && $(testbin) -p limited AdminList -s1 2>&1 | grep -q "Profile 'limited' allows only" && $(testbin) -p limited AdminList -s1 2>&1 | grep -q 'elm -p limited AdminList -s1' ; $(ALLOWDONE)
 	@echo testing: --info and --help are refused for it too ; $(ALLOWHOME) && { $(testbin) -p limited AdminList --info >/dev/null 2>&1 ; test $$? -eq 3 ; } && { $(testbin) -p limited AdminList --help >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
@@ -509,7 +523,7 @@ testallow: ## Test allowed_commands in a profile (offline)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testmulti
-testmulti: ## Test the checks on several profiles (-p a,b), on -e, and a failed request (offline)
+testmulti: testbinary ## Test the checks on several profiles (-p a,b), on -e, and a failed request (offline)
 	@echo testing: every profile must allow the command ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\n" > $$c/open.ini && chmod 600 $$c/open.ini && { $(testbin) -p open,limited AdminList -s1 2>&1 | grep -q "Profile 'limited' allows only" ; } && { $(testbin) -p open,limited AdminList -s1 >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
 	@echo testing: a profile listed twice is an error ; $(ALLOWHOME) && $(testbin) -p limited,limited MetricsUsage 2>&1 | grep -q 'profile listed twice' ; $(ALLOWDONE)
 	@echo testing: a missing profile is named ; $(ALLOWHOME) && $(testbin) -p limited,nope MetricsUsage 2>&1 | grep -q "no profile 'nope'" ; $(ALLOWDONE)
@@ -581,7 +595,7 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testoffline
-testoffline: testdocs testbasicoffline testallow testmulti ## Run every test that needs no credentials
+testoffline: testbinary testdocs testbasicoffline testallow testmulti ## Run every test that needs no credentials
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testtext
@@ -589,7 +603,7 @@ testtext: testH testI testHI testhead testfoot testheadfoot ## Test commands tha
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testhelp
-testhelp: ## Test all commands with help flag
+testhelp: testbinary ## Test all commands with help flag
 	@$(foreach cmd,$(TSTTARGETS), \
 		echo testing: $(testbin) $(cmd) --help ;\
 		$(testbin) $(cmd) --help >/dev/null || exit 1 ;\
