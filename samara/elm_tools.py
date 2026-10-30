@@ -421,9 +421,15 @@ def why_failed(stderr):
     keep = [line for line in lines if re.search(
         r"Request failed|HTTP error|Response:|not JSON|certificate|SSL|not allowed|Error:", line)
         and line != "Error: request failed"]
-    keep = [re.sub(r" for url: \S+", "", line) for line in keep or lines[-1:]]   # the query, already shown
-    reason = " · ".join(dict.fromkeys(keep)) or "no message"
-    return reason if len(reason) <= 300 else reason[:299] + "…"
+    def short(line):
+        # The query is already shown, so drop its URL; keep requests' "Caused by",
+        # the part that says why (it came after the URL and was cut off, 2026-10-30).
+        line = re.sub(r"^(?:ERROR|WARNING) \S+ \S+ \S+ \S+ ", "", line)   # elm's log prefix
+        line = re.sub(r" for url: \S+|Max retries exceeded with url: \S+ ?", "", line)
+        cause = re.search(r"\(Caused by (.*)\)\s*$", line)
+        return f"Request failed: {cause.group(1)}" if cause else line
+    reason = " · ".join(dict.fromkeys(short(line) for line in keep or lines[-1:])) or "no message"
+    return reason if len(reason) <= 500 else reason[:499] + "…"
 
 
 def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):

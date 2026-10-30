@@ -57,7 +57,12 @@ def from_chat(message, n):
             args = {"_unparsed": args}   # agent.call_tool sends that back to the model as an error
         # Claude takes ids of letters, digits, _ and - only, should it read this history later.
         cid = re.sub(r"[^A-Za-z0-9_-]", "_", call.get("id") or "") or f"call_{n}_{i}"
-        content.append({"type": "tool_use", "id": cid, "name": fn.get("name"), "input": args})
+        name = fn.get("name")
+        if name == "run_elm" and isinstance(args, dict) and "recipe" in args and "command" not in args:
+            # A recipe asked for through run_elm (gpt-oss-20b, three times on
+            # 2026-10-30): run the recipe it plainly meant, not an error.
+            name = "recipe"
+        content.append({"type": "tool_use", "id": cid, "name": name, "input": args})
     return content
 
 
