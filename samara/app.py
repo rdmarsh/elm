@@ -162,7 +162,30 @@ class Handler(BaseHTTPRequestHandler):
             emit({"type": "error", "text": f"Unexpected error: {exc}"})
 
 
+# Where the dockerfile puts the CAs from samara/certs/.
+EXTRA_CAS = Path("/usr/local/share/ca-certificates/extra")
+
+
+def relax_x509_strict():
+    """SAMARA_RELAX_X509_STRICT=1: let elm accept a CA that fails Python 3.13's strict
+    X.509 checks, but only when one was supplied in samara/certs/. Off by default.
+
+    A TLS-inspecting proxy's root without Basic Constraints marked critical made
+    every query fail inside the container (2026-10-30). elm then clears
+    VERIFY_X509_STRICT and nothing else: the chain and hostname are still checked.
+    """
+    if os.environ.get("SAMARA_RELAX_X509_STRICT", "").lower() not in ("1", "true", "yes"):
+        return
+    if not any(EXTRA_CAS.glob("*.crt")):
+        print("Warning: SAMARA_RELAX_X509_STRICT ignored: no CA in samara/certs/, so TLS stays strict.", flush=True)
+        return
+    os.environ["ELM_RELAX_X509_STRICT"] = "1"
+    print("Warning: SAMARA_RELAX_X509_STRICT is on: TLS skips Python 3.13's strict X.509 rules "
+          "(for samara/certs/), still checking the chain and hostname.", flush=True)
+
+
 def main():
+    relax_x509_strict()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"Samara listening on http://{HOST}:{PORT}  (model {agent.MODEL})", flush=True)
     server.serve_forever()

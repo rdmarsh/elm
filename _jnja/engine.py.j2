@@ -14,6 +14,44 @@ import click
 
 log = logging.getLogger(__name__)
 
+_relaxed = None
+
+
+def http():
+    """requests itself; with ELM_RELAX_X509_STRICT=1, a session whose TLS check
+    leaves out VERIFY_X509_STRICT and nothing else.
+
+    Python 3.13 turned that flag on, and some TLS-inspecting proxies' root CAs
+    fail it ("Basic Constraints of CA cert not marked critical"). The chain and
+    the hostname are still verified. Samara sets this only when asked to, and
+    only when a CA was supplied (samara/certs/).
+    """
+    import requests
+    if os.environ.get('ELM_RELAX_X509_STRICT') != '1':
+        return requests
+    global _relaxed
+    if _relaxed is None:
+        import ssl
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.ssl_ import create_urllib3_context
+
+        def context():
+            ctx = create_urllib3_context()
+            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+            return ctx
+
+        class Relaxed(HTTPAdapter):
+            def init_poolmanager(self, *args, **kwargs):
+                return super().init_poolmanager(*args, ssl_context=context(), **kwargs)
+
+            def proxy_manager_for(self, proxy, **kwargs):
+                return super().proxy_manager_for(proxy, ssl_context=context(), **kwargs)
+
+        _relaxed = requests.Session()
+        _relaxed.mount('https://', Relaxed())
+    return _relaxed
+
+
 def engine(elm, **kwargs):
     """This is common engine for all commands"""
     import requests
@@ -182,7 +220,7 @@ def fetch(elm, flags, resourcePath, queryParams, access_id, access_key, account_
 
     try:
         #Make request
-        response = requests.get(url, data=data, headers=headers, params=queryParams, timeout=(10, 120), verify=elm.cacert if elm.cacert else True)
+        response = http().get(url, data=data, headers=headers, params=queryParams, timeout=(10, 120), verify=elm.cacert if elm.cacert else True)
         response.encoding = 'utf-8'
 
         # Safely access and log rate-limit headers if they exist

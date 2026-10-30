@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `ELM_RELAX_X509_STRICT=1` makes elm clear Python 3.13's `VERIFY_X509_STRICT` TLS check and nothing else (chain and hostname are still verified), for a TLS-inspecting proxy whose root CA does not mark Basic Constraints critical. Samara sets it only with `SAMARA_RELAX_X509_STRICT=1` and a CA in `samara/certs/`, and says so when it starts. Off by default.
 - `tools/elm-collector-status.py`: one page of what every collector's own daily status check found (low memory, a bad proxy setting in agent.conf, a collection method returning no data), worst first in LM's words, then checks that stopped running and the down collectors. Markdown for `tools/report-pdf.sh`, or `--jsonl`; `-h` has a cron line for a page each morning.
 - `tools/elm-swagger-gaps.py` runs every command once and prints the fields LM returns that the swagger does not document; `--write` adds them to `swagger.undocumented.json`. It finds the ids a command needs itself, prints only field names, and was how this release's 89 fields were found. A manage token answered no more fields than a read-only one.
 - Samara's Markdown export stamp names the elm version (`· elm 1.15.0`): an answer can change with elm.

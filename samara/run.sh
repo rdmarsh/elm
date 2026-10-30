@@ -46,7 +46,8 @@
 # --set-key stores it). run.sh checks the key with the Claude API before
 # starting, so a bad one shows here, not on the page. SAMARA_MODEL,
 # SAMARA_MODEL_URL and SAMARA_MODEL_KEY (for an API that wants a key) are
-# passed on when exported; the options win.
+# passed on when exported; the options win. So is SAMARA_RELAX_X509_STRICT=1,
+# for a proxy CA that Python 3.13 rejects (README: Behind a proxy).
 #
 # Examples:
 #   run.sh                                   # prompts, then starts
@@ -261,6 +262,9 @@ if [[ -n "$URL" ]]; then
     # Docker Desktop and Colima name the host already; Linux Docker does not.
     [[ $(uname) == Linux ]] && cmd+=(--add-host host.docker.internal:host-gateway)
 fi
+# A proxy's CA that Python 3.13's strict checks reject (see README "Behind a
+# proxy that inspects TLS"): passed on only when exported, off by default.
+[[ -n "${SAMARA_RELAX_X509_STRICT:-}" ]] && cmd+=(-e SAMARA_RELAX_X509_STRICT)
 cmd+=("$IMAGE")
 
 if [[ $DRY_RUN -eq 1 ]]; then

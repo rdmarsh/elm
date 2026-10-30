@@ -156,12 +156,25 @@ CAs do not comply. Check yours:
 openssl x509 -in samara/certs/your-root.crt -noout -text | grep -A1 'Basic Constraints'
 ```
 
-Without the word `critical` there, ask for a compliant certificate, or build on
-the older Python, which does not enforce it:
+Without the word `critical` there, ask for a compliant certificate. Until
+then, either build on the older Python, which does not enforce it:
 
 ```shell
 PYTHON_VERSION=3.12 samara/run.sh --build
 ```
+
+or keep 3.13 and turn off that one check for your CA:
+
+```shell
+SAMARA_RELAX_X509_STRICT=1 samara/run.sh
+```
+
+It is off by default, and works only when a CA is in `samara/certs/`. elm
+then clears Python's `VERIFY_X509_STRICT` and nothing else: the chain and the
+hostname are still verified, and a certificate your CA did not sign is still
+refused. It applies to every connection elm makes, not just the proxy's, so
+prefer a compliant certificate when you can get one. Samara prints a warning
+line when it starts with it on.
 
 Before Samara passed elm `--halt-on-api-error`, a rejected certificate showed
 up only as devices "not found"; now the answer says the query failed and why.
