@@ -1461,7 +1461,7 @@ CollectorById:
   path: /setting/collector/collectors/{id}
   required_params:
     id: integer
-  note: "Returns same fields as CollectorList plus predefinedConfig (size profiles) and full conf fields. predefinedConfig is large -- use -f to exclude if not needed."
+  note: "Returns same fields as CollectorList plus predefinedConfig (size profiles) and the collector's config files (collectorConf = agent.conf, wrapperConf = wrapper.conf, ...). predefinedConfig is large -- use -f to exclude if not needed. Save one config file with -f values and a single field: elm -f values CollectorById --id N -f collectorConf > agent.conf (needs a token with manage permission on the collector)."
   key_fields:
     id:                 integer
     description:        string
@@ -1481,20 +1481,21 @@ CollectorById:
     calculatedThreshold: float
     confVersion:        string   # Unix timestamp updated regularly by the collector (heartbeat/sync tick); does NOT indicate when config was last changed -- use userChangeOn for that
     userChangeOn:       integer  # Unix timestamp of last user-initiated change to this collector (portal config push, property edit, etc)
-    collectorConf:      string   # JSON-encoded agent.conf overrides set via API; '{}' means no API-managed overrides
-    wrapperConf:        string   # JSON-encoded wrapper.conf overrides set via API; '{}' means no API-managed overrides
-    sbproxyConf:        string   # JSON-encoded sbproxy.conf overrides set via API
-    watchdogConf:       string   # JSON-encoded watchdog.conf overrides set via API
-    websiteConf:        string   # JSON-encoded website.conf overrides set via API
+    collectorConf:      string   # the collector's agent.conf, as plain text (key=value lines); '{}' or a 403 for a token without manage permission
+    wrapperConf:        string   # wrapper.conf, as for collectorConf
+    sbproxyConf:        string   # sbproxy.conf, as for collectorConf
+    watchdogConf:       string   # watchdog.conf, as for collectorConf
+    websiteConf:        string   # website.conf, as for collectorConf
     agentConfFields:    object   # structured parsed version of agent.conf overrides; null if none set via API
     predefinedConfig:   object   # size profiles (nano..double_extra_large) with requiredMemory and agent.conf/wrapper.conf/sbproxy.conf keys; no 'custom' entry
   gotchas:
     - "All conf fields (collectorConf, wrapperConf, sbproxyConf, watchdogConf, websiteConf, agentConfFields, predefinedConfig, confVersion, config, encodedConfigData) are marked readOnly in the swagger schema. Collector configuration is READ-ONLY via the REST API -- you cannot push config changes through the API."
     - "The LM portal 'Collector Configuration' UI uses a separate internal channel to push config to the collector agent. This is NOT the public REST API."
-    - "collectorConf and related conf fields return '{}' (string-encoded empty JSON) even after portal UI changes -- they do not reflect what was pushed."
-    - "confVersion updates when the portal pushes a config, even though collectorConf stays '{}'. confVersion being non-zero does not mean the config is readable via API."
+    - "With manage permission on the collector, collectorConf is the collector's agent.conf as plain text, starting product.code=... (verified 2026-10-30, against a read-only token on the same portal and collector). An older note here said these fields were JSON overrides that stay '{}' after portal changes: that was a read-only token."
+    - "Asked for by name (-f collectorConf) without manage permission, CollectorById is refused outright with a 403: 'User without managed permission on collector is not allowed to get collector/agent configuration', or 'You do not have permission to access this resource' (both seen 2026-10-30). Without -f, such a token gets '{}' for them. Either way, '{}' or that 403 says the token cannot read the config, not that the collector has none."
+    - "confVersion being non-zero does not mean the config is readable via API: that depends on the token (see above)."
     - "collectorSize 'custom' means the collector was tuned outside the standard profiles. predefinedConfig has no 'custom' key."
-    - "To read or change the actual running config, you need direct host access (SSH/RDP) or the portal UI. There is no API path for either operation."
+    - "To change the config, you need the portal UI or direct host access (SSH/RDP): the API only reads it."
 
 CollectorGroupById:
   path: /setting/collector/groups/{id}
