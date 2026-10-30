@@ -74,17 +74,21 @@ the sandbox's own `~/.config/logicmonitor/credentials/` with mode 600, and is
 never printed.
 
 ```shell
-tools/sbx-creds.sh -s claude-elm cp config       # copy config.ini in
-tools/sbx-creds.sh -s claude-elm cp busy         # another portal, same name
-tools/sbx-creds.sh -s claude-elm cp busy config  # swap busy in as the default
-tools/sbx-creds.sh -s claude-elm ls              # what the sandbox has
-tools/sbx-creds.sh -s claude-elm rm busy         # take it out again
+tools/sbx-creds.sh avail                           # the profiles you can copy
+tools/sbx-creds.sh -s claude-elm cp config           # copy config.ini in
+tools/sbx-creds.sh -s claude-elm cp portal01         # another portal, same name
+tools/sbx-creds.sh -s claude-elm cp portal01 config  # swap portal01 in as the default
+tools/sbx-creds.sh -s claude-elm ls                  # what the sandbox has
+tools/sbx-creds.sh -s claude-elm rm portal01         # take it out again
+tools/sbx-creds.sh -a ls                             # every sandbox: -a works with cp, rm and ls
+tools/sbx-creds.sh -a rm --all                       # every profile from every sandbox (asks first)
 ```
 
 `export SBX=claude-elm` (in `~/.zshrc`, say) saves typing `-s`. Inside the sandbox, `config` is the
 profile used without `-p`, and the one `make testbasic` needs, so make it the
 test portal. Give other portals their own name and an `allowed_commands` line.
-A recreated sandbox starts without them: run it again.
+A recreated sandbox starts without them: run it again. With `-a`, a sandbox
+that fails (stopped, say) is reported and the rest still run.
 
 ## API speed test
 
