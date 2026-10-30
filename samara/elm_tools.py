@@ -373,7 +373,7 @@ def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, tota
     shown = "elm " + shlex.join(args)
     # --halt-on-api-error: without it a failed request (a TLS proxy's CA
     # rejected, a 403) prints an error and exits 0 with no rows, which read as
-    # "no device lux" inside one machine's container (2026-10-30).
+    # "no device web02" inside one machine's container (2026-10-30).
     proc = subprocess.run(ELM_CMD + global_args() + ["--halt-on-api-error"] + args,
                           capture_output=True, text=True, timeout=300)
     stderr = proc.stderr.strip()
