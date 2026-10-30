@@ -237,6 +237,13 @@ ECHOES = ("Samara puts the table", "add nothing else", "If the question asks som
           "The values are for the reader", "Answer with this, keeping its facts", "This recipe answers only")
 
 
+# A stock refusal a small model wrote beside facts a recipe had found: "is luna
+# okay?" got the right summary, then "I'm sorry, but I can't answer that
+# question." (gpt-oss-20b, 2026-10-30), after one of its own queries failed.
+REFUSAL = re.compile(r"^\s*I(?:'|’| a)?m sorry,? but I (?:can(?:'|’)?t|cannot|am unable to)"
+                     r" (?:answer|help with) (?:that|this)\b[^\n]*$", re.I | re.M)
+
+
 def no_echoes(answer):
     """The answer without instructions copied from a tool result.
 
@@ -488,6 +495,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     covered = []   # what each recipe that ran answers, for the line under the answer
     ran = []   # the model's own queries, for How I worked this out
     failed_calls = {}   # tool call -> times it failed, to stop a model retrying the same one
+    done_calls = set()   # tool calls that worked, so a repeat is not run (or tabled) twice
     forced = None   # set to end the turn without asking the model again: the answer's own text
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
@@ -528,6 +536,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 # Recipes and its own queries: the recipes' facts lead. Asked "show me
                 # the down collectors", a model ran the recipe and then wrote about
                 # the device from the question before (qwen3-30b, 2026-10-30).
+                answer = re.sub(r"\n{3,}", "\n\n", REFUSAL.sub("", answer)).strip()
                 main = answer[:m.start()] if (m := WORKED.search(answer)) else answer
                 facts = [s for s in dict.fromkeys(summaries) if s not in main]
                 answer = "\n\n".join(facts + [answer]) if facts else answer
@@ -563,6 +572,14 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 raise Stopped()
             emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
             call = f"{openai_api.block(block, 'name')} {json.dumps(openai_api.block(block, 'input'), sort_keys=True)}"
+            if call in done_calls:
+                # The same call again, after it worked: its result is already in
+                # the conversation. Run again, a recipe put its table on the page
+                # twice ("is luna okay?", gpt-oss-20b, 2026-10-30).
+                results.append({"type": "tool_result", "tool_use_id": openai_api.block(block, "id"),
+                                "content": "Not run: this exact call already worked this turn, and its "
+                                           "result is above. Use it, or do something different."})
+                continue
             if failed_calls.get(call):
                 # The same call again, after it failed: not run. A model retried
                 # one failing show_table a dozen times after the portal could not
@@ -604,6 +621,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                                              for e in (events if isinstance(events, list) else [events] if events else [])
                                              if e.get("type") == "step"):
                 failed_calls[call] = failed_calls.get(call, 0) + 1
+            else:
+                done_calls.add(call)
         conv.messages.append({"role": "user", "content": results})
 
     del conv.messages[start:]
