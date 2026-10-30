@@ -294,6 +294,18 @@ def with_worked(answer, lines):
     return main + "\n\n**How I worked this out**\n\n" + "\n".join(f"- {line}" for line in lines)
 
 
+def ran_line(step):
+    """A How I worked this out line for one of the model's own queries."""
+    command = step.get("command") or ""
+    m = re.search(r"\belm (?:-\S+ \S+ )*([A-Z]\w+)", command)
+    what = m.group(1) if m else (command or "a query").split(" ", 1)[0]
+    # The filter too, so a pasted answer shows what was asked: "no device web02"
+    # came from a query the model described as displayName~web02 (2026-10-30).
+    f = re.search(r" -F ('[^']*'|\S+)", command)
+    where = f" (filter {f.group(1).strip(chr(39))})" if f else ""
+    return f"Ran its own {what} query{where}: {str(step.get('result', 'no result'))[:80]}."
+
+
 def with_covers(answer, covered):
     """The answer with what its recipes answer said under it, above How I worked this out.
 
@@ -307,6 +319,9 @@ def with_covers(answer, covered):
     at = m.start() if m else len(answer)
     return (answer[:at].rstrip() + "\n\n" + line + "\n\n" + answer[at:]).strip()
 
+
+# Tools that only describe elm's commands: they fetch nothing from the portal.
+LOOKUP_TOOLS = {"find_commands", "describe_command"}
 
 # What the recipes cover, for the note on answers they did not give. Change
 # it with recipes.yaml.
@@ -466,6 +481,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     worked, used, tabled = [], set(), False   # tabled: a real table is on the page
     summaries, recipe_calls = [], 0   # what each recipe that ran said, and how many were asked for
     covered = []   # what each recipe that ran answers, for the line under the answer
+    ran = []   # the model's own queries, for How I worked this out
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -490,14 +506,32 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                       or "\n\n".join(dict.fromkeys(summaries)) or "(no answer)")
             if tabled:
                 answer = tidy(answer)
-            if worked and used <= {"recipe"}:
-                if len(summaries) == recipe_calls:
-                    # Nothing but recipes, all of which ran: their summaries are the
-                    # answer, word for word. Retyping them, a small model changed a
-                    # group name and left in "the table below" and instructions
-                    # (qwen3-8b, 2026-10-29); with no other data it had nothing to add.
-                    answer = "\n\n".join(dict.fromkeys(summaries))
-                answer = with_worked(answer, worked)
+            if summaries and used - LOOKUP_TOOLS <= {"recipe"} and len(summaries) == recipe_calls:
+                # Nothing but recipes, all of which ran: their summaries are the
+                # answer, word for word. Retyping them, a small model changed a
+                # group name and left in "the table below" and instructions
+                # (qwen3-8b, 2026-10-29); with no other data it had nothing to add.
+                # Looking up a command fetches no data either: "is web02 a Windows
+                # host?" got find_device, describe_command and a made-up OS (qwen3-30b).
+                answer = "\n\n".join(dict.fromkeys(summaries))
+            elif summaries:
+                # Recipes and its own queries: the recipes' facts lead. Asked "show me
+                # the down collectors", a model ran the recipe and then wrote about
+                # the device from the question before (qwen3-30b, 2026-10-30).
+                main = answer[:m.start()] if (m := WORKED.search(answer)) else answer
+                facts = [s for s in dict.fromkeys(summaries) if s not in main]
+                answer = "\n\n".join(facts + [answer]) if facts else answer
+            if worked or ran:
+                # Samara's record of what ran, never the model's: its own list named
+                # recipes and checks from an earlier question (qwen3-30b, 2026-10-30).
+                answer = with_worked(answer, worked + ran)
+            elif WORKED.search(answer):
+                # Nothing ran, so any How I worked this out is made up.
+                answer = answer[:WORKED.search(answer).start()].rstrip() or answer
+            if not used - LOOKUP_TOOLS:
+                # "What does web02 do?" got a made-up LogicMonitor feature, no query
+                # (qwen3-30b, 2026-10-30): say when nothing came from the portal.
+                answer += "\n\n_Nothing in this answer was looked up in the portal._"
             if covered:
                 answer = with_covers(answer, covered)
             if "run_elm" in used:
@@ -532,6 +566,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
                 else:
                     tabled = tabled or event["type"] == "table"
+                    if event["type"] == "step" and openai_api.block(block, "name") != "recipe":
+                        ran.append(ran_line(event))
                     emit(event)
         conv.messages.append({"role": "user", "content": results})
 

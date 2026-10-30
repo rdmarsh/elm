@@ -173,6 +173,15 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
                         return (f"No device has a name like {value!r}, but these groups do: {paths}. "
                                 f"Use a group recipe with group={value!r}."), events
             if not found:
+                # Shown as the answer and its How I worked this out, so the reader
+                # sees what was looked for: a bare "couldn't find web01" from a
+                # second machine said nothing about which name or portal (2026-10-30).
+                how = {"device": "display name, then part of it, then hostname or IP",
+                       "group": "name, then path, then part of either",
+                       "collector": "id, then description, then hostname"}[param]
+                events.append({"type": "worked", "lines": [f"Looked for a {param} named {value!r} by {how}: none found."],
+                               "summary": f"No {param} has a name like {value!r} in this portal.",
+                               "covers": None})
                 return f"No {param} has a name like {value!r}. Say so; do not guess another {param}.", events
             if len(found) > 1 and not r.get("many"):
                 listed = ", ".join(d.get("displayName") or d.get("fullPath") or d.get("description") or d.get("name")
