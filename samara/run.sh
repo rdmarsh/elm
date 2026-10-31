@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Samara run: start the elm-ask container, choosing the model and effort.
+# Samara run: start the samara container, choosing the model and effort.
 #
 # Usage:
 #   run.sh [options]                 # asks for anything not given
@@ -60,8 +60,8 @@
 
 set -euo pipefail
 
-IMAGE=elm-ask
-# Offered by number at the prompt, cheapest first. Lines, not models: elm-ask
+IMAGE=samara
+# Offered by number at the prompt, cheapest first. Lines, not models: Samara
 # answers with the newest model in the line, so a new release needs no edit
 # here. An exact model id typed at the prompt stays on that model.
 # Prices: https://www.anthropic.com/pricing
@@ -150,7 +150,10 @@ if [[ $ASK -eq 1 && -t 0 ]]; then
     if [[ -z "$MODEL" ]]; then
         CHOICES=("${MODELS[@]}")
         while IFS= read -r line; do
-            [[ -n $line ]] && CHOICES+=("${line%%|*}|on this machine, at ${line#*|}|${line#*|}")
+            # A --url server is another machine's unless it is this one.
+            u=${line#*|}; where="on this machine, at $u"
+            [[ $u =~ ://(localhost|127\.|host\.docker\.internal) ]] || where="on ${u#*://}"
+            [[ -n $line ]] && CHOICES+=("${line%%|*}|${where%%/v1}|$u")
         done < <(local_models)
         echo "Model:"
         for i in "${!CHOICES[@]}"; do
@@ -241,7 +244,9 @@ if [[ $BUILD -eq 1 ]]; then
     pyver=()
     [[ -n "${PYTHON_VERSION:-}" ]] && pyver=(--build-arg "PYTHON_VERSION=$PYTHON_VERSION")
     ( set -x; docker build -f "$REPO_ROOT/samara/dockerfile" --build-arg "SAMARA_BUILD=$build" \
-        ${pyver[@]+"${pyver[@]}"} -t "$IMAGE" "$REPO_ROOT" )
+        ${pyver[@]+"${pyver[@]}"} -t "$IMAGE" -t elm-ask "$REPO_ROOT" )   # elm-ask: its old name, for MCP setups that use it
+elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && docker image inspect elm-ask >/dev/null 2>&1; then
+    IMAGE=elm-ask   # built before the rename: use it until the next --build
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; then
     echo "No '$IMAGE' image yet. Run with --build (or: docker build -f samara/dockerfile -t $IMAGE .)" >&2
     exit 1

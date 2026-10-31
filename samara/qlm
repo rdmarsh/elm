@@ -5,9 +5,9 @@
 #   qlm "which collectors are down?" | glow
 #   QLM_PROFILE="ai-prod ai-preprod" qlm which collectors are missing in preprod
 #
-# Claude Code answers (on your Claude login, not API credits) with elm-ask's
+# Claude Code answers (on your Claude login, not API credits) with Samara's
 # read-only tools and nothing else: no shell, no files. The tools run in the
-# elm-ask Docker image with your credentials mounted read-only; build it first
+# samara Docker image with your credentials mounted read-only; build it first
 # (samara/README.md).
 #
 #   QLM_PROFILE  credential profile(s), one per portal to ask
@@ -24,8 +24,8 @@ usage: qlm QUESTION            ask a LogicMonitor portal, in plain English
        qlm --info              what it would use: portal, profile, versions
        qlm --help
 
-Claude Code answers on your Claude login, using elm-ask's read-only tools
-in the elm-ask Docker image. The answer is Markdown on stdout.
+Claude Code answers on your Claude login, using Samara's read-only tools
+in the samara Docker image. The answer is Markdown on stdout.
 
   QLM_PROFILE  credential profile(s), one per portal to ask (default ai)
   QLM_MODEL    Claude model (default sonnet)
@@ -79,7 +79,7 @@ for profile in ${QLM_PROFILE:-ai}; do
 \"--cap-drop\",\"ALL\",\"--security-opt\",\"no-new-privileges\",\
 \"-e\",\"ELM_CONFIG=/creds/$profile.ini\",\"-e\",\"TZ=$tz\",$cacert\
 \"-v\",\"$creds/$profile.ini:/creds/$profile.ini:ro\",\
-\"elm-ask\",\"python\",\"/opt/elm/samara/mcp_server.py\"]}"
+\"samara\",\"python\",\"/opt/elm/samara/mcp_server.py\"]}"
     allow="$allow mcp__$name"
 done
 
@@ -88,13 +88,13 @@ if [ "${info:-}" = yes ]; then
     echo "model:    ${QLM_MODEL:-sonnet}"
     echo "log:      ${QLM_LOG:-off}"
     echo "claude:   $(claude --version 2>&1 || echo 'not found')"
-    echo "image:    elm-ask, built $(docker image inspect -f '{{.Created}}' elm-ask 2>/dev/null || echo 'not built')"
+    echo "image:    samara, built $(docker image inspect -f '{{.Created}}' samara 2>/dev/null || echo 'not built')"
     for profile in ${QLM_PROFILE:-ai}; do
         echo
         echo "config:   $creds/$profile.ini"
         docker run -i --rm --user "$(id -u)" --cap-drop ALL --security-opt no-new-privileges \
             -e "ELM_CONFIG=/creds/$profile.ini" -v "$creds/$profile.ini:/creds/$profile.ini:ro" \
-            elm-ask python /opt/elm/samara/mcp_server.py --info
+            samara python /opt/elm/samara/mcp_server.py --info
     done
     exit 0
 fi

@@ -1,4 +1,4 @@
-"""Read-only LogicMonitor tools for elm-ask, built on the elm CLI.
+"""Read-only LogicMonitor tools for Samara, built on the elm CLI.
 
 Every LM call goes through elm, and elm only ever sends GET requests (the
 Makefile generates commands from the swagger "get" operations only). On top of
@@ -25,10 +25,10 @@ def setting(name, default=None):
 
 ELM_HOME = Path(os.environ.get("ELM_HOME", Path(__file__).resolve().parents[1]))
 ELM_CMD = [sys.executable, str(ELM_HOME / "elm.py")]
-# elm-ask runs as its own profile, `ai`, not the default `config`: the person
+# Samara runs as its own profile, `ai`, not the default `config`: the person
 # has to create it on purpose (from ai.example.ini), so a powerful everyday
 # token is never the one the assistant uses by accident. The model cannot
-# change these; only whoever starts elm-ask can.
+# change these; only whoever starts Samara can.
 ELM_PROFILE = os.environ.get("ELM_PROFILE") or "ai"   # --profile NAME
 ELM_CONFIG = os.environ.get("ELM_CONFIG")             # --config PATH (wins over profile)
 # Refuse to answer with a profile that has no allowed_commands, unless this is set.
@@ -50,7 +50,7 @@ SECRET_FIELDS = {
     "websiteConf", "encodedConfigData", "config", "downloadUrl", "copyUrl",
     "accessKey", "password", "privateKey", "secret",
 }
-# Personal contact details, removed for the same reason: no question elm-ask is
+# Personal contact details, removed for the same reason: no question Samara is
 # for needs them, and they would otherwise be sent to the model. PortalInfo
 # carries a contacts list (names, emails, mobile numbers); email and phone
 # appear on people elsewhere too. A question that really is about people ("are
@@ -169,7 +169,7 @@ class Session:
     """Datasets fetched during one conversation, kept as jsonl files for jq."""
 
     def __init__(self):
-        self.dir = tempfile.TemporaryDirectory(prefix="elm-ask-")
+        self.dir = tempfile.TemporaryDirectory(prefix="samara-")
         self.datasets = {}   # id -> {"path", "rows", "description"}
         self.described = set()   # commands whose notes have been sent already
         self.tz = None           # the reader's timezone for jq (usable_tz), if known
@@ -211,7 +211,7 @@ def profile_status():
     """Whether the profile exists and is restricted, and what it allows.
 
     Returns {"name", "exists", "restricted", "allowed", "problem"}; problem is
-    None when elm-ask may answer questions with this profile.
+    None when Samara may answer questions with this profile.
     """
     if ELM_CONFIG:
         name, exists = ELM_CONFIG, os.path.isfile(ELM_CONFIG)

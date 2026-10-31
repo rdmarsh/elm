@@ -1,8 +1,10 @@
 # Samara
 
-Samara (the elm's winged seed) is the name people see. Under the hood the
-Docker image is still `elm-ask`. The settings are `SAMARA_*`; the older
-`ELM_ASK_*` names still work, so existing setups keep working.
+Samara (the elm's winged seed) was called elm-ask until 2026-10. The Docker
+image is `samara`, and `run.sh --build` tags it `elm-ask` too, so an MCP
+setup that names the old image keeps working; switch it to `samara` when
+convenient. The settings are `SAMARA_*`; the older `ELM_ASK_*` names still
+work.
 
 A local web page where anyone can ask questions about a LogicMonitor portal in
 plain English:
@@ -46,25 +48,25 @@ Python or jq installed.
   commands. The model can pick a command, filter, fields and paging. It cannot
   pass global elm flags, so it can't reach `-f api`, `-f curl` or `-f wget`
   (those print the signed Authorization header).
-- **Secrets removed.** Before the model, jq or the page see a row, elm-ask removes fields that can
+- **Secrets removed.** Before the model, jq or the page see a row, Samara removes fields that can
   carry secrets (collector `bearerToken` and config blobs, API token keys) and masks
   credential-like property values that LogicMonitor has not already masked. It
   also drops personal contact details (`contacts`, `email`, `phone`): no
-  question elm-ask is for needs them. A question that really is about people
+  question Samara is for needs them. A question that really is about people
   ("are the portal contacts the same on both portals?") would need them back,
   and pseudonyms rather than removal -- the web page could show the real names
   in its tables, since those do not pass through the model, but qlm's answer is
   the model's own text, so there the names could not be restored.
-- **Its own restricted profile.** elm-ask uses the `ai` profile, not your default
+- **Its own restricted profile.** Samara uses the `ai` profile, not your default
   `config`, and refuses to answer until `ai.ini` exists and sets
   `allowed_commands`. You have to create it on purpose, so an everyday token with
-  wide rights is never the one the assistant uses by accident. elm-ask only
+  wide rights is never the one the assistant uses by accident. Samara only
   offers and runs the commands that profile allows, and the model cannot choose
   another profile or config file.
 - **An allowlist limits commands, not data.** Several allowed commands carry
   people's names: `SDTList` has the `admin` who created the downtime, `AlertList`
   has `ackedBy`, `OpsNoteList` has `createdBy`. Asked for "a list of users",
-  elm-ask correctly says it cannot produce one and points at the LogicMonitor
+  Samara correctly says it cannot produce one and points at the LogicMonitor
   UI, but it can still name whoever appears in those fields. If that matters,
   give the profile's token a LogicMonitor role that cannot see those areas; that
   decides what data exists at all, which no list of commands can.
@@ -95,7 +97,7 @@ Python or jq installed.
 From the repository root:
 
 ```shell
-docker build -f samara/dockerfile -t elm-ask .
+docker build -f samara/dockerfile -t samara .
 ```
 
 The build renders elm from `_jnja/` and the committed swagger snapshots inside
@@ -123,7 +125,7 @@ neither it nor anything signed by it. Put your organisation's root CA in
 
 ```shell
 cp ~/corporate-root.pem samara/certs/corporate-root.crt
-docker build -f samara/dockerfile -t elm-ask .
+docker build -f samara/dockerfile -t samara .
 ```
 
 Both stages trust everything in that directory before they install anything
@@ -227,7 +229,7 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   --cap-drop ALL --security-opt no-new-privileges \
   -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/ai.ini \
   -v ~/.config/logicmonitor/credentials/ai.ini:/creds/ai.ini:ro \
-  elm-ask
+  samara
 ```
 
 Windows (PowerShell):
@@ -237,7 +239,7 @@ docker run --rm -p 127.0.0.1:8080:8080 `
   --cap-drop ALL --security-opt no-new-privileges `
   -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/ai.ini `
   -v "$env:USERPROFILE\.config\logicmonitor\credentials\ai.ini:/creds/ai.ini:ro" `
-  elm-ask
+  samara
 ```
 
 `--user "$(id -u)"` runs the container as you, so it can read your profile
@@ -261,7 +263,7 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   --cap-drop ALL --security-opt no-new-privileges \
   -e ANTHROPIC_API_KEY -e ELM_CONFIG=/creds/ai-preprod.ini \
   -v ~/.config/logicmonitor/credentials/ai-preprod.ini:/creds/ai-preprod.ini:ro \
-  elm-ask
+  samara
 ```
 
 `ELM_PROFILE=NAME` still works, for a container with the whole credentials
@@ -271,7 +273,7 @@ wins when both are set. Either way the profile must set
 page footer names the portal and the profile, and its "N allowed commands" is a
 button that lists them.
 
-One elm-ask talks to one portal. For several, run one container per profile on
+One Samara talks to one portal. For several, run one container per profile on
 different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 
 ## Settings
@@ -303,7 +305,7 @@ below), and neither needs a rebuild:
 docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   -e ANTHROPIC_API_KEY -e SAMARA_MODEL=sonnet -e SAMARA_EFFORT=medium \
   -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
-  elm-ask
+  samara
 ```
 
 - **Model.** Set a line, not a model: `haiku` (the default), `sonnet` or
@@ -406,7 +408,7 @@ flowchart TB
     you["$ qlm how many devices ... | glow"]
     qlm["qlm<br/>adds your local time;<br/>no shell, no files, no settings"]
     cc["claude -p<br/>plans, calls tools, writes the answer"]
-    subgraph box["docker run elm-ask (one per question, then removed)"]
+    subgraph box["docker run samara (one per question, then removed)"]
         direction TB
         mcp["mcp_server.py<br/>guide + the tools"]
         tools["elm_tools.py<br/>allowlist, secret removal"]
@@ -432,8 +434,8 @@ flowchart TB
 ```
 
 It runs Claude Code (`claude -p`) on your own Claude login, not an API key, and
-gives it only elm-ask's tools: no shell, no files. The tools come from
-`mcp_server.py`, which runs in the `elm-ask` image, one container per question,
+gives it only Samara's tools: no shell, no files. The tools come from
+`mcp_server.py`, which runs in the `samara` image, one container per question,
 with the `ai` profile mounted read-only. It is for your own use on your own
 machine: a Claude login is one person's.
 
@@ -478,7 +480,7 @@ that one token and not every credential you own. It also runs with
   about LogicMonitor does not get this: it is answered from general knowledge
   and ends with a line saying so.) Check the server by hand:
   `echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run -i --rm
-  elm-ask python /opt/elm/samara/mcp_server.py` should print a tool list.
+  samara python /opt/elm/samara/mcp_server.py` should print a tool list.
 - **`failed to connect to the Docker API at unix:///var/run/docker.sock ...
   connect: no such file or directory`** -- no Docker daemon is listening there.
   Either it is not running (start Docker Desktop, or `colima start`), or it
@@ -516,14 +518,14 @@ an interactive Claude Code session the tools:
 ```shell
 claude mcp add elm -- docker run -i --rm --user "$(id -u)" \
   -v ~/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro \
-  elm-ask python /opt/elm/samara/mcp_server.py
+  samara python /opt/elm/samara/mcp_server.py
 ```
 
 To give them to Docker sandboxes (`sbx`), register the same command. It runs on
 the host, so the credentials stay there and the sandbox only sees the answers:
 
 ```shell
-sbx mcp add elm --command docker --args "run,-i,--rm,--user,$(id -u),-v,$HOME/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro,elm-ask,python,/opt/elm/samara/mcp_server.py"
+sbx mcp add elm --command docker --args "run,-i,--rm,--user,$(id -u),-v,$HOME/.config/logicmonitor/credentials:/home/app/.config/logicmonitor/credentials:ro,samara,python,/opt/elm/samara/mcp_server.py"
 ```
 
 Claude Code keeps only the first 2048 characters of a server's instructions,
@@ -543,13 +545,13 @@ ANTHROPIC_API_KEY=... python samara/app.py      # http://127.0.0.1:8080
 
 The container is a small Python web server. It talks to Claude and to
 LogicMonitor itself; the browser only ever talks to the container. Claude never
-reaches LogicMonitor directly: it asks for a tool, and elm-ask decides whether
+reaches LogicMonitor directly: it asks for a tool, and Samara decides whether
 to run it.
 
 ```mermaid
 flowchart TB
     browser["Browser<br/>index.html"]
-    subgraph box["elm-ask container, port 127.0.0.1:8080"]
+    subgraph box["samara container, port 127.0.0.1:8080"]
         direction TB
         app["app.py<br/>web server"]
         agent["agent.py<br/>tool-use loop"]
@@ -628,6 +630,29 @@ reflect the collector rather than the device. When the tool gets something
 wrong, record the lesson rather than changing the code: in `elm-notes.yaml` if
 it is about one command, or in `elm-knowledge.md` if it applies across commands.
 Keep `elm-knowledge.md` short, because it is sent with every question.
+
+### Checking answers: eval.py
+
+`eval.py` asks Samara the questions in `eval.toml` and grades each answer:
+the recipe it should use, facts it must contain (each checked against the
+portal with elm as it runs), and things it must never say. Each answer is
+PASS, FAIL (a check failed but the answer says it could not tell), or WRONG
+(confidently wrong: a wrong number, or something made up).
+
+```shell
+samara/eval.py                 # with Samara running, on a local model
+samara/eval.py --repeat 2      # each question twice: a real failure or a one-off?
+samara/eval.py --only collector
+```
+
+The questions use placeholders for this portal's names; the values go in
+`~/.config/samara/eval-values.toml` (the top of `eval.toml` lists them), so no
+real names reach the repo. The printed summary holds only the questions as
+templates, verdicts and numbers, so it is safe to paste; the full answers go
+to `~/.cache/samara/`. It stops if Samara's model is a Claude one, since each
+ask would be billed (`--claude` to run anyway).
+
+When an answer goes wrong, add a case with the check that would have caught it.
 
 ## Limitations
 

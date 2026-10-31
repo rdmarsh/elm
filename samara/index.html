@@ -345,7 +345,7 @@ function renderTable(ev) {
 // Everything an answer is made of, kept so it can be rebuilt as Markdown.
 let health = null;
 
-const slug = s => s.replace(/[^\w-]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "elm-ask";
+const slug = s => s.replace(/[^\w-]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "samara";
 
 function tableMarkdown(t) {
   const cell = v => String(v ?? "").replace(/\|/g, "\\|");

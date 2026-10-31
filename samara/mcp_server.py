@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""elm-ask's read-only LogicMonitor tools as an MCP server, for Claude Code.
+"""Samara's read-only LogicMonitor tools as an MCP server, for Claude Code.
 
 MCP over stdio is JSON-RPC, one message per line: the client (Claude Code)
 starts this program, asks for the tool list, then calls tools. The tools,

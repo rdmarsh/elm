@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""elm-ask: a local web page where people ask LogicMonitor questions in plain English.
+"""Samara: a local web page where people ask LogicMonitor questions in plain English.
 
 Serves index.html and a streaming /api/ask endpoint. Answers come from Claude,
 or a model at an OpenAI-compatible API (see agent.py), using read-only elm queries (see elm_tools.py). Intended to run on the user's
@@ -147,7 +147,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             agent.ask(anthropic.Anthropic(), conv, question, emit, where, harder, detail)
         except anthropic.AuthenticationError:
-            emit({"type": "error", "text": "The Claude API key is missing or invalid. Stop elm-ask, run run.sh --set-key, and start it again."})
+            emit({"type": "error", "text": "The Claude API key is missing or invalid. Stop Samara, run run.sh --set-key, and start it again."})
         except anthropic.RateLimitError:
             emit({"type": "error", "text": "Claude API rate limit reached. Wait a minute and try again."})
         except anthropic.APIConnectionError:

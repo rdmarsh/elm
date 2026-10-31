@@ -1,6 +1,6 @@
-# elm-ask: plain-English LogicMonitor questions in a local web page.
+# Samara: plain-English LogicMonitor questions in a local web page.
 # Build from the repository root (elm itself is rendered from _jnja/ in stage 1):
-#   docker build -f samara/dockerfile -t elm-ask .
+#   docker build -f samara/dockerfile -t samara .
 # No apt-get: jq comes from its official image as a static binary, and the
 # full python image already has make and awk.
 #
@@ -38,10 +38,10 @@ COPY samara/certs/ /usr/local/share/ca-certificates/extra/
 RUN update-ca-certificates
 ENV PIP_CERT=/etc/ssl/certs/ca-certificates.crt
 COPY requirements.txt /tmp/requirements.txt
-COPY samara/requirements.txt /tmp/elm-ask-requirements.txt
+COPY samara/requirements.txt /tmp/samara-requirements.txt
 # Runtime dependencies only: everything above "# Build-time only" in requirements.txt.
 RUN sed '/^# Build-time only/,$d' /tmp/requirements.txt > /tmp/runtime.txt \
- && pip install --no-cache-dir -r /tmp/runtime.txt -r /tmp/elm-ask-requirements.txt
+ && pip install --no-cache-dir -r /tmp/runtime.txt -r /tmp/samara-requirements.txt
 
 WORKDIR /opt/elm
 COPY --from=render /src/elm.py /src/engine.py /src/_version.py ./

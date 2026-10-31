@@ -96,7 +96,7 @@ testoffline` on Ubuntu with Python 3.14 (since 2026-10-11). Goal: the same on:
 Later: live tests against a sandbox portal with a read-only token in a GitHub
 secret, and release binaries attached to a tag.
 
-## elm-ask: one page for several portals (parked 2026-09-18)
+## Samara: one page for several portals (parked 2026-09-18)
 
 `samara` answers from one profile (`ai` by default), so one container
 talks to one portal; the workaround is one container per portal on different
@@ -105,7 +105,7 @@ require every listed profile to set `allowed_commands`, let the model choose a
 profile only from that list (never an arbitrary `--profile`/`--config`), and say
 in each answer which portal it came from. Parked until there is a real need.
 
-## elm-ask: grow the checked question set
+## Samara: grow the checked question set
 
 Started 2026-10-26 in `samara/questions.md` (injection tests and the
 memory case, with results). Next: confirm the "Not run yet" answers by hand
@@ -125,7 +125,7 @@ GitHub Action on a release tag) would let anyone `docker pull` it; the image mus
 hold no credentials, and the README should point at the credentials mount and
 the Windows path/quoting differences. Parked: useful, not urgent.
 
-## elm-ask: show the allowed commands in the page (idea)
+## Samara: show the allowed commands in the page (idea)
 
 The footer says "44 allowed commands" but not which. Cheapest version: a title
 attribute so hovering lists them; fuller version: make it a link to a small
@@ -133,9 +133,9 @@ page or panel listing each allowed command with its summary (the data is
 already in `profile_status()["allowed"]` and `_defs/commands.json`). Only worth
 it if people ask "what can I ask about?".
 
-## elm-ask: other model providers, and Claude Code (idea)
+## Samara: other model providers, and Claude Code (idea)
 
-elm-ask calls the Claude API directly, so it needs API credit even for someone
+Samara calls the Claude API directly, so it needs API credit even for someone
 who already pays for Claude Code or ChatGPT. Two ways round that, neither
 started:
 
