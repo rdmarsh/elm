@@ -114,8 +114,9 @@
   .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
   .turn.earlier.open .question { margin-bottom: 8px; }
   /* Where an answer came from (agent.py source): a note, not a button, on the
-     right. Colour only where the reader should act; no green: a checked query
-     can still answer a nearby question, which "What this answers" says. */
+     right, and only when the reader should doubt it. A built-in check goes in
+     the How I worked this out line instead. No green: a built-in check can
+     still answer a nearby question, which "What this answers" says. */
   .source { margin: 0 0 6px; text-align: right; color: var(--muted); font-size: .8rem; font-style: italic; }
   .source.own, .source.unfound { color: var(--warn-ink); }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
@@ -151,6 +152,22 @@
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
   th[aria-sort="ascending"]::after { content: " \25B2"; font-size: .7em; }
   th[aria-sort="descending"]::after { content: " \25BC"; font-size: .7em; }
+  /* Alert severity as a pill, in LogicMonitor's colours. The word is always
+     there, so colour is never the only signal (red, orange and yellow are the
+     ones red-green colour blindness mixes up); the pills also step from dark
+     to light, which still shows without the colour. Text contrast is over
+     4.5:1 in both themes. */
+  .sev { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: .72rem; font-weight: 700;
+         letter-spacing: .03em; text-transform: uppercase; line-height: 1.5; }
+  .sev-critical { background: #ffd5cf; color: #a1170b; }
+  .sev-error { background: #ffe3c2; color: #8a3c00; }
+  .sev-warning { background: #fff5c4; color: #6b5000; }
+  @media (prefers-color-scheme: dark) {
+    .sev-critical { background: #9b2a1f; color: #fff0ee; }
+    .sev-error { background: #6b3d00; color: #ffe2bd; }
+    .sev-warning { background: #3f3400; color: #ffe680; }
+  }
+  @media (forced-colors: active) { .sev { border: 1px solid CanvasText; } }
   @media (max-width: 520px) {   /* phones: less padding, a smaller Ask button */
     main { padding-top: 16px; }
     #go { min-width: 72px; padding: 0 14px; }
@@ -227,9 +244,10 @@ const ICON = {
 };
 // The label above each answer: what Samara knows about where it came from.
 const SOURCE = {
-  checked: ["Checked query", "Every fact here came from Samara's own checked queries (recipes). "
+  checked: ["Built-in check", "Every fact here came from Samara's built-in checks: queries written and tested "
+    + "beforehand (recipes), not by the model. "
     + "They can still answer a nearby question: \"What this answers\" says which."],
-  worked: ["Checked query · table worked out by the model", "The rows came from Samara's checked queries "
+  worked: ["Built-in check · table worked out by the model", "The rows came from Samara's built-in checks "
     + "(recipes); the model chose how to work this table out from them (a percentage, a total), and jq did the sums."],
   own: ["Model's own query · check it", "Part of this came from queries the model wrote itself. "
     + "Those have been wrong before: check the numbers under How I worked this out."],
@@ -240,7 +258,10 @@ const SOURCE = {
 // and listed on hover, so the reader knows which to doubt.
 const notFound = u => u && u.length ? ` · ${u.length === 1 ? "1 number" : `${u.length} numbers`} not found in the data` : "";
 const sourceText = (s, u) => SOURCE[s] ? SOURCE[s][0] + notFound(u) : "";
-const sourceHtml = (s, u) => SOURCE[s] ? `<p class="source ${s}${u && u.length ? " unfound" : ""}" title="${
+// A built-in check with every number found needs no warning above the answer:
+// it is named in the How I worked this out line instead (workedOut).
+const quietSource = (s, u) => (s === "checked" || s === "worked") && !(u && u.length);
+const sourceHtml = (s, u) => SOURCE[s] && !quietSource(s, u) ? `<p class="source ${s}${u && u.length ? " unfound" : ""}" title="${
   esc(SOURCE[s][1] + (u && u.length ? ` Not found in what the queries returned: ${u.join(", ")}.` : ""))}">${
   esc(sourceText(s, u))}</p>` : "";
 
@@ -274,7 +295,7 @@ fetch("/api/health").then(r => r.json()).then(h => {
   $("#footer").innerHTML = `<span class="caution">Answers can be wrong — check "How I worked this out".</span>`
     + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
     + `(<button id="show-commands" type="button">${scope}</button>)</span>`
-    + `<span class="setup">Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}${h.effort ? `, effort ${esc(h.effort)}` : ""}`
+    + `<span class="setup">Default model: ${esc(h.model)}${h.model_id && h.model_id !== h.model ? ` (${esc(h.model_id)})` : ""}${h.effort ? `, effort ${esc(h.effort)}` : ""}`
     + `${h.off ? `, sends questions and portal data to ${esc(h.off)}` : ", on this machine"}</span>`
     // Only when the person running Samara turned the log on (SAMARA_LOG=1), and
     // off until each reader ticks it: their questions, not Samara's to take.
@@ -293,6 +314,11 @@ fetch("/api/health").then(r => r.json()).then(h => {
       + h.allowed.map(c => `<code>${esc(c)}</code>`).join(" ");
   });
 }).catch(() => {});
+
+// A table cell: an alert severity as a pill, anything else as text.
+const SEVERITIES = new Set(["critical", "error", "warning"]);
+const cellHtml = (text, html) => SEVERITIES.has(text.trim().toLowerCase())
+  ? `<span class="sev sev-${text.trim().toLowerCase()}">${esc(text.trim())}</span>` : html;
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -323,7 +349,7 @@ function markdown(text) {
       // put on the page (seen with Haiku): show nothing rather than bare pipes.
       if (body.length > 1) out.push(`<div class="table-scroll"><table><thead><tr>${
         cells(body[0]).map(c => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${
-        body.slice(1).map(r => `<tr>${cells(r).map(c => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")
+        body.slice(1).map(r => `<tr>${cells(r).map(c => `<td>${cellHtml(c, inline(c))}</td>`).join("")}</tr>`).join("")
         }</tbody></table></div>`);
     }
     else if ((m = line.match(/^#{1,4}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); }
@@ -359,7 +385,7 @@ function renderTable(ev) {
   const tbody = $("tbody", block);
   const draw = rows => tbody.innerHTML = rows.map(r =>
     `<tr>${r.map(v => { const text = v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
-      return `<td${text.length > 24 ? ' class="long"' : ""}>${esc(text)}</td>`; }).join("")}</tr>`).join("");
+      return `<td${text.length > 24 ? ' class="long"' : ""}>${cellHtml(text, esc(text))}</td>`; }).join("")}</tr>`).join("");
   let rows = ev.rows.slice(), sortCol = -1, dir = 1;
   draw(rows);
   block.querySelectorAll("th").forEach((th, i) => th.addEventListener("click", () => {
@@ -464,8 +490,9 @@ const took = s => { if (s == null) return ""; const r = Math.round(s);
   return r < 60 ? `${r}s` : `${Math.floor(r / 60)}m ${String(r % 60).padStart(2, "0")}s`; };
 const costText = t => [t.cost != null ? (t.cost < 0.01 ? "< $0.01" : `≈ $${t.cost.toFixed(2)}`)
   : t.tokens ? `${(t.tokens / 1000).toFixed(1)}k tokens` : "", took(t.seconds)].filter(Boolean).join(" · ");
-const workedOut = (n, model, t) => `How I worked this out (${[`${n} ${n === 1 ? "query" : "queries"}`,
-  model, t && costText(t)].filter(Boolean).join(" · ")})`;
+const workedOut = (n, model, t) => `How I worked this out (${[
+  t && t.md.source && quietSource(t.md.source, t.md.unfound) ? SOURCE[t.md.source][0].toLowerCase() : "",
+  `${n} ${n === 1 ? "query" : "queries"}`, model, t && costText(t)].filter(Boolean).join(" · ")})`;
 // The answer ends with the model's own "How I worked this out" section; fold it
 // in with the queries, so the answer reads short and the working is one click away.
 function splitWorked(text) {

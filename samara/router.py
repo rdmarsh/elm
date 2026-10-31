@@ -46,6 +46,10 @@ COMMON = {"all", "test", "tests", "prod", "production", "dev", "default", "other
           "services", "level", "class", "type", "site", "environment", "active", "azure", "aws", "cloud",
           "kubernetes", "customer", "customers", "sandbox", "lab", "core", "monitoring", "ping", "http",
           "https", "snmp", "wmi", "today", "week", "month"}
+PERSON = re.compile(r"\bwhat(?:'s|’s| is| has)\s+([a-z][\w.-]*)\s+(?:been\s+)?(?:working on|looking at|acknowledged|acked)\b"
+                    r"|\bis\s+([a-z][\w.-]*)\s+(?:looking at|working on)\s+(?:anything|something)\b", re.I)
+NOBODY = {"anyone", "anybody", "someone", "somebody", "everyone", "everybody", "nobody", "it", "this", "that",
+          "he", "she", "they", "we", "you", "i", "the", "everything", "ops", "noc", "team"}
 MIN_NAME = 3   # "web" is too common to count, but COMMON catches those; "lux" is a device
 
 _names, _when, _lock = [], 0.0, threading.Lock()
@@ -103,7 +107,8 @@ def found(question):
     hits, taken = [], []
     for name, kind, id_, label in sorted(names(), key=lambda n: -len(n[0])):
         n = name.lower().strip("/")
-        m = re.search(rf"(?<![\w.\-]){re.escape(n)}(?![\w\-]|\.\w)", q)
+        # "acmes servers" and "acme's" both mean acme
+        m = re.search(rf"(?<![\w.\-]){re.escape(n)}(?:s|'s|’s)?(?![\w\-]|\.\w)", q)
         if not m or any(a <= m.start() < b and (m.start(), m.end()) != (a, b) for a, b in taken):
             continue   # inside a longer name already found ("acme" in "Customers/acme")
         taken.append((m.start(), m.end()))   # the same name may still be a device and a collector
@@ -117,6 +122,17 @@ def found(question):
     own = {n for n in both if re.search(rf"\b{re.escape(n)}(?:'|’)s collector", q)}
     hits = [h for h in hits if h["name"].lower() not in both
             or (h["kind"] == "collector") == (said and h["name"].lower() not in own)]
+    # A name that is a device and a group: "is acme okay?" is the device (devices
+    # come first), "acme's servers" the group, a customer's as a rule.
+    devices = {h["name"].lower() for h in hits if h["kind"] == "device"}
+    hits.sort(key=lambda h: not (h["kind"] == "group" and h["name"].lower() in devices and re.search(
+        rf"\b{re.escape(h['name'].lower())}(?:'s|’s|s)\s+(?:servers|devices|hosts|machines|systems|sites|vms)\b", q)))
+    # "what's joe working on?" is about a person: LM knows people only by the
+    # alerts they acknowledged, so the person recipe looks there (recipes.yaml).
+    for m in PERSON.finditer(question):
+        name = next(g for g in m.groups() if g)
+        if name.lower() not in NOBODY and not any(h["name"].lower() == name.lower() for h in hits):
+            hits.append({"kind": "person", "name": name, "id": None, "label": None})
     for m in re.finditer(r"\bcollector\s+(?:id\s+)?(\d+)\b", q):
         if not any(h["kind"] == "collector" and str(h["id"]) == m.group(1) for h in hits):
             hits.append({"kind": "collector", "name": m.group(1), "id": int(m.group(1)), "label": f"collector {m.group(1)}"})
@@ -132,7 +148,8 @@ def route(question):
 
 
 # The recipe run for a named object when the model will not look it up.
-HEALTH = {"device": "device_health", "group": "group_health", "collector": "collector_health"}
+HEALTH = {"device": "device_health", "group": "group_health", "collector": "collector_health",
+          "person": "acknowledged_by"}
 
 
 def hint(hits):

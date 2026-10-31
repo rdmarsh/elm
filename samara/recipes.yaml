@@ -15,7 +15,7 @@
       run: AlertListByDeviceId
       params: {id: "{device[id]}"}
       filter: cleared:false
-      fields: [severity, startEpoch, acked, sdted, resourceTemplateName, instanceName, dataPointName]
+      fields: [severity, startEpoch, acked, ackComment, ackedBy, sdted, resourceTemplateName, instanceName, dataPointName]
       size: all
       says: fetched its open alerts
     - as: sdts
@@ -60,7 +60,7 @@
         Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         Started: (.startEpoch | at),
-        Acknowledged: (if .acked then "yes" else "no" end)})
+        Acknowledged: ack})
 
 - name: device_downtime
   asks: ["is any downtime scheduled for DEVICE?", "is DEVICE in maintenance?", "when is DEVICE's next SDT?"]
@@ -489,7 +489,7 @@
     - as: alerts
       run: AlertList
       filter: cleared:false,severity:4
-      fields: [monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked]
+      fields: [monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked, ackComment, ackedBy]
       size: all
       says: fetched every open critical alert
   summary: |
@@ -503,7 +503,7 @@
     rows: |
       $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName,
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
-        Started: (.startEpoch | at), Acknowledged: (if .acked then "yes" else "no" end)})
+        Started: (.startEpoch | at), Acknowledged: ack})
 
 - name: alerts_last_hour
   asks: ["what alerts started in the last hour?", "anything new in the last hour?"]
@@ -917,6 +917,87 @@
       | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
       | $down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))
       | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Status: (.hostStatus | state)})
+
+- name: group_dashboards_reports
+  asks: ["what dashboards does GROUP have?", "what reports does GROUP get?", "what dashboards or reports does GROUP have?"]
+  covers: "the dashboards and reports for one group or customer, matched by name, folder or tenant"
+  params: [group]
+  # Dashboards and reports are not in device groups, so they are matched by the
+  # group's name: in their own name, their folder, or the tenant field. The
+  # tenant was empty on every dashboard and report on the sandbox, a new one
+  # included (2026-10-31); the folder found all 14 acme dashboards.
+  steps:
+    - as: dashboards
+      run: DashboardList
+      fields: [id, name, groupFullPath, tenantIdentifier]
+      size: all
+      says: fetched every dashboard and kept the ones with the group's name in their name, folder or tenant
+    - as: folders
+      run: ReportGroupList
+      fields: [id, name]
+      size: all
+      says: fetched the report folders
+    - as: reports
+      run: ReportList
+      fields: [id, name, groupId, type, delivery, lastGenerateOn, recipients, tenantIdentifier]
+      size: all
+      says: fetched every report and kept the ones with the group's name in their name, folder or tenant
+  summary: |
+    ($group[0].name | ascii_downcase) as $k
+    | def has: (. // "") | ascii_downcase | contains($k);
+    ($folders | map(select(.name | has)) | map(.id)) as $f
+    | ($dashboards | map(select((.name | has) or (.groupFullPath | has) or ((.tenantIdentifier // "") | ascii_downcase) == $k))) as $d
+    | ($reports | map(select((.name | has) or (.groupId as $g | $f | index($g)) or ((.tenantIdentifier // "") | ascii_downcase) == $k))) as $r
+    | "\($d | length | n("dashboard")) and \($r | length | n("report")) have \($group[0].name) in their name, folder or tenant"
+    + (if ($r | length) > 0 then "; \($r | map(select(.delivery == "email")) | length) of the reports are emailed." else "." end)
+  table:
+    title: Dashboards and reports for {group[name]}
+    columns: [Kind, Name, Folder, Sent to, Last run]
+    rows: |
+      ($group[0].name | ascii_downcase) as $k
+      | def has: (. // "") | ascii_downcase | contains($k);
+      ($folders | map({key: (.id | tostring), value: .name}) | from_entries) as $names
+      | ($folders | map(select(.name | has)) | map(.id)) as $f
+      | ($dashboards | map(select((.name | has) or (.groupFullPath | has) or ((.tenantIdentifier // "") | ascii_downcase) == $k))
+         | sort_by(.groupFullPath, .name) | map({Kind: "dashboard", Name: .name, Folder: .groupFullPath, "Sent to": "", "Last run": ""}))
+      + ($reports | map(select((.name | has) or (.groupId as $g | $f | index($g)) or ((.tenantIdentifier // "") | ascii_downcase) == $k))
+         | sort_by(.name) | map({Kind: "report", Name: .name, Folder: ($names[.groupId | tostring] // ""),
+             "Sent to": (if .delivery == "email" then (.recipients // [] | map(.addr) | join(", ")) else "nobody" end),
+             "Last run": (if (.lastGenerateOn // 0) > 0 then .lastGenerateOn | at else "never" end)}))
+
+# --- One person -----------------------------------------------------------------
+
+- name: acknowledged_by
+  asks: ["what's PERSON working on?", "what has PERSON acknowledged?", "is PERSON looking at anything?"]
+  covers: "open alerts acknowledged by one person, or with their name in the acknowledgement note"
+  params: [person]
+  # LM knows what someone is working on only from the alerts they acknowledged.
+  # The note and the login are matched here, in jq on the real rows; the model
+  # gets the counts only, as both are withheld from it (elm_tools FREE_TEXT_FIELDS).
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: cleared:false,acked:true
+      fields: [monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, acked, ackComment, ackedBy, ackedEpoch]
+      size: all
+      says: fetched the open alerts that are acknowledged, and kept the ones with the name in the note or the login
+  summary: |
+    ($person[0].name | ascii_downcase) as $k
+    | ($alerts | map(select(.acked))) as $acked
+    | ($acked | map(select(((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k)))) as $m
+    | if ($m | length) == 0
+      then "No open alert is acknowledged by \($person[0].name), or names them in its note (\($acked | length | n("open alert")) acknowledged in all)."
+      else "\($m | length | n("open alert")) on \($m | map(.monitorObjectName) | unique | length | n("device")) "
+        + "\(if ($m | length) == 1 then "is" else "are" end) acknowledged by \($person[0].name) or name them in the note (\($m | severities))." end
+  table:
+    title: Open alerts for {person[name]}
+    columns: [Device, Severity, Alert, Acknowledged, When]
+    rows: |
+      ($person[0].name | ascii_downcase) as $k
+      | $alerts | map(select(.acked and ((((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k)))))
+      | sort_by(-.severity, -.ackedEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
+          Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
+          Acknowledged: ack, When: (.ackedEpoch | at)})
 
 # --- One collector -------------------------------------------------------------
 

@@ -46,12 +46,18 @@ MAX_EACH = 10    # an `each` step's queries, one per item
 PRELUDE = r"""
 def sev: {"2": "warning", "3": "error", "4": "critical"}[tostring] // tostring;
 def when: strflocaltime("%d %b %Y, %H:%M %Z");
-def ago: ((. - now) / 86400) as $d | ($d | fabs | round | if . < 1 then 1 else . end) as $n
-  | "\($n) day\(if $n == 1 then "" else "s" end)" as $span
-  | if $d >= 1 then "in about \($span)" elif $d > 0 then "within a day"
-    elif $d > -1 then "less than a day ago" else "\($span) ago" end;
+def ago: (. - now) as $s | ($s | fabs) as $a
+  | (if $a < 3600 then [($a / 60 | round), "minute", 60] elif $a < 86400 then [($a / 3600 | round), "hour", 24]
+     else [($a / 86400 | round), "day", 0] end) as [$n, $unit, $next]
+  | (if $n == $next then [1, {"minute": "hour", "hour": "day"}[$unit]] else [$n, $unit] end) as [$n, $unit]
+  | "\($n) \($unit)\(if $n == 1 then "" else "s" end)" as $span
+  | if $a < 60 then (if $s > 0 then "in under a minute" else "just now" end)
+    elif $s > 0 then "in about \($span)" elif $unit == "day" then "\($span) ago" else "about \($span) ago" end;
 def at: "\(when), \(ago)";
 def n($word): "\(.) \($word)\(if . == 1 then "" else "s" end)";
+def ack: if .acked | not then "no" else "yes"   # with the note typed when it was acknowledged, and who
+  + (if (.ackComment // "") != "" then ": \(.ackComment)" else "" end)
+  + (if (.ackedBy // "") != "" then " (\(.ackedBy))" else "" end) end;
 def severities: (map(.severity | sev) | group_by(.) | map({key: .[0], value: length}) | from_entries) as $c
   | [("critical", "error", "warning") as $s | select($c[$s]) | "\($c[$s]) \($s)"] | join(", ");
 def kind: {"0": "device", "2": "AWS resource", "4": "Azure resource", "6": "service", "7": "GCP resource",
@@ -96,6 +102,8 @@ def tool_description():
             "before run_elm.\n\nAbout one device (pass device):\n" + listed(taking("device"))
             + "\n\nAbout one group (pass group):\n" + listed(taking("group"))
             + "\n\nAbout one collector (pass collector):\n" + listed(taking("collector"))
+            + "\n\nAbout one person (pass person: the name as written; matched in who acknowledged open alerts, "
+            "and their notes):\n" + listed(taking("person"))
             + "\n\nAbout the whole portal (pass no name):\n" + listed(taking(None)))
 
 
@@ -119,12 +127,27 @@ def fetch_all(command, **kw):
     return lines, shown, None if total == str(len(lines)) else total
 
 
-def run_recipe(session, recipe, device=None, group=None, collector=None):
+def nearest(value):
+    """(name, kind) of the device, group or collector spelled most like value, or None.
+
+    "amce" found nothing, and the answer never said acme was there (2026-10-31).
+    """
+    import difflib
+    import router
+    try:
+        known = {name.lower(): (name, kind) for name, kind, _, _ in router.names()}
+    except Exception:
+        return None
+    close = difflib.get_close_matches(value.lower(), list(known), n=1, cutoff=0.7)
+    return known[close[0]] if close else None
+
+
+def run_recipe(session, recipe, device=None, group=None, collector=None, person=None):
     """Run one recipe; return (text for the model, [step and table events])."""
     r = RECIPES.get(recipe)
     if not r:
         raise ValueError(f"No recipe {recipe!r}. Recipes: {', '.join(RECIPES)}")
-    given = {"device": device, "group": group, "collector": collector}
+    given = {"device": device, "group": group, "collector": collector, "person": person}
     for param, value in given.items():
         if value and param not in r.get("params", []):
             # A small model asked about one device's downtime ran the portal's
@@ -151,6 +174,11 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
             value = (given.get(param) or "").strip()
             if not value or '"' in value:
                 raise ValueError(f"Recipe {recipe} needs {param}: the name as the person wrote it, without quotes.")
+            if param == "person":
+                # Nothing in LM to look up: the name is matched in the recipe's rows ($person[0].name).
+                names[param] = session.add([json.dumps({"name": value})], f"recipe {recipe}: person {value}")
+                records[param] = {"name": value}
+                continue
             command, filters, fields = LOOKUPS[param]
             if param == "group":
                 value = value.strip("/")
@@ -188,9 +216,11 @@ def run_recipe(session, recipe, device=None, group=None, collector=None):
                     seen = ""
                 where = elm_tools.portal() or "this portal"
                 among = f" (this profile can see {seen} {param}s there)" if seen.isdigit() else ""
+                near = nearest(value)
                 events.append({"type": "worked", "lines": [f"Looked for a {param} named {value!r} by {how}: none found."]
                                + ([f"Counted the {param}s this profile can see: {seen}."] if seen.isdigit() else []),
-                               "summary": f"No {param} in {where} has a name like {value!r}{among}.",
+                               "summary": f"No {param} in {where} has a name like {value!r}{among}."
+                                          + (f" Did you mean the {near[1]} {near[0]!r}?" if near else ""),
                                "covers": None})
                 return f"No {param} has a name like {value!r}. Say so; do not guess another {param}.", events
             if len(found) > 1 and not r.get("many"):
@@ -281,6 +311,7 @@ elm_tools.TOOLS.insert(0, {
             "device": {"type": "string", "description": "For a device recipe: the device's name as the person wrote it"},
             "group": {"type": "string", "description": "For a group recipe: the group's name or path as the person wrote it"},
             "collector": {"type": "string", "description": "For a collector recipe: the collector's name or number as the person wrote it"},
+            "person": {"type": "string", "description": "For a person recipe: the person's name as written"},
         },
         "required": ["recipe"],
     },

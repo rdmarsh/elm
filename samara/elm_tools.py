@@ -57,7 +57,9 @@ SECRET_FIELDS = {
 # the portal contacts the same on both portals?") needs these back, and pseudo-
 # nyms rather than plain removal -- see the README.
 PERSONAL_FIELDS = {"contacts", "email", "phone"}
-REMOVED_FIELDS = SECRET_FIELDS | PERSONAL_FIELDS
+# A dashboard's widget tokens are values an admin typed for its widgets (paths,
+# hosts, anything): kept from the reader too (David, 2026-10-31).
+REMOVED_FIELDS = SECRET_FIELDS | PERSONAL_FIELDS | {"widgetTokens"}
 
 # Property lists (customProperties, systemProperties, ...) hold {name, value}.
 # LM already masks credential properties as ******** (verified with a read-only
@@ -73,8 +75,13 @@ REDACTED = "[removed: secret]"
 # 2026-10-29). So the model never gets these values: jq and run_elm's sample
 # read a copy without them, and show_table, which only the reader sees, reads
 # the real rows. Kept: system properties LM fills in itself, and a collector's
-# description, which is its name.
-FREE_TEXT_FIELDS = {"description", "comment", "note"}
+# description, which is its name. An alert's acknowledgement note is free text
+# too, and who acknowledged it is a person's login; so are a report's
+# last editor and a private dashboard's owner, and a report's recipients are
+# email addresses. The reader still sees them, so "what reports go to bob?"
+# can be answered from a table, by code, never by the model reading them.
+FREE_TEXT_FIELDS = {"description", "comment", "note", "ackComment", "ackedBy",
+                    "recipients", "lastmodifyUserName", "owner"}
 PROPERTY_LISTS = {"customProperties", "inheritedProperties", "systemProperties", "autoProperties"}
 LM_SET_PROPERTIES = {"system.sysinfo", "system.ips", "system.sysoid", "system.hoststatus", "system.devicetype",
                      "system.collectorplatform", "system.collectorarch", "system.collectorversion"}

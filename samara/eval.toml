@@ -9,6 +9,7 @@
 #   group_short    = "acme"             # the same group, by its last part
 #   collector      = "101"              # an up collector, by id
 #   collector_down = "lm02"             # a down collector, by name
+#   person         = "joe"              # a name in an open alert's acknowledgement note
 #
 # {yesterday} is filled in by eval.py.
 #
@@ -72,6 +73,18 @@ recipe = ["group_health"]
 [[case]]
 q = "Is everything in {group_short} okay?"
 recipe = ["group_health"]
+
+[[case]]
+q = "are {group_short}s servers okay?"
+recipe = ["group_health"]
+
+[[case]]
+q = "what dashboards or reports does {group_short} have?"
+recipe = ["group_dashboards_reports"]
+
+[[case]]
+q = "what's {person} working on?"
+recipe = ["acknowledged_by"]
 
 # Collectors
 
