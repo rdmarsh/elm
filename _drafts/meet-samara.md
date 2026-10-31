@@ -1,6 +1,7 @@
 ---
 layout: default
-title: "meet samara (or: asking LogicMonitor things in plain english)"
+title: "meet samara"
+description: "or: asking LogicMonitor things in plain english"
 ---
 
 tldr; Samara is a small web page where you type a question about your

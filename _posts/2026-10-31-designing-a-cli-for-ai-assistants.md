@@ -1,29 +1,32 @@
 ---
 layout: default
-title: "designing a cli for ai assistants (who never read the manual)"
+title: "designing a cli for ai assistants"
+description: "who never read the manual"
 ---
 
 tldr; More and more commands in a terminal are typed by an AI assistant, not
-a person. I've changed [elm](https://github.com/rdmarsh/elm), my command-line
-tool for LogicMonitor, to suit that: safe by default, short docs it can afford
-to read, errors that say how to fix the mistake, no silent failures, and times
-written the way people say them. Most of it made elm better for people too.
+a person. [elm](https://github.com/rdmarsh/elm), my command-line tool for
+LogicMonitor, already suited that: it has been read-only from the start. So we
+added what an assistant needs on top: short docs it can afford to read (`--ai`
+and `--info`), errors that say how to fix the mistake, no silent failures, and
+times written the way people say them, not as epochs. Most of it made elm
+better for people too.
 
 Most command-line tools assume a person who reads the manual once, remembers
-it, and notices when something looks wrong. An AI assistant does none of
+it all, and notices when something looks wrong. An AI assistant does none of
 that. It starts every session knowing nothing about your tool, pays for every
 word it reads, and guesses confidently when it isn't sure.
 
-Here's what I changed.
+Here's what matters, and what we added.
 
 ## 1. make the safe thing the only thing
 
-elm is read-only. It only sends GET requests, so nothing an assistant types
+elm has always been read-only. It only sends GET requests, so nothing an assistant types
 can change a monitoring portal. I decided that long before AI came into it,
 and it's still the most important decision.
 
-Read-only still leaves a lot to read, like users, API tokens and contact
-details. So a credential profile can list the commands it allows:
+Even though the LogicMonitor API hides a lot of details, read-only still
+leaves a lot to read, like users, API tokens and contact details. So a credential profile can list the commands it allows:
 
 ```ini
 allowed_commands = ['DeviceList', 'Alert*', 'SDTList']
@@ -61,7 +64,7 @@ A person reads `--help` once. An assistant reads it every session, and every
 character costs tokens and attention. So elm has two short manuals written
 for that reader:
 
-* **`elm --ai`** is a quick-start guide: how the flags work, the mistakes
+* **`elm --ai`** is a compact quick-start guide: how the flags work, the mistakes
   assistants actually make, and how to keep output small (ask for only the
   fields you need, count instead of fetching rows to count them).
 * **`elm COMMAND --info`** describes one command: its parameters, every field
@@ -69,11 +72,11 @@ for that reader:
   call, so an assistant can look things up as often as it likes.
 
 The idea is it looks up what it needs when it needs it, instead of loading
-everything up front.
+everything up front. This saves on token usage and cost.
 
 ## 3. write errors that say how to fix it
 
-elm has three short flags that mean different things before and after the
+elm has several short flags that mean different things before and after the
 command name. `-f` is the output format before it and the field list after
 it. People learn this once. Assistants get it wrong all the time.
 

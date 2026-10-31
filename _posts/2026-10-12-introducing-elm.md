@@ -1,6 +1,7 @@
 ---
 layout: default
-title: "introducing elm (logicmonitor data without the clicking)"
+title: "introducing elm"
+description: "logicmonitor data without the clicking"
 ---
 
 *2026-10-12*
