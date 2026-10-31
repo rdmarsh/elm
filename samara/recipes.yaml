@@ -41,7 +41,12 @@
        elif any($alerts[]; .severity >= 3) then "Needs a look"
        elif ($alerts | length) > 0 then "Mostly" else "Yes" end)
     + ": \($d.displayName) is \($d.hostStatus | updown)"
-    + (if $since then " (since \($since.startEpoch | at))" else "" end)
+    # The Host Status alert's start is when it stopped reporting: "since" for a
+    # device that is down; for one LM still calls up, say the check has no data
+    # (it read "up (since 18:26)", the time it went quiet, 2026-10-31).
+    + (if $since == null then ""
+       elif $d.hostStatus == "normal" then ", but its Host Status check has had no data from it since \($since.startEpoch | at)"
+       else " (since \($since.startEpoch | at))" end)
     + ", with "
     + (if ($alerts | length) == 0 then "no open alerts"
        else "\($alerts | length | n("open alert")) (\($alerts | severities))"
@@ -50,7 +55,7 @@
        else "; no downtime is in effect" end)
     + (if ($next | length) > 0 then "; the next is scheduled for \($next[0].startDateTime / 1000 | at)" else "" end)
     + (if ($off | length) > 0 then ". Alerting is disabled by \($off | join(" and by ")), so problems there would not alert" else "" end)
-    + (if $collector[0].isDown then ". Its collector (\($collector[0].description)) is down, so its data is not current" else "" end)
+    + (if $collector[0].isDown and $d.hostStatus != "dead-collector" then ". Its collector (\($collector[0].description)) is down, so its data is not current" else "" end)
     + "."
   table:
     title: Open alerts on {device[displayName]}

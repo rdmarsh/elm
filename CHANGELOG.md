@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Esc stops Samara while it is working, as the Stop button does (its tooltip says so). Otherwise Esc is left alone.
 - Samara answers "what dashboards or reports does acme have?" (recipe `group_dashboards_reports`): dashboards and reports with the group's name in their name, folder or tenant, in one table with who each report is sent to and when it last ran. The tenant fields were empty on every dashboard and report on the test portal, so the folder is what finds them there. `ai.example.ini` allows DashboardList, DashboardGroupList, ReportList and ReportGroupList; the token's role needs view rights on them. A dashboard's widget tokens are dropped before anyone sees them; report recipients and last editors, and a private dashboard's owner, are kept from the model and shown in the table.
 - Samara answers "what's joe working on?" (recipe `acknowledged_by`): open alerts acknowledged by that person or naming them in the acknowledgement note. LogicMonitor knows what someone is working on only from what they acknowledged. Samara spots the question from its wording ("what's X working on?", "what has X acknowledged?", "is X looking at anything?"); the matching is done in jq, and the model gets the counts.
 - Samara's alert tables show the acknowledgement note and who acknowledged it ("yes: investigating under INC314159 (user01)"). Both are free text or a login, so the model never reads them: like descriptions, they are for the reader, in the table.
@@ -35,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Samara's device check gave a device LogicMonitor still calls up the time its Host Status check went quiet: "web01 is up (since 18:26)". The time now goes with "not responding (since ...)"; a device that is up with that alert open reads "is up, but its Host Status check has had no data from it since ...". A device whose collector is down no longer says so twice.
 - The GitHub Pages site has its own short front page (`index.md`): what elm and Samara do, an example, how to try it, the latest posts and an RSS feed (`jekyll-feed`). The README stays the manual, on GitHub. `ai.md` is now about building elm and Samara, a third shorter, ASCII only.
 - Samara finds a name with an `s` or `'s` after it: "are acmes servers okay?" is the group acme (it was "no device named acmes servers"). A name that is both a device and a group is the device ("is acme okay?"), unless the question says the name's servers, devices or hosts ("acme's servers"), when it is the group.
 - Samara's times are as precise as they need to be: "about 15 minutes ago", "about 3 hours ago", "in about 2 days", where every time under a day read "less than a day ago".

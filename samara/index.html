@@ -470,6 +470,11 @@ form.addEventListener("submit", e => {
 go.addEventListener("click", e => {
   if (current) { e.preventDefault(); current.abort(); }
 });
+// Esc stops it too, from anywhere on the page, as in most chat tools. Only while
+// Samara works: otherwise Esc is left to the browser and the page.
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && current) { e.preventDefault(); current.abort(); }
+});
 
 // harder > 0 asks the last question again on a dearer model (see agent.py).
 // The ladder is as long as SAMARA_MODEL makes it, two steps as a rule (the
@@ -716,7 +721,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
 // records the answer and returns a heading for its working ("" for none).
 async function stream(t, part, body, onAnswer) {
   current = new AbortController();
-  go.textContent = "Stop"; go.classList.add("stop");
+  go.textContent = "Stop"; go.title = "Stop (Esc)"; go.classList.add("stop");
   announce("Working on it");
   let answered = false, failed = "", stopped = false;   // Keep going after a Stop, Try again after an error
   const began = Date.now();
@@ -800,7 +805,7 @@ async function stream(t, part, body, onAnswer) {
     failed = stopped ? "Stopped." : `Request failed: ${err.message}`;
   } finally {
     current = null;
-    go.textContent = "Ask"; go.classList.remove("stop");
+    go.textContent = "Ask"; go.title = ""; go.classList.remove("stop");
     if (failed) t.events.push({ type: "page", text: failed });
     $(".debug", t.turn).hidden = false;   // a failed answer is when it is most wanted
     $(".status", part).remove();
