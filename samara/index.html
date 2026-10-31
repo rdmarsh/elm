@@ -639,8 +639,10 @@ async function stream(t, part, body, onAnswer) {
     <div class="answer"></div><div class="tables"></div>`;
   const statusText = $(".status-text", part), steps = t.steps;
   const handle = ev => {
-    // A table's first rows are enough to see its shape.
-    t.events.push(ev.type === "table" ? { ...ev, rows: ev.rows.slice(0, 5), shown: ev.rows.length } : ev);
+    // A table's first rows are enough to see its shape, and its expression
+    // without the jq definitions every recipe starts with (recipes.py PRELUDE).
+    t.events.push(ev.type === "table" ? { ...ev, rows: ev.rows.slice(0, 5), shown: ev.rows.length,
+      expression: ev.expression && ev.expression.replace(/^\n?(?:(?:def |  ).*\n)+/, "# recipes.py PRELUDE\n") } : ev);
     switch (ev.type) {
       case "conversation": conversationId = ev.id; break;
       case "model":
