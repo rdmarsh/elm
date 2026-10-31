@@ -170,16 +170,18 @@ if [[ $ASK -eq 1 && -t 0 ]]; then
             # A local model brings its server's address.
             [[ $(tr -cd '|' <<<"$pick") == "||" ]] && URL=${URL:-${pick##*|}}
         fi
-        # A local model typed by name: the server that lists it.
-        if [[ -z "$URL" && -n "$MODEL" ]]; then
-            IFS=, read -r -a typed <<<"$MODEL"
-            for m in "${typed[@]}"; do
-                found=$(local_models | grep -m1 "^${m// /}|") || true
-                [[ -n $found ]] && { URL=${found#*|}; break; }
-            done
-        fi
     fi
     [[ -n "$EFFORT" ]] || read -r -p "Effort, low|medium|high|xhigh|max [high]: " EFFORT
+fi
+
+# A local model named without --url, typed at the prompt or given with -m: the
+# server on this machine that lists it (-m qwen3-8b-mlx -y said "need --url").
+if [[ -z "$URL" && -n "$MODEL" ]]; then
+    IFS=, read -r -a typed <<<"$MODEL"
+    for m in "${typed[@]}"; do
+        found=$(local_models | grep -m1 "^${m// /}|") || true
+        [[ -n $found ]] && { URL=${found#*|}; break; }
+    done
 fi
 
 if [[ -n "$EFFORT" && ! "$EFFORT" =~ ^(low|medium|high|xhigh|max)$ ]]; then

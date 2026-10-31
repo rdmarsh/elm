@@ -170,7 +170,10 @@ def main():
                 log.write(json.dumps({"q": case["q"], "verdict": verdict, "misses": misses, "facts": facts, "secs": secs,
                                       "events": events}) + "\n")
                 log.flush()
-                print(f"{verdict:5}  {secs:4}s  {case['q']}" + "".join(f"\n              {m}" for m in misses),
+                said = next((e for e in events if e.get("type") == "answer"), {})
+                label = said.get("source", "-") + (f", {len(said['unfound'])} not found: {' '.join(said['unfound'][:6])}"
+                                                   if said.get("unfound") else "")
+                print(f"{verdict:5}  {secs:4}s  [{label}]  {case['q']}" + "".join(f"\n              {m}" for m in misses),
                       flush=True)
     total = sum(tally.values())
     if total:
