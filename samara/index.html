@@ -446,14 +446,12 @@ go.addEventListener("click", e => {
 });
 
 // harder > 0 asks the last question again on a dearer model (see agent.py).
-// The ladder is as long as SAMARA_MODEL makes it: Ultrathink is always its top
-// step, Think harder every step below, and the button names the model it asks.
+// The ladder is as long as SAMARA_MODEL makes it, two steps as a rule (the
+// default, then one dearer model): the button names the model it asks.
 let level = 0;       // steps up the ladder this conversation has gone; 0 is the default model
 let atTop = false;   // whether that step is the top one
-// Follow-ups stay at the level asked for (agent.py); the box says so, as the
-// gentle nudge back to the cheaper default.
-const setPlaceholder = () => input.placeholder = !level ? "Ask a follow-up question, or something new"
-  : `Follow-ups keep ${atTop ? "ultrathinking" : "thinking harder"}. Start over for quick answers.`;
+// Think harder is for one question (agent.py): the next goes to the default model.
+const setPlaceholder = () => input.placeholder = "Ask a follow-up question, or something new";
 const retryNote = (top, model) => top
   ? `Really putting my back into it: asking ${model}, the most capable model.`
   : `Rolling up my sleeves: asking again with ${model}.`;
@@ -536,7 +534,7 @@ function addScript(t, entry) {
 async function ask(question, harder, next) {   // next: {model, top} of the step Think harder asks
   document.body.classList.add("has-results");
   input.value = "";
-  if (harder) { level = harder; atTop = next.top; }
+  if (harder) { level = harder; atTop = next.top; } else { level = 0; atTop = false; }
   setPlaceholder();
   // Only the newest answer can be retried or extended: the server forgets the
   // one Think harder replaces, and Dig deeper continues from the latest.
@@ -679,7 +677,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
       b.title = !t.more ? "" : `Ask this again on ${t.next.model}${t.off ? `, at ${t.off}` : ""}`;
-      b.textContent = !t.more ? "That's my best" : `${t.next.top ? "Ultrathink" : "Think harder"} · ${t.next.model}`;
+      b.textContent = !t.more ? "That's my best" : `Think harder · ${t.next.model}`;
       b.classList.toggle("rainbow", t.more && t.next.top);
     }
     return "";

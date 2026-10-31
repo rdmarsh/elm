@@ -15,6 +15,7 @@ import anthropic
 
 import elm_tools
 import openai_api
+import router
 import recipes  # noqa: F401  adds the recipe tool to elm_tools
 
 # The ladder: the model that answers, then the ones "Think harder" and
@@ -221,7 +222,7 @@ class Conversation:
         self.question = None       # the last question, and where it starts in messages,
         self.asked_at = 0          # so "Think harder" can ask it again from there
         self.model = None          # the model that answered it, for Dig deeper
-        self.level = 0             # steps above the default line; follow-ups keep it
+        self.level = 0             # steps above the default for the question being answered
         self.lock = threading.Lock()    # one request at a time per conversation
         self.stop = threading.Event()   # set by a newer request: the running one gives way
         self.session = elm_tools.Session()
@@ -514,10 +515,10 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
     starts fresh instead of building on the answer that was not good enough.
     `detail` (Dig deeper) asks the model that answered for the analysis behind its answer;
     it is not a new question, so Think harder still redoes the one before it.
-    Once a question has been asked harder, later questions in the conversation
-    stay at that level: they are usually about the same problem, and dropping
-    back would have the cheap model build on the dearer one's work. Start over
-    (a new conversation) returns to the default.
+    Think harder is for one question: the next one goes back to the default
+    model. The dearer model is the exception, asked for each time, not a mode
+    the conversation stays in (2026-10-31: recipes make the default right most
+    of the time, and a follow-up on the default still sees the dearer answer).
     """
     if detail:
         if conv.model is None:
@@ -529,6 +530,8 @@ def _ask(client, conv, question, emit, where=None, harder=0, detail=False):
         del conv.messages[conv.asked_at:]
         question = conv.question
         conv.level = harder
+    else:
+        conv.level = 0   # a new question, on the default model
     if not detail:
         conv.question, conv.asked_at = question, len(conv.messages)
         model, nxt, off = pick_model(client, conv.level)
@@ -564,10 +567,14 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                f"for each date. Never add an offset yourself.")
     else:
         how = f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it."
+    # What the question is, decided in code (router.py): a request to change
+    # something, a LogicMonitor term, and the portal's objects it names.
+    routed = router.route(question) if question != DETAIL_REQUEST else {"write": None, "term": False, "found": []}
     conv.messages.append({
         "role": "user",
         "content": (f"{question}\n\n"
                     + (f"(Portal: {elm_tools.portal()}.) " if elm_tools.portal() else "")
+                    + (router.hint(routed["found"]) + " " if routed["found"] else "")
                     + f"(Now: {local:%Y-%m-%d %H:%M} for the reader, timezone {tz or offset}; "
                     f"{now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())}. {how})"),
     })
@@ -576,6 +583,16 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
 
     def spent():
         emit({"type": "usage", **spend(model, usage)})
+
+    if routed["write"]:
+        # Read-only, said by Samara, not the model: sent back for looking nothing
+        # up, a model looked up "Put web01 into SDT" and showed its health
+        # instead (qwen3-8b, 2026-10-31); others said yes.
+        answer = router.read_only(routed["write"], elm_tools.portal())
+        conv.messages.append({"role": "assistant", "content": [{"type": "text", "text": answer}]})
+        spent()
+        emit({"type": "answer", "markdown": answer, "source": "none", "unfound": []})
+        return
 
     # A recipe says what it did; used is every tool this turn called. Only a
     # turn that used nothing but recipes gets their lines in place of the
@@ -590,13 +607,16 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     done_calls = set()   # tool calls that worked, so a repeat is not run (or tabled) twice
     forced = None   # set to end the turn without asking the model again: the answer's own text
     seen = []   # every tool result and table this turn: what the answer's numbers may come from
+    inject = None   # a tool call Samara makes itself, in place of asking the model
     sent_back = {}   # why an answer was sent back -> where it is in conv.messages
     shown = []   # the columns of the tables Samara put on the page this turn
     datasets = []   # the rows this turn fetched ($d1, $d2 ...), for a table made from them
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
-        if forced is None:
+        if inject:
+            response, inject = Reply([inject], "tool_use", {}), None   # Samara's own call (router.HEALTH)
+        elif forced is None:
             emit({"type": "status", "text": random.choice(THINKING) + "..."})
             response = create(client, model, conv.messages, emit)
         else:
@@ -618,7 +638,21 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         if not tool_uses:
             # The model's own words, before Samara tidies them: for the bug report (index.html).
             emit({"type": "draft", "text": "\n\n".join(texts)})
-            if not used - LOOKUP_TOOLS and not sent_back and question != DETAIL_REQUEST and forced is None:
+            if (not used - LOOKUP_TOOLS and routed["found"] and "look" in sent_back and "ran" not in sent_back
+                    and forced is None):
+                # Sent back, and it still looked nothing up about a device, group or
+                # collector the question names: Samara runs that one's health recipe
+                # for it, and the model answers from the result. qwen3-30b-a3b gave
+                # the same made-up answer back (2026-10-31).
+                h = routed["found"][0]
+                sent_back["ran"] = len(conv.messages) - 1
+                inject = {"type": "tool_use", "id": "samara-health", "name": "recipe",
+                          "input": {"recipe": router.HEALTH[h["kind"]], h["kind"]: h["name"]}}
+                conv.messages.append({"role": "user", "content": "Samara looked it up: answer from this."})
+                emit({"type": "status", "text": "Looking it up..."})
+                continue
+            if (not used - LOOKUP_TOOLS and not sent_back and question != DETAIL_REQUEST and forced is None
+                    and not (routed["term"] and not routed["found"])):
                 # An answer with no lookup behind it, sent back once. Asked "is
                 # web01 okay?", a model called nothing and wrote "dead since
                 # 29 Oct", with a How I worked this out naming a recipe that never

@@ -27,8 +27,10 @@ Under each answer, **Dig deeper** asks the same model to look further in the
 portal and give the analysis left out -- patterns, likely causes, what to check
 next, each marked as shown by the data or a guess -- and adds it to the
 answer; **Think harder** asks the question again on a more capable model, and
-names it ("Think harder · sonnet"). The top step of the ladder is **Ultrathink**
-("Ultrathink · opus"), however many models `SAMARA_MODEL` lists.
+names it ("Think harder · sonnet"). It is for that one question: the next
+goes back to the default model, so a dearer model is something you ask for each
+time. Two steps are usual: a local model, then one more capable one
+(`-m qwen3-8b-mlx,sonnet`).
 While it works, **Ask** becomes **Stop**; a stopped question has **Keep going**
 and a failed one **Try again**, and **Start over** clears the conversation.
 
@@ -314,8 +316,8 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
   the cheapest: these are mostly lookup questions, and every one costs money.
   When an answer falls short, **Think harder** under it asks the same question
   again on the next line up (sonnet, then opus after a confirm), starting
-  fresh rather than from the weak answer. Follow-ups stay on that line until
-  **Start over**, and the question box says so. Dearer lines are more careful on multi-step questions (joining
+  fresh rather than from the weak answer. The next question goes back to the
+  default: click it again for each question that needs it. Dearer lines are more careful on multi-step questions (joining
   alerts to devices, paging, noticing a filter the API ignored) and cost
   several times as much: prices are on Anthropic's pricing page. "How I worked
   this out" under each answer names the model that answered. An exact model id
@@ -547,6 +549,19 @@ The container is a small Python web server. It talks to Claude and to
 LogicMonitor itself; the browser only ever talks to the container. Claude never
 reaches LogicMonitor directly: it asks for a tool, and Samara decides whether
 to run it.
+
+Before the model sees a question, `router.py` decides what it is, in code:
+
+- **A request to change something** ("put web01 into SDT", "clear the
+  alerts") gets Samara's read-only answer. No model, no query.
+- **Names in it** are matched against the portal's devices, groups and
+  collectors (refreshed every 15 minutes), and the model is told what each is:
+  "'acme' is a group (Customers/acme)". Models left to guess took groups for
+  devices and answered "no alerts".
+- **An answer that looked nothing up** is sent back once, unless the question
+  asks what a LogicMonitor term means. If it names an object and still looks
+  nothing up, Samara runs that object's health recipe and the model answers
+  from it.
 
 ```mermaid
 flowchart TB
