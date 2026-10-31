@@ -753,3 +753,61 @@ names; pass 2 pass).
 collectors": pass, pass, partial (its own table, from real rows) in pass 1;
 pass, pass, **wrong** (made-up rows, see above) in pass 2.
 
+## Three models and 166 role questions, 2026-10-31 afternoon
+
+Same code (build 563f1f2 and its uncommitted fixes) and the same eval.toml
+(28 cases, each asked twice), then 166 questions on gpt-oss-20b only: 91 by
+role (NOC engineer, monitoring admin, a customer's SDM, first-level engineer,
+level 1 helpdesk), and two lists another model wrote for a level 1 analyst
+(45) and an SDM (30). All local, read-only. Placeholders as above; `acme` is a
+customer group, `acme.company` the tenant property.
+
+### The suite, three models
+
+| Model | Machine | Pass | Confidently wrong |
+|---|---|---|---|
+| qwen3-8b | 16 GB Mac | 70% | 5% |
+| gpt-oss-20b | 36 GB Mac | 57% | 5% |
+| qwen3-30b-a3b | 36 GB Mac | 42% | 14% |
+
+The smallest model did best: it uses the recipes most. gpt-oss writes more of
+its own queries; 30B often looks nothing up, and when sent back gives the same
+made-up answer (the retry lets a question that is not about the portal come
+back unchanged, and it took that way out). The retry also cost qwen3-8b: sent
+back, "Put testhost01 into SDT" and "What does SDT mean?" were looked up
+instead of answered (read-only; a definition).
+
+### 166 questions on gpt-oss-20b, by source label
+
+| Set | Asks | Checked query | Model's own | Not looked up |
+|---|---|---|---|---|
+| Roles | 91 | 22 | 56 | 13 |
+| Level 1 list | 45 | 12 | 24 | 9 |
+| SDM list | 30 | 6 | 15 | 9 |
+
+Checked-query answers were nearly always right, or said what they answered
+instead. Nearly all of the roughly 25 confidently wrong came from its own
+queries: 0 hosts not responding (516), 576 certificate alerts (every open
+alert), no sshd or HTTPS alert on testhost01 (one of each is open), "running
+for 0 seconds", six questions about the `acme` group taken as a device and
+answered "no alerts" (it has 30), dates from mangled epochs. The number check
+caught one made-up table (ids 1122334455, 5566778899). Of 7 SDM questions
+LogicMonitor cannot answer (SLAs, contracts, forecasts), 5 said so; "are we
+meeting our SLA commitments?" got the portal health recipe.
+
+"X is failing but the device is up" (ping, SNMP, WMI, disk): 0 of 8 right.
+
+### What to build, by answers it would fix
+
+1. **Routing in code** (about 95 of 166): Samara matches the question to
+   devices, groups and collectors it can find, to write requests and to
+   "what does X mean", before the model: a named object runs its recipe, a
+   write request is answered read-only, a definition is not sent back.
+2. **One alerts recipe with parameters** (about 40): scope (portal, group,
+   device, collector), time window, open or cleared, severity, check name.
+3. **Groups by short name, and customers** (about 20): `acme` as a group;
+   customers from `SAMARA_CUSTOMER_PROPERTY`, set by the admin.
+4. **Metrics for one device** (about 12): CPU, memory, uptime, reboots.
+5. **An incident summary for a ticket** (about 6): health, alert timeline,
+   the same alert elsewhere.
+
