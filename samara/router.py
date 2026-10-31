@@ -178,6 +178,30 @@ def route(question):
     return {"write": w.group(1).lower() if w else None, "term": term, "found": found(question)}
 
 
+# "the first one", "the 2nd one", "the last one": a row of the table shown last
+# turn. No model followed "which collectors are down?" with "which devices are
+# on the first one?" right: they ran the portal's devices_down (2026-11-01, six
+# models). The table's first column says what its rows are.
+ORDINAL = re.compile(r"\bthe\s+(first|1st|top|second|2nd|third|3rd|fourth|4th|fifth|5th|last)\s+one\b", re.I)
+PLACE = {"first": 0, "1st": 0, "top": 0, "second": 1, "2nd": 1, "third": 2, "3rd": 2, "fourth": 3, "4th": 3,
+         "fifth": 4, "5th": 4, "last": -1}
+
+
+def pointed(question, table):
+    """The object "the first one" in the question means, from the last table shown, or None."""
+    m = ORDINAL.search(question)
+    if not m or not table or not table.get("rows") or not table.get("columns"):
+        return None
+    head = str(table["columns"][0]).lower()
+    kind = next((k for k in ("device", "collector", "group") if re.search(rf"\b{k}\b", head)), None)
+    rows = table["rows"]
+    at = PLACE[m.group(1).lower()]
+    if kind is None or at >= len(rows) or not rows[at] or not str(rows[at][0] or "").strip():
+        return None
+    name = str(rows[at][0]).strip()
+    return {"kind": kind, "name": name, "id": None, "label": f"{m.group(0)} in the last table"}
+
+
 # The recipe run for a named object when the model will not look it up.
 HEALTH = {"device": "device_health", "group": "group_health", "collector": "collector_health",
           "person": "working_on"}

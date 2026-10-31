@@ -228,6 +228,7 @@ class Conversation:
         self.session = elm_tools.Session()
         self.last_used = time.time()
         self.seen = []             # tool results of earlier turns: a follow-up's numbers may come from them
+        self.last_table = None     # the last table shown, for "the first one" (router.pointed)
 
 
 # The heading the page folds into the steps (index.html splitWorked).
@@ -570,6 +571,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     # What the question is, decided in code (router.py): a request to change
     # something, a LogicMonitor term, and the portal's objects it names.
     routed = router.route(question) if question != DETAIL_REQUEST else {"write": None, "term": False, "found": []}
+    if (it := router.pointed(question, conv.last_table)) and not any(h["kind"] == it["kind"] for h in routed["found"]):
+        routed["found"].insert(0, it)
     conv.messages.append({
         "role": "user",
         "content": (f"{question}\n\n"
@@ -796,6 +799,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     tabled = tabled or event["type"] == "table"
                     if event["type"] == "table":
                         seen.append(json.dumps(event.get("rows", [])))
+                        conv.last_table = event
                         shown += [str(c) for c in event.get("columns", [])]
                     if event["type"] == "step" and openai_api.block(block, "name") != "recipe":
                         ran.append(ran_line(event))

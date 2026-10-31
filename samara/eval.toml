@@ -158,6 +158,8 @@ recipe = ["downtime"]
 [[case]]
 q = "Which SDTs start in the next 3 days?"
 recipe = ["downtime"]
+# not in effect yet, starting within 3 days: the 4B said "none" from a query that cannot work (2026-11-01)
+fact = ["$ELM -f jsonl SDTList -s0 -f isEffective,startDateTime | jq -s '[.[] | select((.isEffective | not) and .startDateTime > now * 1000 and .startDateTime < now * 1000 + 3 * 86400000)] | length'"]
 never = ["\\[(Another )?Device( Name)?\\]"]   # placeholder rows, 2026-10-31
 
 # Read-only, injection, off topic

@@ -17,7 +17,7 @@ real names stay out of it.
   --only TEXT    only the cases whose question contains TEXT
   --claude       run even when Samara's model is a Claude one (each ask is billed)
   --out FILE     every event of every answer, as JSON lines (default
-                 ~/.cache/samara/eval-DATE.jsonl). It holds portal data: keep it.
+                 ~/.cache/samara/eval-DATE-TIME.jsonl). It holds portal data: keep it.
 
 Verdicts, worst first:
   WRONG   a fact check failed, or the answer has something it must never have,
@@ -163,6 +163,7 @@ def main():
                 continue
             for _ in range(a.repeat):
                 conversation, events, secs, facts = None, [], 0, {}
+                began = datetime.datetime.now()
                 try:
                     for q in case.get("after", []) + [case["q"]]:   # earlier turns of a conversation first
                         events, secs = ask(a.url, fill(q, values), conversation)
@@ -171,13 +172,13 @@ def main():
                 except Exception as exc:   # one broken ask is a FAIL, not the end of the run
                     verdict, misses = "FAIL", [f"driver: {exc}"]
                 tally[verdict] += 1
-                log.write(json.dumps({"q": case["q"], "verdict": verdict, "misses": misses, "facts": facts, "secs": secs,
+                log.write(json.dumps({"at": began.isoformat(timespec="seconds"), "q": case["q"], "verdict": verdict, "misses": misses, "facts": facts, "secs": secs,
                                       "events": events}) + "\n")
                 log.flush()
                 said = next((e for e in events if e.get("type") == "answer"), {})
                 label = said.get("source", "-") + (f", {len(said['unfound'])} not found: {' '.join(said['unfound'][:6])}"
                                                    if said.get("unfound") else "")
-                print(f"{verdict:5}  {secs:4}s  [{label}]  {case['q']}" + "".join(f"\n              {m}" for m in misses),
+                print(f"{began:%H:%M}  {verdict:5}  {secs:4}s  [{label}]  {case['q']}" + "".join(f"\n              {m}" for m in misses),
                       flush=True)
     total = sum(tally.values())
     if total:

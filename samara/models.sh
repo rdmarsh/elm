@@ -12,8 +12,9 @@
 # server (the laptop, this Mac) runs its own queue, side by side.
 #
 # The laptop's LM Studio is at SAMARA_LAPTOP_URL (default below). Logs and
-# results go to ~/.cache/samara/: run-PORT.log, eval-DATE-PORT.txt (safe to
-# paste) and eval-DATE-PORT.jsonl (every answer: holds portal data, keep it).
+# results go to ~/.cache/samara/: run-PORT.log, eval-DATE-TIME-PORT.txt (safe
+# to paste) and eval-DATE-TIME-PORT.jsonl (every answer: holds portal data, keep it).
+# TIME is when --eval started, so a second run the same day gets new files.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -72,12 +73,12 @@ sys.exit(1 if problems else 0)' "$port" || { echo "$port: see $LOGS/run-$port.lo
 done
 
 [[ ${1:-} == --eval ]] || exit 0
-day=$(date +%F)
+run=$(date +%F-%H%M)
 evaluate() {   # the ports given, one after another
     for port in "$@"; do
-        echo "$port: eval, see $LOGS/eval-$day-$port.txt"
-        samara/eval.py --url "http://127.0.0.1:$port" --repeat 2 --out "$LOGS/eval-$day-$port.jsonl" \
-            >"$LOGS/eval-$day-$port.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
+        echo "$port: eval, see $LOGS/eval-$run-$port.txt"
+        samara/eval.py --url "http://127.0.0.1:$port" --repeat 2 --out "$LOGS/eval-$run-$port.jsonl" \
+            >"$LOGS/eval-$run-$port.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
     done
 }
 servers=$(for m in "${MODELS[@]}"; do read -r _ _ url <<<"$m"; echo "$url"; done | sort -u)
@@ -87,4 +88,4 @@ for server in $servers; do
     queues+=($!)
 done
 wait "${queues[@]}"   # not a bare wait: the run.sh servers above are jobs too, and never end
-tail -n1 "$LOGS"/eval-"$day"-*.txt
+tail -n1 "$LOGS"/eval-"$run"-*.txt

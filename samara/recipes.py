@@ -16,6 +16,8 @@ recipes.yaml, one entry per recipe:
                 answered as "now") then says so
   params        lookups, run first: device or group, found by name
   many          a lookup that may match several (find_device): no "which one?"
+  days          how far ahead it looks by default; the model may pass another
+                (1 to MAX_DAYS). jq sees it as `days`; title and covers as {days}
   steps         elm queries, each saved as `$<as>` for the jq below. Filters
                 and params are str.format templates over the lookups
                 ({device[id]}); `size: all` pages past 1000 rows; `when` is a
@@ -40,6 +42,7 @@ HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
 MAX_PAGES = 10   # LM stops paging at 10,000 rows
 MAX_EACH = 10    # an `each` step's queries, one per item
+MAX_DAYS = 90    # how far ahead a `days` recipe may look
 
 # Defined in front of every recipe expression. Times are the reader's (jq
 # runs in their timezone); SDT times are milliseconds, so divide first.
@@ -143,11 +146,19 @@ def nearest(value):
     return known[close[0]] if close else None
 
 
-def run_recipe(session, recipe, device=None, group=None, collector=None, person=None):
+def run_recipe(session, recipe, device=None, group=None, collector=None, person=None, days=None):
     """Run one recipe; return (text for the model, [step and table events])."""
     r = RECIPES.get(recipe)
     if not r:
         raise ValueError(f"No recipe {recipe!r}. Recipes: {', '.join(RECIPES)}")
+    # days on a recipe without it is ignored: the answer says what it covers.
+    ahead = None
+    if "days" in r:
+        try:
+            ahead = min(max(int(days or r["days"]), 1), MAX_DAYS)
+        except (TypeError, ValueError):
+            ahead = r["days"]
+    covers = r.get("covers", "").format(days=ahead) or None
     given = {"device": device, "group": group, "collector": collector, "person": person}
     for param, value in given.items():
         if value and param not in r.get("params", []):
@@ -168,7 +179,7 @@ def run_recipe(session, recipe, device=None, group=None, collector=None, person=
         # $device -> $d3: the page's rerun script binds datasets by id.
         for name, ds_id in names.items():
             expression = re.sub(rf"\${name}\b", f"${ds_id}", expression)
-        return PRELUDE + expression
+        return PRELUDE + (f"def days: {ahead};\n" if ahead else "") + expression
 
     try:
         for param in r.get("params", []):
@@ -278,8 +289,8 @@ def run_recipe(session, recipe, device=None, group=None, collector=None, person=
     # are Samara's: a small model copied instructions about them into its
     # answers word for word, and listed queries that never ran.
     text = f"Answer with this, keeping its facts and numbers exactly:\n\n{summary}\n\n"
-    if r.get("covers"):
-        text += (f"This recipe answers only: {r['covers']}. If the question asked for more (another time, "
+    if covers:
+        text += (f"This recipe answers only: {covers}. If the question asked for more (another time, "
                  f"place or measure), say what you could not check; add nothing else.\n\n")
     if r.get("table_only"):
         text += "The values are for the reader to read in the table, not for you: add nothing else."
@@ -289,13 +300,13 @@ def run_recipe(session, recipe, device=None, group=None, collector=None, person=
                  f"({data}); add nothing else.")
     if "table" in r:
         t = r["table"]
-        note, table = elm_tools.show_table(session, t["title"].format(**records), jq(t["rows"]), t["columns"])
+        note, table = elm_tools.show_table(session, t["title"].format(**records, days=ahead), jq(t["rows"]), t["columns"])
         if table["total"]:
             events.append(table)
     worked = [f"Found the {p} by name." for p in r.get("params", [])]
     says = [step.get("says", step["as"]) for step in r.get("steps", []) if step["as"] not in skipped]
     worked += [line[:1].upper() + line[1:] + "." for line in says]
-    events.append({"type": "worked", "lines": worked, "summary": summary, "covers": r.get("covers")})
+    events.append({"type": "worked", "lines": worked, "summary": summary, "covers": covers})
     return text, events
 
 
@@ -313,6 +324,8 @@ elm_tools.TOOLS.insert(0, {
             "group": {"type": "string", "description": "For a group recipe: the group's name or path as the person wrote it"},
             "collector": {"type": "string", "description": "For a collector recipe: the collector's name or number as the person wrote it"},
             "person": {"type": "string", "description": "For a person recipe: the person's name as written"},
+            "days": {"type": "integer", "description": "For downtime: how many days ahead to look, "
+                     "if the question says (\"next 3 days\" is 3); leave it out otherwise"},
         },
         "required": ["recipe"],
     },

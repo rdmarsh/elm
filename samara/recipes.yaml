@@ -458,12 +458,14 @@
       + ". (Devices down because their collector is down are not counted here.)" end
   table:
     title: Devices not responding, by collector
-    columns: [Collector, Not responding, Devices on it, Collector up]
+    columns: [Collector, Not responding, Devices on it, "% not responding", Collector up]
     rows: |
       ($collectors | map({key: (.id | tostring), value: .}) | from_entries) as $by
       | $down | map(select(.deviceType == 0)) | group_by(.currentCollectorId)
       | map($by[.[0].currentCollectorId | tostring] as $c | {Collector: ($c.description // "id \(.[0].currentCollectorId)"),
              "Not responding": length, "Devices on it": $c.numberOfHosts,
+             # the eval's follow-up asks for the share (2026-11-01)
+             "% not responding": (if ($c.numberOfHosts // 0) > 0 then "\(100 * length / $c.numberOfHosts | round)%" else "" end),
              "Collector up": (if $c.isDown then "no" else "yes" end)})
       | sort_by(-."Not responding")
 
@@ -803,24 +805,26 @@
 
 - name: downtime
   asks: ["what's in scheduled downtime now?", "what downtime is scheduled this week?", "what's in maintenance?",
-         "is any work planned this weekend?", "is there a maintenance window coming up?"]
-  covers: "scheduled downtime across the portal, now and coming"
+         "is any work planned this weekend?", "is there a maintenance window coming up?",
+         "which SDTs start in the next 3 days?"]
+  covers: "scheduled downtime across the portal: in effect now, and starting in the next {days} days"
+  days: 7
   steps:
     - as: sdts
       run: SDTList
       size: all
       says: fetched every scheduled downtime
   summary: |
-    (now * 1000) as $ms | ($ms + 7 * 86400000) as $week
+    (now * 1000) as $ms | ($ms + days * 86400000) as $end
     | ($sdts | map(select(.isEffective)) | length) as $on
-    | ($sdts | map(select((.isEffective | not) and .startDateTime > $ms and .startDateTime < $week)) | length) as $soon
-    | "\($on) in effect now; \($soon) more \(if $soon == 1 then "starts" else "start" end) in the next 7 days; \($sdts | length) scheduled in all."
+    | ($sdts | map(select((.isEffective | not) and .startDateTime > $ms and .startDateTime < $end)) | length) as $soon
+    | "\($on) in effect now; \($soon) more \(if $soon == 1 then "starts" else "start" end) in the next \(days | n("day")); \($sdts | length) scheduled in all."
   table:
-    title: Downtime in effect now or starting in the next 7 days
+    title: Downtime in effect now or starting in the next {days} days
     columns: [For, Starts, Ends, Repeats, In effect now]
     rows: |
       (now * 1000) as $ms
-      | $sdts | map(select(.isEffective or (.startDateTime > $ms and .startDateTime < $ms + 7 * 86400000)))
+      | $sdts | map(select(.isEffective or (.startDateTime > $ms and .startDateTime < $ms + days * 86400000)))
       | sort_by(.startDateTime) | map({
         For: (.deviceDisplayName // .deviceGroupFullPath // .websiteName // .websiteGroupName
               // .collectorDescription // .type),
