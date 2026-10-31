@@ -568,6 +568,7 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: $(testbin) -l ; $(testbin) -l >/dev/null
 	@echo testing: --list marks default profile active ; $(testbin) --list | grep -q '^\* config'
 	@echo testing: --help includes --list ; $(testbin) --help | grep -q -- '--list'
+	@echo testing: a command with one id also takes --id ; $(testbin) DeviceDatasourceList --help | grep -q -- '--deviceId, --id' && $(testbin) DeviceDatasourceList --info | grep -q -- '--deviceId integer (required, or --id)' && ! $(testbin) DeviceDatasourceById --help | grep -q -- '--deviceId, --id' && $(testbin) DeviceDatasourceList --deviceId 1 --id 2 2>&1 | grep -q 'give it once'
 	@echo testing: $(testbin) --ai ; $(testbin) --ai >/dev/null
 	@echo testing: --ai output includes elm-notes.yaml ; $(testbin) --ai | grep -q 'elm-notes.yaml'
 	@echo testing: --help includes --ai ; $(testbin) --help | grep -q -- '--ai'

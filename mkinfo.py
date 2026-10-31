@@ -57,6 +57,19 @@ PAGING = {"fields", "size", "offset", "filter"}
 STANDARD_FLAGS = "[-s N] [-o N] [-f FIELD,...] [-F FILTER] [-S SORT] [-c] [-C]"
 
 
+def id_alias(definition):
+    """The option that also takes --id: a command's only id ("--deviceId").
+
+    The swagger's names stay (--deviceId still works); --id is the one an
+    assistant guesses, and the one 87 commands already take. Not when there
+    are two ids, where the name says which is which.
+    """
+    path = [o for o in definition["options"] if o.get("in") == "path"]
+    if len(path) == 1 and path[0]["name"] != "id" and re.search(r"(Id|^gid)$", path[0]["name"]):
+        return path[0]["name"]
+    return None
+
+
 def clean(text):
     """Collapse whitespace; None becomes ''."""
     return " ".join(str(text or "").split())
@@ -262,7 +275,8 @@ def build_info(definition, note, block, fields):
             text = clean(unique.get(o["name"])) or param_comments.get(o["name"], ("", ""))[1]
             text = re.sub(rf"^--{re.escape(o['name'])}\b[^—]{{0,60}}—\s*", "", text)   # drop a repeated "--flag TYPE —"
             flag = "required" if o in required else "optional"
-            out.append(f"  --{o['name']} {o.get('type', '')} ({flag})" + (f": {text}" if text else ""))
+            also = ", or --id" if o.get("alias") else ""
+            out.append(f"  --{o['name']} {o.get('type', '')} ({flag}{also})" + (f": {text}" if text else ""))
     if unique_text:
         out.append(f"  {unique_text}")
     times = [f for f, (kind, _, _) in sorted(fields.items()) if kind in ("integer", "number")
@@ -352,13 +366,20 @@ def main():
     changed = 0
     for def_file in sorted(DEFS.glob("[A-Z]*.json")):
         definition = json.loads(def_file.read_text())
+        before = json.dumps(definition["options"])
+        alias = id_alias(definition)
+        for o in definition["options"]:
+            o.pop("alias", None)
+            if o["name"] == alias:
+                o["alias"] = "--id"
         command = definition["command"]
         fields = response_fields(definition["path"], paths, definitions)
         info = build_info(definition, notes.get(command), blocks.get(command, []), fields)
         has_filter = any(o["name"] == "filter" for o in definition["options"])
         filter_fields = sorted(set(fields) | subtype_fields(definition["path"], paths, definitions)) if has_filter else []
         filter_ints = sorted(f for f in fields if f in filter_fields and fields[f][0] in ("integer", "number"))
-        if (definition.get("info") != info or definition.get("filter_fields", []) != filter_fields
+        if (definition.get("info") != info or json.dumps(definition["options"]) != before
+                or definition.get("filter_fields", []) != filter_fields
                 or definition.get("filter_ints", []) != filter_ints):
             definition["info"] = info
             definition["filter_fields"] = filter_fields

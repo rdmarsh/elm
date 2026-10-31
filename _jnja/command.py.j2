@@ -24,7 +24,8 @@ def _show_info(ctx, param, value):
 {%- set opt_names = options | map(attribute='name') | list %}
 @click.command(short_help='{{ summary | capitalize | replace("'", "") }}')
 {%- for option in options %}
-@click.option("--{{ option.name }}{%- if option.type == "boolean" -%}/--dont-{{ option.name }}{%- endif -%}" , "{{ option.name }}"
+@click.option("--{{ option.name }}{%- if option.type == "boolean" -%}/--dont-{{ option.name }}{%- endif -%}"
+{%- if option.alias -%}, "{{ option.alias }}"{%- endif -%}, "{{ option.name }}"
 {%- if option.name == "fields" -%}, "-f"{% endif -%}
 {%- if option.name == "filter" -%}, "-F"{% endif -%}
 {%- if option.name == "size" -%}, "-s"{%- endif -%}
@@ -37,6 +38,7 @@ def _show_info(ctx, param, value):
 {%- if option.default is defined -%}, default="{{ option.default }}", show_default=True{%- endif -%}
 {%- if option.required or option.in == "path" -%}, required=True{%- endif -%}
 {%- if option.in == "path" -%}, nargs=1{%- endif -%}
+{%- if option.alias -%}, multiple=True, callback=engine.one_id{%- endif -%}
 {%- if option.name == "fields" -%}, nargs=1, metavar="FIELD,..."{% endif -%}
 {%- if option.name == "filter" -%}, nargs=1, multiple=True, metavar="FIELD[>:,<:,>,<,!,:,~,!~]VALUE,...", callback=lambda ctx, param, value: engine.validate_filter(ctx, param, value, FILTER_FIELDS, FILTER_INTS){% endif -%}
 {%- if option.name == "size" -%}, nargs=1{%- endif -%}

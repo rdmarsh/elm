@@ -814,6 +814,11 @@ elm AlertList --info
 elm DeviceDatasourceList --info     # works without the required --deviceId
 ```
 
+Parameters keep the API's names (`--deviceId`, `--collectorId`). A command
+whose only parameter is an id also takes it as `--id`, as most commands do:
+`elm DeviceDatasourceList --id 8810` is `--deviceId 8810`. With two ids
+(`DeviceDatasourceById --deviceId N --id N`) the names say which is which.
+
 Where a note and a swagger description disagree, the note is the tested one.
 The text is built into each command at `make` time (by `mkinfo.py`), so the
 installed binary needs no extra files. It is written to be short, so it is also

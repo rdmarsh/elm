@@ -899,6 +899,18 @@ def localtime(items):
     return [{k: convert(k, v) for k, v in item.items()} if isinstance(item, dict) else item for item in items]
 
 
+def one_id(ctx, param, values):
+    """An id given once: --deviceId or its --id spelling, not both.
+
+    Click keeps the last of two quietly, so --deviceId 123 --id 456 would
+    ask for 456 (mkinfo.py id_alias).
+    """
+    if len(values) > 1:
+        raise click.BadParameter(f"given {len(values)} times ({', '.join(map(str, values))}); "
+                                 f"give it once, as --{param.name} or --id")
+    return values[0] if values else None
+
+
 def validate_filter(ctx, param, filters, fields=(), ints=()):
     if filters:
         # multiple=True means Click passes a tuple; flatten to a single comma-joined string

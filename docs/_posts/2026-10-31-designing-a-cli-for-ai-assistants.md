@@ -210,6 +210,39 @@ sees every value, in a table. The model just doesn't get to act on them.
 
 I'd rather decide what the model can reach than trust it to behave.
 
+## 9. answer to the name it guesses
+
+Most elm commands take their id as `--id`. A few use the name the API gives
+it instead: `DeviceDatasourceList` wants `--deviceId`, and
+`DeviceGroupPropertyList` wants `--gid`.
+
+elm takes its option names straight from the API, and I'd learnt the odd
+ones long ago. The assistant helping me build Samara hadn't. It had seen
+`--id` on 87 commands, so it guessed it on the rest, in a command it gave me
+to run:
+
+```text
+$ elm DeviceDatasourceList --id 8810
+Error: no such option: --id
+```
+
+So a command whose only parameter is an id now takes `--id` too. `--deviceId`
+still works, and `--help` shows both:
+
+```text
+  --deviceId, --id INTEGER        [required]
+```
+
+Both at once (`--deviceId 123 --id 456`) is refused. Left alone, the
+command would have quietly used the last one.
+
+That's 15 commands. Where a command takes two ids, like `DeviceDatasourceById
+--deviceId N --id N`, it stays strict, because there the name is what says
+which id is which.
+
+Every wrong guess costs an assistant a failed call and another go. If it's going
+to guess, we may as well meet it half way and make it easier for it.
+
 ## what it adds up to
 
 None of this is clever. It's the same stuff that makes any command-line tool
