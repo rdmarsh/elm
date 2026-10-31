@@ -25,6 +25,9 @@ MODELS=(
     "8081 qwen/qwen3-30b-a3b-2507 $LAPTOP"
     "8082 qwen3-8b-mlx http://host.docker.internal:1234/v1"
     "8083 qwen/qwen3-vl-4b http://host.docker.internal:1234/v1"
+    # the same two on the laptop, at twice the context the mini can give them
+    "8084 qwen3-8b-mlx $LAPTOP"
+    "8085 qwen/qwen3-vl-4b $LAPTOP"
 )
 mkdir -p "$LOGS"
 
@@ -38,6 +41,16 @@ if [[ ${1:-} == --stop ]]; then
     done
     exit 0
 fi
+
+# Every model must be one its server lists: a wrong id would fail every question.
+for m in "${MODELS[@]}"; do
+    read -r port model url <<<"$m"
+    here=${url/host.docker.internal/127.0.0.1}   # the container's name for this Mac
+    if ! curl -fs "$here/models" | grep -q "\"$model\""; then
+        echo "$port: $model is not listed at $here/models (is it downloaded, and the server on?)" >&2
+        exit 1
+    fi
+done
 
 build=--build   # the first build makes the image; the others reuse it
 for m in "${MODELS[@]}"; do
