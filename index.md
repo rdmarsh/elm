@@ -5,9 +5,10 @@ description: LogicMonitor tools that look but don't touch
 ---
 
 Two tools for getting answers out of LogicMonitor, the monitoring platform:
-elm on the command line, and Samara in plain English. Both only read, so
-nobody using them, person or AI assistant, can change the data or settings
-in your portal.
+**elm**, a traditional Unix-style command-line tool, and **Samara**, an AI
+front end that turns plain-English questions into elm commands and shows you
+the results. Both only read, so nobody using them, person or AI assistant,
+can change the data or settings in your portal.
 
 ## elm
 

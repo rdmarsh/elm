@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: "designing a cli for ai assistants"
 description: "who never read the manual"
 ---

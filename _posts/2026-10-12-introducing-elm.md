@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: "introducing elm"
 description: "logicmonitor data without the clicking"
 ---

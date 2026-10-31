@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: "meet samara"
 description: "or: asking LogicMonitor things in plain english"
 ---
