@@ -18,7 +18,8 @@ for a spreadsheet, JSON for a script, Markdown or HTML for a report.
 Open alerts from the last day, oldest first, in local time:
 
 ```shell
-$ elm --localtime --format txt AlertList \
+$ elm --localtime --format txt \
+    AlertList \
       --filter 'cleared:false,startEpoch>:now-1d' \
       --fields severity,monitorObjectName,dataPointName,startEpoch \
       --sort startEpoch
@@ -30,7 +31,9 @@ $ elm --localtime --format txt AlertList \
          2  vm01               status                2026-10-31 17:23:53 AEDT
 ```
 
-No epochs to work out: `now-1d`, `now-1h` and dates like `2026-07` all work.
+Options before the command name are elm's own (how to show the results);
+after it, they belong to the command (what to fetch). No epochs to work
+out either: `now-1d`, `now-1h` and dates like `2026-07` all work.
 
 Use it when clicking through the portal is too slow, or the answer needs to
 go somewhere else.
