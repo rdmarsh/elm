@@ -48,6 +48,8 @@
 # SAMARA_MODEL_URL and SAMARA_MODEL_KEY (for an API that wants a key) are
 # passed on when exported; the options win. So is SAMARA_RELAX_X509_STRICT=1,
 # for a proxy CA that Python 3.13 rejects (README: Behind a proxy).
+# SAMARA_LOG=1 keeps the questions readers choose to save, and their thumbs up
+# or down, in $XDG_STATE_HOME/samara/ (README: Real questions).
 #
 # Examples:
 #   run.sh                                   # prompts, then starts
@@ -272,6 +274,13 @@ fi
 # A proxy's CA that Python 3.13's strict checks reject (see README "Behind a
 # proxy that inspects TLS"): passed on only when exported, off by default.
 [[ -n "${SAMARA_RELAX_X509_STRICT:-}" ]] && cmd+=(-e SAMARA_RELAX_X509_STRICT)
+# SAMARA_LOG=1: keep the questions people choose to save (each opts in on the
+# page) on this machine, in $XDG_STATE_HOME/samara/questions.jsonl.
+if [[ ${SAMARA_LOG:-} =~ ^(1|true|yes)$ ]]; then
+    LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/samara"
+    mkdir -p "$LOG_DIR" && chmod 700 "$LOG_DIR"
+    cmd+=(-v "$LOG_DIR:/state" -e SAMARA_LOG_DIR=/state)
+fi
 cmd+=("$IMAGE")
 
 if [[ $DRY_RUN -eq 1 ]]; then

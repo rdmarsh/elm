@@ -106,18 +106,18 @@
   .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
   .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .turn-foot .buttons { margin-left: auto; }
+  .rate button { text-decoration: none; font-size: 1rem; }
+  .rate-why, .rate-done { color: var(--muted); font-size: .85rem; }
   .part.detail { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
   /* An answer replaced by Think harder folds to its question until asked for. */
   .turn.earlier:not(.open) > :not(.question) { display: none; }
   .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
   .turn.earlier.open .question { margin-bottom: 8px; }
-  /* Where an answer came from (agent.py source): words first, colour only where
-     the reader should act. No green: a checked query can still answer a
-     nearby question, which "What this answers" says. */
-  .source { display: inline-block; margin: 0 0 8px; padding: 1px 9px; border: 1px solid var(--line);
-            border-radius: 999px; color: var(--muted); font-size: .8rem; cursor: help; }
-  .source.own, .source.unfound { color: var(--warn-ink); background: var(--warn-bg); border-color: transparent; }
-  .source.none { border-style: dashed; }
+  /* Where an answer came from (agent.py source): a note, not a button, on the
+     right. Colour only where the reader should act; no green: a checked query
+     can still answer a nearby question, which "What this answers" says. */
+  .source { margin: 0 0 6px; text-align: right; color: var(--muted); font-size: .8rem; font-style: italic; }
+  .source.own, .source.unfound { color: var(--warn-ink); }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
   details.steps { font-size: .85rem; color: var(--muted); margin-top: 12px; }
   details.steps .worked { color: var(--ink); opacity: .85; }
@@ -229,6 +229,8 @@ const ICON = {
 const SOURCE = {
   checked: ["Checked query", "Every fact here came from Samara's own checked queries (recipes). "
     + "They can still answer a nearby question: \"What this answers\" says which."],
+  worked: ["Checked query · table worked out by the model", "The rows came from Samara's checked queries "
+    + "(recipes); the model chose how to work this table out from them (a percentage, a total), and jq did the sums."],
   own: ["Model's own query · check it", "Part of this came from queries the model wrote itself. "
     + "Those have been wrong before: check the numbers under How I worked this out."],
   none: ["Not looked up", "Nothing in this answer came from the portal: nothing was looked up, "
@@ -273,7 +275,15 @@ fetch("/api/health").then(r => r.json()).then(h => {
     + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
     + `(<button id="show-commands" type="button">${scope}</button>)</span>`
     + `<span class="setup">Default model: ${esc(h.model)}${h.model_id ? ` (${esc(h.model_id)})` : ""}${h.effort ? `, effort ${esc(h.effort)}` : ""}`
-    + `${h.off ? `, sends questions and portal data to ${esc(h.off)}` : ", on this machine"}</span>`;
+    + `${h.off ? `, sends questions and portal data to ${esc(h.off)}` : ", on this machine"}</span>`
+    // Only when the person running Samara turned the log on (SAMARA_LOG=1), and
+    // off until each reader ticks it: their questions, not Samara's to take.
+    + (h.log ? `<label class="setup"><input type="checkbox" id="save-questions"> Save my questions, to help test Samara</label>` : "");
+  if (h.log) {
+    const box = $("#save-questions");
+    try { box.checked = localStorage.getItem("samara-save") === "1"; } catch {}
+    box.addEventListener("change", () => { try { localStorage.setItem("samara-save", box.checked ? "1" : "0"); } catch {} });
+  }
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
@@ -419,6 +429,9 @@ function debugText(t) {
     ...t.events.map(ev => JSON.stringify(ev)), "```"].join("\n");
 }
 
+// Whether this reader has said their questions may be saved (the footer box).
+const saving = () => !!($("#save-questions") && $("#save-questions").checked);
+
 let current = null;   // the AbortController of the request in progress, if any
 const announce = text => $("#announce").textContent = text;
 form.addEventListener("submit", e => {
@@ -552,6 +565,8 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
         <button class="link debug" type="button" title="Copy everything about this answer, for a bug report" aria-label="Copy for a bug report" hidden>${ICON.bug}</button>
       </span>
       <span class="buttons">
+        <span class="rate" hidden><button class="link up" type="button" title="Right" aria-label="Right">👍</button><button class="link down" type="button" title="Wrong" aria-label="Wrong">👎</button></span>
+        <span class="rate-why" hidden>What was wrong? <button class="link wrong" type="button">Wrong facts</button><button class="link missed" type="button">Not what I asked</button><button class="link partly" type="button">Right, but incomplete</button></span>
         <button class="link more-detail" type="button" title="Look further in the portal: patterns, likely causes, what to check next" hidden>Dig deeper</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
@@ -604,6 +619,25 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   $(".md-toggle", turn).addEventListener("click", () => showMarkdown(view.hidden));
   // The bug: the answer, what Samara and elm were, and every event the server
   // sent (the model's own calls and draft among them), in one paste.
+  // Thumbs up, or thumbs down and why: saved for testing (app.py feedback), with
+  // the whole conversation only if the reader agrees, as it holds portal data.
+  const rate = async rating => {
+    if (!saving() && !confirm("Save this question and your rating, to test Samara with later?")) return;
+    const transcript = rating !== "right" && confirm("Include the answers too, so whoever tests Samara can see "
+      + "what went wrong? They contain portal data.") ? debugText(t) : "";
+    try {
+      const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, question: t.md.question, rating,
+                               source: t.md.source, transcript }) });
+      if (!r.ok) throw new Error(r.statusText);
+      $(".rate", turn).hidden = true; $(".rate-why", turn).outerHTML = `<span class="rate-done">Thanks</span>`;
+    } catch (err) { announce(`Could not save the rating: ${err.message}`); }
+  };
+  $(".up", turn).addEventListener("click", () => rate("right"));
+  $(".down", turn).addEventListener("click", () => { $(".rate", turn).hidden = true; $(".rate-why", turn).hidden = false; });
+  $(".wrong", turn).addEventListener("click", () => rate("wrong"));
+  $(".missed", turn).addEventListener("click", () => rate("missed"));
+  $(".partly", turn).addEventListener("click", () => rate("partly"));
   $(".debug", turn).addEventListener("click", async e => {
     const b = e.currentTarget, text = debugText(t);
     try {
@@ -640,6 +674,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     $(".copy", turn).hidden = false;
     $(".md-toggle", turn).hidden = false;
     $(".more-detail", turn).hidden = false;
+    $(".rate", turn).hidden = !(health && health.log);
     if (t.more || t.level) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;
@@ -717,7 +752,7 @@ async function stream(t, part, body, onAnswer) {
     const resp = await fetch("/api/ask", {
       method: "POST", headers: { "Content-Type": "application/json" }, signal: current.signal,
       body: JSON.stringify({
-        ...body, conversation_id: conversationId,
+        ...body, conversation_id: conversationId, save: saving(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,     // e.g. Australia/Sydney
         utc_offset_minutes: -new Date().getTimezoneOffset(),            // e.g. 600
       }),

@@ -226,6 +226,7 @@ class Conversation:
         self.stop = threading.Event()   # set by a newer request: the running one gives way
         self.session = elm_tools.Session()
         self.last_used = time.time()
+        self.seen = []             # tool results of earlier turns: a follow-up's numbers may come from them
 
 
 # The heading the page folds into the steps (index.html splitWorked).
@@ -271,6 +272,12 @@ def tidy(answer):
 # A tool call a small model wrote as text instead of making it (qwen3-8b,
 # 2026-10-29): never run, so never shown.
 CALL_TEXT = re.compile(r"<function_call>.*?(</function_call>|\Z)", re.S)
+
+# gpt-oss's own markup, and the planning it sometimes leaves in the answer:
+# "<|channel|>commentary to=functions jq?", "We have list. Provide answer."
+# (gpt-oss-20b, 2026-10-31).
+MARKUP = re.compile(r"<\|[a-z_]+\|>(?:commentary|analysis|final|Continue)?(?: to=\S+(?: \w+)?)?\??\s*")
+PLANNING = re.compile(r"^(?:We (?:have|used|need|should)[^.\n]{0,60}\.\s*)?(?:Provide (?:the )?answer\.|Continue\?)\s*", re.M)
 
 
 def no_commands(answer):
@@ -345,6 +352,29 @@ LOOK_IT_UP = ("You answered without looking anything up, so nothing in that answ
               "what it returns. If it is not (what a term means, or off topic), give the same "
               "answer again.")
 
+def new_columns(text, shown):
+    """The columns of a table typed in text that no table on the page has.
+
+    A typed copy of a recipe's table adds nothing and is dropped (tidy); one
+    with a column of its own ("% of its total") is what was asked for, so it
+    is sent back to be made properly. With no table on the page, every column
+    is new.
+    """
+    header = next((l for l in text.splitlines() if TABLE_ROW.match(l)), None)
+    if not header:
+        return []
+    have = {re.sub(r"\W+", "", c).lower() for c in shown}
+    cells = [c.strip() for c in header.strip().strip("|").split("|")]
+    return [c for c in cells if c and re.sub(r"\W+", "", c).lower() not in have
+            and not any(re.sub(r"\W+", "", c).lower() in h or h in re.sub(r"\W+", "", c).lower() for h in have if h)]
+
+
+# Sent back with an answer holding a table it typed over fetched rows (agent._answer).
+TABLE_IT = ("Your answer has a table you typed yourself, and Samara shows only tables it works "
+            "out. Call show_table with a jq expression over the rows ({}) that gives the table, "
+            "with any column you were asked for (a percentage, a total, a difference) computed "
+            "in jq. Then answer in words, without typing the table.")
+
 # Never a blank answer: "(no answer)" read as a fault (qwen3-8b, 2026-10-31).
 NO_ANSWER = "I could not put an answer together for this one. Try asking it another way."
 
@@ -367,7 +397,8 @@ NOT_FACTS = re.compile(
     r"|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?"
     r"|\d{1,2}:\d{2}(?::\d{2})?"
     r"|(?:in about |about )?(?<![\d.])\d+(?:\.\d+)? (?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)(?: ago)?", re.I)
-NUMBER = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?(?![\w])")
+# A comma only as a thousands separator: "2594,2478,35" is three ids, not one number.
+NUMBER = re.compile(r"(?<![\w.,])(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?![\w])")
 
 
 def unfound(answer, seen):
@@ -382,11 +413,15 @@ def unfound(answer, seen):
     m = WORKED.search(answer)
     main = "\n".join(l for l in (answer[:m.start()] if m else answer).splitlines() if not l.lstrip().startswith("_"))
     main = NOT_FACTS.sub(" ", main)
-    have = {n.replace(",", "") for n in NUMBER.findall(NOT_FACTS.sub(" ", " ".join(seen)) + " " + " ".join(seen))}
+    # Every digit run in the data counts, as well as its numbers with thousands
+    # separators, so "2594,2478,35" there backs 2478 in the answer.
+    data = " ".join(seen)
+    have = set(re.findall(r"\d+(?:\.\d+)?", data)) | {n.replace(",", "") for n in NUMBER.findall(data)}
     out = []
     for n in NUMBER.findall(main):
         n = n.replace(",", "").rstrip(".")
-        if n and n not in have and n not in out:
+        # A collector build is 41100 in the data and 41.100 in words (recipes.py ver).
+        if n and n not in have and n.replace(".", "") not in have and n not in out:
             out.append(n)
     return out
 
@@ -555,7 +590,9 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     done_calls = set()   # tool calls that worked, so a repeat is not run (or tabled) twice
     forced = None   # set to end the turn without asking the model again: the answer's own text
     seen = []   # every tool result and table this turn: what the answer's numbers may come from
-    nudged = None   # where the answer sent back for looking nothing up is, in conv.messages
+    sent_back = {}   # why an answer was sent back -> where it is in conv.messages
+    shown = []   # the columns of the tables Samara put on the page this turn
+    datasets = []   # the rows this turn fetched ($d1, $d2 ...), for a table made from them
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -581,17 +618,28 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         if not tool_uses:
             # The model's own words, before Samara tidies them: for the bug report (index.html).
             emit({"type": "draft", "text": "\n\n".join(texts)})
-            if not used - LOOKUP_TOOLS and nudged is None and question != DETAIL_REQUEST and forced is None:
+            if not used - LOOKUP_TOOLS and not sent_back and question != DETAIL_REQUEST and forced is None:
                 # An answer with no lookup behind it, sent back once. Asked "is
                 # web01 okay?", a model called nothing and wrote "dead since
                 # 29 Oct", with a How I worked this out naming a recipe that never
                 # ran (qwen3-30b-a3b, 2026-10-31: 34 of 54 answers called no tool).
                 # A definition or a joke comes back the same, which is right.
-                nudged = len(conv.messages) - 1
+                sent_back["look"] = len(conv.messages) - 1
                 conv.messages.append({"role": "user", "content": LOOK_IT_UP})
                 emit({"type": "status", "text": "Checking it against the portal..."})
                 continue
-            answer = (no_echoes(no_commands(CALL_TEXT.sub("", "\n\n".join(texts))))
+            if (new_columns("\n".join(texts), shown) and datasets and "table" not in sent_back
+                    and question != DETAIL_REQUEST and forced is None):
+                # A table typed over rows a query fetched, sent back once to be made
+                # with show_table. "Can you add a percentage to that table?" got the
+                # right percentages typed by the model, then dropped: a typed table
+                # never shows beside a real one (gpt-oss-20b, 2026-10-31). jq works
+                # the numbers out, so they are right and can be checked.
+                sent_back["table"] = len(conv.messages) - 1
+                conv.messages.append({"role": "user", "content": TABLE_IT.format(", ".join(f"${d}" for d in datasets))})
+                emit({"type": "status", "text": "Making that table..."})
+                continue
+            answer = (no_echoes(no_commands(PLANNING.sub("", MARKUP.sub("", CALL_TEXT.sub("", "\n\n".join(texts))))))
                       or "\n\n".join(dict.fromkeys(summaries)) or NO_ANSWER)
             if tabled:
                 answer = tidy(answer)
@@ -644,7 +692,10 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             # 2026-10-30): the label says nothing was looked up.
             failed = any("could not get an answer" in x for x in summaries)
             source = ("none" if not used - LOOKUP_TOOLS or failed or (not summaries and not any(ok(r) for r in own))
-                      else "own" if any(ok(r) for r in own) else "checked")
+                      else "checked" if not any(ok(r) for r in own)
+                      # recipe rows made into a new table by the model's jq, with no query of its own
+                      else "worked" if summaries and "run_elm" not in used
+                      else "own")
             if source == "own" and forced is None:
                 # Above How I worked this out, which the page folds away.
                 m = WORKED.search(answer)
@@ -652,12 +703,15 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 answer = (answer[:at].rstrip() + "\n\n" + unchecked("recipe" in used, more) + "\n\n" + answer[at:]).strip()
             if response.stop_reason == "max_tokens":
                 answer += "\n\n_(Answer was cut off at the length limit.)_"
-            if nudged is not None:
-                # The unchecked answer and the nudge leave the conversation, so a
+            for at in sorted(sent_back.values(), reverse=True):
+                # Each answer sent back, and why, leave the conversation, so a
                 # follow-up cannot build on what it made up.
-                del conv.messages[nudged:nudged + 2]
+                del conv.messages[at:at + 2]
             spent()
-            missing = unfound(answer, seen + summaries) if source != "none" else []
+            # Numbers may come from this turn, an earlier one ("243" from the answer
+            # before), or the question itself ("devices on collector 281").
+            missing = unfound(answer, conv.seen + seen + summaries + [question]) if source != "none" else []
+            conv.seen += seen + summaries
             emit({"type": "answer", "markdown": answer, "source": source, "unfound": missing})
             return
 
@@ -706,11 +760,14 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     tabled = tabled or event["type"] == "table"
                     if event["type"] == "table":
                         seen.append(json.dumps(event.get("rows", [])))
+                        shown += [str(c) for c in event.get("columns", [])]
                     if event["type"] == "step" and openai_api.block(block, "name") != "recipe":
                         ran.append(ran_line(event))
                         own.append(event.get("result", ""))
                     if event["type"] == "step" and re.match(r"[1-9]\d* rows", str(event.get("result", ""))):
                         fetched = True
+                    if event["type"] == "step" and event.get("dataset") and ok(event.get("result")):
+                        datasets.append(event["dataset"])
                     if event["type"] == "step" and str(event.get("result", "")).startswith("failed: Request failed:"):
                         # The portal cannot be reached (TLS, proxy, DNS): every other
                         # query would fail the same way, so answer with the reason now.

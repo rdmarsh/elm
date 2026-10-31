@@ -24,6 +24,11 @@ import openai_api
 HOST = elm_tools.setting("HOST", "127.0.0.1")
 PORT = int(elm_tools.setting("PORT", "8080"))
 IDLE_SECONDS = 3600
+# The question log, when the person running Samara turns it on (run.sh with
+# SAMARA_LOG=1 mounts a folder here). Each person still opts in on the page:
+# nothing is written for a question unless they ticked the box or rated it.
+LOG_DIR = os.environ.get("SAMARA_LOG_DIR")
+LOG_LOCK = threading.Lock()
 HERE = Path(__file__).resolve().parent
 
 conversations = {}
@@ -86,6 +91,7 @@ def health():
         "model_id": default_model_id(),
         "elm_version": elm_version(),
         "build": os.environ.get("SAMARA_BUILD") or None,   # git describe at docker build
+        "log": bool(LOG_DIR),   # whether the page may offer to save questions
     }
 
 
@@ -115,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path == "/api/feedback":
+            return self.feedback()
         if self.path != "/api/ask":
             return self.send_json(404, {"error": "not found"})
         try:
@@ -136,7 +144,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
 
+        said = {}   # the answer's source, for the log
+
         def emit(event):
+            if event.get("type") in ("answer", "error", "model"):
+                said[event["type"]] = event
             self.wfile.write((json.dumps(event, default=str) + "\n").encode())
             self.wfile.flush()
 
@@ -160,6 +172,47 @@ class Handler(BaseHTTPRequestHandler):
             pass  # Stop pressed or the tab closed; agent.ask has dropped the half-finished turn
         except Exception as exc:
             emit({"type": "error", "text": f"Unexpected error: {exc}"})
+        if body.get("save"):
+            answer = said.get("answer", {})
+            log({"kind": "question", "conversation": conv_id,
+                 "question": question or ("(Dig deeper)" if detail else "(asked again)"), "harder": harder,
+                 "model": said.get("model", {}).get("id"), "source": answer.get("source"),
+                 "unfound": answer.get("unfound"), "error": said.get("error", {}).get("text")})
+
+    def feedback(self):
+        """A reader's rating of an answer, and the conversation if they shared it.
+
+        right (thumbs up); or after a thumbs down, wrong (wrong facts), missed (not
+        what was asked) or partly (right, but incomplete): pass, fail and partial,
+        as the eval grades them.
+        """
+        if not LOG_DIR:
+            return self.send_json(404, {"error": "the question log is off"})
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+            rating = str(body.get("rating"))
+            if rating not in ("right", "wrong", "missed", "partly"):
+                raise ValueError(rating)
+        except (ValueError, KeyError):
+            return self.send_json(400, {"error": "expected JSON {question, rating: right|wrong|missed|partly}"})
+        log({"kind": "rating", "conversation": str(body.get("conversation_id") or "")[:64],
+             "question": str(body.get("question") or "")[:2000], "rating": rating,
+             "source": str(body.get("source") or "")[:16] or None,
+             "transcript": str(body.get("transcript") or "")[:200000] or None})
+        self.send_json(200, {"ok": True})
+
+
+def log(entry):
+    """Add a line to the question log, if it is on. Mode 600: questions name customers."""
+    if not LOG_DIR:
+        return
+    line = json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "build": os.environ.get("SAMARA_BUILD"),
+                       "portal": elm_tools.portal(), **entry}, default=str)
+    path = Path(LOG_DIR) / "questions.jsonl"
+    with LOG_LOCK:
+        fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "a") as f:
+            f.write(line + "\n")
 
 
 # Where the dockerfile puts the CAs from samara/certs/.
