@@ -18,6 +18,7 @@
 #   fact    = [commands] each prints one value that must be in the answer; $ELM
 #                        is elm with Samara's profile. Keep each under 1000 rows:
 #                        -s0 stops there.
+#   column  = [regex]    a table on the page must have a column like this
 #   says    = [regex]    must be in the answer (case-insensitive)
 #   fact counts may be off by 2% (small ones not at all): live counts move while it checks
 #   never   = [regex]    must not be anywhere in it: a match is confidently wrong
@@ -97,6 +98,11 @@ recipe = ["collector_health", "collectors_down"]
 q = "which devices are on the first one?"
 after = ["which collectors are down?"]
 recipe = ["collector_health"]
+
+[[case]]
+q = "Can you add a percentage to that table?"
+after = ["which collector has the most dead devices?"]
+column = ["%|percent"]   # typed by the model, then dropped, 2026-10-31
 
 # Alerts
 

@@ -103,6 +103,10 @@ def grade(case, events, values, elm, facts=None):
         elif not near(want, plain):
             misses.append(f"fact: {want} not in the answer")
             wrong = True
+    tables = [e for e in events if e.get("type") == "table"]
+    for pattern in case.get("column", []):
+        if not any(re.search(pattern, " | ".join(map(str, t.get("columns", []))), re.I) for t in tables):
+            misses.append(f"column: no table with a /{pattern}/ column")
     for pattern in case.get("says", []):
         if not re.search(fill(pattern, values), main, re.I):
             misses.append(f"says: no /{pattern}/")
