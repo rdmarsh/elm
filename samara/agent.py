@@ -750,7 +750,9 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             return
 
         for text in texts:
-            emit({"type": "status", "text": text})
+            # "<|channel|>?" was shown as a status line (gpt-oss-20b, 2026-11-01).
+            if text := MARKUP.sub("", text).strip():
+                emit({"type": "status", "text": text})
         results = []
         for block in tool_uses:
             if conv.stop.is_set():

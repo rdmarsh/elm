@@ -47,7 +47,9 @@ COMMON = {"all", "test", "tests", "prod", "production", "dev", "default", "other
           "kubernetes", "customer", "customers", "sandbox", "lab", "core", "monitoring", "ping", "http",
           "https", "snmp", "wmi", "today", "week", "month"}
 PERSON = re.compile(r"\bwhat(?:'s|’s| is| has)\s+([a-z][\w.-]*)\s+(?:been\s+)?(?:working on|looking at|acknowledged|acked)\b"
-                    r"|\bis\s+([a-z][\w.-]*)\s+(?:looking at|working on)\s+(?:anything|something)\b", re.I)
+                    r"|\bis\s+([a-z][\w.-]*)\s+(?:looking at|working on)\s+(?:anything|something)\b"
+                    # "did joe aknoledge any alerts today?": spelt any way (2026-11-01)
+                    r"|\b(?:did|has|have)\s+([a-z][\w.-]*)\s+(?:ack|akn|acn)\w*", re.I)
 NOBODY = {"anyone", "anybody", "someone", "somebody", "everyone", "everybody", "nobody", "it", "this", "that",
           "he", "she", "they", "we", "you", "i", "the", "everything", "ops", "noc", "team"}
 MIN_NAME = 3   # "web" is too common to count, but COMMON catches those; "lux" is a device
@@ -56,19 +58,25 @@ _names, _when, _lock = [], 0.0, threading.Lock()
 
 
 def names():
-    """[(name, kind, id, label)] of every device, group and collector, cached."""
+    """[(name, kind, id, label)] of every device, group, collector and person, cached."""
     global _names, _when
     with _lock:
         if _names and time.time() - _when < REFRESH_SECONDS:
             return _names
         found = []
-        for kind, command, fields in (("device", "DeviceList", ["id", "displayName"]),
-                                      ("group", "DeviceGroupList", ["id", "name", "fullPath"]),
-                                      ("collector", "CollectorList", ["id", "description", "hostname"])):
+        for kind, command, fields, filter in (("device", "DeviceList", ["id", "displayName"], None),
+                                              ("group", "DeviceGroupList", ["id", "name", "fullPath"], None),
+                                              ("collector", "CollectorList", ["id", "description", "hostname"], None),
+                                              # people: who acknowledged an alert in the last 30 days, or set downtime
+                                              ("person", "AlertList", ["ackedBy"], "acked:true,ackedEpoch>:now-30d"),
+                                              ("person", "SDTList", ["admin"], None)):
             try:
-                rows = page(command, fields)
+                rows = page(command, fields, filter)
             except elm_tools.Refused:
                 continue   # not allowed, or the portal cannot be reached: route without them
+            if kind == "person":
+                found += people({r.get(fields[0]) for r in rows})
+                continue
             for r in rows:
                 label = r.get("fullPath") or r.get("displayName") or r.get("description") or r.get("name")
                 given = {r.get(f) for f in fields if f != "id"}
@@ -84,12 +92,29 @@ def names():
         return _names
 
 
-def page(command, fields):
+def people(logins):
+    """The people who acknowledged alerts or set downtime, by login and by first name.
+
+    "joe.bloggs" and "joe.bloggs@example.com" are found as "joe" too: people
+    say the first name. A name with a digit is a service account or a server,
+    never a person ("joe001").
+    """
+    found = set()
+    for login in logins:
+        if not isinstance(login, str) or re.search(r"\d", login):
+            continue
+        for n in {login, login.split("@")[0], re.split(r"[.@_ ]", login)[0]}:
+            if len(n) >= MIN_NAME and n.lower() not in COMMON and n.lower() not in NOBODY:
+                found.add((n, "person", login, None))   # no label: ackedBy is withheld from the model
+    return sorted(found)
+
+
+def page(command, fields, filter=None):
     """Every row of one list command (paged past elm's 1000)."""
     import json
     rows, offset = [], 0
     while True:
-        lines = elm_tools.fetch(command, fields=fields, size=0, offset=offset)[0]
+        lines = elm_tools.fetch(command, filter=filter, fields=fields, size=0, offset=offset)[0]
         rows += [json.loads(l) for l in lines]
         if len(lines) < elm_tools.MAX_ROWS or offset >= 20 * elm_tools.MAX_ROWS:
             return rows
@@ -97,7 +122,7 @@ def page(command, fields):
 
 
 def found(question):
-    """The portal's devices, groups and collectors named in the question, longest name first.
+    """The portal's devices, groups, collectors and people named in the question, longest name first.
 
     A name counts when it is a whole word in the question, case ignored:
     "acme" in "is anything down at acme?", a group path, a device's display
@@ -127,11 +152,17 @@ def found(question):
     devices = {h["name"].lower() for h in hits if h["kind"] == "device"}
     hits.sort(key=lambda h: not (h["kind"] == "group" and h["name"].lower() in devices and re.search(
         rf"\b{re.escape(h['name'].lower())}(?:'s|’s|s)\s+(?:servers|devices|hosts|machines|systems|sites|vms)\b", q)))
+    # A person with the name of a device, group or collector ("luna") is the
+    # thing, unless the wording is about a person ("what's luna working on?").
+    worded = {next(g for g in m.groups() if g).lower() for m in PERSON.finditer(question)}
+    things = {h["name"].lower() for h in hits if h["kind"] != "person"}
+    hits = [h for h in hits if h["kind"] != "person" or h["name"].lower() not in things - worded]
     # "what's joe working on?" is about a person: LM knows people only by the
     # alerts they acknowledged, so the person recipe looks there (recipes.yaml).
     for m in PERSON.finditer(question):
         name = next(g for g in m.groups() if g)
-        if name.lower() not in NOBODY and not any(h["name"].lower() == name.lower() for h in hits):
+        if (name.lower() not in NOBODY and not re.search(r"\d", name)
+                and not any(h["name"].lower() == name.lower() for h in hits)):
             hits.append({"kind": "person", "name": name, "id": None, "label": None})
     for m in re.finditer(r"\bcollector\s+(?:id\s+)?(\d+)\b", q):
         if not any(h["kind"] == "collector" and str(h["id"]) == m.group(1) for h in hits):
@@ -149,7 +180,7 @@ def route(question):
 
 # The recipe run for a named object when the model will not look it up.
 HEALTH = {"device": "device_health", "group": "group_health", "collector": "collector_health",
-          "person": "acknowledged_by"}
+          "person": "working_on"}
 
 
 def hint(hits):

@@ -77,10 +77,10 @@ REDACTED = "[removed: secret]"
 # the real rows. Kept: system properties LM fills in itself, and a collector's
 # description, which is its name. An alert's acknowledgement note is free text
 # too, and who acknowledged it is a person's login; so are a report's
-# last editor and a private dashboard's owner, and a report's recipients are
+# last editor, a private dashboard's owner and who set a downtime, and a report's recipients are
 # email addresses. The reader still sees them, so "what reports go to bob?"
 # can be answered from a table, by code, never by the model reading them.
-FREE_TEXT_FIELDS = {"description", "comment", "note", "ackComment", "ackedBy",
+FREE_TEXT_FIELDS = {"description", "comment", "note", "ackComment", "ackedBy", "admin",
                     "recipients", "lastmodifyUserName", "owner"}
 PROPERTY_LISTS = {"customProperties", "inheritedProperties", "systemProperties", "autoProperties"}
 LM_SET_PROPERTIES = {"system.sysinfo", "system.ips", "system.sysoid", "system.hoststatus", "system.devicetype",
@@ -581,6 +581,14 @@ def show_table(session, title, expression, columns):
         raise ValueError("expression must produce a single JSON array of objects (wrap it in [ ... ])")
     if not isinstance(rows, list) or (rows and not isinstance(rows[0], dict)):
         raise ValueError("expression must produce a JSON array of objects")
+    # Columns are keys of the rows, not headings for them: ["ID", "Object"] over
+    # rows keyed id and monitorObjectName showed a table of blanks (gpt-oss-20b,
+    # 2026-11-01).
+    keys = {k for r in rows for k in r}
+    if rows and (missing := [c for c in columns if c not in keys]):
+        raise ValueError(f"no key {', '.join(map(repr, missing))} in the rows; columns must be keys the expression "
+                         f"makes (it makes {', '.join(sorted(keys))}). Rename them in the expression, "
+                         "e.g. map({ID: .id, Object: .monitorObjectName})")
     table = {
         "type": "table",
         "title": title,

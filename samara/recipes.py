@@ -103,8 +103,8 @@ def tool_description():
             "before run_elm.\n\nAbout one device (pass device):\n" + listed(taking("device"))
             + "\n\nAbout one group (pass group):\n" + listed(taking("group"))
             + "\n\nAbout one collector (pass collector):\n" + listed(taking("collector"))
-            + "\n\nAbout one person (pass person: the name as written; matched in who acknowledged open alerts, "
-            "and their notes):\n" + listed(taking("person"))
+            + "\n\nAbout one person (pass person: the name as written; matched in who acknowledged open alerts "
+            "or set downtime, and their notes):\n" + listed(taking("person"))
             + "\n\nAbout the whole portal (pass no name):\n" + listed(taking(None)))
 
 

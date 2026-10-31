@@ -972,13 +972,15 @@
 
 # --- One person -----------------------------------------------------------------
 
-- name: acknowledged_by
-  asks: ["what's PERSON working on?", "what has PERSON acknowledged?", "is PERSON looking at anything?"]
-  covers: "open alerts acknowledged by one person, or with their name in the acknowledgement note"
+- name: working_on
+  asks: ["what's PERSON working on?", "what has PERSON acknowledged?", "is PERSON looking at anything?",
+         "did PERSON put anything in downtime?"]
+  covers: "open alerts one person acknowledged, and downtime they set, or with their name in the note"
   params: [person]
-  # LM knows what someone is working on only from the alerts they acknowledged.
-  # The note and the login are matched here, in jq on the real rows; the model
-  # gets the counts only, as both are withheld from it (elm_tools FREE_TEXT_FIELDS).
+  # LM knows what someone is working on only from the alerts they acknowledged
+  # and the downtime they set: "web01 in SDT now, set by joe" means he is on it.
+  # The notes and logins are matched here, in jq on the real rows; the model
+  # gets the counts only, as they are withheld from it (elm_tools FREE_TEXT_FIELDS).
   steps:
     - as: alerts
       run: AlertList
@@ -986,23 +988,38 @@
       fields: [monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, acked, ackComment, ackedBy, ackedEpoch]
       size: all
       says: fetched the open alerts that are acknowledged, and kept the ones with the name in the note or the login
+    - as: sdts
+      run: SDTList
+      size: all
+      says: fetched the scheduled downtime, and kept what is in effect or still to come with the name in the note or who set it
   summary: |
     ($person[0].name | ascii_downcase) as $k
-    | ($alerts | map(select(.acked))) as $acked
-    | ($acked | map(select(((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k)))) as $m
-    | if ($m | length) == 0
-      then "No open alert is acknowledged by \($person[0].name), or names them in its note (\($acked | length | n("open alert")) acknowledged in all)."
-      else "\($m | length | n("open alert")) on \($m | map(.monitorObjectName) | unique | length | n("device")) "
-        + "\(if ($m | length) == 1 then "is" else "are" end) acknowledged by \($person[0].name) or name them in the note (\($m | severities))." end
+    | ($alerts | map(select(.acked and (((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k))))) as $m
+    | ($sdts | map(select((.isEffective or .endDateTime > now * 1000)
+        and (((.comment // "") + " " + (.admin // "")) | ascii_downcase | contains($k))))) as $d
+    | (if ($m | length) == 0
+       then "No open alert is acknowledged by \($person[0].name), or names them in its note (\($alerts | map(select(.acked)) | length | n("open alert")) acknowledged in all)."
+       else "\($m | length | n("open alert")) on \($m | map(.monitorObjectName) | unique | length | n("device")) "
+         + "\(if ($m | length) == 1 then "is" else "are" end) acknowledged by \($person[0].name) or name them in the note (\($m | severities))." end)
+    + (if ($d | length) == 0 then " No downtime in effect or to come was set by them or names them."
+       else " \($d | length | n("downtime")) set by them or naming them: \($d | map(select(.isEffective)) | length) in effect now." end)
   table:
-    title: Open alerts for {person[name]}
-    columns: [Device, Severity, Alert, Acknowledged]
+    title: What {person[name]} is on
+    columns: [On, What, When, Note]
     rows: |
       ($person[0].name | ascii_downcase) as $k
-      | $alerts | map(select(.acked and ((((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k)))))
-      | sort_by(-.severity, -.ackedEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
-          Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
-          Acknowledged: ack})
+      | ($alerts | map(select(.acked and ((((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k)))))
+         | sort_by(-.severity, -.ackedEpoch) | map({On: .monitorObjectName,
+           What: "\(.severity | sev) alert: \([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / "))",
+           When: "acknowledged \(.ackedEpoch | ago)",
+           Note: ([.ackComment, .ackedBy] | map(select(. != null and . != "")) | join(" by "))}))
+      + ($sdts | map(select((.isEffective or .endDateTime > now * 1000)
+           and (((.comment // "") + " " + (.admin // "")) | ascii_downcase | contains($k))))
+         | sort_by(.startDateTime) | map({
+           On: (.deviceDisplayName // .deviceGroupFullPath // .websiteName // .websiteGroupName // .collectorDescription // .type),
+           What: (if .isEffective then "downtime, in effect now" else "downtime, to come" end),
+           When: "\(.startDateTime / 1000 | when) to \(.endDateTime / 1000 | when)",
+           Note: ([.comment, .admin] | map(select(. != null and . != "")) | join(" by "))}))
 
 # --- One collector -------------------------------------------------------------
 

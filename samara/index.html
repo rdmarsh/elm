@@ -119,6 +119,8 @@
      still answer a nearby question, which "What this answers" says. */
   .source { margin: 0 0 6px; text-align: right; color: var(--muted); font-size: .8rem; font-style: italic; }
   .source.own, .source.unfound { color: var(--warn-ink); }
+  /* A caution triangle on the ones to doubt; \FE0E keeps it text, not an emoji. */
+  .source.own::before, .source.unfound::before { content: "\26A0\FE0E\00A0"; font-style: normal; }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
   details.steps { font-size: .85rem; color: var(--muted); margin-top: 12px; }
   details.steps .worked { color: var(--ink); opacity: .85; }

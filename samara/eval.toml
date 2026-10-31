@@ -84,7 +84,11 @@ recipe = ["group_dashboards_reports"]
 
 [[case]]
 q = "what's {person} working on?"
-recipe = ["acknowledged_by"]
+recipe = ["working_on"]
+
+[[case]]
+q = "did {person} aknoledge any alerts today?"
+recipe = ["working_on"]
 
 # Collectors
 
