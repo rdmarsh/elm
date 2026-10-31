@@ -7,9 +7,9 @@
 #   samara/models.sh --eval     # then ask eval.py's questions of each in turn
 #   samara/models.sh --stop     # stop them
 #
-# --eval takes hours: one model at a time, so LM Studio is not loading two at
-# once and the timings mean something. Keep the Mac awake for it:
-#   caffeinate -i samara/models.sh --eval
+# --eval takes hours. Models on the same server go one at a time, so LM
+# Studio is not holding two at once and the timings mean something; each
+# server (the laptop, this Mac) runs its own queue, side by side.
 #
 # The laptop's LM Studio is at SAMARA_LAPTOP_URL (default below). Logs and
 # results go to ~/.cache/samara/: run-PORT.log, eval-DATE-PORT.txt (safe to
@@ -60,10 +60,16 @@ done
 
 [[ ${1:-} == --eval ]] || exit 0
 day=$(date +%F)
-for m in "${MODELS[@]}"; do
-    read -r port _ <<<"$m"
-    echo "$port: eval, see $LOGS/eval-$day-$port.txt"
-    samara/eval.py --url "http://127.0.0.1:$port" --repeat 2 --out "$LOGS/eval-$day-$port.jsonl" \
-        >"$LOGS/eval-$day-$port.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
+evaluate() {   # the ports given, one after another
+    for port in "$@"; do
+        echo "$port: eval, see $LOGS/eval-$day-$port.txt"
+        samara/eval.py --url "http://127.0.0.1:$port" --repeat 2 --out "$LOGS/eval-$day-$port.jsonl" \
+            >"$LOGS/eval-$day-$port.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
+    done
+}
+servers=$(for m in "${MODELS[@]}"; do read -r _ _ url <<<"$m"; echo "$url"; done | sort -u)
+for server in $servers; do
+    evaluate $(for m in "${MODELS[@]}"; do read -r port _ url <<<"$m"; [[ $url == "$server" ]] && echo "$port"; done) &
 done
+wait
 tail -n1 "$LOGS"/eval-"$day"-*.txt
