@@ -15,7 +15,7 @@
       run: AlertListByDeviceId
       params: {id: "{device[id]}"}
       filter: cleared:false
-      fields: [severity, startEpoch, acked, ackComment, ackedBy, sdted, resourceTemplateName, instanceName, dataPointName]
+      fields: [severity, startEpoch, acked, ackComment, ackedBy, ackedEpoch, sdted, resourceTemplateName, instanceName, dataPointName]
       size: all
       says: fetched its open alerts
     - as: sdts
@@ -494,7 +494,7 @@
     - as: alerts
       run: AlertList
       filter: cleared:false,severity:4
-      fields: [monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked, ackComment, ackedBy]
+      fields: [monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked, ackComment, ackedBy, ackedEpoch]
       size: all
       says: fetched every open critical alert
   summary: |
@@ -996,13 +996,13 @@
         + "\(if ($m | length) == 1 then "is" else "are" end) acknowledged by \($person[0].name) or name them in the note (\($m | severities))." end
   table:
     title: Open alerts for {person[name]}
-    columns: [Device, Severity, Alert, Acknowledged, When]
+    columns: [Device, Severity, Alert, Acknowledged]
     rows: |
       ($person[0].name | ascii_downcase) as $k
       | $alerts | map(select(.acked and ((((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k)))))
       | sort_by(-.severity, -.ackedEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
           Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
-          Acknowledged: ack, When: (.ackedEpoch | at)})
+          Acknowledged: ack})
 
 # --- One collector -------------------------------------------------------------
 

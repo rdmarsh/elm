@@ -55,7 +55,8 @@ def ago: (. - now) as $s | ($s | fabs) as $a
     elif $s > 0 then "in about \($span)" elif $unit == "day" then "\($span) ago" else "about \($span) ago" end;
 def at: "\(when), \(ago)";
 def n($word): "\(.) \($word)\(if . == 1 then "" else "s" end)";
-def ack: if .acked | not then "no" else "yes"   # with the note typed when it was acknowledged, and who
+def ack: if .acked | not then "no" else "yes"   # when, the note typed then, and who
+  + (if (.ackedEpoch // 0) > 0 then ", \(.ackedEpoch | ago)" else "" end)
   + (if (.ackComment // "") != "" then ": \(.ackComment)" else "" end)
   + (if (.ackedBy // "") != "" then " (\(.ackedBy))" else "" end) end;
 def severities: (map(.severity | sev) | group_by(.) | map({key: .[0], value: length}) | from_entries) as $c
