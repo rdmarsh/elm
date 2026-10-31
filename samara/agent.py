@@ -279,12 +279,19 @@ def no_commands(answer):
     The reader has no elm, and a small model made them up anyway, prompt rule
     or not: `elm AlertList --acknowledge`, `elm recipe device_health` (qwen3-8b,
     2026-10-29). The queries that really ran are under How I worked this out.
-    Drops each line or code block holding one, and the sentence ending in ":"
-    that only introduced it.
+    Drops each code block or line that is one, and the sentence ending in ":"
+    that only introduced it. In prose, only the sentence holding it goes:
+    "This tool is read-only ... The required command is `elm SDTCreate ...`"
+    was one line, and dropping it left a blank answer (qwen3-8b, 2026-10-31).
     """
     answer = re.sub(r"```[^\n]*\n\s*elm .*?```", "\x00", answer, flags=re.S)   # a block: one marker line
     out = []
     for line in answer.splitlines():
+        if "`elm " in line and not re.match(r"\s*(?:[-*]|\d+\.)?\s*`elm ", line):
+            kept = [x for x in re.split(r"(?<=[.!?])\s+", line) if "`elm " not in x]
+            line = " ".join(kept)
+            if not line.strip():
+                continue
         if "\x00" in line or re.search(r"`elm |^\s*elm ", line):
             while out and not out[-1].strip():
                 out.pop()
@@ -331,12 +338,23 @@ def with_covers(answer, covered):
     return (answer[:at].rstrip() + "\n\n" + line + "\n\n" + answer[at:]).strip()
 
 
+# Never a blank answer: "(no answer)" read as a fault (qwen3-8b, 2026-10-31).
+NO_ANSWER = "I could not put an answer together for this one. Try asking it another way."
+
+# A Markdown table row, typed by the model.
+TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$", re.M)
+
 # Tools that only describe elm's commands: they fetch nothing from the portal.
 LOOKUP_TOOLS = {"find_commands", "describe_command"}
 
 # What the recipes cover, for the note on answers they did not give. Change
 # it with recipes.yaml.
 BEST_AT = "what is happening now: devices, groups, collectors, open alerts, downtime and website checks"
+
+
+def ok(result):
+    """Whether a step's result is data, not a failure."""
+    return not str(result).startswith(("failed", "error"))
 
 
 def unchecked(partly, more):
@@ -494,6 +512,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     summaries, recipe_calls = [], 0   # what each recipe that ran said, and how many were asked for
     covered = []   # what each recipe that ran answers, for the line under the answer
     ran = []   # the model's own queries, for How I worked this out
+    own = []   # their results in full, to tell when every one failed
+    fetched = False   # whether any query this turn returned rows, for a table typed without them
     failed_calls = {}   # tool call -> times it failed, to stop a model retrying the same one
     done_calls = set()   # tool calls that worked, so a repeat is not run (or tabled) twice
     forced = None   # set to end the turn without asking the model again: the answer's own text
@@ -523,9 +543,22 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             # The model's own words, before Samara tidies them: for the bug report (index.html).
             emit({"type": "draft", "text": "\n\n".join(texts)})
             answer = (no_echoes(no_commands(CALL_TEXT.sub("", "\n\n".join(texts))))
-                      or "\n\n".join(dict.fromkeys(summaries)) or "(no answer)")
+                      or "\n\n".join(dict.fromkeys(summaries)) or NO_ANSWER)
             if tabled:
                 answer = tidy(answer)
+            elif TABLE_ROW.search(answer) and not fetched:
+                # A table with no rows behind it is made up: "[Device Name]" rows after
+                # every query failed; ids 123 and 456 after fetching only a count
+                # (qwen3-8b, 2026-10-31).
+                answer = tidy(answer) + "\n\n_A table was left out here: no rows came from the portal for it._"
+            if own and not summaries and not any(ok(r) for r in own):
+                # Every query of its own failed, so nothing it says came from the portal:
+                # "no alerts were cleared in the last hour" after each one failed
+                # (qwen3-8b, 2026-10-31). Samara says what happened instead.
+                why = str(own[-1]).removeprefix("failed: ").removeprefix("error: ")
+                answer = (f"I could not get this from {elm_tools.portal() or 'the portal'}: every query I tried "
+                          f"failed. The last one said: {why[:300]}")
+                forced = forced or ""
             if summaries and used - LOOKUP_TOOLS <= {"recipe"} and len(summaries) == recipe_calls:
                 # Nothing but recipes, all of which ran: their summaries are the
                 # answer, word for word. Retyping them, a small model changed a
@@ -611,6 +644,9 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     tabled = tabled or event["type"] == "table"
                     if event["type"] == "step" and openai_api.block(block, "name") != "recipe":
                         ran.append(ran_line(event))
+                        own.append(event.get("result", ""))
+                    if event["type"] == "step" and re.match(r"[1-9]\d* rows", str(event.get("result", ""))):
+                        fetched = True
                     if event["type"] == "step" and str(event.get("result", "")).startswith("failed: Request failed:"):
                         # The portal cannot be reached (TLS, proxy, DNS): every other
                         # query would fail the same way, so answer with the reason now.
