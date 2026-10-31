@@ -6,7 +6,8 @@ description: "who never read the manual"
 
 tldr; More and more commands in a terminal are typed by an AI assistant, not
 a person. [elm](https://github.com/rdmarsh/elm), my command-line tool for
-LogicMonitor, already suited that: it has been read-only from the start. So we
+[LogicMonitor](https://www.logicmonitor.com) (a SaaS monitoring platform),
+already suited that: it has been read-only from the start. So we
 added what an assistant needs on top: short docs it can afford to read (`--ai`
 and `--info`), errors that say how to fix the mistake, no silent failures, and
 times written the way people say them, not as epochs. Most of it made elm

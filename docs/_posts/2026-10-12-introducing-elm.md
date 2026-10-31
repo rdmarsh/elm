@@ -6,8 +6,8 @@ description: "logicmonitor data without the clicking"
 
 
 tldr; I built [elm](https://github.com/rdmarsh/elm), a command-line tool that
-gets data out of LogicMonitor in one command, in whatever format you need
-next. It only reads, so it can't change anything in your portal.
+gets data out of [LogicMonitor](https://www.logicmonitor.com) (a SaaS
+monitoring platform) in one command, in whatever format you need next. It only reads, so it can't change anything in your portal.
 
 If you look after LogicMonitor, you've undoubtedly been asked something like
 this:

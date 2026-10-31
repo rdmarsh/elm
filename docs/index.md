@@ -3,7 +3,8 @@ layout: home
 title: LogicMonitor tools that look but don't touch
 ---
 
-Two tools for getting answers out of LogicMonitor, the monitoring platform:
+Two tools for getting answers out of
+[LogicMonitor](https://www.logicmonitor.com) (a SaaS monitoring platform):
 **elm**, a traditional Unix-style command-line tool, and **Samara**, an AI
 front end that turns plain-English questions into elm commands and shows you
 the results. Both only read, so nobody using them, person or AI assistant,
