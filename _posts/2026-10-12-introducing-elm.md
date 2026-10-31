@@ -104,13 +104,14 @@ each one pipes elm's output into the next step.
 
 ## how it was built
 
-elm started in 2021 as a weekend script, spun off from earlier work on
-[zahar](https://github.com/rdmarsh/zahar), a now-archived project that did
-the same for Zabbix. It has grown over almost 600 commits.
-A lot of the recent work was done with an AI coding assistant. The main thing
-I've learnt is that it works best when what the project knows lives in files,
-not in chat: rules, decisions and test results, written down where both of us
-read them at the start of every session. I wrote that up in
+elm started in 2021 as a weekend script that got out of hand, spun off from my
+earlier work on [zahar](https://github.com/rdmarsh/zahar), a now-archived
+project that did the same with Zabbix. Since then, it's grown into a
+comprehensive tool with about 600 commits. A lot of the recent work has been
+done with AI coding assistants. The main thing I've seen is that it works best
+when the project's knowledge is stored in files, not in the chat history:
+rules, decisions and test results, written down where they can be checked or
+referenced. A lot of that is captured in
 [ai.md](https://github.com/rdmarsh/elm/blob/main/ai.md).
 
 ## try it
