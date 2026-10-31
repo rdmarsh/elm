@@ -6,3 +6,40 @@
 .post-subtitle { color: $grey-color; font-size: 1.25rem; font-style: italic; margin: -4px 0 6px; }
 // The Samara screenshot carries its own frame and shadow.
 .post-content img, .home img { display: block; margin: 24px auto; }
+
+// Dark mode, from the reader's system setting (Minima 2.5 has none). Code uses
+// GitHub's dark colours; the Samara screenshot stays as taken, a light page.
+@media (prefers-color-scheme: dark) {
+  body { background-color: #161616; color: #e4e4e1; }
+  a { color: #6cb2ff; }
+  a:visited { color: #9cc8ff; }
+  .site-header { border-top-color: #555; border-bottom-color: #2c2c2a; }
+  .site-title, .site-title:visited, .site-nav .page-link { color: #e4e4e1; }
+  .site-nav { background-color: #161616; border-color: #3a3a37; }
+  .site-nav .menu-icon > svg path { fill: #e4e4e1; }
+  .site-footer { border-top-color: #2c2c2a; }
+  .post-meta, .post-subtitle, .footer-col-wrapper, .rss-subscribe { color: #9a9a95; }
+  .svg-icon { fill: #9a9a95; }
+  hr { border-color: #2c2c2a; }
+  blockquote { color: #9a9a95; border-left-color: #3a3a37; }
+  table { color: #e4e4e1; border-color: #2c2c2a; }
+  table tr:nth-child(even) { background-color: #1e1e1c; }
+  table th { background-color: #262624; border-color: #3a3a37; }
+  table td { border-color: #2c2c2a; }
+  code, pre { background-color: #0d1117; border-color: #30363d; color: #e6edf3; }
+  .highlight, .highlight .w, .highlighter-rouge .highlight { background-color: #0d1117; color: #e6edf3; }
+  pre > code { background-color: transparent; }   // the block is dark, not each line
+  .highlight {
+    .c, .c1, .cm, .cs, .cp { color: #8b949e; }
+    .k, .kd, .kn, .kp, .kr, .kt, .ow { color: #ff7b72; }
+    .s, .s1, .s2, .sb, .sc, .sd, .se, .sh, .si, .sx, .sr, .ss { color: #a5d6ff; }
+    .m, .mi, .mf, .mh, .mo, .il { color: #79c0ff; }
+    .nv, .vc, .vg, .vi, .na, .no, .nc { color: #79c0ff; }
+    .nb, .bp, .nf, .nx { color: #d2a8ff; }
+    .nt { color: #7ee787; }
+    .o, .p, .err, .n { color: #e6edf3; }
+    .err { background-color: transparent; }
+    .gd { color: #ffa198; background-color: #490202; }
+    .gi { color: #7ee787; background-color: #04260f; }
+  }
+}
