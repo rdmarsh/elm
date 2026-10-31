@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The GitHub Pages site has its own short front page (`index.md`): what elm and Samara do, an example, how to try it, the latest posts and an RSS feed (`jekyll-feed`). The README stays the manual, on GitHub. `ai.md` is now about building elm and Samara, a third shorter, ASCII only.
 - Samara finds a name with an `s` or `'s` after it: "are acmes servers okay?" is the group acme (it was "no device named acmes servers"). A name that is both a device and a group is the device ("is acme okay?"), unless the question says the name's servers, devices or hosts ("acme's servers"), when it is the group.
 - Samara's times are as precise as they need to be: "about 15 minutes ago", "about 3 hours ago", "in about 2 days", where every time under a day read "less than a day ago".
 - Samara's "Checked query" label is now "Built-in check", and it sits in the How I worked this out line instead of on a line of its own above the answer. Warnings stay above the answer: "Model's own query · check it", "Not looked up", and numbers not found in the data.

@@ -1,246 +1,159 @@
-# AI-Assisted Development Workflow
+# Working with an AI assistant
 
-Treat AI tools as fast junior engineers: unlimited energy, limited judgement.
-Output quality depends on project documentation, clear rules, tight feedback
-loops, narrowly scoped tasks, and verification at every step. Most failed
-AI-assisted work is a documentation and process failure, not a prompt failure.
+tldr; Treat an AI assistant as a fast junior engineer: lots of energy, not
+much judgement, and no memory of yesterday. What it produces depends more on
+the docs, rules and checks around it than on the prompt. When it keeps
+getting something wrong, fix the docs or the process, not the prompt.
 
-# Principles
+This is how I work on elm with Claude Code. Most of it applies to any project
+and any assistant.
 
-## Keep project knowledge in files
+## Keep what it needs to know in files
 
-Chat history is temporary; Markdown committed to the repository is the
-long-term memory both humans and AI share. Keep design and architecture notes,
-coding standards, workflow rules, a journal, and TODO tracking, and have the AI
-read them at the start of every session.
+Chat history is gone when the session ends. Files are the memory we share,
+so the assistant reads them at the start of every session.
 
-Separate memory by type, in separate files, and load only what the task needs:
+* **`CLAUDE.md`** is loaded every session. Only what holds everywhere: what
+  never to do ("never edit generated files"), which files are generated and
+  how to rebuild them, gotchas the code can't show.
+* **A subdirectory's `CLAUDE.md`, or a rule in `.claude/rules/` with
+  `paths:`**, loads only when working on those files. elm's rule for its
+  AI-facing docs loads only when one of them is being edited.
+* **Skills** (`.claude/skills/NAME/SKILL.md`) load only a one-line
+  description; the rest loads when the task comes up. Anything repeatable
+  but done rarely belongs in one: it costs a line until it's needed, and the
+  steps are written down for when I've forgotten them. elm has `release` (cut
+  a version). Personal skills, like one for writing in my voice, stay out of
+  the repo (`.git/info/exclude`). `--help` and `elm COMMAND --info` work the
+  same way.
+* **Memory** is one fact per file, by type: who I am, feedback (corrections
+  *and* approaches that worked, each with why), project state, and
+  references. Saving only mistakes loses what already works.
+* **`todo.md` and `CHANGELOG.md`** hold deferred work and what changed for
+  users.
 
-- **User context** - who works on the project, their expertise, constraints and priorities.
-- **Feedback** - corrections *and* confirmed approaches, each with a *why*.
-  Saving only mistakes loses the patterns already validated.
-- **Project state** - goals, blockers, parked ideas, open questions, deadlines.
-- **References** - dashboards, trackers, runbooks, non-sensitive config locations.
-
-Never store secrets or credentials in AI-readable memory.
-
-### Preserve information before condensing it
-
-Before deleting, merging or shortening notes, classify each item and move it
-to its proper home first: work to the backlog, evidence and lessons to the
-journal or design notes, user-visible changes to the changelog, rejected ideas
-(with their reasoning) to an explicit decision. If unsure, keep the original or
-ask. A shorter file that loses future work, evidence, reasoning, open questions
-or rejected alternatives is not an improvement.
-
-## Load context only when it is needed
+Leave out what a session can work out itself: the directory layout,
+dependency lists, standard commands, API details in the source. Give each
+fact one home, because a copy in a second file goes stale.
 
 Everything loaded every session costs tokens every time, and a big file
-collects stale claims and contradictions nobody re-reads. Bigger is not safer.
-Put each fact where it is loaded only when it matters:
+collects stale claims nobody re-reads. Bigger is not safer.
 
-1. **Always loaded** - the root `CLAUDE.md`. Only what holds everywhere:
-   safety prohibitions ("never edit generated files"), gotchas the code can't
-   show, non-standard conventions, repo etiquette. Keep "never do X" rules
-   here, where they can't be missed.
-2. **Loaded for one directory** - a `CLAUDE.md` in a subdirectory, read only
-   when working there.
-3. **Loaded on demand** - skills (`.claude/skills/NAME/SKILL.md`): only the
-   one-line description sits in context, the body loads when the task comes
-   up. Use them for workflows ("cut a release", "build the report") and
-   reference material. Tool help such as `--help` or a per-command `--info`
-   works the same way.
+Run `/doctor` in Claude Code now and then. It checks the install and
+settings and points out problems.
 
-Leave out what a session can work out itself: directory layouts (`ls`),
-dependency lists (the manifest), standard commands (`--help`), and API
-details copied from the source. Give each fact one home; a copy in a second
-file goes stale.
+Never put secrets in anything an assistant reads.
 
-## Write rules positively
+**Before shortening a file**, move each item to its proper home first: work
+to `todo.md`, lessons to memory or the design notes, user-visible changes to
+the changelog, rejected ideas (with the reason) to a written decision. If
+unsure, keep it or ask. A shorter file that loses work, evidence, reasoning
+or open questions is not an improvement.
 
-Say how work should be done ("Preserve existing debug logging unless asked to
-remove it") rather than only what is forbidden ("Don't remove logs"). Keep
-negative constraints for security boundaries and destructive or irreversible
-actions.
+## Short prompts, short sessions, small steps
 
-## Separate design from implementation
+With the context in files, a prompt can be one line about one task. Name
+repeated sequences and write down what they mean: "wrap it up" means check
+for leaks, update the changelog and docs, commit and push.
 
-Document architecture, workflows, module responsibilities, invariants,
-interfaces and constraints, then have the AI implement the documented design.
-If implementation keeps going wrong, improve the design docs and rules, or
-question the architecture - repeated prompting means something is
-underspecified. Fix the system, not the prompt.
+Start a new session per task. Long sessions pile up stale assumptions and
+drift; the files carry what matters.
 
-## Short prompts, short sessions
-
-With context in files, prompts can be short, reference a TODO item, and cover
-one task. Define named shorthands for repeated sequences and document their
-expansion, e.g. "wrap it up" -> check for leaks, update changelog and docs,
-commit, push, update journal.
-
-Start a new session per feature or task. Long sessions accumulate stale
-assumptions, conflicting context and drift; the files carry continuity.
-
-## Small, verified steps
-
-Prefer small changes with reviewable diffs over speculative rewrites. Small
-steps are easier to review, revert, debug and attribute; large unverified
+Small changes with diffs I can review beat big rewrites. Big unverified
 refactors are where AI fails hardest.
 
-Use TDD where practical: write a failing test, confirm it fails for the right
-reason, implement, confirm it passes, refactor. Writing tests and
-implementation together is not TDD. Test observable behaviour and edge cases,
-not a mirror of the implementation.
+Use TDD where it fits: write a failing test, check it fails for the right
+reason, then make it pass. Tests and code written together isn't TDD. Test
+behaviour and edge cases, not a copy of the implementation.
 
-## Treat mistakes as process failures
+## Design first
 
-Fix the code, find why it happened, improve the rules or docs, restore anything
-wrongly deleted or compressed, record the lesson in the journal, and tell the
-user what changed. Repeated classes of mistake call for stronger rules or
-better verification.
+Write down the architecture, invariants and interfaces, then have the
+assistant build to that. If it keeps going wrong, the design is
+underspecified or wrong. Fix the system, not the prompt.
 
-## Simple, consistent code
+Write rules as what to do ("keep existing debug logging unless asked"), and
+keep "never" for security and things that can't be undone.
 
-Write the simplest code that correctly solves the problem: explicit over
-clever, three clear lines over one clever expression, no unearned abstraction.
-If a solution surprised you, it will surprise the next reader. Prefer the
-codebase's existing patterns, and extend existing systems rather than adding
-parallel helpers or wrappers - AI tends to add redundant abstractions because
-it optimises for finishing now. Optimise for the future maintainer:
-correctness and clarity over speed.
+## Rules for the assistant
 
-## Understand before modifying
+* **Be honest.** Say when something is wrong and why, and push back before
+  building a bad idea. Separate facts from guesses. No flattery and no fake
+  certainty: if unsure, say what's missing and how to check. A thirty-second
+  argument beats undoing a bad change.
+* **Understand before changing.** Read the code around it and why it's
+  there. Awkward code often has a reason: compatibility, an old bug,
+  performance, an outside system.
+* **Keep it simple.** Explicit over clever, three clear lines over one
+  clever one, no abstraction it hasn't earned. Use the patterns already in
+  the code and extend what's there instead of adding a parallel helper.
+  Assistants add those because they want to finish now; write for the next
+  person to read it.
+* **Keep scope tight.** Keep existing comments and logging unless asked. No
+  speculative refactors, reformatting or renames. Note unrelated problems
+  instead of quietly fixing them. Match the style around it.
+* **Explain big changes first**: the reasoning, tradeoffs and risks, checked
+  against the design notes.
+* **Verify, don't assume.** APIs, options and package names it remembers may
+  not exist, and a made-up method name looks exactly like a real one. Check
+  the docs, the installed version and what actually runs. Run the tests
+  after each change and report failures. If something wasn't verified, say
+  so and how to check it.
+* **Example output comes from running the program**, never from memory. Keep
+  the input next to it so it can be regenerated. Notes say how and when they
+  were checked: one of elm's was marked "verified live" and was backwards for
+  months.
+* **Fix the template, not the output.** Say in `CLAUDE.md` which files are
+  generated, because an assistant edits whatever file it finds.
+* **Approval doesn't carry over.** Confirm risky or irreversible actions
+  every time (push, overwrite, delete, force, shared systems) unless
+  standing permission is written down. Explain any shell command it
+  suggests, and flag anything destructive.
+* **Stop and ask** when requirements conflict, data could be lost,
+  behaviour or intent is unclear, the security impact is unclear, or the
+  options differ in ways that matter.
 
-Read the surrounding code, its invariants and conventions, and why it exists
-before changing it. Awkward code may reflect operational constraints,
-compatibility, historical bugs, performance, or external interfaces.
+When instructions conflict, this order wins: my request now, security and
+safety, design docs, `CLAUDE.md`, local comments and conventions, `todo.md`,
+then old decisions in memory. If it's still unclear, stop and ask.
 
-## Instruction precedence
+## When it makes a mistake
 
-1. Explicit user request in the current session
-2. Security and safety constraints
-3. Architecture and design documents
-4. Project rules (`CLAUDE.md`)
-5. Inline comments and local conventions
-6. TODO items and journals
-7. Historical decisions in memory files
+Treat it as a process failure. Fix the code, find why it happened, fix the
+rule or doc that let it happen, restore anything wrongly deleted, save the
+lesson, and say what changed. The same kind of mistake twice needs a
+stronger rule or a better check.
 
-If a conflict remains, stop, explain it, and ask. Do not guess.
+For odd constants, timeouts, retries and workarounds, write down the problem,
+the evidence, what was tested, why that value, and what risk is left.
+Behaviour without the reason behind it turns into superstition.
 
-## Stop and ask when
+## Sensitive data and security
 
-Requirements conflict, data could be lost, behaviour is ambiguous, security
-implications are unclear, architectural intent can't be inferred, or
-reasonable options differ materially in tradeoffs.
+Anything sent to an AI service may be logged or kept. Use placeholders for
+real account names, hostnames, IPs and usernames, and the same ones
+everywhere (elm uses `portal01`, `web01`, `lm01`). Never paste credentials or
+tokens. Sanitise logs and API responses, or describe their shape instead.
 
-# AI behaviour rules
+Review AI code for hardcoded secrets, command injection from building
+strings, missing input checks, insecure defaults, and made-up or malicious
+packages. Passing tests don't prove it's safe. Before adding a dependency,
+check it exists, is maintained and has no known CVEs. Review again when a
+big feature lands or dependencies change. Don't copy code from licensed
+sources word for word.
 
-## General
+Limit what the assistant can reach, not just what it's told. elm is
+read-only, the assistant runs in a sandbox, and its LogicMonitor profile
+allows only the commands it needs.
 
-Be direct and technically honest. Say when something is wrong and why, push
-back before implementing questionable changes, separate facts from
-assumptions, and explain tradeoffs. No flattery, no simulated certainty: if
-unsure, say what is missing and how to verify it. A thirty-second argument
-beats chasing a bad change afterward.
+## Starting a session
 
-## Working with code
-
-- Keep existing comments, debug output and logging unless asked; if something
-  should go, say so and let the author decide.
-- Keep scope tight: no speculative refactors, formatting churn or unexplained
-  renames; record unrelated issues separately instead of silently fixing them.
-- Match surrounding style.
-- Before architectural changes, explain reasoning, tradeoffs and risks, and
-  check assumptions against the design docs.
-- Avoid reproducing verbatim code from known licensed sources; in commercial
-  work, flag output that closely resembles a specific library.
-
-## Verify, don't assume
-
-APIs, methods, config options, package names and remembered examples may not
-exist or may be out of date. Check against official docs, existing project
-usage, installed versions and actual runtime behaviour - plausible code is not
-evidence, and a hallucinated method name looks exactly like a real one.
-
-After each meaningful change, run the tests, linters and checks, and report
-failures. Never claim something works without verifying it; if you can't,
-say what remains unverified and how to check it.
-
-Documentation examples of program output (tables, CLI sessions, JSON,
-reports) must come from running the program, never from memory. Keep the input
-that produced each example nearby and regenerate it when the format changes.
-
-## Generated files
-
-Document prominently (in `CLAUDE.md`) which files are generated, what produces
-them, and how to regenerate them. Fix the template, never the output - an AI
-will edit whatever file it finds unless told otherwise.
-
-## Sensitive data
-
-Anything sent to an AI service may be logged, retained or used for training.
-Replace real account names, hostnames, IPs and usernames with placeholders;
-never paste credentials, keys or tokens; sanitise logs and API responses, or
-describe their structure instead. Use the same documented placeholders across
-examples, issues, docs and test fixtures.
-
-## Security review
-
-AI-generated code can contain hardcoded secrets, command injection from string
-concatenation, missing input validation at boundaries, insecure defaults, and
-invented or malicious packages. Review for these before accepting; passing
-tests are not evidence of safety. Before adding a suggested dependency, check
-that it exists, is maintained, and has no known CVEs.
-
-Review AI-contributed code again when a significant feature completes and when
-dependencies change - also for committed credentials and needless
-dependencies - and record what was checked, found and fixed in the journal.
-
-## Scope of authorisation
-
-Approving an action once does not approve it elsewhere. Confirm risky or
-irreversible operations every time (pushing, overwriting or dropping data,
-force operations, shared infrastructure) unless standing permission is
-recorded in a file both human and AI can read. When suggesting a shell
-command, explain it and flag anything destructive.
-
-## Journal
-
-Keep a `journal.md` of recent work, parked ideas, open questions and lessons.
-Update it when significant work completes, mistakes reveal missing rules,
-decisions change, or work is deferred. Record reasoning - why, what was
-rejected, what is uncertain - not every edit. It is operational memory, not a
-changelog.
-
-For non-obvious constants, timeouts, retries, thresholds and workarounds,
-record the observed problem, the evidence, what was tested, why that value was
-chosen, and what risk remains. Keep code comments short but make the reasoning
-traceable. Behaviour without preserved reasoning becomes superstition.
-
-## Session startup
-
-Assume a cold start: read the journal, check parked ideas and open questions,
-and note the current state before starting work.
-
-# Recommended structure
+Assume it knows nothing. With the above in place, a prompt can be this
+small:
 
 ```text
-project/
-├── CLAUDE.md
-├── .claude/skills/   one directory per workflow, each with a SKILL.md
-├── journal.md
-├── todo.md
-├── memory/        user.md, feedback.md, project.md, references.md
-├── docs/          architecture.md, design.md, workflows.md, coding-standards.md,
-│                  ai-workflow.md, ai-rules.md, ai-security.md, project-memory.md
-└── src/
-```
-
-With that in place, a working prompt can be this small:
-
-```text
-Read the project docs and journal.
-Complete the highest priority TODO item.
-Use TDD where practical.
-Update journal.md if new lessons, decisions, or operational knowledge emerge.
+Read CLAUDE.md and todo.md.
+Do the highest priority item.
+Use TDD where it fits.
+Save anything new we learnt.
 ```

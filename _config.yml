@@ -1,5 +1,7 @@
 theme: jekyll-theme-cayman
 title: elm
-description: A read-only CLI for extracting LogicMonitor data via the API
+description: LogicMonitor tools that look but don't touch
+plugins:
+  - jekyll-feed
 github:
   repository_url: https://github.com/rdmarsh/elm

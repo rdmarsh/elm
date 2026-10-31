@@ -9,8 +9,8 @@ accounts `acme`, `acmepreprod` and `acmetest`, people `@example.com`. The
 tables are illustrations of the shape, not real output.
 
 **See also:**
-- [README: several portals at once](../README.md#several-portals-at-once) and
-  [nested fields](../README.md#nested-fields--e-and-dotted--f) for the flags
+- [README: several portals at once](https://github.com/rdmarsh/elm#several-portals-at-once) and
+  [nested fields](https://github.com/rdmarsh/elm#nested-fields--e-and-dotted--f) for the flags
 - [tools/README: portal matrix](../tools/README.md#portal-matrix) for the
   table tool's options
 - [tools/elm-compare-portals.sh](../tools/elm-compare-portals.sh) builds a whole comparison page, and
