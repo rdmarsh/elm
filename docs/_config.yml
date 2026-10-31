@@ -1,0 +1,12 @@
+# The elm and Samara site: https://rdmarsh.github.io/elm/
+# Pages builds this folder only (Settings > Pages > main, /docs), so nothing
+# else in the repo is published. Minima is Jekyll's blog theme; Pages has it.
+title: elm
+description: LogicMonitor tools that look but don't touch
+author: David Marsh
+github_username: rdmarsh
+theme: minima
+plugins:
+  - jekyll-feed
+minima:
+  date_format: "%Y-%m-%d"

@@ -1,0 +1,11 @@
+---
+---
+@import "minima";
+
+// A post's subtitle (its description), under the title: see _layouts/post.html.
+.post-subtitle { color: $grey-color; font-size: 1.25rem; font-style: italic; margin: -4px 0 6px; }
+// The Samara screenshot carries its own frame and shadow.
+.post-content img, .home img { display: block; margin: 24px auto; }
+// Minima's header menu lists every titled page; the only one is home, which
+// the site title already links to. (An empty header_pages falls back to all.)
+.site-nav { display: none; }

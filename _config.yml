@@ -5,3 +5,5 @@ plugins:
   - jekyll-feed
 github:
   repository_url: https://github.com/rdmarsh/elm
+exclude:
+  - docs
