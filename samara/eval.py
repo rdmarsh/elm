@@ -142,7 +142,7 @@ def main():
     try:
         values = tomllib.loads(Path(a.values).read_text())
     except FileNotFoundError:
-        names = sorted({m for c in cases for m in re.findall(r"{(\w+)}", json.dumps(c))})
+        names = sorted({m for c in cases for m in re.findall(r"{(\w+)}", json.dumps(c))} - {"yesterday"})   # eval.py fills it
         sys.exit(f"eval: no {a.values}. Make it with a value for each of: {', '.join(names)}\n"
                  f"(see the top of eval.toml)")
     now = datetime.date.today()
