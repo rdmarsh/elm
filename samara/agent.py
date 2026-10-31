@@ -559,7 +559,12 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 answer = (f"I could not get this from {elm_tools.portal() or 'the portal'}: every query I tried "
                           f"failed. The last one said: {why[:300]}")
                 forced = forced or ""
-            if summaries and used - LOOKUP_TOOLS <= {"recipe"} and len(summaries) == recipe_calls:
+            # Its own queries all failed: nothing it added came from them, so its
+            # answer is the recipes' as much as if only recipes had run. Retyped,
+            # "4 alerts started in the last hour" said it twice, with "the table
+            # below" (gpt-oss-20b, 2026-10-31).
+            only_recipes = used - LOOKUP_TOOLS <= {"recipe"} or (own and not any(ok(r) for r in own))
+            if summaries and only_recipes and len(summaries) == recipe_calls:
                 # Nothing but recipes, all of which ran: their summaries are the
                 # answer, word for word. Retyping them, a small model changed a
                 # group name and left in "the table below" and instructions
@@ -588,7 +593,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 answer += "\n\n_Nothing in this answer was looked up in the portal._"
             if covered:
                 answer = with_covers(answer, covered)
-            if "run_elm" in used and forced is None:
+            if "run_elm" in used and forced is None and any(ok(r) for r in own):
                 # Above How I worked this out, which the page folds away.
                 m = WORKED.search(answer)
                 at = m.start() if m else len(answer)
