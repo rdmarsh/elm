@@ -81,8 +81,10 @@ evaluate() {   # the ports given, one after another
     done
 }
 servers=$(for m in "${MODELS[@]}"; do read -r _ _ url <<<"$m"; echo "$url"; done | sort -u)
+queues=()
 for server in $servers; do
     evaluate $(for m in "${MODELS[@]}"; do read -r port _ url <<<"$m"; [[ $url == "$server" ]] && echo "$port"; done) &
+    queues+=($!)
 done
-wait
+wait "${queues[@]}"   # not a bare wait: the run.sh servers above are jobs too, and never end
 tail -n1 "$LOGS"/eval-"$day"-*.txt
