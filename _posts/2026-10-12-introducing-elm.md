@@ -9,7 +9,7 @@ tldr; I built [elm](https://github.com/rdmarsh/elm), a command-line tool that
 gets data out of LogicMonitor in one command, in whatever format you need
 next. It only reads, so it can't change anything in your portal.
 
-If you look after LogicMonitor, you've probably been asked something like
+If you look after LogicMonitor, you've undoubtedly been asked something like
 this:
 
 * Which devices are in downtime right now, and who put them there?
@@ -83,13 +83,12 @@ a scheduled check.
 ## plain-English questions
 
 The newest piece is
-[Samara](https://github.com/rdmarsh/elm/tree/main/samara) (it was called
-elm-ask when this post went up): a small web page where someone who has never
+[Samara](https://github.com/rdmarsh/elm/tree/main/samara): a small web page where someone who has never
 used a command line can type "which Windows devices have alerts?" and get back
 an answer, a sortable table and the elm queries that produced it.
 
 Everything goes through elm, so it can only read. It also uses its own
-credential profile, limited to a list of commands I've approved. Secrets and
+credential profile, limited to a list of commands allowed by the credential file. Secrets and
 contact details are removed before the model sees any data, and the model never
 reads descriptions, notes or logins at all: you see them in the tables, it
 doesn't.
@@ -104,7 +103,9 @@ each one pipes elm's output into the next step.
 
 ## how it was built
 
-elm started in 2021 as a weekend script and has grown over almost 600 commits.
+elm started in 2021 as a weekend script, spun off from earlier work on
+[zahar](https://github.com/rdmarsh/zahar), a now-archived project that did
+the same for Zabbix. It has grown over almost 600 commits.
 A lot of the recent work was done with an AI coding assistant. The main thing
 I've learnt is that it works best when what the project knows lives in files,
 not in chat: rules, decisions and test results, written down where both of us
