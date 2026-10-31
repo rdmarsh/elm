@@ -111,6 +111,13 @@
   .turn.earlier:not(.open) > :not(.question) { display: none; }
   .turn.earlier .question { margin-bottom: 0; color: var(--muted); }
   .turn.earlier.open .question { margin-bottom: 8px; }
+  /* Where an answer came from (agent.py source): words first, colour only where
+     the reader should act. No green: a checked query can still answer a
+     nearby question, which "What this answers" says. */
+  .source { display: inline-block; margin: 0 0 8px; padding: 1px 9px; border: 1px solid var(--line);
+            border-radius: 999px; color: var(--muted); font-size: .8rem; cursor: help; }
+  .source.own, .source.unfound { color: var(--warn-ink); background: var(--warn-bg); border-color: transparent; }
+  .source.none { border-style: dashed; }
   .retry-note { color: var(--muted); font-size: .85rem; font-style: italic; margin: -2px 0 8px; }
   details.steps { font-size: .85rem; color: var(--muted); margin-top: 12px; }
   details.steps .worked { color: var(--ink); opacity: .85; }
@@ -218,6 +225,23 @@ const ICON = {
   bug: `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="9.5" rx="3.5" ry="4.5"/><path d="M6 5a2 2 0 0 1 4 0M8 5.5V14M4.5 8H2M4.5 11.5H2.5M11.5 8H14M11.5 11.5h2M5.5 5.5 4 4M10.5 5.5 12 4"/></svg>`,
   md: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M4 11V6l2 2.5L8 6v5M11 6v3.5M11 10l1.5-1.5M11 10 9.5 8.5"/></svg>`,
 };
+// The label above each answer: what Samara knows about where it came from.
+const SOURCE = {
+  checked: ["Checked query", "Every fact here came from Samara's own checked queries (recipes). "
+    + "They can still answer a nearby question: \"What this answers\" says which."],
+  own: ["Model's own query · check it", "Part of this came from queries the model wrote itself. "
+    + "Those have been wrong before: check the numbers under How I worked this out."],
+  none: ["Not looked up", "Nothing in this answer came from the portal: nothing was looked up, "
+    + "or every query failed. Fine for what a word means; not for facts about your portal."],
+};
+// Numbers in the answer that no query returned (agent.unfound): said on the label,
+// and listed on hover, so the reader knows which to doubt.
+const notFound = u => u && u.length ? ` · ${u.length === 1 ? "1 number" : `${u.length} numbers`} not found in the data` : "";
+const sourceText = (s, u) => SOURCE[s] ? SOURCE[s][0] + notFound(u) : "";
+const sourceHtml = (s, u) => SOURCE[s] ? `<p class="source ${s}${u && u.length ? " unfound" : ""}" title="${
+  esc(SOURCE[s][1] + (u && u.length ? ` Not found in what the queries returned: ${u.join(", ")}.` : ""))}">${
+  esc(sourceText(s, u))}</p>` : "";
+
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
 let conversationId = null;
 
@@ -376,6 +400,8 @@ function answerMarkdown(a) {
     + (health && health.build ? ` · build ${health.build}` : "");
   const [main, worked] = splitWorked(a.answer);
   return [`# ${a.question}`, "",   // the same order as the page: the answer, its tables, how it was worked out
+    ...(SOURCE[a.source] ? [`_Source: ${sourceText(a.source, a.unfound)}${
+      a.unfound && a.unfound.length ? ` (${a.unfound.join(", ")})` : ""}_`, ""] : []),
     main.trim(), "",
     ...a.tables.map(tableMarkdown),
     a.tables.length ? "" : null,
@@ -610,7 +636,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   });
 
   await stream(t, $(".part", turn), { question, harder }, ev => {
-    t.md.answer = ev.markdown;
+    t.md.answer = ev.markdown; t.md.source = ev.source; t.md.unfound = ev.unfound;
     $(".copy", turn).hidden = false;
     $(".md-toggle", turn).hidden = false;
     $(".more-detail", turn).hidden = false;
@@ -674,7 +700,7 @@ async function stream(t, part, body, onAnswer) {
         break;
       case "answer": {
         const [main, worked] = splitWorked(ev.markdown);
-        $(".answer", part).innerHTML = markdown(main);
+        $(".answer", part).innerHTML = sourceHtml(ev.source, ev.unfound) + markdown(main);
         const heading = onAnswer(ev);
         answered = true;
         if (worked.trim()) {

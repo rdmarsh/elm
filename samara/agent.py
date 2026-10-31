@@ -338,6 +338,13 @@ def with_covers(answer, covered):
     return (answer[:at].rstrip() + "\n\n" + line + "\n\n" + answer[at:]).strip()
 
 
+# Sent back with an answer that looked nothing up (agent._ask).
+LOOK_IT_UP = ("You answered without looking anything up, so nothing in that answer came from "
+              "the portal. If the question is about this portal's devices, groups, collectors, "
+              "alerts, downtime or websites, call a recipe or a tool now and answer only from "
+              "what it returns. If it is not (what a term means, or off topic), give the same "
+              "answer again.")
+
 # Never a blank answer: "(no answer)" read as a fault (qwen3-8b, 2026-10-31).
 NO_ANSWER = "I could not put an answer together for this one. Try asking it another way."
 
@@ -352,6 +359,38 @@ LOOKUP_TOOLS = {"find_commands", "describe_command"}
 BEST_AT = "what is happening now: devices, groups, collectors, open alerts, downtime and website checks"
 
 
+# Numbers that are not facts to check: dates, times and how long ago, which
+# Samara works out from epochs (recipes.py PRELUDE), not the data as it stands.
+NOT_FACTS = re.compile(
+    r"\d{4}-\d{2}-\d{2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?"
+    r"|\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?: \d{4})?"
+    r"|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?"
+    r"|\d{1,2}:\d{2}(?::\d{2})?"
+    r"|(?:in about |about )?(?<![\d.])\d+(?:\.\d+)? (?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)(?: ago)?", re.I)
+NUMBER = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?(?![\w])")
+
+
+def unfound(answer, seen):
+    """The answer's numbers that are in none of the tool results it had.
+
+    Nothing the model writes is checked otherwise: "dead since 29 Oct" and
+    ids 123 and 456 (qwen3-30b-a3b, qwen3-8b, 2026-10-31) came from nowhere.
+    A count the model made itself is not found either, which is right: no
+    query said it. Notes in italics and How I worked this out are Samara's.
+    """
+    answer = re.sub(r"[\u2010-\u2015\u2212]", "-", answer).replace("\u00a0", " ").replace("\u202f", " ")
+    m = WORKED.search(answer)
+    main = "\n".join(l for l in (answer[:m.start()] if m else answer).splitlines() if not l.lstrip().startswith("_"))
+    main = NOT_FACTS.sub(" ", main)
+    have = {n.replace(",", "") for n in NUMBER.findall(NOT_FACTS.sub(" ", " ".join(seen)) + " " + " ".join(seen))}
+    out = []
+    for n in NUMBER.findall(main):
+        n = n.replace(",", "").rstrip(".")
+        if n and n not in have and n not in out:
+            out.append(n)
+    return out
+
+
 def ok(result):
     """Whether a step's result is data, not a failure."""
     return not str(result).startswith(("failed", "error"))
@@ -362,12 +401,10 @@ def unchecked(partly, more):
 
     Recipes are checked in advance; run_elm queries are the model's own, and
     nearly every confident wrong answer in testing came from them (qwen3-8b,
-    2026-10-29). The reader should know which kind they are reading, and what
-    to ask instead for a checked answer.
+    2026-10-29). The label above the answer says which kind it is; this says
+    what Samara is best at, and what to ask instead.
     """
-    note = (f"_I'm best at {BEST_AT}. " + ("I worked part of this out myself" if partly
-                                           else "I worked this one out myself") + ", so check it")
-    return note + (": Think harder asks a bigger model._" if more else "._")
+    return f"_I'm best at {BEST_AT}" + (": Think harder asks a bigger model._" if more else "._")
 
 
 def call_tool(conv, block):
@@ -517,6 +554,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     failed_calls = {}   # tool call -> times it failed, to stop a model retrying the same one
     done_calls = set()   # tool calls that worked, so a repeat is not run (or tabled) twice
     forced = None   # set to end the turn without asking the model again: the answer's own text
+    seen = []   # every tool result and table this turn: what the answer's numbers may come from
+    nudged = None   # where the answer sent back for looking nothing up is, in conv.messages
     for _ in range(MAX_STEPS):
         if conv.stop.is_set():
             raise Stopped()
@@ -542,6 +581,16 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         if not tool_uses:
             # The model's own words, before Samara tidies them: for the bug report (index.html).
             emit({"type": "draft", "text": "\n\n".join(texts)})
+            if not used - LOOKUP_TOOLS and nudged is None and question != DETAIL_REQUEST and forced is None:
+                # An answer with no lookup behind it, sent back once. Asked "is
+                # web01 okay?", a model called nothing and wrote "dead since
+                # 29 Oct", with a How I worked this out naming a recipe that never
+                # ran (qwen3-30b-a3b, 2026-10-31: 34 of 54 answers called no tool).
+                # A definition or a joke comes back the same, which is right.
+                nudged = len(conv.messages) - 1
+                conv.messages.append({"role": "user", "content": LOOK_IT_UP})
+                emit({"type": "status", "text": "Checking it against the portal..."})
+                continue
             answer = (no_echoes(no_commands(CALL_TEXT.sub("", "\n\n".join(texts))))
                       or "\n\n".join(dict.fromkeys(summaries)) or NO_ANSWER)
             if tabled:
@@ -587,21 +636,29 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             elif WORKED.search(answer):
                 # Nothing ran, so any How I worked this out is made up.
                 answer = answer[:WORKED.search(answer).start()].rstrip() or answer
-            if not used - LOOKUP_TOOLS:
-                # "What does web02 do?" got a made-up LogicMonitor feature, no query
-                # (qwen3-30b, 2026-10-30): say when nothing came from the portal.
-                answer += "\n\n_Nothing in this answer was looked up in the portal._"
             if covered:
                 answer = with_covers(answer, covered)
-            if "run_elm" in used and forced is None and any(ok(r) for r in own):
+            # Where the answer came from, for the label above it (index.html):
+            # what Samara knows, not how sure the model says it is. "What does
+            # web02 do?" got a made-up feature with no query (qwen3-30b,
+            # 2026-10-30): the label says nothing was looked up.
+            failed = any("could not get an answer" in x for x in summaries)
+            source = ("none" if not used - LOOKUP_TOOLS or failed or (not summaries and not any(ok(r) for r in own))
+                      else "own" if any(ok(r) for r in own) else "checked")
+            if source == "own" and forced is None:
                 # Above How I worked this out, which the page folds away.
                 m = WORKED.search(answer)
                 at = m.start() if m else len(answer)
                 answer = (answer[:at].rstrip() + "\n\n" + unchecked("recipe" in used, more) + "\n\n" + answer[at:]).strip()
             if response.stop_reason == "max_tokens":
                 answer += "\n\n_(Answer was cut off at the length limit.)_"
+            if nudged is not None:
+                # The unchecked answer and the nudge leave the conversation, so a
+                # follow-up cannot build on what it made up.
+                del conv.messages[nudged:nudged + 2]
             spent()
-            emit({"type": "answer", "markdown": answer})
+            missing = unfound(answer, seen + summaries) if source != "none" else []
+            emit({"type": "answer", "markdown": answer, "source": source, "unfound": missing})
             return
 
         for text in texts:
@@ -647,6 +704,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     result["content"] += "\nSamara puts the table and How I worked this out under your answer itself."
                 else:
                     tabled = tabled or event["type"] == "table"
+                    if event["type"] == "table":
+                        seen.append(json.dumps(event.get("rows", [])))
                     if event["type"] == "step" and openai_api.block(block, "name") != "recipe":
                         ran.append(ran_line(event))
                         own.append(event.get("result", ""))
@@ -667,6 +726,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 failed_calls[call] = failed_calls.get(call, 0) + 1
             else:
                 done_calls.add(call)
+        seen += [str(r.get("content", "")) for r in results]
         conv.messages.append({"role": "user", "content": results})
 
     del conv.messages[start:]
