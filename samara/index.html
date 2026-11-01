@@ -31,10 +31,6 @@
   body.has-results h1 { font-size: 1.2rem; }
   header p { color: var(--muted); margin: 4px 0 0; }
   body.has-results header p { display: none; }
-  /* Start over: only once there is a conversation to clear. */
-  body.has-results header { display: flex; align-items: baseline; gap: 16px; }   /* Start over beside the title */
-  #restart { color: var(--muted); font-size: .85rem; }
-  body:not(.has-results) #restart { display: none; }
   /* Read by screen readers, not shown: "Answer ready", "Stopped", errors. */
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
@@ -46,6 +42,12 @@
            background: var(--accent); color: var(--accent-ink); }
   #go { min-width: 110px; }   /* wide enough to read as a button, not an icon */
   #go.stop { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  /* New topic: only once there is something to move on from. */
+  #topic { background: transparent; color: var(--ink); border: 1px solid var(--line); white-space: nowrap; }
+  body:not(.has-results) #topic { display: none; }
+  /* The line New topic draws between conversations (newest is on top). */
+  .topic-break { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .8rem; margin: 24px 0 0; }
+  .topic-break::before, .topic-break::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
   /* The top step, Ultrathink, in rainbow: a nod to Claude Code, where typing
      ultrathink asks for the most thinking and lights up the same way. Brighter
      colours in dark mode, a shimmer only on hover, none for reduced motion, and
@@ -173,6 +175,7 @@
   @media (max-width: 520px) {   /* phones: less padding, a smaller Ask button */
     main { padding-top: 16px; }
     #go { min-width: 72px; padding: 0 14px; }
+    #topic { padding: 0 12px; }
     .turn { padding: 14px; }
     h1 { font-size: 1.6rem; }
   }
@@ -213,13 +216,13 @@
   <header>
     <h1><a href="/"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14532d"/><path d="M20 46 C 13 33, 22 15, 49 13 C 51 33, 39 49, 20 46 Z" fill="#86efac"/><path d="M20 46 L 46 17" stroke="#14532d" stroke-width="2.4" stroke-linecap="round"/><path d="M26 39 L 20 33 M26 39 L 34 41 M32 32 L 27 24 M32 32 L 41 34 M38 25 L 35 18 M38 25 L 45 26" stroke="#14532d" stroke-width="1.8" stroke-linecap="round"/><path d="M20 46 L 13 53" stroke="#86efac" stroke-width="4" stroke-linecap="round"/></svg>Samara</a></h1>
     <p id="subtitle">Ask about your LogicMonitor portal in plain English. Read-only.</p>
-    <a id="restart" href="/" title="Clear this conversation and start again">Start over</a>
   </header>
   <div id="announce" class="sr-only" aria-live="polite"></div>
 
   <form id="form">
     <input id="q" autocomplete="off" placeholder="e.g. what alerts started in the last hour?" autofocus>
     <button id="go" type="submit">Ask</button>
+    <button id="topic" type="button" title="Ask something unrelated: Samara forgets the questions before">New topic</button>
   </form>
 
   <div class="examples">
@@ -472,6 +475,23 @@ form.addEventListener("submit", e => {
 go.addEventListener("click", e => {
   if (current) { e.preventDefault(); current.abort(); }
 });
+// New topic: the next question starts a conversation of its own, so nothing
+// asked before (answers, tables, "the first one") carries into it, and a small
+// model is not handed the whole history again. The earlier answers stay on the
+// page, under a line. With a question in the box, it is asked straight away.
+const topic = $("#topic");
+topic.addEventListener("click", () => {
+  if (current) return;
+  conversationId = null; level = 0; atTop = false;
+  for (const d in producers) delete producers[d];   // the new conversation numbers its datasets from d1 again
+  // Only the newest answer of a conversation can be retried or extended.
+  document.querySelectorAll(".harder, .more-detail, .retry").forEach(b => b.remove());
+  if (results.firstElementChild && !results.firstElementChild.classList.contains("topic-break"))
+    results.insertAdjacentHTML("afterbegin", `<p class="topic-break" role="separator">New topic</p>`);
+  input.placeholder = "Ask about something new";
+  const question = input.value.trim();
+  if (question) ask(question, 0); else input.focus();
+});
 // Esc stops it too, from anywhere on the page, as in most chat tools. Only while
 // Samara works: otherwise Esc is left to the browser and the page.
 document.addEventListener("keydown", e => {
@@ -484,7 +504,7 @@ document.addEventListener("keydown", e => {
 let level = 0;       // steps up the ladder this conversation has gone; 0 is the default model
 let atTop = false;   // whether that step is the top one
 // Think harder is for one question (agent.py): the next goes to the default model.
-const setPlaceholder = () => input.placeholder = "Ask a follow-up question, or something new";
+const setPlaceholder = () => input.placeholder = "Ask a follow-up question";   // something else: New topic
 const retryNote = (top, model) => top
   ? `Really putting my back into it: asking ${model}, the most capable model.`
   : `Rolling up my sleeves: asking again with ${model}.`;
@@ -724,6 +744,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
 async function stream(t, part, body, onAnswer) {
   current = new AbortController();
   go.textContent = "Stop"; go.title = "Stop (Esc)"; go.classList.add("stop");
+  topic.disabled = true;
   announce("Working on it");
   let answered = false, failed = "", stopped = false;   // Keep going after a Stop, Try again after an error
   const began = Date.now();
@@ -808,6 +829,7 @@ async function stream(t, part, body, onAnswer) {
   } finally {
     current = null;
     go.textContent = "Ask"; go.title = ""; go.classList.remove("stop");
+    topic.disabled = false;
     if (failed) t.events.push({ type: "page", text: failed });
     $(".debug", t.turn).hidden = false;   // a failed answer is when it is most wanted
     $(".status", part).remove();

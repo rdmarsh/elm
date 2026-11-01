@@ -32,7 +32,9 @@ goes back to the default model, so a dearer model is something you ask for each
 time. Two steps are usual: a local model, then one more capable one
 (`-m qwen3-8b-mlx,sonnet`).
 While it works, **Ask** becomes **Stop**; a stopped question has **Keep going**
-and a failed one **Try again**, and **Start over** clears the conversation.
+and a failed one **Try again**. **Ask** is a follow-up ("add a percentage to that
+table"); **New topic** starts afresh, with nothing asked before carried into it,
+and leaves the earlier answers on the page under a line.
 
 Each answer carries two buttons: **Markdown** shows the whole answer -- question,
 text, tables as Markdown tables, and the queries behind it -- ready to copy into
