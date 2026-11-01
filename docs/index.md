@@ -64,7 +64,7 @@ It runs on your own machine, with Claude or with a local model. With a local
 model, your portal data isn't sent to an AI company. Getting local models to
 answer as well is what I'm working on now. [Set it up](https://github.com/rdmarsh/elm/tree/main/samara#readme).
 
-![Samara answering "is web01 okay?": not responding, with four open alerts in a table, two acknowledged with notes]({{ "/assets/samara.png" | relative_url }})
+![Samara answering "is web01 okay?": not responding, with four open alerts in a table, two acknowledged with notes]({{ "/assets/samara-2026-11-01.png" | relative_url }})
 
 ## also here
 
