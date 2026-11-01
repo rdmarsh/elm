@@ -18,6 +18,13 @@ recipes.yaml, one entry per recipe:
   many          a lookup that may match several (find_device): no "which one?"
   days          how far ahead it looks by default; the model may pass another
                 (1 to MAX_DAYS). jq sees it as `days`; title and covers as {days}
+  options       choices the model passes as tool arguments (the alerts recipe):
+                each value is a filter and words, joined into the step's
+                {options} filter and the {alerts}{qual} of covers, title and
+                says (jq: `which`, `qual`). `default` when not passed; `sets`
+                another's default, which then says nothing; `text` takes a
+                name instead of a list of values; `before` puts the words
+                before "alerts"
   steps         elm queries, each saved as `$<as>` for the jq below. Filters
                 and params are str.format templates over the lookups
                 ({device[id]}); `size: all` pages past 1000 rows; `when` is a
@@ -146,11 +153,46 @@ def nearest(value):
     return known[close[0]] if close else None
 
 
-def run_recipe(session, recipe, device=None, group=None, collector=None, person=None, days=None):
+def choose(r, given):
+    """A recipe's options from the tool arguments: (filter, words before "alerts", words after)."""
+    opts = r.get("options", {})
+    picked, quiet = {}, set()
+    for name, o in opts.items():
+        v = str(given.get(name) or "").strip()
+        if not v:
+            continue
+        if "text" in o:
+            if re.search(r'["\\,{}]', v):
+                raise ValueError(f"{name}: the name as the person wrote it, without quotes or commas")
+        elif v not in o["values"]:
+            raise ValueError(f"{name} must be one of: {', '.join(o['values'])}")
+        picked[name] = v
+    for name in list(picked):
+        for other, v in opts[name].get("sets", {}).items():
+            if other not in picked:
+                picked[other] = v
+                quiet.add(other)   # "that cleared in the last hour" already says cleared
+    for name, o in opts.items():
+        if name not in picked and "default" in o:
+            picked[name] = o["default"]
+    filters, before, after = [], "", ""
+    for name, o in opts.items():
+        if name in picked:
+            spec = o["text"] if "text" in o else o["values"][picked[name]]
+            filters.append(spec["filter"].format(picked[name], field=o.get("field", "")))
+            if name not in quiet:
+                words = o.get("verb", "") + spec["words"].format(picked[name])
+                before, after = (before + words, after) if o.get("before") else (before, after + words)
+    return ",".join(filters), before, after
+
+
+def run_recipe(session, recipe, device=None, group=None, collector=None, person=None, days=None, **options):
     """Run one recipe; return (text for the model, [step and table events])."""
     r = RECIPES.get(recipe)
     if not r:
         raise ValueError(f"No recipe {recipe!r}. Recipes: {', '.join(RECIPES)}")
+    # Options on a recipe without them are ignored, as days is.
+    chosen, before, after = choose(r, options)
     # days on a recipe without it is ignored: the answer says what it covers.
     ahead = None
     if "days" in r:
@@ -158,7 +200,8 @@ def run_recipe(session, recipe, device=None, group=None, collector=None, person=
             ahead = min(max(int(days or r["days"]), 1), MAX_DAYS)
         except (TypeError, ValueError):
             ahead = r["days"]
-    covers = r.get("covers", "").format(days=ahead) or None
+    fill = {"days": ahead, "alerts": f"{before}alerts", "Alerts": f"{before}alerts".capitalize(), "qual": after}
+    covers = r.get("covers", "").format(**fill) or None
     given = {"device": device, "group": group, "collector": collector, "person": person}
     for param, value in given.items():
         if value and param not in r.get("params", []):
@@ -179,7 +222,8 @@ def run_recipe(session, recipe, device=None, group=None, collector=None, person=
         # $device -> $d3: the page's rerun script binds datasets by id.
         for name, ds_id in names.items():
             expression = re.sub(rf"\${name}\b", f"${ds_id}", expression)
-        return PRELUDE + (f"def days: {ahead};\n" if ahead else "") + expression
+        return (PRELUDE + (f"def days: {ahead};\n" if ahead else "")
+                + f"def which: {json.dumps(before + 'alert')}; def qual: {json.dumps(after)};\n" + expression)
 
     try:
         for param in r.get("params", []):
@@ -258,7 +302,7 @@ def run_recipe(session, recipe, device=None, group=None, collector=None, person=
                     shown = one if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
                 keep(step["as"], lines, shown, step["as"], step["run"])
                 continue
-            kw = {"filter": step["filter"].format(**records) if "filter" in step else None,
+            kw = {"filter": step["filter"].format(**records, options=chosen) if "filter" in step else None,
                   "fields": step.get("fields"),
                   "params": {k: str(v).format(**records) for k, v in step.get("params", {}).items()} or None}
             if step.get("size") == "all":
@@ -300,15 +344,22 @@ def run_recipe(session, recipe, device=None, group=None, collector=None, person=
                  f"({data}); add nothing else.")
     if "table" in r:
         t = r["table"]
-        note, table = elm_tools.show_table(session, t["title"].format(**records, days=ahead), jq(t["rows"]), t["columns"])
+        note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), jq(t["rows"]), t["columns"])
         if table["total"]:
             events.append(table)
     worked = [f"Found the {p} by name." for p in r.get("params", [])]
-    says = [step.get("says", step["as"]) for step in r.get("steps", []) if step["as"] not in skipped]
+    says = [step.get("says", step["as"]).format(**fill) for step in r.get("steps", []) if step["as"] not in skipped]
     worked += [line[:1].upper() + line[1:] + "." for line in says]
     events.append({"type": "worked", "lines": worked, "summary": summary, "covers": covers})
     return text, events
 
+
+# Every recipe's options, as tool arguments: an enum of their values, or a name.
+OPTIONS = {}
+for _r in RECIPES.values():
+    for _name, _o in _r.get("options", {}).items():
+        OPTIONS[_name] = {"type": "string", "description": f"For {_r['name']}: {_o['about']}"} | (
+            {} if "text" in _o else {"enum": list(_o["values"])})
 
 # Registered with the other tools, first, so a model reading the list in
 # order meets it before run_elm. Importing this module is what adds it.
@@ -324,6 +375,7 @@ elm_tools.TOOLS.insert(0, {
             "group": {"type": "string", "description": "For a group recipe: the group's name or path as the person wrote it"},
             "collector": {"type": "string", "description": "For a collector recipe: the collector's name or number as the person wrote it"},
             "person": {"type": "string", "description": "For a person recipe: the person's name as written"},
+            **OPTIONS,
             "days": {"type": "integer", "description": "For downtime: how many days ahead to look, "
                      "if the question says (\"next 3 days\" is 3); leave it out otherwise"},
         },

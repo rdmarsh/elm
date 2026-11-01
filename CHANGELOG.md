@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Samara's `alerts` check answers alert questions with a time, state, severity, downtime or check name in them: "how many alerts started yesterday?", "what cleared in the last hour?", "are any alerts still open that started during SDT?", "which warnings started this week?". The model picks from fixed choices (yesterday, this week, last 30 days ...) and Samara builds the filter, so no model writes a time filter: their own got the counts wrong on every model in the 2026-11-01 eval. It replaces `alerts_last_hour` and `alerts_last_day`.
 - Samara follows "the first one" (second, third, fifth, top, last) to that row of the table it showed last: "which collectors are down?" then "which devices are on the first one?" checks that collector. The table's first column says whether the rows are devices, collectors or groups. On the 2026-11-01 eval no model got this right without it.
 - Samara's downtime answer looks as far ahead as the question says ("which SDTs start in the next 3 days?"), up to 90 days; 7 when it does not say.
 - Samara's "which collectors have the most devices down?" table has a % not responding column.
@@ -60,6 +61,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `-F` on an alert's `endEpoch` gives the alerts it should when the period is still going: `endEpoch:now/d` (cleared today) gave none, because LM returns no rows for an `endEpoch` range that ends in the future. elm sends now as the end, and refuses an end after now (`endEpoch>:now+1h`), which LM answers with HTTP 500. Raised for LogicMonitor as #58.
+- `-F` refuses a time range with its bounds the wrong way round (`startEpoch>:now-1d,startEpoch<:now-2d`): LM answered it with no rows, or on `endEpoch` with HTTP 500, so the mistake never showed. The message gives both dates.
+- Samara's elm queries use the reader's timezone, as its times already did: "today" and "yesterday" in a filter were the container's UTC days, 11 hours out in Sydney (121 alerts started yesterday there, 114 in UTC).
 - Samara's tables came out blank when the model named columns by heading (`ID`, `Object`) instead of by the keys its rows had (`id`, `monitorObjectName`) (gpt-oss-20b). show_table now refuses them and names the keys there are, so the model tries again.
 - gpt-oss's markup (`<|channel|>?`) no longer shows as a status line while Samara works; it was already kept out of answers.
 

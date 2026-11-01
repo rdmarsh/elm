@@ -232,8 +232,16 @@ AlertList `lastUpdatedOnEpoch`). elm checks one value of the field first and
 sends milliseconds where they are needed. That is one extra request per time
 field, and none for filters without a time.
 
+**An alert's `endEpoch`:** LM returns no rows for an `endEpoch` range that
+ends in the future, so `endEpoch:now/d` (cleared today) would always be
+empty. No alert ends after now, so elm sends now as the end instead; it
+refuses `endEpoch>:now+1h`, which LM answers with HTTP 500 (both seen
+2026-11-01).
+
 **Refused before sending:** `now-1y` (no years), `2026-02-30` (no such date),
-and `startEpoch:now` (that would match one second; use `>:` or a period).
+`startEpoch:now` (that would match one second; use `>:` or a period), and a
+range with its bounds swapped (`startEpoch>:now-1d,startEpoch<:now-2d`), which
+LM answers with no rows, or on `endEpoch` with HTTP 500.
 
 **In the results:** `-t` (`--localtime`), before the command, shows epoch
 fields as local times, keeping their names:

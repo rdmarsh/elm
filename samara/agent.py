@@ -559,7 +559,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     offset = f"UTC{sign}{abs(minutes) // 60:02d}:{abs(minutes) % 60:02d}"
     local = now + timedelta(minutes=minutes)
     tz = elm_tools.usable_tz((where or {}).get("timezone"))
-    conv.session.tz = tz
+    conv.session.tz = elm_tools.READER.tz = tz
     if tz:
         # jq runs in their zone: strflocaltime gets each date's own offset right,
         # daylight saving included, which adding today's offset does not.

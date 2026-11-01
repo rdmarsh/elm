@@ -512,40 +512,85 @@
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         Started: (.startEpoch | at), Acknowledged: ack})
 
-- name: alerts_last_hour
-  asks: ["what alerts started in the last hour?", "anything new in the last hour?"]
-  covers: "alerts that started in the last hour, open or cleared"
+- name: alerts
+  asks: ["how many alerts started yesterday?", "what alerts cleared in the last hour?", "what started in the last hour?",
+         "are any alerts still open that started during SDT?", "which warnings started this week?",
+         "how many Host Status alerts cleared today?", "what alerts started today?"]
+  covers: "{alerts}{qual}, across the portal"
+  # The model picks from these; the filter and the words come from here, so
+  # it never writes a time filter (they got the times wrong, 2026-11-01).
+  # LM returns no rows when an endEpoch range ends in the future, so a period
+  # still going ("today") is one-sided: >: its start (2026-11-01).
+  options:
+    started:
+      about: "when the alerts started, if the question says (\"started yesterday\", \"new this week\")"
+      field: startEpoch
+      verb: " that started"
+      sets: {state: any}
+      values: &windows
+        last_hour: {filter: "{field}>:now-1h", words: " in the last hour"}
+        last_24_hours: {filter: "{field}>:now-24h", words: " in the last 24 hours"}
+        today: {filter: "{field}>:now/d", words: " today"}
+        yesterday: {filter: "{field}:now-1d/d", words: " yesterday"}
+        this_week: {filter: "{field}>:now/w", words: " this week"}
+        last_7_days: {filter: "{field}>:now-7d", words: " in the last 7 days"}
+        last_week: {filter: "{field}:now-1w/w", words: " last week"}
+        this_month: {filter: "{field}>:now/M", words: " this month"}
+        last_30_days: {filter: "{field}>:now-30d", words: " in the last 30 days"}
+        last_month: {filter: "{field}:now-1M/M", words: " last month"}
+    ended:
+      about: "when the alerts cleared, if the question asks what cleared or recovered"
+      field: endEpoch
+      verb: " that cleared"
+      sets: {state: cleared}
+      values: *windows
+    state:
+      about: "open (the default), cleared, or any (both)"
+      default: open
+      values:
+        open: {filter: "cleared:false", words: " still open"}
+        cleared: {filter: "cleared:true", words: " that have cleared"}
+        any: {filter: "cleared:*", words: ", open or cleared"}
+    severity:
+      about: "only this severity, if the question says (\"errors or worse\" is error_or_critical)"
+      before: true
+      values:
+        critical: {filter: "severity:4", words: "critical "}
+        error: {filter: "severity:3", words: "error "}
+        warning: {filter: "severity:2", words: "warning "}
+        error_or_critical: {filter: "severity>:3", words: "error and critical "}
+    downtime:
+      about: "yes: only alerts on things in scheduled downtime (SDT); no: only those not in it"
+      values:
+        "yes": {filter: "sdted:true", words: " on things in scheduled downtime"}
+        "no": {filter: "sdted:false", words: " not in scheduled downtime"}
+    check:
+      about: "the check (LogicModule) name as written, if the question names one (\"Host Status\")"
+      text: {filter: 'resourceTemplateName~"{}"', words: ' from checks named like "{}"'}
   steps:
     - as: alerts
       run: AlertList
-      filter: startEpoch>:now-1h,cleared:*
-      fields: [severity, cleared, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
+      filter: "{options}"
+      fields: [severity, cleared, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch,
+               endEpoch, sdted, acked, ackComment, ackedBy, ackedEpoch]
       size: all
-      says: fetched the alerts that started in the last hour, open or cleared
-  summary: &recent |
-    if ($alerts | length) == 0 then "No alerts started in that time."
-    else "\($alerts | length | n("alert")) started (\($alerts | severities)); "
-      + "\($alerts | map(select(.cleared | not)) | length) still open, \($alerts | map(select(.cleared)) | length) already cleared." end
-  table: &recent_table
-    title: Alerts that started, newest first
-    columns: [Device, Severity, Alert, Started, Still open]
+      says: "fetched the {alerts}{qual}"
+  summary: |
+    if ($alerts | length) == 0 then "Found no \(0 | n(which) | ltrimstr("0 "))\(qual)."
+    else "Found \($alerts | length | n(which))\(qual): \($alerts | severities); "
+      + "\($alerts | map(select(.cleared | not)) | length) still open, \($alerts | map(select(.cleared)) | length) cleared; "
+      + "\($alerts | map(select(.acked)) | length) acknowledged; "
+      + "\($alerts | map(select(.sdted)) | length) on things in scheduled downtime. Most on: "
+      + ($alerts | group_by(.monitorObjectName) | map({n: .[0].monitorObjectName, c: length}) | sort_by(-.c) | .[:3]
+         | map("\(.n) (\(.c))") | join(", ")) + "." end
+  table:
+    title: "{Alerts}{qual}, newest first"
+    columns: [Device, Severity, Alert, Started, Cleared, Acknowledged, In downtime]
     rows: |
       $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
-        Started: (.startEpoch | at), "Still open": (if .cleared then "no" else "yes" end)})
-
-- name: alerts_last_day
-  asks: ["what alerts started today?", "what alerts started in the last 24 hours?"]
-  covers: "alerts that started in the last 24 hours, open or cleared"
-  steps:
-    - as: alerts
-      run: AlertList
-      filter: startEpoch>:now-24h,cleared:*
-      fields: [severity, cleared, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
-      size: all
-      says: fetched the alerts that started in the last 24 hours, open or cleared ("today" is taken as the last 24 hours)
-  summary: *recent
-  table: *recent_table
+        Started: (.startEpoch | at), Cleared: (if .cleared then (.endEpoch | at) else "still open" end),
+        Acknowledged: ack, "In downtime": (if .sdted then "yes" else "no" end)})
 
 - name: top_alert_devices
   asks: ["which device has the most open alerts?", "what are the noisiest devices?"]

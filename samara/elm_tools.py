@@ -14,6 +14,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import threading
 from collections import Counter
 from pathlib import Path
 
@@ -369,6 +370,11 @@ class Refused(Exception):
     """elm failed or refused the query: (text for the model, step event)."""
 
 
+# The reader's timezone for this request's elm queries (agent._answer sets it):
+# "now/d" and "yesterday" in -F are their day, not the container's UTC one.
+READER = threading.local()
+
+
 def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
     """Run one elm query; return (jsonl lines, stderr, removed, shown), or the -C value for total.
 
@@ -381,8 +387,9 @@ def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, tota
     # --halt-on-api-error: without it a failed request (a TLS proxy's CA
     # rejected, a 403) prints an error and exits 0 with no rows, which read as
     # "no device web02" inside one machine's container (2026-10-30).
+    tz = getattr(READER, "tz", None)
     proc = subprocess.run(ELM_CMD + global_args() + ["--halt-on-api-error"] + args,
-                          capture_output=True, text=True, timeout=300)
+                          capture_output=True, text=True, timeout=300, env={**os.environ, "TZ": tz} if tz else None)
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
         step = {"type": "step", "command": shown, "result": f"failed: {why_failed(stderr)}"}

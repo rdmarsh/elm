@@ -139,14 +139,17 @@ recipe = ["top_alert_devices"]
 
 [[case]]
 q = "How many alerts started yesterday?"
+recipe = ["alerts"]
 fact = ["$ELM AlertList -c -s0 -F 'cleared:*,startEpoch:{yesterday}'"]
 
 [[case]]
 q = "What alerts cleared in the last hour?"
+recipe = ["alerts"]
 fact = ["$ELM AlertList -c -s0 -F 'cleared:true,endEpoch>:now-1h'"]
 
 [[case]]
 q = "are any alerts still open that started during SDT?"
+recipe = ["alerts"]
 fact = ["$ELM AlertList -c -s0 -F cleared:false,sdted:true"]
 
 # Downtime

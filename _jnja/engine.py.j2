@@ -856,10 +856,46 @@ def time_clauses(field, operator, value, ints):
     else:
         start, end = date_period(value)
     if start == end:
-        return [(operator, start)]
-    if operator == ':':
-        return [('>:', start), ('<', end)]
-    return [{'>:': ('>:', start), '<': ('<', start), '>': ('>:', end), '<:': ('<', end)}[operator]]
+        clauses = [(operator, start)]
+    elif operator == ':':
+        clauses = [('>:', start), ('<', end)]
+    else:
+        clauses = [{'>:': ('>:', start), '<': ('<', start), '>': ('>:', end), '<:': ('<', end)}[operator]]
+    return alert_end(clauses) if field == 'endEpoch' else clauses
+
+
+def empty_range(bounds):
+    """Refuse time clauses on one field that no time can meet: the bounds swapped.
+
+    LM answers startEpoch>:now-1d,startEpoch<:now-2d with no rows, and the
+    same on endEpoch with HTTP 500 (2026-11-01); either way the cause is
+    lost. Only the times elm worked out (now..., dates) are checked.
+    """
+    for field in dict.fromkeys(f for f, _, _ in bounds):
+        lows = [(t, op == '>') for f, op, t in bounds if f == field and op in ('>', '>:')]
+        highs = [(t, op == '<') for f, op, t in bounds if f == field and op in ('<', '<:')]
+        if not lows or not highs:
+            continue
+        low, high = max(lows), min(highs)
+        if low[0] > high[0] or (low[0] == high[0] and (low[1] or high[1])):
+            show = lambda t: time.strftime('%d %b %Y %H:%M', time.localtime(t))
+            raise click.BadParameter(f"{field} from {show(low[0])} to {show(high[0])} matches nothing: "
+                                     "are the bounds the wrong way round?")
+
+
+def alert_end(clauses):
+    """An alert's endEpoch clauses, with an end past now brought back to now.
+
+    LM returns no rows for an endEpoch range whose end is in the future
+    (endEpoch:now/d, today, gave 0; endEpoch>:now/d gave 52), and answers a
+    start in the future with HTTP 500 (2026-11-01). No alert ends after now,
+    so now is the same range; a start after now can match nothing.
+    """
+    now = int(time.time())
+    if any(op in ('>', '>:') and t > now for op, t in clauses):
+        raise click.BadParameter("endEpoch after now matches no alert: no alert has ended yet "
+                                 "(and LM answers HTTP 500)")
+    return [('<:', now) if op in ('<', '<:') and t > now else (op, t) for op, t in clauses]
 
 
 def time_in_ms(elm, flags, resourcePath, creds):
@@ -917,6 +953,7 @@ def validate_filter(ctx, param, filters, fields=(), ints=()):
         if isinstance(filters, tuple):
             filters = ','.join(f for f in filters if f)
         filters_fmtchkd=[]
+        bounds = []     # (field, op, seconds) of the time clauses, for empty_range
         logging.debug('filters: %s', filters)
         logging.debug('filters_fmtchkd: %s', filters_fmtchkd)
         #split filters by commas except if they're proceeded by a backslash
@@ -964,6 +1001,7 @@ def validate_filter(ctx, param, filters, fields=(), ints=()):
                         clause = f'{field}{op}"{seconds}"'
                         TIME_CLAUSES.append((field, clause))
                         filters_fmtchkd.append(clause)
+                        bounds.append((field, op, seconds))
                     continue
                 #filter needs quotes around the value to work for strings
                 #this saves the user from having to escape quotes on the cli
@@ -988,4 +1026,5 @@ def validate_filter(ctx, param, filters, fields=(), ints=()):
                     "(expected FIELD[>:,<:,>,<,!:,:,~,!~]VALUE); "
                     "to include a literal comma in a value, escape it as '\\,'" % filter)
 
+        empty_range(bounds)
         return ",".join(filters_fmtchkd)
