@@ -172,11 +172,11 @@ evaluate() {   # the ports given, one after another
         page || true
     done
 }
-claude=$(for m in "${chosen[@]}"; do read -r port _ url <<<"$m"; [[ $url == claude ]] && echo "$port"; done | xargs)
+claude=$(for m in "${chosen[@]}"; do read -r port _ url <<<"$m"; if [[ $url == claude ]]; then echo "$port"; fi; done | xargs)
 servers=$(for m in "${chosen[@]}"; do read -r _ _ url <<<"$m"; echo "$url"; done | sort -u)
 queues=()
 for server in $servers; do
-    evaluate $(for m in "${chosen[@]}"; do read -r port _ url <<<"$m"; [[ $url == "$server" ]] && echo "$port"; done) &
+    evaluate $(for m in "${chosen[@]}"; do read -r port _ url <<<"$m"; if [[ $url == "$server" ]]; then echo "$port"; fi; done) &
     queues+=($!)
 done
 wait "${queues[@]}"   # not a bare wait: the run.sh servers above are jobs too, and never end
