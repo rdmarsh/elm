@@ -65,6 +65,8 @@ def ago: (. - now) as $s | ($s | fabs) as $a
     elif $s > 0 then "in about \($span)" elif $unit == "day" then "\($span) ago" else "about \($span) ago" end;
 def at: "\(when), \(ago)";
 def n($word): "\(.) \($word)\(if . == 1 then "" else "s" end)";
+def pct($of): if $of > 0 then (100 * . / $of) as $p   # 3 | pct(4) -> "75%"; a sliver is "<1%", not "0%"
+  | if $p > 0 and $p < 1 then "<1%" else "\($p | round)%" end else "" end;
 def ack: if .acked | not then "no" else "yes"   # when, the note typed then, and who
   + (if (.ackedEpoch // 0) > 0 then ", \(.ackedEpoch | ago)" else "" end)
   + (if (.ackComment // "") != "" then ": \(.ackComment)" else "" end)

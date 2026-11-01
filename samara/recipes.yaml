@@ -465,7 +465,7 @@
       | map($by[.[0].currentCollectorId | tostring] as $c | {Collector: ($c.description // "id \(.[0].currentCollectorId)"),
              "Not responding": length, "Devices on it": $c.numberOfHosts,
              # the eval's follow-up asks for the share (2026-11-01)
-             "% not responding": (if ($c.numberOfHosts // 0) > 0 then "\(100 * length / $c.numberOfHosts | round)%" else "" end),
+             "% not responding": (length | pct($c.numberOfHosts // 0)),
              "Collector up": (if $c.isDown then "no" else "yes" end)})
       | sort_by(-."Not responding")
 
@@ -918,15 +918,24 @@
   summary: |
     ($devices | map(select(.deviceType == 0))) as $real
     | "\($devices | length | n("monitored object")): \($real | length) devices"
-    + " (\($real | map(select(.hostStatus != "normal")) | length) of them down), and "
+    + " (\($real | map(select(.hostStatus != "normal")) | length) of them down"
+    + "\($real | map(select(.hostStatus == "dead-collector")) | length | if . > 0 then ", \(.) of those because their collector is down" else "" end)), and "
     + ($devices | map(select(.deviceType != 0) | .kind = (.deviceType | kind)) | group_by(.kind)
        | map("\(.[0].kind): \(length)") | join(", ")) + "."
   table:
     title: Monitored objects by kind
-    columns: [Kind, Count, Down]
+    # dead-collector is down too, but only because its collector is: the
+    # reader fixes the collector, not the devices (2026-11-01, 143 of 143
+    # Kubernetes resources "down" on the sandbox were that)
+    columns: [Kind, Count, "% of all", Down, "% down", Collector down]
     rows: |
-      $devices | map(.kind = (.deviceType | kind)) | group_by(.kind) | map({Kind: .[0].kind, Count: length,
-        Down: (map(select(.hostStatus != "normal")) | length)}) | sort_by(-.Count)
+      ($devices | length) as $all
+      | $devices | map(.kind = (.deviceType | kind)) | group_by(.kind) | map(
+        length as $n | (map(select(.hostStatus != "normal")) | length) as $down
+        | {Kind: .[0].kind, Count: $n, "% of all": ($n | pct($all)),
+           Down: $down, "% down": ($down | pct($n)),
+           "Collector down": (map(select(.hostStatus == "dead-collector")) | length)})
+      | sort_by(-.Count)
 
 # --- One group ----------------------------------------------------------------
 
