@@ -82,6 +82,13 @@ def grade(case, events, values, elm, facts=None):
     """The verdict and its reasons. facts, if given, holds each check command's
     value and is filled in: a regrade uses the values of the run."""
     facts = {} if facts is None else facts
+    # No answer, only an error (the model server refused, the model was
+    # unloaded): nothing was said, so nothing was said wrongly (2026-11-01, an
+    # ask the model server dropped was graded confidently wrong).
+    if not any(e["type"] == "answer" for e in events):
+        error = next((e["text"] for e in events if e["type"] == "error"), None)
+        if error:
+            return "FAIL", [f"error: {error[:160]}"]
     answer = next((e["markdown"] for e in events if e["type"] == "answer"),
                   next((e["text"] for e in events if e["type"] == "error"), ""))
     main = answer.split("**How I worked this out**")[0]
