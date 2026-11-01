@@ -20,8 +20,9 @@
 # go to SAMARA_EVAL_DIR (default tmp/tests/, which git ignores):
 # eval-DATE-TIME-PORT.txt (safe to paste) and eval-DATE-TIME-PORT.jsonl (every
 # answer: holds portal data, keep it). TIME is when --eval started. Server logs
-# go to ~/.cache/samara/run-PORT.log. tmp/samara.html links to what is running:
-# written on start and by --status, emptied by --stop.
+# go to ~/.cache/samara/run-PORT.log. tmp/samara.html links to what is running
+# and shows each one's latest eval (asks so far, or the summary line): written
+# on start, as each eval starts and finishes, and by --status; emptied by --stop.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -63,30 +64,43 @@ done
 ((${#chosen[@]})) || { echo "no model on ${only//,/ }" >&2; exit 2; }
 mkdir -p "$LOGS" "$EVALS" "$(dirname "$PAGE")"
 
-health() { curl -fs "http://127.0.0.1:$1/api/health"; }
+health() { curl -fs --max-time 2 "http://127.0.0.1:$1/api/health"; }
 where() { case $1 in "$LAPTOP") echo laptop ;; "$MINI") echo "this Mac" ;; *) echo "$1" ;; esac; }
+
+# A port's latest eval: its summary line once done, else how many asks it has answered.
+progress() {
+    local f; f=$(ls -t "$EVALS"/eval-*-"$1".txt 2>/dev/null | head -n1)
+    [[ -n $f ]] || return 0
+    if grep -q ' asks: ' "$f"; then grep ' asks: ' "$f" | sed 's/\. Answers in .*//; s/^ *//'
+    else
+        local n; n=$(grep -cE '^[0-9][0-9]:[0-9][0-9]  ' "$f")
+        echo "$n asks so far$([[ $n -gt 0 ]] && echo ", last at $(grep -E '^[0-9][0-9]:[0-9][0-9]  ' "$f" | tail -n1 | cut -c1-5)")"
+    fi
+}
 
 # The page lists every Samara of MODELS that answers, whatever --only says.
 page() {
-    local rows="" m port model url h
+    local rows="" m port model url h tmp
     for m in "${MODELS[@]}"; do
         read -r port model url <<<"$m"
         h=$(health "$port" | python3 -c 'import json, sys; h = json.load(sys.stdin); print(h.get("model_id"), h.get("build"))' 2>/dev/null) || continue
-        rows+="<tr><td><a href=\"http://127.0.0.1:$port\">127.0.0.1:$port</a></td><td>${h% *}</td><td>$(where "$url")</td><td>${h##* }</td></tr>"
+        rows+="<tr><td><a href=\"http://127.0.0.1:$port\">127.0.0.1:$port</a></td><td>${h% *}</td><td>$(where "$url")</td><td>${h##* }</td><td>$(progress "$port")</td></tr>"
     done
-    [[ -n $rows ]] || rows="<tr><td colspan=4>Nothing running (checked $(date '+%H:%M %a %d %b')).</td></tr>"
-    cat >"$PAGE" <<EOF
+    [[ -n $rows ]] || rows="<tr><td colspan=5>Nothing running (checked $(date '+%H:%M %a %d %b')).</td></tr>"
+    tmp=$(mktemp "$PAGE.XXXXXX")   # one per writer: the eval queues call page() side by side
+    cat >"$tmp" <<EOF
 <!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width">
-<title>Samaras running</title>
+<title>Samara instances</title>
 <style>
 :root { color-scheme: light dark; font: 15px system-ui, sans-serif }
 body { margin: 2em auto; max-width: 52em; padding: 0 1em }
 table { border-collapse: collapse; width: 100% } td, th { padding: .4em .8em; text-align: left; border-bottom: 1px solid #8884 }
 </style>
-<h1>Samaras running</h1>
-<table><tr><th>Samara</th><th>Model</th><th>Model runs on</th><th>Build</th></tr>$rows</table>
+<h1>Samara instances</h1>
+<table><tr><th>Instance</th><th>Model</th><th>Model server</th><th>Build</th><th>Latest eval</th></tr>$rows</table>
 <p><small>Written by samara/models.sh at $(date '+%H:%M %a %d %b'); --status writes it again.</small></p>
 EOF
+    mv "$tmp" "$PAGE"   # whole or not at all
 }
 
 if [[ $action == --stop ]]; then
@@ -152,8 +166,10 @@ evaluate() {   # the ports given, one after another
     for port in "$@"; do
         paid=; [[ " $claude " == *" $port "* ]] && paid=--claude
         echo "$port: eval, see $EVALS/eval-$run-$port.txt"
+        : >"$EVALS/eval-$run-$port.txt"; page || true
         samara/eval.py --url "http://127.0.0.1:$port" --repeat 2 $paid --out "$EVALS/eval-$run-$port.jsonl" \
             >"$EVALS/eval-$run-$port.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
+        page || true
     done
 }
 claude=$(for m in "${chosen[@]}"; do read -r port _ url <<<"$m"; [[ $url == claude ]] && echo "$port"; done | xargs)
