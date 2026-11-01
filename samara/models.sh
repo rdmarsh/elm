@@ -5,26 +5,30 @@
 # Usage:
 #   samara/models.sh [--start]      # build, start them all, check each
 #   samara/models.sh --eval         # start them, then ask eval.py's questions of each
+#   samara/models.sh --quick        # --eval with one question, once: a minute, not hours
 #   samara/models.sh --status       # which are running, and the page of links
-#   samara/models.sh --stop         # stop them
+#   samara/models.sh --stop         # stop them (Claude ones too)
 #   ... --only 8083,8085            # just these ports, with any of the above
 #
 # --eval takes hours. Models on the same server go one at a time, so LM
 # Studio is not holding two at once and the timings mean something; each
 # server (the laptop, this Mac, Claude) runs its own queue, side by side.
 #
-# A Claude model (url "claude") is billed per question, so it runs only when
+# A Claude model (url "claude") is billed per question, so it starts only when
 # --only names its port.
 #
 # The laptop's LM Studio is at SAMARA_LAPTOP_URL (default below). Eval results
 # go to SAMARA_EVAL_DIR (default tmp/tests/, which git ignores):
 # eval-DATE-TIME-PORT.txt (safe to paste) and eval-DATE-TIME-PORT.jsonl (every
-# answer: holds portal data, keep it). TIME is when --eval started. Server logs
+# answer: holds portal data, keep it); --quick adds -quick to the name, and the
+# page leaves those out. TIME is when --eval started. Server logs
 # go to ~/.cache/samara/run-PORT.log. tmp/samara.html links to what is running
 # and shows each one's latest eval (asks so far, or the summary line): written
 # on start, as each eval starts and finishes, and by --status; emptied by --stop.
 
 set -euo pipefail
+# set -e alone stops without a word, which hid a bug for half an hour.
+trap 'echo "models.sh: stopped at line $LINENO: $BASH_COMMAND (servers may still be up: --stop)" >&2' ERR
 cd "$(dirname "$0")/.."
 
 LAPTOP=${SAMARA_LAPTOP_URL:-http://192.168.1.52:1234/v1}
@@ -49,16 +53,16 @@ MODELS=(
 action=--start only=
 while (($#)); do
     case $1 in
-        --start|--eval|--status|--stop) action=$1; shift ;;
+        --start|--eval|--quick|--status|--stop) action=$1; shift ;;
         --only) only=,$2,; shift 2 ;;
-        *) echo "usage: samara/models.sh [--start|--eval|--status|--stop] [--only PORT,PORT]" >&2; exit 2 ;;
+        *) echo "usage: samara/models.sh [--start|--eval|--quick|--status|--stop] [--only PORT,PORT]" >&2; exit 2 ;;
     esac
 done
 chosen=()
 for m in "${MODELS[@]}"; do
     read -r port _ url <<<"$m"
     if [[ -n $only ]]; then [[ $only == *",$port,"* ]] || continue
-    elif [[ $url == claude ]]; then continue; fi
+    elif [[ $url == claude && $action != --stop && $action != --status ]]; then continue; fi
     chosen+=("$m")
 done
 ((${#chosen[@]})) || { echo "no model on ${only//,/ }" >&2; exit 2; }
@@ -132,7 +136,7 @@ for m in "${chosen[@]}"; do
     read -r port model url <<<"$m"
     [[ $url == claude ]] && continue
     here=${url/host.docker.internal/127.0.0.1}
-    if ! curl -fs "$here/models" | grep -q "\"$model\""; then
+    if ! curl -fs --max-time 5 "$here/models" | grep -q "\"$model\""; then
         echo "$port: $model is not listed at $here/models (is it downloaded, and the server on?)" >&2
         exit 1
     fi
@@ -148,27 +152,34 @@ for m in "${chosen[@]}"; do
     fi
     at=(--url "$url"); [[ $url == claude ]] && at=()
     nohup samara/run.sh $build -y -m "$model" "${at[@]}" --port "$port" >"$LOGS/run-$port.log" 2>&1 &
-    for _ in $(seq 900); do health "$port" >/dev/null && break; sleep 1; done   # a build takes minutes
-    health "$port" | python3 -c '
+    pid=$!
+    for _ in $(seq 900); do   # a build takes minutes; a run.sh that has died will not answer
+        health "$port" >/dev/null && break
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 1
+    done
+    if ! h=$(health "$port"); then echo "$port: did not start, see $LOGS/run-$port.log" >&2; exit 1; fi
+    python3 -c '
 import json, sys
 h = json.load(sys.stdin)
 problems = [h[k] for k in ("profile_problem", "model_problem") if h.get(k)]
 print(sys.argv[1] + ": " + ("; ".join(problems) or "%s, build %s" % (h.get("model_id"), h.get("build"))))
-sys.exit(1 if problems else 0)' "$port" || { echo "$port: see $LOGS/run-$port.log" >&2; exit 1; }
+sys.exit(1 if problems else 0)' "$port" <<<"$h" || { echo "$port: see $LOGS/run-$port.log" >&2; exit 1; }
     build=
 done
 page
 echo "page: $PWD/$PAGE"
 
-[[ $action == --eval ]] || exit 0
-run=$(date +%F-%H%M)
+[[ $action == --eval || $action == --quick ]] || exit 0
+run=$(date +%F-%H%M) q= asks=(--repeat 2)
+if [[ $action == --quick ]]; then q=-quick asks=(--repeat 1 --only "is {device} okay?"); fi
 evaluate() {   # the ports given, one after another
     for port in "$@"; do
         paid=; [[ " $claude " == *" $port "* ]] && paid=--claude
-        echo "$port: eval, see $EVALS/eval-$run-$port.txt"
-        : >"$EVALS/eval-$run-$port.txt"; page || true
-        samara/eval.py --url "http://127.0.0.1:$port" --repeat 2 $paid --out "$EVALS/eval-$run-$port.jsonl" \
-            >"$EVALS/eval-$run-$port.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
+        echo "$port: eval, see $EVALS/eval-$run-$port$q.txt"
+        : >"$EVALS/eval-$run-$port$q.txt"; page || true
+        samara/eval.py --url "http://127.0.0.1:$port" "${asks[@]}" $paid --out "$EVALS/eval-$run-$port$q.jsonl" \
+            >"$EVALS/eval-$run-$port$q.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
         page || true
     done
 }
@@ -180,4 +191,4 @@ for server in $servers; do
     queues+=($!)
 done
 wait "${queues[@]}"   # not a bare wait: the run.sh servers above are jobs too, and never end
-tail -n1 "$EVALS"/eval-"$run"-*.txt
+tail -n1 "$EVALS"/eval-"$run"-*"$q".txt
