@@ -15,9 +15,9 @@
 # server (the laptop, this Mac, Claude) runs its own queue, side by side.
 #
 # A port in NAMED starts only when --only names it: the Claude models are
-# billed per question, and gpt-oss-20b scored worst on the 2026-11-01 eval
-# (40%; the small Qwens 87-95%) and adds an hour a run. gemma-3-12b is gone:
-# 36% on 2026-11-04, mostly by skipping the recipes.
+# billed per question. Dropped after an eval: gpt-oss-20b (40% on 2026-11-01;
+# the small Qwens 87-95%) and gemma-3-12b (36% on 2026-11-04, mostly by
+# skipping the recipes).
 #
 # Before each eval, models.sh loads that model itself, alone on its server, at
 # the server's context (16384 on this Mac, 32768 on the laptop), and loads it
@@ -48,7 +48,6 @@ LOGS=${XDG_CACHE_HOME:-$HOME/.cache}/samara
 EVALS=${SAMARA_EVAL_DIR:-tmp/tests}
 PAGE=tmp/samara.html
 MODELS=(
-    "8080 openai/gpt-oss-20b $LAPTOP"
     "8082 qwen3-8b-mlx $MINI"
     "8083 qwen/qwen3-vl-4b $MINI"
     # the same two on the laptop, at twice the context the mini can give them
@@ -63,7 +62,7 @@ MODELS=(
     "8092 qwen3-14b-mlx $LAPTOP"
     "8094 mistral-small-3.2-24b-instruct-2506 $LAPTOP"   # GGUF: slower than MLX
 )
-NAMED=,8080,8090,8091,
+NAMED=,8090,8091,
 
 action=--start only=
 while (($#)); do
