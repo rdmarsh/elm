@@ -14,7 +14,7 @@ setup(
     url='https://github.com/rdmarsh/elm',
     author='David Marsh',
     author_email='rdmarsh@gmail.com',
-    license='GPLv3',
+    license='GPL-3.0-or-later',   # SPDX, as setuptools now wants; the README says "or any later version"
     # elm.py (the entry point), engine.py and _version.py are top-level
     # modules, not a package, so they must be listed explicitly. find_packages()
     # alone would only pick up _cmds/ and silently omit the entry point.
@@ -44,7 +44,6 @@ setup(
     },
     classifiers=[
         'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Operating System :: OS Independent',
     ],
     python_requires='>=3.10',  # truststore and requests; keep in step with PYTHON_MIN in the Makefile
