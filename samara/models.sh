@@ -25,7 +25,8 @@
 # page leaves those out. TIME is when --eval started. Server logs
 # go to ~/.cache/samara/run-PORT.log. tmp/samara.html links to what is running
 # and shows each one's latest eval (asks so far, or the summary line): written
-# on start, as each eval starts and finishes, and by --status; emptied by --stop.
+# on start, every minute while --eval runs, and by --status; emptied by --stop.
+# The browser reloads it every minute.
 
 set -euo pipefail
 # set -e alone stops without a word, which hid a bug for half an hour.
@@ -96,6 +97,7 @@ page() {
     tmp=$(mktemp "$PAGE.XXXXXX")   # one per writer: the eval queues call page() side by side
     cat >"$tmp" <<EOF
 <!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width">
+<meta http-equiv=refresh content=60>
 <title>Samara instances</title>
 <style>
 :root { color-scheme: light dark; font: 15px system-ui, sans-serif }
@@ -192,5 +194,9 @@ for server in $servers; do
     evaluate $(for m in "${chosen[@]}"; do read -r port _ url <<<"$m"; if [[ $url == "$server" ]]; then echo "$port"; fi; done) &
     queues+=($!)
 done
+(while sleep 60; do page || true; done) &   # the page between an eval's start and end
+ticker=$!
 wait "${queues[@]}"   # not a bare wait: the run.sh servers above are jobs too, and never end
+kill "$ticker" 2>/dev/null || true
+page || true
 tail -n1 "$EVALS"/eval-"$run"-*"$q".txt
