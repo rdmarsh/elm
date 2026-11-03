@@ -197,5 +197,15 @@ queries = false
 says = ["scheduled down ?time"]
 
 [[case]]
+q = "what is an ABCG?"
+queries = false
+says = ["auto.?balanced"]
+
+[[case]]
+q = "what does MGD stand for?"
+queries = false
+says = ["required general release"]
+
+[[case]]
 q = "Tell me a joke about collectors."
 queries = false

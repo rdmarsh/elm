@@ -16,6 +16,9 @@ Names and verbs can be checked exactly, so they are:
 import re
 import threading
 import time
+from pathlib import Path
+
+import yaml
 
 import elm_tools
 
@@ -38,6 +41,28 @@ TERMS = {"sdt", "scheduled downtime", "downtime", "collector", "datasource", "da
          "escalation chain", "alert rule", "datapoint", "data point", "threshold", "flapping", "dead-collector",
          "auto-balance", "failover", "website check", "synthetic", "appliesto", "resource group"}
 DEFINITION = re.compile(r"^\s*(?:what(?:'s| is| are| does)|whats|define|explain|what do you mean by)\b", re.I)
+
+# A question that is only "what does TERM mean?" about one of terms.yaml gets
+# that meaning added (agent.py), so the model answers from it. The whole
+# question has to be the term: "what are the devices on lm01?" is not about
+# the word device.
+GLOSSARY = {}
+for _g in yaml.safe_load((Path(__file__).resolve().parent / "terms.yaml").read_text()):
+    for _n in [_g["term"], *_g.get("also", [])]:
+        GLOSSARY[re.sub(r"[^a-z0-9.]+", " ", _n.lower()).strip()] = _g
+ASKED = re.compile(r"^\s*(?:what(?:'s| is| are| does| do)|whats|define|explain|meaning of|what do you mean by)\s+"
+                   r"(?:an?\s+|the\s+)?(.+?)\s*(?:mean|means|stand for|stands for)?\s*"
+                   r"(?:in (?:lm|logicmonitor))?\s*[?.!]*\s*$", re.I)
+
+
+def glossary(question):
+    """The terms.yaml entry the question asks the meaning of, or None."""
+    m = ASKED.match(question)
+    if not m:
+        return None
+    k = re.sub(r"[^a-z0-9.]+", " ", m.group(1).lower()).strip(" .")
+    singular = [k[:-3] + "y"] if k.endswith("ies") else [k[:-1]] if k.endswith("s") else []
+    return next((GLOSSARY[w] for w in [k, *singular] if w in GLOSSARY), None)
 
 # Names too common to mean one thing in the portal ("All" is a group in many).
 COMMON = {"all", "test", "tests", "prod", "production", "dev", "default", "other", "others", "linux",
@@ -174,8 +199,9 @@ def route(question):
     """What the question is: {"write": the verb or None, "term": bool, "found": [...]}."""
     w = WRITE.search(question)
     q = question.lower()
-    term = bool(DEFINITION.search(question)) and any(re.search(rf"\b{re.escape(t)}\b", q) for t in TERMS)
-    return {"write": w.group(1).lower() if w else None, "term": term, "found": found(question)}
+    meant = glossary(question)
+    term = bool(meant) or (bool(DEFINITION.search(question)) and any(re.search(rf"\b{re.escape(t)}\b", q) for t in TERMS))
+    return {"write": w.group(1).lower() if w else None, "term": term, "meant": meant, "found": found(question)}
 
 
 # "the first one", "the 2nd one", "the last one": a row of the table shown last

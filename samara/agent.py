@@ -572,7 +572,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         how = f"Add {minutes * 60} seconds to an epoch to get their local time, and give times in it."
     # What the question is, decided in code (router.py): a request to change
     # something, a LogicMonitor term, and the portal's objects it names.
-    routed = router.route(question) if question != DETAIL_REQUEST else {"write": None, "term": False, "found": []}
+    routed = router.route(question) if question != DETAIL_REQUEST else {"write": None, "term": False, "meant": None, "found": []}
     if (it := router.pointed(question, conv.last_table)) and not any(h["kind"] == it["kind"] for h in routed["found"]):
         routed["found"].insert(0, it)
     conv.messages.append({
@@ -580,6 +580,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         "content": (f"{question}\n\n"
                     + (f"(Portal: {elm_tools.portal()}.) " if elm_tools.portal() else "")
                     + (router.hint(routed["found"]) + " " if routed["found"] else "")
+                    + (f"(LogicMonitor's meaning of {routed['meant']['term']}: {routed['meant']['means']} "
+                       "Answer from this, in your own words.) " if routed["meant"] else "")
                     + f"(Now: {local:%Y-%m-%d %H:%M} for the reader, timezone {tz or offset}; "
                     f"{now:%Y-%m-%d %H:%M} UTC, epoch {int(now.timestamp())}. {how})"),
     })

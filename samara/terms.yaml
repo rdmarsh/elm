@@ -1,0 +1,188 @@
+# LogicMonitor's own words, for "what does X mean?". router.py reads this:
+# when a question asks only what one of these means, the meaning is added to
+# that question, so a model answers from it instead of from memory. Only that
+# question pays for it: elm-knowledge.md goes with every question.
+#
+#   term   the word as LogicMonitor writes it
+#   also   other ways people say it (a plural is matched without listing it)
+#   means  what it means, in a sentence or two
+#
+# Nothing here names a real portal, customer or employer.
+
+- term: ABCG
+  also: [auto-balanced collector group, auto balanced collector group]
+  means: Auto-balanced collector group. A group across which LogicMonitor distributes devices automatically.
+- term: Acknowledge
+  also: [ack, acked, acknowledged, acknowledgement]
+  means: Marking an alert as seen, which stops it escalating further down its escalation chain. Often shortened to ack.
+- term: Active Discovery
+  also: [auto discovery]   # not AD: that is Active Directory
+  means: The part of a LogicModule that finds a device's instances automatically and keeps the list current.
+- term: Alert clear interval
+  also: [clear interval]
+  means: The number of consecutive polls a datapoint must be back within its thresholds before an alert clears.
+- term: Alert rule
+  also: [alert routing rule]
+  means: Matches an alert by severity, group, device, module or datapoint and sends it to an escalation chain. Rules are evaluated in priority order, and the first match wins.
+- term: Alert severity
+  also: [severity, severities]
+  means: Warning, Error or Critical, in increasing order.
+- term: Alert trigger interval
+  also: [trigger interval]
+  means: The number of consecutive polls a datapoint must breach its threshold before an alert is raised.
+- term: Alert tuning
+  also: [tuning]
+  means: Overriding a module's thresholds, or disabling alerting, at the group, device or instance level.
+- term: API token
+  also: [LMv1 token, LMv1, bearer token, access id, access key]
+  means: A credential tied to a user, used to call the LogicMonitor REST API. An LMv1 token is an access ID and key pair; a Bearer token is a single string.
+- term: AppliesTo
+  also: [applies to]
+  means: The expression that decides which devices a LogicModule or dynamic group applies to, such as isLinux() && hasCategory("MySQL").
+- term: auto. property
+  also: [auto property, auto. properties, auto properties]
+  means: A property set by a PropertySource or by Active Discovery rather than by hand.
+- term: build
+  also: [collector build, build number]
+  means: The LogicMonitor API field carrying a Collector's version as five digits, so 37000 is version 37.000 and 40001 is 40.001.
+- term: Clear
+  also: [cleared, cleared alert]
+  means: An alert whose condition is no longer true. It closes, and its escalation chain stops.
+- term: Collector
+  means: The LogicMonitor process that polls devices and sends data to the platform.
+- term: Collector debug console
+  also: [debug console]
+  means: The Collector's command console, used to test collection from the Collector's point of view with commands such as !ping.
+- term: Collector group
+  means: A named set of Collectors. An auto-balanced one is an ABCG.
+- term: Collector Update Scheduler
+  also: [update scheduler]
+  means: LogicMonitor's mechanism for updating a Collector, either as a one-time update to a named version or as an automatic update subscribed to a release track.
+- term: ConfigSource
+  also: [config source]
+  means: A LogicModule that collects configuration files, such as a router's running config, and can alert when they change.
+- term: Dashboard
+  means: A page of widgets showing data from across the portal.
+- term: Datapoint
+  also: [data point, complex datapoint]
+  means: One metric inside a DataSource. A normal datapoint is collected; a complex datapoint is calculated from others.
+- term: DataSource
+  also: [data source]
+  means: A LogicModule defining what to collect from a device, how and how often, and the thresholds that raise alerts.
+- term: Dependencies
+  also: [dependency, root cause analysis, RCA]
+  means: LogicMonitor's root cause analysis feature, which suppresses alerts on devices downstream of one that is down.
+- term: Device
+  means: Anything LogicMonitor monitors. The user interface now says resource; the API and the elm commands still say device.
+- term: Device group
+  also: [resource group]
+  means: A folder of devices. Properties and alert tuning set on it are inherited by the devices beneath it.
+- term: Dynamic group
+  means: A device group whose members are chosen by an AppliesTo query rather than added by hand. The query reads only what the device carries itself, not what it inherits.
+- term: EA
+  also: [early access]
+  means: Early Access. The LogicMonitor Collector release track that ships most often, and which LogicMonitor does not recommend for a whole infrastructure.
+- term: Edwin AI
+  also: [Edwin]
+  means: LogicMonitor's own AI assistant, built into the platform.
+- term: Escalation chain
+  means: The ordered stages of recipients an alert is sent to, and how long to wait before moving to the next.
+- term: EventSource
+  also: [event source]
+  means: A LogicModule that raises alerts from events (Windows event logs, syslog, SNMP traps) rather than from polled values.
+- term: Failover
+  also: [fail over]
+  means: Moving a Collector's devices to a backup Collector when it goes down.
+- term: GD
+  also: [optional general release]
+  means: Optional General Release. The LogicMonitor Collector release track that ships twice a year.
+- term: Groovy
+  means: The scripting language LogicMonitor modules are written in. Collectors from 39.005 onwards run Groovy 4 by default, and Groovy 2 is not supported.
+- term: Inheritance
+  also: [inherited, inherit]
+  means: A device takes the properties of every group above it, and the nearest level wins. system.categories is the exception, and merges.
+- term: Instance
+  means: One monitored thing inside a DataSource on a device, such as one disk, interface or volume.
+- term: Integration
+  means: A way of delivering an alert other than email, such as ServiceNow, a webhook or Microsoft Teams.
+- term: JobMonitor
+  also: [job monitor]
+  means: A LogicModule that watches a scheduled job, such as a backup or a cron job, and alerts when it fails or does not run.
+- term: LM
+  also: [LogicMonitor]
+  means: LogicMonitor. A SaaS data collection and alerting platform.
+- term: LM Exchange
+  also: [LogicMonitor Exchange]   # not Exchange alone: that is Microsoft's
+  means: LogicMonitor's repository of LogicModules, where modules are published and updated from.
+- term: LM Logs
+  also: [LMLogs]
+  means: LogicMonitor's log ingestion and analysis product.
+- term: LMDX
+  also: [LogicMonitor Data Exchange]
+  means: LogicMonitor Data Exchange. The Edwin AI integration with ServiceNow, which raises issues in ServiceNow and links back to Edwin AI for investigation.
+- term: LogicModule
+  also: [module, LM module]
+  means: The general name for LogicMonitor's monitoring definitions - DataSources, EventSources, ConfigSources, PropertySources, TopologySources, JobMonitors and LogSources.
+- term: LogSource
+  also: [log source]
+  means: A LogicModule defining how logs are collected from a device for LM Logs.
+- term: MGD
+  also: [required general release]
+  means: Required General Release. The LogicMonitor Collector release track that ships once a year, and which LogicMonitor auto-upgrades collectors to on an announced date.
+- term: Netscan
+  also: [net scan]
+  means: A scheduled discovery scan that finds devices on a network and adds them to the portal.
+- term: No data alert
+  also: [no data, nodata]
+  means: An alert raised when a datapoint returns no data, rather than a value outside its thresholds.
+- term: NOC widget
+  means: A dashboard widget showing red, amber and green status for groups, devices or websites.
+- term: Ops note
+  also: [ops notes]
+  means: A timestamped note shown on graphs, such as a record of a change.
+- term: Portal
+  also: [tenant]   # not account: AWS and Azure have those
+  means: A LogicMonitor tenant, at <name>.logicmonitor.com.
+- term: Property
+  also: [properties]
+  means: A key and value on a device, group, Collector or website. Properties drive what is monitored and where alerts are routed.
+- term: PropertySource
+  also: [property source]
+  means: A LogicModule that runs against a device and sets auto. properties or categories.
+- term: Recipient group
+  means: A named set of users or integrations, used as a stage in an escalation chain.
+- term: Report
+  means: A scheduled or on-demand output from the portal, such as alert history, inventory or SLA.
+- term: Resource
+  means: The user interface's current word for a device.
+- term: Role
+  means: A set of permissions granted to a user.
+- term: SDT
+  also: [scheduled down time, scheduled downtime, downtime]
+  means: Scheduled Down Time. A window during which alerting is suppressed.
+- term: Service
+  also: [Service Insight, LM Service Insight]
+  means: In LM Service Insight, a group of devices pooled into one logical service with aggregated metrics. Stored as a device with deviceType 6.
+- term: system. property
+  also: [system property, system. properties, system properties]
+  means: A property LogicMonitor sets itself. None can be edited except system.categories.
+- term: system.categories
+  also: [categories, category]
+  means: The one property LogicMonitor merges down the tree rather than overriding, so a device carries every category set on it and on its groups.
+- term: Threshold
+  means: The condition on a datapoint that raises an alert, written as up to three values for warning, error and critical, such as "> 90 95 98".
+- term: Topology mapping
+  also: [topology, topology map]
+  means: LogicMonitor's automatic discovery of how monitored resources connect, drawn as a map and used for root cause analysis.
+- term: TopologySource
+  also: [topology source]
+  means: A LogicModule that discovers how devices connect, for topology mapping.
+- term: User
+  means: A login to a portal, holding one or more roles.
+- term: Website
+  also: [website check, synthetic check]
+  means: A synthetic web or ping check, run from LogicMonitor's checkpoints or from a Collector.
+- term: Website group
+  means: A folder of websites.
+- term: Widget
+  means: One panel on a dashboard - a graph, table, map or status board.
