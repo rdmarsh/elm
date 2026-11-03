@@ -1132,6 +1132,78 @@
              Worst: (max_by(.severity).severity | sev)})
       | sort_by(-.Devices, -.Alerts)
 
+- name: collector_keeping_up
+  asks: ["is COLLECTOR keeping up?", "is COLLECTOR overloaded?", "is COLLECTOR falling behind?", "is COLLECTOR dropping data?"]
+  covers: "whether one collector kept up with its work in the last hour"
+  params: [collector]
+  # The collector watches itself through LogicMonitor_Collector_* checks on its
+  # own host's device. Four say whether it keeps up (worked out on the test
+  # portal, 2026-11-01): DataCollectingTasks, one instance per collection
+  # method (TasksCountInQueue: tasks waiting; UnavailableScheduleTaskRate:
+  # tasks it had no thread for); ExecutorQueue (dropped, UsedPercent);
+  # Throttler (Reject, Discard); JVMStatus (HeapPercent). DeviceDatasourceDataById
+  # gives every instance of a check in one query, so four queries do it.
+  # Values come newest first, a minute apart; "No Data" is a missed poll. Heap
+  # climbs to the 90s before each garbage collection (97% on luna's, falling to
+  # 60%), so only a heap that never fell below 90% in the hour counts: that
+  # line is Samara's, not LogicMonitor's.
+  steps:
+    - as: dss
+      run: DeviceDatasourceList
+      params: {deviceId: "{collector[collectorDeviceId]}"}
+      fields: [id, dataSourceName]
+      size: all
+      when: $collector[0].collectorDeviceId > 0
+      says: listed the checks on the collector's own host
+    - as: data
+      run: DeviceDatasourceDataById
+      each: |
+        $dss | map(select(.dataSourceName | test("^LogicMonitor_Collector_(DataCollectingTasks|ExecutorQueue|Throttler|JVMStatus)$")))
+      params: {deviceId: "{collector[collectorDeviceId]}", id: "{row[id]}", period: 1}
+      says: fetched the last hour of its task queues, dropped and rejected tasks, and Java heap
+  summary: |
+    def per($ds; $dp): ($data | map(select(.dataSourceName == "LogicMonitor_Collector_" + $ds)) | first) as $r
+      | if $r == null then [] else ($r.dataPoints | index($dp)) as $k
+        | $r.instances | to_entries | map({name: (.key | sub("^LogicMonitor_Collector_[A-Za-z]+-"; "")),
+            v: [.value.values[] | .[$k] | select(type == "number")]}) end;
+    def busy: map(select((.v | max // 0) > 0));
+    def num: . * 10 | round / 10;
+    $collector[0] as $c
+    | (per("DataCollectingTasks"; "TasksCountInQueue") | busy) as $queued
+    | (per("DataCollectingTasks"; "UnavailableScheduleTaskRate") | busy) as $unsched
+    | (per("ExecutorQueue"; "dropped") | busy) as $dropped
+    | ((per("Throttler"; "Reject") + per("Throttler"; "Discard")) | busy | map(.name) | unique) as $rejected
+    | (per("JVMStatus"; "HeapPercent") | first // null) as $heap
+    | ($heap.v[0] // null) as $heapnow
+    | ([if ($queued | length) > 0 then "tasks waited in the queue for " + ($queued | map("\(.name) (up to \(.v | max | round))") | join(", ")) else empty end,
+        if ($unsched | length) > 0 then "it had no thread free to run some tasks for " + ($unsched | map("\(.name) (in \(.v | map(select(. > 0)) | length) of \(.v | length) minutes)") | join(", ")) else empty end,
+        if ($dropped | length) > 0 then "tasks were dropped from the " + ($dropped | map(.name) | join(", ")) + " queue" + (if ($dropped | length) > 1 then "s" else "" end) else empty end,
+        if ($rejected | length) > 0 then "its throttler turned away \($rejected | join(", ")) tasks" else empty end,
+        if $heapnow != null and ($heap.v | min) >= 90 then "its Java heap stayed above 90% all hour (now \($heapnow | num)%)" else empty end]) as $problems
+    | "Collector \($c.description)"
+    + (if $c.isDown then " is down, last heard from \($c.watchdogUpdatedOn | at), so it is not collecting at all."
+       elif $c.collectorDeviceId == 0 then ": its own host is not monitored as a device, so whether it is keeping up cannot be checked."
+       elif ($data | length) == 0 then ": none of the checks that show whether a collector keeps up is on its host."
+       elif ($problems | length) == 0 then " kept up in the last hour: no tasks waited in its queues, none went without a thread, nothing was dropped or turned away"
+         + (if $heapnow != null then ", and its Java heap is at \($heapnow | num)%." else "." end)
+       else " fell behind in the last hour: " + ($problems | join("; ")) + "." end)
+  table:
+    title: What {collector[description]} collected in the last hour, by method
+    columns: [Method, Instances, Most tasks waiting, Minutes with no thread free, Dropped]
+    rows: |
+      def per($ds; $dp): ($data | map(select(.dataSourceName == "LogicMonitor_Collector_" + $ds)) | first) as $r
+        | if $r == null then [] else ($r.dataPoints | index($dp)) as $k
+          | $r.instances | to_entries | map({key: (.key | sub("^LogicMonitor_Collector_[A-Za-z]+-"; "") | sub("^collector\\."; "")),
+              value: [.value.values[] | .[$k] | select(type == "number")]}) | from_entries end;
+      per("DataCollectingTasks"; "InstanceCount") as $n
+      | per("DataCollectingTasks"; "TasksCountInQueue") as $q
+      | per("DataCollectingTasks"; "UnavailableScheduleTaskRate") as $u
+      | per("ExecutorQueue"; "dropped") as $d
+      | $n | keys | map({Method: ., Instances: ($n[.][0] // 0 | round), "Most tasks waiting": ($q[.] // [] | max // 0 | round),
+          "Minutes with no thread free": ($u[.] // [] | map(select(. > 0)) | length),
+          Dropped: (if ($d[.] // [] | max // 0) > 0 then "yes" else "no" end)})
+      | sort_by(-."Minutes with no thread free", -."Most tasks waiting", -.Instances)
+
 # --- Things it cannot do ----------------------------------------------------
 
 - name: read_only

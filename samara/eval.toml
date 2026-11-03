@@ -112,6 +112,11 @@ q = "Is collector {collector} okay?"
 recipe = ["collector_health"]
 
 [[case]]
+q = "is collector {collector} keeping up?"
+recipe = ["collector_keeping_up"]
+says = ["kept up|fell behind"]
+
+[[case]]
 q = "When did collector {collector_down} go down?"
 recipe = ["collector_health", "collectors_down"]
 
