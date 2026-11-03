@@ -18,6 +18,12 @@
 # billed per question, and gpt-oss-20b scored worst on the 2026-11-01 eval
 # (40%; the small Qwens 87-95%) and adds an hour a run.
 #
+# Before each eval, models.sh loads that model itself, alone on its server, at
+# the server's context (16384 on this Mac, 32768 on the laptop), and loads it
+# again if LM Studio drops or reloads it: a load on demand uses LM Studio's own
+# default (8192 for gemma-3 and qwen3-14b, whatever the model's settings say),
+# which Samara's prompt does not fit.
+#
 # The laptop's LM Studio is at SAMARA_LAPTOP_URL (default below). Eval results
 # go to SAMARA_EVAL_DIR (default tmp/tests/, which git ignores):
 # eval-DATE-TIME-PORT.txt (safe to paste) and eval-DATE-TIME-PORT.jsonl (every
@@ -35,6 +41,8 @@ cd "$(dirname "$0")/.."
 
 LAPTOP=${SAMARA_LAPTOP_URL:-http://192.168.1.52:1234/v1}
 MINI=http://host.docker.internal:1234/v1   # the container's name for this Mac
+CONTEXT_MINI=${SAMARA_MINI_CONTEXT:-16384}
+CONTEXT_LAPTOP=${SAMARA_LAPTOP_CONTEXT:-32768}
 LOGS=${XDG_CACHE_HOME:-$HOME/.cache}/samara
 EVALS=${SAMARA_EVAL_DIR:-tmp/tests}
 PAGE=tmp/samara.html
@@ -51,6 +59,10 @@ MODELS=(
     "8089 google/gemma-3-12b $MINI"   # LM Studio does not list tool_use; it calls tools
     "8090 haiku claude"
     "8091 sonnet claude"
+    # copied from this Mac by the laptop's cron, so the laptop gives them its own ids
+    "8092 qwen3-14b-mlx $LAPTOP"
+    "8093 gemma-3-12b-it-qat $LAPTOP"
+    "8094 mistral-small-3.2-24b-instruct-2506 $LAPTOP"   # GGUF: slower than MLX
 )
 NAMED=,8080,8090,8091,
 
@@ -74,6 +86,29 @@ mkdir -p "$LOGS" "$EVALS" "$(dirname "$PAGE")"
 
 health() { curl -fs --max-time 2 "http://127.0.0.1:$1/api/health"; }
 where() { case $1 in "$LAPTOP") echo laptop ;; "$MINI") echo "this Mac" ;; *) echo "$1" ;; esac; }
+
+# MODEL URL: make MODEL the only model loaded on URL's LM Studio, at that server's
+# context. Does nothing when it already is. Says so when it loads, and why.
+load() {
+    local context=$CONTEXT_MINI; [[ $2 == "$LAPTOP" ]] && context=$CONTEXT_LAPTOP
+    python3 - "${2/host.docker.internal/127.0.0.1}" "$1" "$context" <<'EOF'
+import json, sys, urllib.request
+base, model, context = sys.argv[1].removesuffix("/v1") + "/api/v1/models", sys.argv[2], int(sys.argv[3])
+def call(path="", body=None):
+    req = urllib.request.Request(base + path, json.dumps(body).encode() if body else None,
+                                 {"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=600) as r:
+        return json.load(r)
+loaded = [(m["key"], i["id"], i["config"]["context_length"])
+          for m in call()["models"] for i in m.get("loaded_instances", [])]
+if [(k, c) for k, _, c in loaded] == [(model, context)]:
+    sys.exit(0)
+for _, instance, _ in loaded:
+    call("/unload", {"instance_id": instance})
+call("/load", {"model": model, "context_length": context})
+print(f"{model}: loaded at {context}" + (f" (was {', '.join(f'{k} at {c}' for k, _, c in loaded)})" if loaded else ""))
+EOF
+}
 
 # A port's latest eval: its summary line once done, else how many asks it has answered.
 progress() {
@@ -183,8 +218,16 @@ evaluate() {   # the ports given, one after another
         paid=; [[ " $claude " == *" $port "* ]] && paid=--claude
         echo "$port: eval, see $EVALS/eval-$run-$port$q.txt"
         : >"$EVALS/eval-$run-$port$q.txt"; page || true
+        read -r _ model url <<<"$(printf '%s\n' "${MODELS[@]}" | grep "^$port ")"
+        [[ $url == claude ]] || load "$model" "$url" | sed "s/^/$port: /" || echo "$port: could not load $model" >&2
         samara/eval.py --url "http://127.0.0.1:$port" "${asks[@]}" $paid --out "$EVALS/eval-$run-$port$q.jsonl" \
-            >"$EVALS/eval-$run-$port$q.txt" 2>&1 || echo "$port: eval failed, see that file" >&2
+            >"$EVALS/eval-$run-$port$q.txt" 2>&1 &
+        e=$!
+        while [[ $url != claude ]] && kill -0 "$e" 2>/dev/null; do   # LM Studio can drop it mid-run
+            sleep 30
+            load "$model" "$url" | sed "s/^/$port: /" || true
+        done
+        wait "$e" || echo "$port: eval failed, see that file" >&2
         page || true
     done
 }
