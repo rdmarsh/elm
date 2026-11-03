@@ -16,7 +16,8 @@
 #
 # A port in NAMED starts only when --only names it: the Claude models are
 # billed per question, and gpt-oss-20b scored worst on the 2026-11-01 eval
-# (40%; the small Qwens 87-95%) and adds an hour a run.
+# (40%; the small Qwens 87-95%) and adds an hour a run. gemma-3-12b is gone:
+# 36% on 2026-11-04, mostly by skipping the recipes.
 #
 # Before each eval, models.sh loads that model itself, alone on its server, at
 # the server's context (16384 on this Mac, 32768 on the laptop), and loads it
@@ -56,12 +57,10 @@ MODELS=(
     "8086 qwen3.5-4b-mlx $MINI"
     "8087 qwen/qwen3.5-9b $MINI"
     "8088 qwen/qwen3-14b $MINI"
-    "8089 google/gemma-3-12b $MINI"   # LM Studio does not list tool_use; it calls tools
     "8090 haiku claude"
     "8091 sonnet claude"
     # copied from this Mac by the laptop's cron, so the laptop gives them its own ids
     "8092 qwen3-14b-mlx $LAPTOP"
-    "8093 gemma-3-12b-it-qat $LAPTOP"
     "8094 mistral-small-3.2-24b-instruct-2506 $LAPTOP"   # GGUF: slower than MLX
 )
 NAMED=,8080,8090,8091,
