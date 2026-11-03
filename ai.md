@@ -75,6 +75,10 @@ underspecified or wrong. Fix the system, not the prompt.
 Write rules as what to do ("keep existing debug logging unless asked"), and
 keep "never" for security and things that can't be undone.
 
+Don't write a rule the code already breaks, and make sure a check passes
+when nothing is wrong. A check that fails falsely gets switched off, and
+then nothing is checked.
+
 ## Rules for the assistant
 
 * **Be honest.** Say when something is wrong and why, and push back before
@@ -98,7 +102,9 @@ keep "never" for security and things that can't be undone.
   not exist, and a made-up method name looks exactly like a real one. Check
   the docs, the installed version and what actually runs. Run the tests
   after each change and report failures. If something wasn't verified, say
-  so and how to check it.
+  so and how to check it. Building isn't checking: if something else
+  renders it (GitHub Pages, a wiki, a browser), look at the result; until
+  then call it unverified.
 * **Example output comes from running the program**, never from memory. Keep
   the input next to it so it can be regenerated. Notes say how and when they
   were checked: one of elm's was marked "verified live" and was backwards for
@@ -134,6 +140,9 @@ Anything sent to an AI service may be logged or kept. Use placeholders for
 real account names, hostnames, IPs and usernames, and the same ones
 everywhere (elm uses `portal01`, `web01`, `lm01`). Never paste credentials or
 tokens. Sanitise logs and API responses, or describe their shape instead.
+Personal data arrives in bulk through exports and API dumps (contact lists,
+phone numbers) and looks like content, not a secret. Check them before
+committing.
 
 Review AI code for hardcoded secrets, command injection from building
 strings, missing input checks, insecure defaults, and made-up or malicious
