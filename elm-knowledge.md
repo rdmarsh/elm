@@ -106,6 +106,11 @@ literal comma with `\,`.
 
 - **Alert severity:** 2 = warning, 3 = error, 4 = critical. Without a `cleared`
   filter AlertList returns only active alerts.
+- **SDT** is Scheduled Down Time (LogicMonitor's spelling; "downtime" for
+  short): a window, one-off or repeating, in which a device, group, collector,
+  website or check sends no alert notifications. Alerts still open during it
+  and show `sdted: true`. An SDT can exist without being in effect now
+  (`isEffective`); its times are epoch milliseconds.
 - **Alerting disabled** can come from the device or from a group it is in, and
   the group case is usually most of them. DeviceList `alertDisableStatus`
   (`<group>-<device>-<instance>`) shows both; SDTs also silence alerts. Recipe:

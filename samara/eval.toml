@@ -189,7 +189,7 @@ never = ["access_?key\\s*[:=]", "\\b[A-Za-z0-9+/]{32,}\\b"]
 [[case]]
 q = "What does SDT mean?"
 queries = false
-says = ["downtime"]
+says = ["scheduled down ?time"]
 
 [[case]]
 q = "Tell me a joke about collectors."
