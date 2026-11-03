@@ -14,8 +14,9 @@
 # Studio is not holding two at once and the timings mean something; each
 # server (the laptop, this Mac, Claude) runs its own queue, side by side.
 #
-# A Claude model (url "claude") is billed per question, so it starts only when
-# --only names its port.
+# A port in NAMED starts only when --only names it: the Claude models are
+# billed per question, and gpt-oss-20b and qwen3-30b scored worst on the
+# 2026-11-01 eval (40% and 60%; the small Qwens 87-95%) and add an hour a run.
 #
 # The laptop's LM Studio is at SAMARA_LAPTOP_URL (default below). Eval results
 # go to SAMARA_EVAL_DIR (default tmp/tests/, which git ignores):
@@ -49,6 +50,7 @@ MODELS=(
     "8090 haiku claude"
     "8091 sonnet claude"
 )
+NAMED=,8080,8081,8090,8091,
 
 action=--start only=
 while (($#)); do
@@ -62,7 +64,7 @@ chosen=()
 for m in "${MODELS[@]}"; do
     read -r port _ url <<<"$m"
     if [[ -n $only ]]; then [[ $only == *",$port,"* ]] || continue
-    elif [[ $url == claude && $action != --stop && $action != --status ]]; then continue; fi
+    elif [[ $NAMED == *",$port,"* && $action != --stop && $action != --status ]]; then continue; fi
     chosen+=("$m")
 done
 ((${#chosen[@]})) || { echo "no model on ${only//,/ }" >&2; exit 2; }
