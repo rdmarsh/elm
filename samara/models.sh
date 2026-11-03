@@ -52,7 +52,7 @@ MODELS=(
     "8083 qwen/qwen3-vl-4b $MINI"
     # the same two on the laptop, at twice the context the mini can give them
     "8084 qwen3-8b-mlx $LAPTOP"
-    "8085 qwen3-vl-4b-instruct-mlx $LAPTOP"   # a copied model gets a local id
+    "8085 qwen/qwen3-vl-4b $LAPTOP"
     "8086 qwen3.5-4b-mlx $MINI"
     "8087 qwen/qwen3.5-9b $MINI"
     "8088 qwen/qwen3-14b $MINI"
