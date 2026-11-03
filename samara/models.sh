@@ -15,8 +15,8 @@
 # server (the laptop, this Mac, Claude) runs its own queue, side by side.
 #
 # A port in NAMED starts only when --only names it: the Claude models are
-# billed per question, and gpt-oss-20b and qwen3-30b scored worst on the
-# 2026-11-01 eval (40% and 60%; the small Qwens 87-95%) and add an hour a run.
+# billed per question, and gpt-oss-20b scored worst on the 2026-11-01 eval
+# (40%; the small Qwens 87-95%) and adds an hour a run.
 #
 # The laptop's LM Studio is at SAMARA_LAPTOP_URL (default below). Eval results
 # go to SAMARA_EVAL_DIR (default tmp/tests/, which git ignores):
@@ -40,7 +40,6 @@ EVALS=${SAMARA_EVAL_DIR:-tmp/tests}
 PAGE=tmp/samara.html
 MODELS=(
     "8080 openai/gpt-oss-20b $LAPTOP"
-    "8081 qwen/qwen3-30b-a3b-2507 $LAPTOP"
     "8082 qwen3-8b-mlx $MINI"
     "8083 qwen/qwen3-vl-4b $MINI"
     # the same two on the laptop, at twice the context the mini can give them
@@ -48,10 +47,12 @@ MODELS=(
     "8085 qwen3-vl-4b-instruct-mlx $LAPTOP"   # a copied model gets a local id
     "8086 qwen3.5-4b-mlx $MINI"
     "8087 qwen/qwen3.5-9b $MINI"
+    "8088 qwen/qwen3-14b $MINI"
+    "8089 google/gemma-3-12b $MINI"   # LM Studio does not list tool_use; it calls tools
     "8090 haiku claude"
     "8091 sonnet claude"
 )
-NAMED=,8080,8081,8090,8091,
+NAMED=,8080,8090,8091,
 
 action=--start only=
 while (($#)); do
