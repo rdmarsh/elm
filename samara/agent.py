@@ -608,6 +608,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
     fetched = False   # whether any query this turn returned rows, for a table typed without them
     failed_calls = {}   # tool call -> times it failed, to stop a model retrying the same one
     done_calls = set()   # tool calls that worked, so a repeat is not run (or tabled) twice
+    repeats = 0   # calls of done_calls made again: three and the turn is answered
     forced = None   # set to end the turn without asking the model again: the answer's own text
     seen = []   # every tool result and table this turn: what the answer's numbers may come from
     inject = None   # a tool call Samara makes itself, in place of asking the model
@@ -770,6 +771,12 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 results.append({"type": "tool_result", "tool_use_id": openai_api.block(block, "id"),
                                 "content": "Not run: this exact call already worked this turn, and its "
                                            "result is above. Use it, or do something different."})
+                repeats += 1
+                if repeats >= 3:
+                    # Told no three times, it is stuck: answer now, from what came back.
+                    # "What custom properties does luna have?" got its recipe's answer,
+                    # then the same DeviceList 20 times to the step limit (qwen3.5-4b, 2026-11-01).
+                    forced = forced or "I stopped here: I was repeating a step that had already run."
                 continue
             if failed_calls.get(call):
                 # The same call again, after it failed: not run. A model retried

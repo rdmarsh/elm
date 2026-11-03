@@ -307,6 +307,10 @@ def find_commands(session, keyword=""):
 def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
     """Validate the model's request and build the elm argument list."""
     if command not in COMMANDS:
+        if command in RECIPE_NAMES:
+            # run_elm group_health (qwen3.5-4b, 2026-11-01)
+            raise ValueError(f"{command} is a recipe, not an elm command: call the recipe tool "
+                             f"with recipe={command!r}.")
         raise ValueError(f"Unknown command {command!r}. Use find_commands to look it up.")
     allowed = {o["name"]: o for o in COMMANDS[command]["options"] if o["name"] not in PAGING_PARAMS}
     params = params or {}
@@ -446,13 +450,20 @@ def why_failed(stderr):
     return reason if len(reason) <= 500 else reason[:499] + "…"
 
 
-def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
+RECIPE_NAMES = set()   # filled in by recipes.py, so a recipe asked for as a command is pointed at it
+
+
+def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False, **extra):
     """Run one read-only elm query and store the rows as a dataset.
+
+    An argument run_elm does not have is taken as one of params: run_elm(id=2767)
+    came back as a Python TypeError three times over (qwen3.5-4b, 2026-11-01).
 
     The first use of a command in a conversation comes back with that command's
     verified notes attached, whether or not describe_command was called: a model
     that skips the lookup still cannot miss "-C gives no real total here".
     """
+    params = {**extra, **(params or {})} or None
     try:
         lines, stderr, removed, shown = fetch(command, filter, fields, size, offset, params, total)
     except Refused as exc:

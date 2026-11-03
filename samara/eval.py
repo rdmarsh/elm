@@ -69,13 +69,16 @@ def fact(elm, command):
     return out.stdout.strip() if out.returncode == 0 else None
 
 
-def near(want, text):
-    """Whether the fact is in the text: a count within 2% of it (small counts exactly), as
-    live counts move between the answer and the check (575 open, then 574)."""
+def near(want, text, slack=0):
+    """Whether the fact is in the text: a count within 2% of it (small counts exactly,
+    or within the case's slack), as live counts move between the answer and the check
+    (575 open, then 574). A 0 may be said as "no" or "none": "Found no alerts" is 0."""
     if not re.fullmatch(r"\d+", want):
         return re.search(rf"(?<![\w.]){re.escape(want)}(?![\w.])", text) is not None
     n = int(want)
-    return any(abs(int(x) - n) <= n // 50 for x in re.findall(r"(?<![\d.])\d+(?![\d.])", text))
+    if n == 0 and re.search(r"\b(no|none|zero)\b", text, re.I):
+        return True
+    return any(abs(int(x) - n) <= max(n // 50, slack) for x in re.findall(r"(?<![\w.])\d+(?![\w.])", text))   # whole numbers: not the 9 in "hnf9ht"
 
 
 def grade(case, events, values, elm, facts=None):
@@ -107,7 +110,7 @@ def grade(case, events, values, elm, facts=None):
         want = facts[command]
         if want is None:
             misses.append("fact: the check command failed")
-        elif not near(want, plain):
+        elif not near(want, plain, case.get("slack", 0)):
             misses.append(f"fact: {want} not in the answer")
             wrong = True
     tables = [e for e in events if e.get("type") == "table"]

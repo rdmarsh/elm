@@ -44,6 +44,7 @@ from pathlib import Path
 import yaml
 
 import elm_tools
+import router
 
 HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
@@ -188,8 +189,15 @@ def choose(r, given):
     return ",".join(filters), before, after
 
 
-def run_recipe(session, recipe, device=None, group=None, collector=None, person=None, days=None, **options):
-    """Run one recipe; return (text for the model, [step and table events])."""
+def run_recipe(session, recipe=None, device=None, group=None, collector=None, person=None, days=None, **options):
+    """Run one recipe; return (text for the model, [step and table events]).
+
+    With no recipe named and one thing to look at, it is that thing's health
+    recipe: recipe(group="acme") came back as a Python TypeError, retried until
+    the turn gave up (qwen3.5-4b, 2026-11-01)."""
+    given = {k: v for k, v in {"device": device, "group": group, "collector": collector, "person": person}.items() if v}
+    if not recipe and len(given) == 1:
+        recipe = router.HEALTH[next(iter(given))]
     r = RECIPES.get(recipe)
     if not r:
         raise ValueError(f"No recipe {recipe!r}. Recipes: {', '.join(RECIPES)}")
@@ -366,6 +374,7 @@ for _r in RECIPES.values():
 # Registered with the other tools, first, so a model reading the list in
 # order meets it before run_elm. Importing this module is what adds it.
 elm_tools.HANDLERS["recipe"] = run_recipe
+elm_tools.RECIPE_NAMES.update(RECIPES)
 elm_tools.TOOLS.insert(0, {
     "name": "recipe",
     "description": tool_description(),

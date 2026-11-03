@@ -22,6 +22,8 @@
 #   column  = [regex]    a table on the page must have a column like this
 #   says    = [regex]    must be in the answer (case-insensitive)
 #   fact counts may be off by 2% (small ones not at all): live counts move while it checks
+#   slack   = N          a fact count may also be off by N: for a window that moves ("last hour")
+#                        A fact of 0 is also met by "no", "none" or "zero".
 #   never   = [regex]    must not be anywhere in it: a match is confidently wrong
 #   after   = [questions] asked first, in the same conversation
 #
@@ -146,6 +148,7 @@ fact = ["$ELM AlertList -c -s0 -F 'cleared:*,startEpoch:{yesterday}'"]
 q = "What alerts cleared in the last hour?"
 recipe = ["alerts"]
 fact = ["$ELM AlertList -c -s0 -F 'cleared:true,endEpoch>:now-1h'"]
+slack = 1   # the hour moves between the answer and the check: 9, then 10 (2026-11-01)
 
 [[case]]
 q = "are any alerts still open that started during SDT?"

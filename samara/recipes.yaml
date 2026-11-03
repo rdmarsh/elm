@@ -523,7 +523,7 @@
   # still going ("today") is one-sided: >: its start (2026-11-01).
   options:
     started:
-      about: "when the alerts started, if the question says (\"started yesterday\", \"new this week\")"
+      about: "when the alerts started, if the question says (\"started yesterday\", \"new this week\"); not for what cleared, which is ended"
       field: startEpoch
       verb: " that started"
       sets: {state: any}
@@ -539,7 +539,7 @@
         last_30_days: {filter: "{field}>:now-30d", words: " in the last 30 days"}
         last_month: {filter: "{field}:now-1M/M", words: " last month"}
     ended:
-      about: "when the alerts cleared, if the question asks what cleared or recovered"
+      about: "when the alerts cleared, if the question asks what cleared or recovered (\"cleared in the last hour\" is ended=last_hour, not started)"
       field: endEpoch
       verb: " that cleared"
       sets: {state: cleared}
