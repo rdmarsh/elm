@@ -453,6 +453,8 @@ def call_tool(conv, block):
             raise ValueError(f"Unknown tool {name}")
         if "_unparsed" in args:
             raise ValueError(f"The arguments were not valid JSON: {args['_unparsed'][:300]}")
+        if name == "recipe":
+            args = recipes.from_question(conv.question, args)
         text, event = handler(conv.session, **args)
         return {"type": "tool_result", "tool_use_id": use_id, "content": text}, event
     except Exception as exc:  # errors go back to the model so it can correct itself

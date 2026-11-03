@@ -172,6 +172,11 @@ class Handler(BaseHTTPRequestHandler):
             pass  # Stop pressed or the tab closed; agent.ask has dropped the half-finished turn
         except Exception as exc:
             emit({"type": "error", "text": f"Unexpected error: {exc}"})
+        else:
+            if "answer" not in said and "error" not in said:
+                # A stream that just ends reads as a blank answer: "is luna okay?"
+                # got a status line and nothing else (qwen3-8b, 2026-11-01 eval).
+                emit({"type": "error", "text": "Samara stopped without an answer. Try asking again."})
         if body.get("save"):
             answer = said.get("answer", {})
             log({"kind": "question", "conversation": conv_id,

@@ -172,7 +172,7 @@ def choose(r, given):
         picked[name] = v
     for name in list(picked):
         for other, v in opts[name].get("sets", {}).items():
-            if other not in picked:
+            if picked.get(other, v) == v:   # unset, or set to what this already says
                 picked[other] = v
                 quiet.add(other)   # "that cleared in the last hour" already says cleared
     for name, o in opts.items():
@@ -187,6 +187,29 @@ def choose(r, given):
                 words = o.get("verb", "") + spec["words"].format(picked[name])
                 before, after = (before + words, after) if o.get("before") else (before, after + words)
     return ",".join(filters), before, after
+
+
+CLEARED = re.compile(r"\b(clear(ed|s)?|recover\w*|resolv\w*|closed)\b", re.I)
+STARTED = re.compile(r"\b(start\w*|began|begun|new|raised|opened|fired)\b", re.I)
+OPEN = re.compile(r"\b(open|still|active|ongoing|unresolved|outstanding|now|current\w*)\b", re.I)
+
+
+def from_question(question, args):
+    """The alerts recipe's options, with what the question's own words settle put right.
+
+    The model picks the options, and small ones pick the wrong window: "What
+    alerts cleared in the last hour?" came as started=last_hour, state=cleared
+    (qwen3-vl-4b), and "How many alerts started yesterday?" as state=open, which
+    left out the 129 that had cleared (qwen3-8b), both on the 2026-11-01 eval.
+    """
+    if not isinstance(args, dict) or args.get("recipe") != "alerts" or not question:
+        return args
+    args = dict(args)
+    if args.get("started") and not args.get("ended") and CLEARED.search(question) and not STARTED.search(question):
+        args["ended"] = args.pop("started")
+    if args.get("state") == "open" and (args.get("started") or args.get("ended")) and not OPEN.search(question):
+        del args["state"]   # the window's own state applies: any for started, cleared for ended
+    return args
 
 
 def run_recipe(session, recipe=None, device=None, group=None, collector=None, person=None, days=None, **options):

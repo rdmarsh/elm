@@ -54,7 +54,9 @@ recipe = ["device_downtime"]
 q = "any downtime on it?"
 after = ["is {device} up?"]
 recipe = ["device_downtime", "device_health"]
-fact = ["$ELM AllSDTListByDeviceId --id $($ELM -f values DeviceList -s1 -F 'displayName:\"{device}\"' -f id) -c -s0"]
+# No count fact: "no downtime in effect; the next is 26 Nov" is right, and the
+# count of all its SDTs (2) is not what was asked, and device_health never says it (2026-11-01).
+says = ["downtime"]
 
 [[case]]
 q = "what about its collector?"
