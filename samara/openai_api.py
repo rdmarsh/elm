@@ -70,6 +70,11 @@ def create(url, key, model, system, tools, messages, n=0):
     """(content blocks, stop reason, usage) in Anthropic's terms, for agent.py."""
     body = {
         "model": model,
+        # A thinking model can loop until the read timeout: qwen3.5-4b and qwen3-30b
+        # each sent nothing for 600s on the 2026-11-01 eval. A step's reply is
+        # normally a tool call or a short answer; this stops a loop in minutes, as
+        # an answer cut off at the length limit rather than an error.
+        "max_tokens": 8192,
         "messages": to_chat(system, messages),
         "tools": [{"type": "function", "function": {"name": t["name"], "description": t["description"],
                                                     "parameters": t["input_schema"]}} for t in tools],
