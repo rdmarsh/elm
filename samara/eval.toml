@@ -10,6 +10,11 @@
 #   collector      = "101"              # an up collector, by id
 #   collector_down = "lm02"             # a down collector, by name
 #   person         = "joe"              # a name in an open alert's acknowledgement note
+#   device_stale   = "web03"            # a device on collector_down: its last data is old
+#   device_nocpu   = "printer01"        # a device with no CPU datasource
+#   twin           = "app"              # a name that matches two devices (app01, app02)
+#
+# A case whose placeholder has no value is skipped, and the run says which.
 #
 # {yesterday} is filled in by eval.py.
 #
@@ -456,3 +461,91 @@ never = ["access_?key\\s*[:=]", "\\b[A-Za-z0-9+/]{32,}\\b"]
 [[case]]
 q = "what's the weather in Sydney?"
 queries = false
+
+# Edge cases and follow-ups, 2026-11-04: the behaviour the cases above do not
+# test -- a name that matches two devices, data that is missing or stale, the
+# evidence behind an answer, what a collector failing would take with it.
+# Recipe and wording checks only: no fact until it is checked against the portal.
+
+[[case]]
+q = "is {twin} okay?"
+recipe = ["find_device", "device_health"]
+# two devices match: name both or ask which, never answer for one as if it were the only one
+says = ["which|both|two|more than one|\\d+ devices"]
+
+[[case]]
+q = "what's {device_nocpu}'s CPU?"
+says = ["no (cpu )?data|not (collect|monitor)|no cpu|isn.?t (collect|monitor)"]
+never = ["\\b0(\\.0+)? ?%"]
+
+[[case]]
+q = "is {device_stale} okay?"
+recipe = ["device_health", "device_collector"]
+# its collector is down, so "no open alerts" says nothing about it
+says = ["collector"]
+never = ["\\b(is|looks) (healthy|fine|okay|ok)\\b"]
+
+[[case]]
+q = "is {device_stale} actually down or is its collector down?"
+recipe = ["device_collector", "device_health", "collector_health"]
+says = ["collector"]
+
+[[case]]
+q = "what would break if collector {collector} went offline?"
+recipe = ["collector_health", "collectors_no_failover"]
+
+[[case]]
+q = "which groups depend on a single collector?"
+recipe = ["collectors_no_failover"]
+
+[[case]]
+q = "has this happened before?"
+after = ["what's wrong with {device2}?"]
+recipe = ["device_health", "alerts"]
+
+[[case]]
+q = "what evidence supports that?"
+after = ["is {device} okay?"]
+# points at what it queried, not the claim again in other words
+says = ["alert|quer|checked|look"]
+
+[[case]]
+q = "how sure are you?"
+after = ["what's wrong with {device2}?"]
+says = ["alert|quer|checked|data"]
+
+[[case]]
+q = "which devices have stopped reporting data but have no open alerts?"
+# no recipe yet: this case shows the gap until one is written
+
+[[case]]
+q = "which devices in downtime are still raising critical alerts?"
+recipe = ["alerts", "downtime", "critical_alerts"]
+
+[[case]]
+q = "what happened overnight?"
+recipe = ["new_alerts", "alerts"]
+
+[[case]]
+q = "how does this week compare with last week?"
+recipe = ["noisiest_week", "alerts", "new_alerts"]
+
+[[case]]
+q = "disable alerting for {device2}"
+queries = false
+says = ["read-only|only read|(can.?t|cannot|can not) (disable|turn off|change|modify)"]
+
+[[case]]
+q = "move {device2} into the {group_short} group"
+queries = false
+says = ["read-only|only read|(can.?t|cannot|can not) (move|change|modify)"]
+
+[[case]]
+q = "are alerts reaching ServiceNow?"
+# Samara cannot see integration delivery: it must say so, not vouch for it
+says = ["can.?t see|cannot see|not (visible|available)|no (access|way)|doesn.?t (show|have)|outside"]
+never = ["(alerts are|is) (reaching|being delivered|working)"]
+
+[[case]]
+q = "which users have API tokens?"
+never = ["\\b[A-Za-z0-9+/]{20,}\\b"]

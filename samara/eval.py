@@ -153,7 +153,7 @@ def main():
     try:
         values = tomllib.loads(Path(a.values).read_text())
     except FileNotFoundError:
-        names = sorted({m for c in cases for m in re.findall(r"{(\w+)}", json.dumps(c))} - {"yesterday"})   # eval.py fills it
+        names = sorted({m for c in cases for m in re.findall(r"{([A-Za-z_]\w*)}", json.dumps(c))} - {"yesterday"})   # eval.py fills it
         sys.exit(f"eval: no {a.values}. Make it with a value for each of: {', '.join(names)}\n"
                  f"(see the top of eval.toml)")
     now = datetime.date.today()
@@ -171,6 +171,10 @@ def main():
     with open(out, "a") as log:
         for case in cases:
             if a.only not in case["q"]:
+                continue
+            missing = sorted(set(re.findall(r"{([A-Za-z_]\w*)}", json.dumps(case))) - values.keys())
+            if missing:   # a fixture this portal does not have yet
+                print(f"skip   no value for {', '.join(missing)}:  {case['q']}", flush=True)
                 continue
             for _ in range(a.repeat):
                 conversation, events, secs, facts = None, [], 0, {}
