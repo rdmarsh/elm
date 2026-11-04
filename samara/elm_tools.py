@@ -60,7 +60,10 @@ SECRET_FIELDS = {
 PERSONAL_FIELDS = {"contacts", "email", "phone"}
 # A dashboard's widget tokens are values an admin typed for its widgets (paths,
 # hosts, anything): kept from the reader too (David, 2026-10-31).
-REMOVED_FIELDS = SECRET_FIELDS | PERSONAL_FIELDS | {"widgetTokens"}
+# A DataSource's collection and discovery scripts (DatasourceList) can hold
+# hard-coded credentials, and no question needs them.
+SCRIPT_FIELDS = {"collectorAttribute", "autoDiscoveryConfig", "eriDiscoveryConfig", "adParameters"}
+REMOVED_FIELDS = SECRET_FIELDS | PERSONAL_FIELDS | SCRIPT_FIELDS | {"widgetTokens"}
 
 # Property lists (customProperties, systemProperties, ...) hold {name, value}.
 # LM already masks credential properties as ******** (verified with a read-only

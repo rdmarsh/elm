@@ -29,8 +29,10 @@ recipes.yaml, one entry per recipe:
                 and params are str.format templates over the lookups
                 ({device[id]}); `size: all` pages past 1000 rows; `when` is a
                 jq test that skips the step when false; `each` is jq giving a
-                list: the step runs once per item ({row[id]}, at most MAX_EACH)
-                and every result row carries its item as `of`
+                list: the step runs once per item ({row[id]}, at most MAX_EACH,
+                or the step's `most`, up to MOST_EACH; `noun` names the items
+                for the "only part was checked" note) and every result row
+                carries its item as `of`
   summary       jq giving the answer's text
   table_only    the rows hold free text (properties): the model is not told
                 where they are, so planted text reaches only the reader
@@ -50,6 +52,7 @@ HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
 MAX_PAGES = 10   # LM stops paging at 10,000 rows
 MAX_EACH = 10    # an `each` step's queries, one per item
+MOST_EACH = 150  # a step's own `most` (one per DataSource on a device) stops here
 MAX_DAYS = 90    # how far ahead a `days` recipe may look
 
 # Defined in front of every recipe expression. Times are the reader's (jq
@@ -245,6 +248,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                     f"or, if none fits, run_elm."), []
     names, records, events = {}, {}, []   # names: step name -> dataset id
     cut, skipped = [], set()   # steps LM's 10,000-row limit cut short; steps whose `when` was false
+    capped = []                # `each` steps that stopped at their limit
 
     def keep(name, lines, shown, what, command):
         ds_id = session.add(lines, f"recipe {recipe}: {what}", command)
@@ -326,7 +330,11 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                 skipped.add(step["as"])
                 continue
             if "each" in step:
-                items = json.loads(elm_tools._jq(session, jq(step["each"])))[:MAX_EACH]
+                items = json.loads(elm_tools._jq(session, jq(step["each"])))
+                most = min(step.get("most", MAX_EACH), MOST_EACH)
+                if len(items) > most:
+                    capped.append(f"checked the first {most} of {len(items)} {step.get('noun', 'items')}")
+                items = items[:most]
                 lines, shown = [], f"{step['run']}: nothing to fetch"
                 for i, row in enumerate(items):
                     params = {k: str(v).format(**records, row=row) for k, v in step.get("params", {}).items()}
@@ -362,6 +370,8 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
         # The counts are over the rows that came back, so they may be too low.
         summary = (f"Only part of the data could be fetched ({'; '.join(cut)}: LogicMonitor returns at most "
                    f"10,000 rows), so the counts below may be too low. {summary}")
+    if capped:
+        summary = f"Only part was checked ({'; '.join(capped)}), so the counts below may be too low. {summary}"
     # Only the summary goes to the model. The table and How I worked this out
     # are Samara's: a small model copied instructions about them into its
     # answers word for word, and listed queries that never ran.

@@ -27,6 +27,7 @@ LogicModules
 - [Module updates](#module-updates) — `tools/elm-module-updates.py`
 - [Change advice](#change-advice) — `tools/elm-change-advice.py`
 - [Datasource usage matrix](#datasource-usage-matrix) — `tools/elm-datasource-matrix.py`
+- [Collection gaps](#collection-gaps) — `tools/elm-collection-gaps.py`
 
 Comparing portals
 - [Portal matrix](#portal-matrix) — `tools/portal-matrix.py`
@@ -483,6 +484,57 @@ and this is not configurable. Datasources with no remaining devices are dropped
 (empty columns), and only devices using at least one matching datasource appear
 as rows. "Applied" is the live device→datasource association, not the daily
 `auto.activedatasources` property.
+
+## Collection gaps
+
+`tools/elm-collection-gaps.py` finds datasource instances that are not
+collecting. A DataSource upgrade can stop collection with no error, and nothing
+alerts on data that never arrives, so run it across a portal now and then, or
+with `--datasource` straight after an upgrade (a bulk "poll now").
+
+```shell
+tools/elm-collection-gaps.py --device web01                 # one device
+tools/elm-collection-gaps.py --datasource WinCPU            # after upgrading WinCPU
+tools/elm-collection-gaps.py -p portal01 --jobs 8 > gaps.md # the whole portal
+tools/elm-collection-gaps.py --jsonl | jq -r 'select(.list == "stopped") | .device' | sort -u
+```
+
+It reports three lists, each grouped by DataSource with the most instances
+first, so one bad DataSource stands out:
+
+- **Stopped**: polled before, but not in the last `--intervals` collect
+  intervals (default 3; the interval is the DataSource's `collectInterval`)
+  and not in the last `--min-age` minutes (default 30). The floor is there
+  because Azure Insights and slow batchscripts often run several minutes
+  late: at 3 intervals alone, the test portal's "stopped" list was all lag.
+- **No data in the last `--lookback` hours** (default 24): never collected,
+  or stopped before then. Usually AppliesTo, credentials or access.
+- **Polled, but all No Data**: polled on schedule, but every value of every
+  poll in the window is No Data. The collector runs it and gets nothing back.
+  No Data is normal for some DataSources (drop tables, error reasons), so a
+  whole-portal run counts these per DataSource, and `--nodata` lists them;
+  `--device` and `--datasource` always list them.
+
+Each row has the device, the instance, when it last collected and how many
+intervals ago that was. The report ends with what was left out and why: dead
+devices, devices whose collector is down, devices, DataSources and instances
+in SDT or with monitoring disabled, DataSources with no instances, and modules
+that are not DataSources (ConfigSources etc.). Progress goes to stderr.
+
+How it works: an instance's `lastCollectedTime` is `0` for every DataSource
+(only ConfigSources fill it in), so the times come from the data instead. Per
+device it lists the DataSources and instances (two calls), then makes one
+`DeviceDatasourceDataById` call per DataSource over the last few intervals: the
+rows are the polls. A DataSource with an instance that has no rows gets a
+second call over `--lookback`, with one datapoint, to find its last poll.
+Rows of No Data still count as polls, so a device that is up but returning
+nothing shows in the third list, not the first.
+
+Cost: about one call per DataSource per device, so a whole portal is slow;
+`--jobs` (default 4) runs that many at once, and a 429 is retried with a
+growing wait. On a test portal of 387 live devices, `--jobs 8` took 7
+minutes and 3,400 calls. `--datasource` only visits the devices that DataSource applies
+to. It reads, never writes.
 
 ## Group paths
 

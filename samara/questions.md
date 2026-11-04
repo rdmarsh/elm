@@ -195,6 +195,14 @@ and a result line.
   instance, data.
   - 2026-10-29 · qwen3-8b-mlx, recipes · fail ×2 · no recipe fits; it listed the three steps and
     said it could not run them (it can, with run_elm).
+- **Is web01 collecting everything?** (recipe `device_collecting`) Stopped,
+  no data in 24 hours, and polled but all No Data, each counted, with the
+  DataSources named. Instance names only in the table.
+  Check: `tools/elm-collection-gaps.py --device web01` gives the same lists.
+  - 2026-11-04 · recipe run directly, no model · pass · a collector host (72
+    DataSources, 60s): 1 no data in 24h, 26 all No Data, the same 27 as the
+    tool; a small device (2 DataSources, 12s) matched too; a dead device says
+    it is not responding and checks nothing. Needs DatasourceList allowed.
 - Questions that have tripped it up before: severity numbers, "SNMP" alerts,
   OS detection, AlertList filters the API ignores.
 - **Show me a list of the users.** Should refuse (the profile does not allow

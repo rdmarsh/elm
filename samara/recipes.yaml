@@ -225,6 +225,117 @@
       | map(select(((.Check | test("(?i)^LogicMonitor_Collector") | not) or .Datapoint == "CollectorMemory")
           and ((.Check | test("(?i)mem")) or (.Datapoint | test("(?i)mem")))))
 
+- name: device_collecting
+  asks: ["is DEVICE collecting everything?", "has anything on DEVICE stopped collecting?", "is DEVICE returning No Data anywhere?", "which checks on DEVICE have no data?", "is DEVICE missing data?"]
+  covers: "whether every check (DataSource) on one device is collecting now, and which are not"
+  params: [device]
+  steps:
+    - as: dss
+      run: DeviceDatasourceList
+      params: {deviceId: "{device[id]}"}
+      fields: [id, dataSourceId, dataSourceName, dataSourceType, stopMonitoring, sdtStatus, instanceNumber]
+      size: all
+      when: '$device[0].hostStatus == "normal" and ($device[0].sdtStatus | split("-") | all(. == "none"))'
+      says: listed the checks (DataSources) applied to it
+    - as: insts
+      run: DeviceInstanceList
+      params: {id: "{device[id]}"}
+      fields: [deviceDataSourceId, name, displayName, stopMonitoring, sdtStatus]
+      size: all
+      when: '$dss | length > 0'
+      says: listed their instances
+    - as: defs
+      run: DatasourceList
+      fields: [id, collectInterval]
+      size: all
+      when: '$dss | length > 0'
+      says: read how often each check is collected
+    - as: recent
+      run: DeviceDatasourceDataById
+      each: |
+        def quiet: (. // "none") | split("-") | all(. == "none");
+        ($defs | map({key: (.id | tostring), value: .collectInterval}) | from_entries) as $iv
+        | ($insts | map(select((.stopMonitoring | not) and (.sdtStatus | quiet)) | .deviceDataSourceId) | unique) as $live
+        | $dss | map(select(.dataSourceType == "DS" and (.stopMonitoring | not) and (.sdtStatus | quiet)
+            and .instanceNumber > 0 and ($iv[.dataSourceId | tostring] // 0) > 0 and (.id | IN($live[]))))
+        | map({id, period: ([3 * $iv[.dataSourceId | tostring], 1800] | max) / 3600})
+      most: 150
+      noun: DataSources
+      params: {deviceId: "{device[id]}", id: "{row[id]}", period: "{row[period]}"}
+      says: fetched each check's last 3 polls (30 minutes at least)
+    - as: older
+      run: DeviceDatasourceDataById
+      each: |
+        def quiet: (. // "none") | split("-") | all(. == "none");
+        $recent | map(.of.id as $h | (.instances // {}) as $got
+          | select(any($insts[]; .deviceDataSourceId == $h and (.stopMonitoring | not) and (.sdtStatus | quiet)
+              and (($got[.name].time // []) | length) == 0))
+          | {id: $h, dp: .dataPoints[0]})
+      most: 150
+      noun: DataSources
+      params: {deviceId: "{device[id]}", id: "{row[id]}", period: 24, datapoints: "{row[dp]}"}
+      says: looked back 24 hours for the last poll of the ones with none
+  # lastCollectedTime is 0 on every DataSource instance (only ConfigSources
+  # fill it in, 2026-11-03), so the polls come from the data: rows are polls,
+  # newest first; a poll that got nothing is a row of "No Data", and an
+  # instance that was not polled has no rows. Stopped = no poll in the last 3
+  # collect intervals or 30 minutes, whichever is longer (Azure Insights runs
+  # minutes late), but one in the last 24 hours. Same rules as
+  # tools/elm-collection-gaps.py --device. Instance names are discovered text,
+  # so they are only in the table; the summary names DataSources.
+  summary: |
+    def quiet: (. // "none") | split("-") | all(. == "none");
+    def gaps: [$recent[] | .of.id as $h | (.instances // {}) as $got
+      | (first($older[] | select(.of.id == $h) | .instances) // {}) as $old
+      | (first($dss[] | select(.id == $h) | .dataSourceName)) as $ds
+      | $insts[] | select(.deviceDataSourceId == $h and (.stopMonitoring | not) and (.sdtStatus | quiet))
+      | ($got[.name] // {}) as $d
+      | if (($d.time // []) | length) == 0 then (($old[.name].time // [])[0]) as $t
+          | {ds: $ds, state: (if $t then "stopped" else "nodata" end), last: (if $t then $t / 1000 else null end)}
+        elif all($d.values[][]; . == "No Data" or . == null) then {ds: $ds, state: "allnan", last: ($d.time[0] / 1000)}
+        else empty end];
+    def top: map(.ds) | group_by(.) | sort_by(-length) | map(if length > 1 then "\(.[0]) \(length)" else .[0] end)
+      | .[:3] | join(", ");
+    def are: if . == 1 then "is" else "are" end;
+    $device[0] as $d
+    | if $d.hostStatus != "normal" then "\($d.displayName) is \($d.hostStatus | updown), so its checks are not "
+        + "being collected; this check is for a device that is up."
+      elif ($d.sdtStatus | quiet | not) then "\($d.displayName) is in scheduled downtime, so it was not checked."
+      else gaps as $g
+        | ($g | map(select(.state == "stopped"))) as $s | ($g | map(select(.state == "nodata"))) as $n
+        | ($g | map(select(.state == "allnan"))) as $a
+        | "Checked \($recent | length | n("DataSource")) on \($d.displayName): "
+        + (if ($g | length) == 0 then "every instance was polled in its last 3 collect intervals and returned data."
+           else [(if ($s | length) > 0 then "\($s | length | n("instance")) stopped collecting (\($s | top)); "
+                    + "the most recent stop was \($s | map(.last) | max | at)" else empty end),
+                 (if ($n | length) > 0 then "\($n | length | n("instance")) had no data at all in 24 hours "
+                    + "(\($n | top)): never collected, or stopped before then" else empty end),
+                 (if ($a | length) > 0 then "\($a | length | n("instance")) \($a | length | are) polled, but every poll "
+                    + "returned only No Data "
+                    + "(\($a | top)); that is normal for some checks" else empty end)] | join(". ") + "."
+           end)
+        + (($dss | map(select(.dataSourceType != "DS")) | length) as $o
+           | if $o > 0 then " \($o | n("ConfigSource or other module")) not checked." else "" end)
+      end
+  table:
+    title: Checks on {device[displayName]} that are not collecting
+    columns: [DataSource, Instance, Problem, Last polled]
+    rows: |
+      def quiet: (. // "none") | split("-") | all(. == "none");
+      [$recent[] | .of.id as $h | (.instances // {}) as $got
+        | (first($older[] | select(.of.id == $h) | .instances) // {}) as $old
+        | (first($dss[] | select(.id == $h) | .dataSourceName)) as $ds
+        | $insts[] | select(.deviceDataSourceId == $h and (.stopMonitoring | not) and (.sdtStatus | quiet))
+        | (if (.displayName // "") != "" then .displayName else .name end) as $inst
+        | ($got[.name] // {}) as $d
+        | if (($d.time // []) | length) == 0 then (($old[.name].time // [])[0]) as $t
+            | {DataSource: $ds, Instance: $inst, Problem: (if $t then "stopped" else "no data in 24 hours" end),
+               "Last polled": (if $t then $t / 1000 | at else "-" end)}
+          elif all($d.values[][]; . == "No Data" or . == null) then
+            {DataSource: $ds, Instance: $inst, Problem: "polled, all No Data", "Last polled": ($d.time[0] / 1000 | at)}
+          else empty end]
+      | sort_by(.Problem, .DataSource, .Instance)
+
 - name: find_device
   asks: ["is DEVICE monitored?", "do we monitor DEVICE?", "find DEVICE", "which device has IP or hostname X?"]
   covers: "whether a device is monitored, and whether it is up"

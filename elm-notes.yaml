@@ -839,9 +839,9 @@ DeviceDatasourceInstanceList:
     displayName:  string
     alertStatus:  string
     stopMonitoring: boolean
-    lastCollectedTime: integer # epoch seconds; unreliable for some collection types — do NOT use as proxy for "not collecting"
+    lastCollectedTime: integer # epoch seconds, ConfigSources only: 0 on every DataSource instance (see gotchas)
   gotchas:
-    - "lastCollectedTime returns 0 for many datasources that ARE collecting and alerting (confirmed for SNMP batchscript and Groovy script datasources). Do not read lastCollectedTime == 0 as 'not collecting'; use alertStatus != 'none' instead."
+    - "lastCollectedTime is 0 on DataSource instances that are collecting (329 of 329 on one device, Ping included, 2026-11-03); only ConfigSource instances fill it in. For when a DataSource instance last polled, read the newest time from DeviceDatasourceDataById (tools/elm-collection-gaps.py)."
     - "alertStatus format: [confirmationState]-[severity]-[anomalyState], e.g. none (no alert), unconfirmed-warn-none, warn-none (confirmed warning), error-none."
 
 DeviceDatasourceInstanceGroupList:
@@ -893,7 +893,7 @@ DeviceInstanceList:
     deviceId:            integer
     alertStatus:         string
     stopMonitoring:      boolean
-    lastCollectedTime:   integer  # epoch seconds; unreliable for some collection types
+    lastCollectedTime:   integer  # epoch seconds, ConfigSources only: 0 on DataSource instances (2026-11-03)
   gotchas:
     - "Uses --id not --deviceId (unlike most device-scoped commands)"
     - "dataSourceName not returned — join to DeviceDatasourceList on deviceDataSourceId if needed"
@@ -1816,6 +1816,10 @@ DeviceDatasourceDataById:
     dataPoints:     "list of datapoint name strings"
     instances:      "dict keyed by instance name (e.g. 'DS-enp3s0f0 [ID:2]') → {values: [[...]], time: [epoch_ms]}"
     nextPageParams: "pagination cursor"
+  gotchas:
+    - "time is newest first, epoch ms, and a page is 500 rows: nextPageParams pages back in time. Each row is a poll, with jittered times; a poll that got nothing is a row of 'No Data' values, an instance that was not polled has no rows (verified 2026-11-03)."
+    - "--aggregate last gives one row per instance, but its time is the request's end, not the poll's: no use for when it last collected."
+    - "--start equal to --end, or a --period under about a minute, is a 400."
 
 DeviceDatasourceInstanceData:
   path: /device/devices/{deviceId}/devicedatasources/{hdsId}/instances/{id}/data
