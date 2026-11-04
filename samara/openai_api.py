@@ -15,6 +15,24 @@ class ModelError(Exception):
     """The model's API could not be reached, or refused the request."""
 
 
+def models(url, key, timeout=1.5):
+    """The model ids the API offers, or None if it sends no list it understands.
+
+    Short timeout: the page's health check calls this on every load. LM Studio
+    with just-in-time loading lists every downloaded model, loaded or not.
+    Raises ModelError when the API cannot be reached.
+    """
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    try:
+        r = requests.get(url.rstrip("/") + "/models", headers=headers, timeout=timeout)
+    except requests.RequestException as exc:
+        raise ModelError(f"Could not reach the model API at {url}: {exc}") from exc
+    try:
+        return [m["id"] for m in r.json()["data"]] if r.ok else None
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
 def block(b, key):
     """A field of a content block: an Anthropic SDK object, or a plain dict."""
     return b.get(key) if isinstance(b, dict) else getattr(b, key, None)

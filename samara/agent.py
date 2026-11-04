@@ -108,6 +108,20 @@ def config_problem():
         return (f"SAMARA_MODEL names {', '.join(others)}, which {'is not a Claude model' if len(others) == 1 else 'are not Claude models'}, "
                 f"so Samara needs SAMARA_MODEL_URL: the OpenAI-compatible API that serves "
                 f"{'it' if len(others) == 1 else 'them'} (Ollama: http://host.docker.internal:11434/v1).")
+    if others:
+        # A model the server does not have fails only when asked, with "No models
+        # loaded" from LM Studio (gemma-3-12b, deleted but still in SAMARA_MODEL,
+        # 2026-11-04). Say so before anything is asked.
+        try:
+            offered = openai_api.models(MODEL_URL, MODEL_KEY)
+        except openai_api.ModelError as exc:
+            return str(exc)
+        # Ollama lists qwen3:latest for qwen3.
+        missing = [m for m in others if offered is not None and m not in offered and f"{m}:latest" not in offered]
+        if missing:
+            return (f"{MODEL_URL} does not offer {', '.join(missing)}. It offers: "
+                    f"{', '.join(offered) or 'nothing'}. Set SAMARA_MODEL (run.sh -m) to one of these, "
+                    f"or download the model there.")
     return None
 
 

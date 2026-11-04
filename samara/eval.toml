@@ -252,6 +252,10 @@ q = "is {device2} collecting everything, or is anything returning no data?"
 recipe = ["device_collecting"]
 
 [[case]]
+q = "has {device} stopped collecting data?"
+recipe = ["device_collecting"]
+
+[[case]]
 q = "which collector looks after {device2}?"
 recipe = ["device_collector"]
 

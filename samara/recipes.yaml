@@ -226,7 +226,7 @@
           and ((.Check | test("(?i)mem")) or (.Datapoint | test("(?i)mem")))))
 
 - name: device_collecting
-  asks: ["is DEVICE collecting everything?", "has anything on DEVICE stopped collecting?", "is DEVICE returning No Data anywhere?", "which checks on DEVICE have no data?", "is DEVICE missing data?"]
+  asks: ["is DEVICE collecting everything?", "has DEVICE stopped collecting data?", "is DEVICE still collecting?", "has anything on DEVICE stopped collecting?", "is DEVICE returning No Data anywhere?", "which checks on DEVICE have no data?", "is DEVICE missing data?"]
   covers: "whether every check (DataSource) on one device is collecting now, and which are not"
   params: [device]
   steps:
