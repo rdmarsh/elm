@@ -50,6 +50,10 @@ import router
 
 HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
+for _r in RECIPES.values():   # a chart names two of its table's columns: a typo fails here, not on the page
+    _c = _r.get("table", {}).get("chart")
+    if _c and (_c.get("type") not in ("bar", "line") or {_c.get("x"), _c.get("y")} - set(_r["table"]["columns"])):
+        raise ValueError(f"{_r['name']}: chart needs type bar or line, and x and y from its columns")
 MAX_PAGES = 10   # LM stops paging at 10,000 rows
 MAX_EACH = 10    # an `each` step's queries, one per item
 MOST_EACH = 150  # a step's own `most` (one per DataSource on a device) stops here
@@ -202,9 +206,11 @@ SEVERITY_IS = {r"\bcriticals?\b": "critical", r"\berrors?\b": "error", r"\bwarni
 # Time words WINDOWS has no value for ("since Monday", "in the last 3 days"): the model's window stays.
 TIMEISH = re.compile(r"\b(since|ago|before|after|recent\w*|lately|last|past|this|morning|night|week\w*|month\w*|"
                      r"days?|hours?|minutes?|mon|tues|wednes|thurs|fri|satur|sun)(day)?\b", re.I)
+HAPPENED = re.compile(r"\b(happen\w*|going on|changed|new)\b", re.I)
 ALERT_RECIPES = {"alerts", "open_alerts", "critical_alerts", "alerts_unacknowledged"}
 # The question's own time window, as the alerts recipe names it; first match wins.
 WINDOWS = [
+    (r"\bsince\b", None),   # "since yesterday" is yesterday until now, not yesterday: the model's window stays
     (r"\b(last|past)\s+hour\b", "last_hour"),
     (r"\b(last|past)\s+24\s*h(ours?)?\b|\bovernight\b", "last_24_hours"),
     (r"\btoday\b|\bthis morning\b", "today"),
@@ -277,6 +283,11 @@ def from_question(question, args):
         # third left out the severity (2026-11-05): the alerts recipe, at that
         # severity and up, is the answer.
         args["recipe"] = "alerts"
+    window = next((v for k, v in WINDOWS if re.search(k, question, re.I)), None)
+    if args.get("recipe") == "new_alerts" and window not in (None, "last_24_hours"):
+        # new_alerts is the last 24 hours, whatever was asked: "what's happened in
+        # the last hour?" is the alerts recipe over that hour.
+        args = {"recipe": "alerts", "started": window, **({"sort": args["sort"]} if "sort" in args else {})}
     if args.get("recipe") in ("alerts_unacknowledged", "open_alerts") and CLEARED.search(question):
         # "How many alerts cleared yesterday?" ran alerts_unacknowledged, which
         # only has open ones (qwen3-vl-4b, 2026-11-05).
@@ -289,7 +300,6 @@ def from_question(question, args):
             args.pop("severity")   # "warnings or worse": everything but info
     elif (only := [v for k, v in SEVERITY_IS.items() if re.search(k, question, re.I)]) and len(only) == 1:
         args["severity"] = only[0]   # "how many warnings are open?" came with no severity (qwen3-4b)
-    window = next((v for k, v in WINDOWS if re.search(k, question, re.I)), None)
     if window is None and not TIMEISH.search(question):
         # No time in the question, so none in the answer: "how many warnings are
         # open?" came as started=today, and 6 is not 130 (qwen3-vl-4b, 2026-11-05).
@@ -300,6 +310,9 @@ def from_question(question, args):
         # ended=last_hour (qwen3-4b-instruct-2507, 2026-11-05).
         args.pop("started", None)
         args["ended"] = window
+    elif window and not args.get("started") and not args.get("ended") and HAPPENED.search(question):
+        # "what's happened in the last hour?" with no window would be every open alert.
+        args["started"] = window
     if args.get("state") == "open" and (args.get("started") or args.get("ended")) and not OPEN.search(question):
         del args["state"]   # the window's own state applies: any for started, cleared for ended
     return args
@@ -483,6 +496,9 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
             rows, said = sorted_rows(rows, t["columns"], sort)
             text += "\n\n" + said
         note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), rows, t["columns"])
+        if t.get("chart") and table["total"] > 1:
+            # Drawn by the page from these rows, so a chart can only show what the portal returned.
+            table["chart"] = t["chart"]
         if table["total"]:
             events.append(table)
     worked = [f"Found the {p} by name." for p in r.get("params", [])]

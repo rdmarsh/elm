@@ -865,12 +865,10 @@
       fields: [monitorObjectName, resourceTemplateName, dataPointName, severity, cleared, startEpoch]
       size: all
       says: fetched every alert that started in the last 24 hours, open or cleared
-  # Samara keeps no history, so "worse than yesterday" cannot compare totals;
-  # what started in the last day is the honest answer, and the summary says so.
+  # "Is it worse than usual?" is alerts_by_day: it counts each day's starts.
   summary: |
     ($alerts | map(select(.cleared | not))) as $open
-    | "Samara keeps no history, so it cannot compare today's totals with yesterday's. What it can show: "
-    + if ($alerts | length) == 0 then "no alerts started in the last 24 hours."
+    | if ($alerts | length) == 0 then "No alerts started in the last 24 hours."
       else "\($alerts | length | n("alert")) started in the last 24 hours, \($open | length) still open"
       + (if ($open | length) > 0 then " (\($open | severities))" else "" end)
       + ", on \($alerts | map(.monitorObjectName) | unique | length) different devices or checks." end
@@ -882,6 +880,52 @@
       | map({Device: .monitorObjectName, Alert: "\(.resourceTemplateName) / \(.dataPointName)", Severity: (.severity | sev),
              Started: (.startEpoch | at), Open: (if .cleared then "cleared" else "open" end)})
 
+- name: alerts_by_day
+  asks: ["are we having a lot of alerts today?", "are there more alerts than usual?", "is today worse than usual?",
+         "how many alerts a day do we get?", "show me alerts per day"]
+  covers: "alerts started on each of the last 14 days, and today so far against the same hours of a usual day"
+  steps:
+    - as: alerts
+      run: AlertList
+      filter: startEpoch>:now-13d/d,cleared:*
+      fields: [startEpoch, severity]
+      size: all
+      says: fetched every alert that started in the last 14 days, open or cleared, and counted them by day
+  # Today is not over, so a whole day is the wrong thing to hold it against:
+  # 30 alerts by 9am is a lot if a usual day has 40 by midnight and 10 by
+  # 9am. Each earlier day is counted up to today's time of day as well, and
+  # today is compared with the median of those (one bad day does not move it).
+  summary: |
+    (now | strflocaltime("%Y-%m-%d")) as $today | (now | strflocaltime("%H:%M:%S")) as $clock
+    | [range(13; 0; -1) as $i | now - $i * 86400 | strflocaltime("%Y-%m-%d")] as $before
+    | ($alerts | map({d: (.startEpoch | strflocaltime("%Y-%m-%d")), t: (.startEpoch | strflocaltime("%H:%M:%S"))})) as $a
+    | ($a | map(select(.d == $today)) | length) as $now
+    | [$before[] as $d | $a | map(select(.d == $d and .t <= $clock)) | length] as $by
+    | [$before[] as $d | $a | map(select(.d == $d)) | length] as $whole
+    | def median: sort | if length == 0 then 0 else .[length / 2 | floor] end;
+    ($by | median) as $usual | ($whole | median) as $day
+    | "\($now | n("alert")) started today so far, up to \($clock[:5]). By this time of day, the last 13 days had "
+    + "\($by | min)-\($by | max), \($usual) on a usual day (the median), so today is "
+    + (if $usual == 0 then (if $now == 0 then "the same as usual" else "above a usual day, which had none by now" end)
+       elif $now >= 2 * $usual then "about \($now / $usual | . * 10 | round / 10) times a usual day"
+       elif $now >= 1.25 * $usual then "above usual"
+       elif $now <= 0.5 * $usual then "well below usual"
+       elif $now < 0.8 * $usual then "below usual"
+       else "about usual" end)
+    + ". A whole usual day has \($day)."
+  table:
+    title: Alerts started each day, last 14 days
+    columns: [Day, Alerts, Critical, Error, Warning]
+    chart: {type: bar, x: Day, y: Alerts}
+    rows: |
+      (now | strflocaltime("%Y-%m-%d")) as $today
+      | ($alerts | group_by(.startEpoch | strflocaltime("%Y-%m-%d")) | map({key: (.[0].startEpoch | strflocaltime("%Y-%m-%d")), value: .})
+         | from_entries) as $days
+      | [range(13; -1; -1) as $i | now - $i * 86400] | map(
+          strflocaltime("%Y-%m-%d") as $d | ($days[$d] // []) as $x
+          | {Day: (strflocaltime("%a %d %b") + (if $d == $today then " (so far)" else "" end)), Alerts: ($x | length),
+             Critical: ($x | map(select(.severity == 4)) | length), Error: ($x | map(select(.severity == 3)) | length),
+             Warning: ($x | map(select(.severity == 2)) | length)})
 - name: noisiest_week
   asks: ["what's the noisiest alert or device this week?", "what alerted most in the last 7 days?", "what should we tune?"]
   covers: "alerts that started in the last 7 days, counted by device and kind"

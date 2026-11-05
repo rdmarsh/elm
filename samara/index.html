@@ -150,6 +150,15 @@
   details.steps .failed-steps p { margin: 8px 0 0; overflow-wrap: anywhere; }
 
   .table-block { margin: 14px 0; }
+  /* A recipe's chart, drawn from its table's rows (renderChart). */
+  .chart { display: block; width: 100%; height: auto; margin: 4px 0 10px; }
+  .chart .bar { fill: var(--accent); }
+  .chart .bar.partial { fill: var(--accent); opacity: .45; }
+  .chart .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .chart .dot { fill: var(--accent); }
+  .chart .grid { stroke: var(--line); }
+  .chart text { fill: var(--muted); font-size: 11px; }
+  .chart text.value { fill: var(--ink); }
   .table-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .table-head strong { font-size: .95rem; }
   .table-scroll { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: 8px; }
@@ -383,11 +392,44 @@ function csvCell(v) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+// A bar or line chart of one table column (y) over another (x), as inline SVG:
+// no library, and only the rows the portal returned. A row whose x says
+// "(so far)" (today, not over yet) is drawn lighter.
+function renderChart(ev) {
+  const xi = ev.columns.indexOf(ev.chart.x), yi = ev.columns.indexOf(ev.chart.y);
+  const rows = ev.rows.filter(r => typeof r[yi] === "number");
+  if (xi < 0 || yi < 0 || rows.length < 2) return "";
+  const W = 640, H = 200, L = 36, R = 8, T = 16, B = 34, w = W - L - R, h = H - T - B;
+  const max = Math.max(...rows.map(r => r[yi]), 1);
+  const step = 10 ** Math.floor(Math.log10(max)), top = Math.ceil(max / step) * step;
+  const y = v => T + h - (v / top) * h, slot = w / rows.length;
+  const every = Math.ceil(rows.length / 10);   // at most ~10 x labels, so they do not overlap
+  const label = x => String(x ?? "").replace(/\s*\(so far\)$/, "");
+  let svg = [0, top / 2, top].map(v =>
+    `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join("");
+  rows.forEach((r, i) => {
+    const cx = L + slot * (i + .5);
+    if (ev.chart.type === "bar") {
+      const bw = Math.max(slot * .7, 2);
+      svg += `<rect class="bar${/\(so far\)/.test(r[xi]) ? " partial" : ""}" x="${cx - bw / 2}" y="${y(r[yi])}" width="${bw}" height="${T + h - y(r[yi])}"><title>${esc(String(r[xi]))}: ${r[yi]}</title></rect>`;
+      if (rows.length <= 16) svg += `<text class="value" x="${cx}" y="${y(r[yi]) - 3}" text-anchor="middle">${r[yi]}</text>`;
+    } else {
+      svg += `<circle class="dot" cx="${cx}" cy="${y(r[yi])}" r="3"><title>${esc(String(r[xi]))}: ${r[yi]}</title></circle>`;
+    }
+    if ((i % every === 0 && rows.length - 1 - i >= every) || i === rows.length - 1)
+      svg += `<text x="${cx}" y="${H - B + 16}" text-anchor="middle">${esc(label(r[xi]).replace(/^\w+ /, ""))}</text>`;
+  });
+  if (ev.chart.type === "line")
+    svg = `<polyline class="line" points="${rows.map((r, i) => `${L + slot * (i + .5)},${y(r[yi])}`).join(" ")}"/>` + svg;
+  const said = `${ev.chart.y} by ${ev.chart.x}: ` + rows.map(r => `${label(r[xi])} ${r[yi]}`).join(", ");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(said)}">${svg}</svg>`;
+}
+
 function renderTable(ev) {
   const block = document.createElement("div");
   block.className = "table-block";
   block.innerHTML = `
-    <div class="table-head"><strong>${esc(ev.title)}</strong></div>
+    <div class="table-head"><strong>${esc(ev.title)}</strong></div>${ev.chart ? renderChart(ev) : ""}
     <div class="table-scroll"><table><thead><tr>${ev.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody></tbody></table></div>
     <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > ev.rows.length ? ` (showing first ${ev.rows.length})` : ""} · click a heading to sort</div>`;
   const tbody = $("tbody", block);

@@ -564,6 +564,14 @@ Before the model sees a question, `router.py` decides what it is, in code:
   asks what a LogicMonitor term means. If it names an object and still looks
   nothing up, Samara runs that object's health recipe and the model answers
   from it.
+- **The question's own words beat the model's arguments.** "Errors or worse",
+  "warnings", "cleared yesterday" and "in the last hour" set the alerts
+  recipe's severity and window in code, whatever the model picked; small
+  models got these wrong on every run before.
+
+A recipe's table can carry a chart (`chart: {type: bar, x: Day, y: Alerts}`
+in recipes.yaml, bar or line). The page draws it as SVG from the table's
+rows, so a chart only ever shows what the portal returned.
 
 ```mermaid
 flowchart TB
