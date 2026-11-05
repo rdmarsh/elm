@@ -14,6 +14,7 @@ Names and verbs can be checked exactly, so they are:
   health recipe is run for it (agent._answer).
 """
 import re
+import sys
 import threading
 import time
 from pathlib import Path
@@ -23,6 +24,7 @@ import yaml
 import elm_tools
 
 REFRESH_SECONDS = 900   # names change rarely; a new device is found within 15 minutes
+RETRY_SECONDS = 60      # a list with a kind missing (its query failed) is tried again this soon
 
 # "Put web01 into SDT", "can you acknowledge the alerts", "please clear ...".
 # At the start of the question (after "can you" and the like), so "which
@@ -86,9 +88,9 @@ def names():
     """[(name, kind, id, label)] of every device, group, collector and person, cached."""
     global _names, _when
     with _lock:
-        if _names and time.time() - _when < REFRESH_SECONDS:
+        if _names and time.time() < _when:
             return _names
-        found = []
+        found, missing = [], []
         for kind, command, fields, filter in (("device", "DeviceList", ["id", "displayName"], None),
                                               ("group", "DeviceGroupList", ["id", "name", "fullPath"], None),
                                               ("collector", "CollectorList", ["id", "description", "hostname"], None),
@@ -97,8 +99,12 @@ def names():
                                               ("person", "SDTList", ["admin"], None)):
             try:
                 rows = page(command, fields, filter)
-            except elm_tools.Refused:
-                continue   # not allowed, or the portal cannot be reached: route without them
+            except elm_tools.Refused as exc:
+                # Not allowed, or the portal cannot be reached: route without them.
+                why = str(exc.args[0] if exc.args else exc)
+                if "is not allowed for this profile" not in why:   # that answer will not change in a minute
+                    missing.append(f"{command} ({why[:120]})")
+                continue
             if kind == "person":
                 found += people({r.get(fields[0]) for r in rows})
                 continue
@@ -113,7 +119,13 @@ def names():
                 for n in given:
                     if isinstance(n, str) and len(n) >= MIN_NAME and n.lower() not in COMMON:
                         found.append((n, kind, r.get("id"), label))
-        _names, _when = found, time.time()
+        # A list with DeviceList missing, kept 15 minutes, made "is luna okay?" the
+        # collector named luna on every model: 8 of 8 asks in a run's first
+        # quarter hour (2026-11-06, two Samaras asking at once). A failure that
+        # may pass is not kept long; a command the profile does not allow is.
+        _names, _when = found, time.time() + (RETRY_SECONDS if missing else REFRESH_SECONDS)
+        if missing:
+            print(f"router: names without {', '.join(missing)}; trying again in {RETRY_SECONDS}s", file=sys.stderr, flush=True)
         return _names
 
 
