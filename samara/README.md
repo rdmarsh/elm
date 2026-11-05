@@ -192,6 +192,42 @@ that is a setting of your Docker runtime, not of this build.
 
 ## Run
 
+### Typical run and test (a Mac with LM Studio)
+
+The everyday setup: a local model in LM Studio, nothing billed. qwen3-vl-4b
+is the one to start with (95% on the 2026-11-06 eval, none confidently
+wrong, about 7s an answer).
+
+```shell
+git pull
+lms load qwen/qwen3-vl-4b --context-length 32768    # 16384 on a 16 GB Mac
+samara/run.sh --build -y -m qwen/qwen3-vl-4b --url http://host.docker.internal:1234/v1
+```
+
+Then open <http://127.0.0.1:8080>. Load the model yourself first: loaded
+on demand, LM Studio uses its own default context, which Samara's prompt does
+not fit. After that, `samara/run.sh --build -y` starts the same model again.
+
+With Colima for Docker, start it first: `colima start && docker context use
+colima`. Behind a proxy that inspects TLS, build on Python 3.12
+(`PYTHON_VERSION=3.12 samara/run.sh ...`; see Behind a proxy that inspects TLS, above).
+
+To test a change, run the eval against it from another terminal (a quick one,
+then the full set, about an hour on qwen3-vl-4b):
+
+```shell
+samara/eval.py --url http://127.0.0.1:8080 --only "is {device} okay?"
+samara/eval.py --url http://127.0.0.1:8080 --repeat 2
+```
+
+To compare models overnight, `samara/models.sh --eval --only PORT,PORT` starts
+one Samara per model and runs the eval on each (ports and models are listed
+at the top of models.sh). Keep every machine it uses awake: `caffeinate -i`
+in front on the Mac running it, and `caffeinate -dims` in a terminal on any
+other Mac whose LM Studio it uses.
+
+### With Claude
+
 `samara/run.sh` wraps the `docker run` below and asks which model and
 effort to use:
 
