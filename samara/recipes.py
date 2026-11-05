@@ -50,10 +50,15 @@ import router
 
 HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
-for _r in RECIPES.values():   # a chart names two of its table's columns: a typo fails here, not on the page
-    _c = _r.get("table", {}).get("chart")
-    if _c and (_c.get("type") not in ("bar", "line") or {_c.get("x"), _c.get("y")} - set(_r["table"]["columns"])):
-        raise ValueError(f"{_r['name']}: chart needs type bar or line, and x and y from its columns")
+for _r in RECIPES.values():   # a chart names its table's columns: a typo fails here, not on the page
+    _charts = _r.get("table", {}).get("chart") or []
+    for _c in _charts if isinstance(_charts, list) else [_charts]:
+        _cols = set(_r["table"]["columns"])
+        if not ((_c.get("type") in ("bar", "line") and not {_c.get("x"), _c.get("y")} - _cols)
+                or (_c.get("type") == "donut" and _c.get("row") in ("first", "last") and _c.get("slices")
+                    and not set(_c["slices"]) - _cols)):
+            raise ValueError(f"{_r['name']}: a chart is bar or line with x and y, or donut with row "
+                             f"(first or last) and slices, all from the table's columns")
 MAX_PAGES = 10   # LM stops paging at 10,000 rows
 MAX_EACH = 10    # an `each` step's queries, one per item
 MOST_EACH = 150  # a step's own `most` (one per DataSource on a device) stops here
@@ -496,9 +501,9 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
             rows, said = sorted_rows(rows, t["columns"], sort)
             text += "\n\n" + said
         note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), rows, t["columns"])
-        if t.get("chart") and table["total"] > 1:
+        if t.get("chart") and table["total"]:
             # Drawn by the page from these rows, so a chart can only show what the portal returned.
-            table["chart"] = t["chart"]
+            table["chart"] = t["chart"] if isinstance(t["chart"], list) else [t["chart"]]
         if table["total"]:
             events.append(table)
     worked = [f"Found the {p} by name." for p in r.get("params", [])]

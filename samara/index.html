@@ -10,12 +10,14 @@
     --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e3de;
     --accent: #15803d; --accent-ink: #ffffff; --warn-bg: #fff4e0; --warn-ink: #7a4b00; --err: #b3261e;
     --code: #f0f0ec;
+    --sev-critical: #c62828; --sev-error: #e8710a; --sev-warning: #d4a400;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #151514; --panel: #1f1f1d; --ink: #ecece8; --muted: #9c9c96; --line: #34342f;
       --accent: #86efac; --accent-ink: #0d0d0c; --warn-bg: #3a2a0c; --warn-ink: #ffd28a; --err: #ff8a80;
       --code: #2a2a27;
+      --sev-critical: #ff6b6b; --sev-error: #ffa04d; --sev-warning: #f2cc4d;
     }
   }
   * { box-sizing: border-box; }
@@ -159,6 +161,13 @@
   .chart .grid { stroke: var(--line); }
   .chart text { fill: var(--muted); font-size: 11px; }
   .chart text.value { fill: var(--ink); }
+  .charts { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .charts .chart:not(.donut) { flex: 3 1 360px; min-width: 0; }
+  .chart.donut { flex: 0 1 220px; max-width: 220px; }
+  .chart .slice-0 { fill: var(--sev-critical); } .chart .slice-1 { fill: var(--sev-error); }
+  .chart .slice-2 { fill: var(--sev-warning); } .chart .slice-3 { fill: var(--muted); }
+  .chart .hole { fill: var(--panel); }
+  .chart text.big { fill: var(--ink); font-size: 22px; font-weight: 600; }
   .table-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .table-head strong { font-size: .95rem; }
   .table-scroll { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: 8px; }
@@ -395,7 +404,39 @@ function csvCell(v) {
 // A bar or line chart of one table column (y) over another (x), as inline SVG:
 // no library, and only the rows the portal returned. A row whose x says
 // "(so far)" (today, not over yet) is drawn lighter.
-function renderChart(ev) {
+// One row as a donut: a slice per column (slices), e.g. today's alerts by
+// severity. Slices of 0 are left out of the ring, not out of the legend.
+function renderDonut(ev, c) {
+  const row = c.row === "first" ? ev.rows[0] : ev.rows[ev.rows.length - 1];
+  if (!row) return "";
+  const parts = c.slices.map((name, i) => ({ name, i, v: Number(row[ev.columns.indexOf(name)]) || 0 }));
+  const total = parts.reduce((a, p) => a + p.v, 0);
+  if (!total) return "";
+  const R = 70, r = 44, cx = 80, cy = 80;
+  let angle = -Math.PI / 2, svg = "";
+  for (const p of parts.filter(p => p.v)) {
+    const a = 2 * Math.PI * p.v / total, end = angle + a, big = a > Math.PI ? 1 : 0;
+    const pt = (rad, t) => `${cx + rad * Math.cos(t)} ${cy + rad * Math.sin(t)}`;
+    svg += p.v === total
+      ? `<circle class="slice-${p.i}" cx="${cx}" cy="${cy}" r="${R}"><title>${esc(p.name)}: ${p.v}</title></circle>`
+      : `<path class="slice-${p.i}" d="M ${pt(R, angle)} A ${R} ${R} 0 ${big} 1 ${pt(R, end)} L ${pt(r, end)} A ${r} ${r} 0 ${big} 0 ${pt(r, angle)} Z"><title>${esc(p.name)}: ${p.v}</title></path>`;
+    angle = end;
+  }
+  svg += `<circle class="hole" cx="${cx}" cy="${cy}" r="${r}"/><text class="big" x="${cx}" y="${cy + 8}" text-anchor="middle">${total}</text>`;
+  parts.forEach((p, k) => svg += `<rect class="slice-${p.i}" x="172" y="${44 + k * 26}" width="12" height="12" rx="2"/>` +
+    `<text class="value" x="190" y="${54 + k * 26}">${esc(p.name)} ${p.v}</text>`);
+  const said = `${c.title || "Share"}: ` + parts.map(p => `${p.name} ${p.v}`).join(", ") + ` of ${total}`;
+  return `<svg class="chart donut" viewBox="0 0 270 170" role="img" aria-label="${esc(said)}">` +
+    (c.title ? `<text x="0" y="12">${esc(c.title)}</text>` : "") + `<g transform="translate(0 6)">${svg}</g></svg>`;
+}
+
+function renderCharts(ev) {
+  const html = ev.chart.map(c => c.type === "donut" ? renderDonut(ev, c) : renderChart(ev, c)).join("");
+  return html ? `<div class="charts">${html}</div>` : "";
+}
+
+function renderChart(ev, chart) {
+  ev = { ...ev, chart };
   const xi = ev.columns.indexOf(ev.chart.x), yi = ev.columns.indexOf(ev.chart.y);
   const rows = ev.rows.filter(r => typeof r[yi] === "number");
   if (xi < 0 || yi < 0 || rows.length < 2) return "";
@@ -429,7 +470,7 @@ function renderTable(ev) {
   const block = document.createElement("div");
   block.className = "table-block";
   block.innerHTML = `
-    <div class="table-head"><strong>${esc(ev.title)}</strong></div>${ev.chart ? renderChart(ev) : ""}
+    <div class="table-head"><strong>${esc(ev.title)}</strong></div>${ev.chart ? renderCharts(ev) : ""}
     <div class="table-scroll"><table><thead><tr>${ev.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody></tbody></table></div>
     <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > ev.rows.length ? ` (showing first ${ev.rows.length})` : ""} · click a heading to sort</div>`;
   const tbody = $("tbody", block);

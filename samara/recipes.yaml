@@ -916,7 +916,9 @@
   table:
     title: Alerts started each day, last 14 days
     columns: [Day, Alerts, Critical, Error, Warning]
-    chart: {type: bar, x: Day, y: Alerts}
+    chart:
+      - {type: bar, x: Day, y: Alerts}
+      - {type: donut, row: last, slices: [Critical, Error, Warning], title: "Today by severity"}
     rows: |
       (now | strflocaltime("%Y-%m-%d")) as $today
       | ($alerts | group_by(.startEpoch | strflocaltime("%Y-%m-%d")) | map({key: (.[0].startEpoch | strflocaltime("%Y-%m-%d")), value: .})
