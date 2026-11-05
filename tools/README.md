@@ -551,10 +551,10 @@ tools/elm-duplicate-devices.py --jsonl | jq -r 'select(.matched == .compared) | 
 ```
 
 ```
-| Match | Device | Monitored as | Status | Other device | Monitored as | Status | Matched on | Differs |
-|---|---|---|---|---|---|---|---|---|
-| 5 of 5 (100%) | WEB01 | 192.0.2.10 | normal | web01.example.com | web01.example.com | normal | serial, mac, sysname, address, name | - |
-| 1 of 3 (33%) | db01 | db01.example.com | normal | 10.0.0.5 | 10.0.0.5 | dead | address | serial, sysname |
+| # | Match | Device | Monitored as | Status | Other device | Monitored as | Status | Matched on | Differs |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | 5 of 5 (100%) | WEB01 | 192.0.2.10 | normal | web01.example.com | web01.example.com | normal | serial, mac, sysname, address, name | - |
+| 2 | 1 of 3 (33%) | db01 | db01.example.com | normal | 10.0.0.5 | 10.0.0.5 | dead | address | serial, sysname |
 ```
 
 It compares five things, each only when both devices have a value:

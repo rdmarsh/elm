@@ -254,10 +254,10 @@ def main():
     def device(d):
         return f"[{cell(d['displayName'])}]({d['url']})" if d.get("url") else cell(d["displayName"])
 
-    print("| Match | Device | Monitored as | Status | Other device | Monitored as | Status | Matched on | Differs |")
-    print("|---|---|---|---|---|---|---|---|---|")
-    for r in rows:
-        print(f"| {r['matched']} of {r['compared']} ({r['percent']}%) "
+    print("| # | Match | Device | Monitored as | Status | Other device | Monitored as | Status | Matched on | Differs |")
+    print("|---:|---|---|---|---|---|---|---|---|---|")
+    for n, r in enumerate(rows, 1):
+        print(f"| {n} | {r['matched']} of {r['compared']} ({r['percent']}%) "
               f"| {device(r['a'])} | {cell(r['a']['name'])} | {r['a']['hostStatus']} "
               f"| {device(r['b'])} | {cell(r['b']['name'])} | {r['b']['hostStatus']} "
               f"| {', '.join(r['on'])} | {', '.join(r['differs']) or '-'} |")
