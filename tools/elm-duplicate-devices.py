@@ -12,12 +12,18 @@ check both devices can be compared on:
   sysname   system.sysname, the name the device gives itself (short name,
             any case)
   address   one device is monitored by an address that is in the other's
-            system.ips, or both by the same one
+            system.ips or auto.network.address, or both by the same one
+            (loopback and link-local addresses are left out)
   name      the short display name or hostname (before the first dot, any
             case), so GLOBAL01 and global01.example.com match
+  os        auto.os.version
+  memory    system.totalphysicalmemory, within 2% (8.00GB and 7.99GB agree)
 
-A pair is listed only when serial, mac, sysname or address match: a name
-alone is not enough (two customers can each have a web01). The score is
+A pair is listed only when serial, mac, sysname or address match: name, os
+and memory are shared by many machines (two customers can each have a
+web01; many servers are 8 GB on the same Windows build), so they only count
+in the score. Read them under "differs" as strong evidence of two machines,
+under "matched on" as a weak hint. The score is
 "x of y": y is the checks both devices have a value for, x the ones that
 agree. 2 of 2 is a strong match; 1 of 3 means two values differ, so it is
 more likely two machines that share one thing (a cluster, a stack).
@@ -59,7 +65,7 @@ import sys
 import time
 
 PAGE = 1000
-CHECKS = ["serial", "mac", "sysname", "address", "name"]
+CHECKS = ["serial", "mac", "sysname", "address", "name", "os", "memory"]
 STRONG = {"serial", "mac", "sysname", "address"}   # a pair needs one of these
 ACROSS = {"serial", "mac", "sysname"}              # a pair across portals needs one of these
 JUNK = {"", "none", "(none)", "null", "0", "n/a", "na", "unknown", "not specified", "not available",
@@ -131,6 +137,28 @@ def is_ip(text):
         return False
 
 
+def usable_ip(text):
+    """An address that can identify a device: not loopback, link-local or unspecified."""
+    try:
+        ip = ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return not (ip.is_loopback or ip.is_link_local or ip.is_unspecified)
+
+
+def gigabytes(text):
+    """'8.00GB', '8192MB', '8589934592' -> 8.0; None if it is not a size."""
+    m = re.fullmatch(r"([\d.]+)\s*([KMGT]?)i?B?", text.strip(), re.I)
+    if not m:
+        return None
+    try:
+        number = float(m.group(1))
+    except ValueError:
+        return None
+    unit = m.group(2).upper()
+    return number * {"": 2 ** -30, "K": 2 ** -20, "M": 2 ** -10, "G": 1, "T": 2 ** 10}[unit] or None
+
+
 def short(name):
     """web01.example.com -> web01; an IP is not a name."""
     name = (name or "").strip().lower()
@@ -153,8 +181,13 @@ def values(device):
                 got["mac"].add(mac)
         elif name == "system.sysname" and short(value):
             got["sysname"].add(short(value))
-    ips = {ip.strip() for ip in props.get("system.ips", "").split(",") if ip.strip()}
-    if is_ip(device.get("name", "")):
+        elif name == "auto.os.version":
+            got["os"].add(value.lower())
+        elif name == "system.totalphysicalmemory" and gigabytes(value):
+            got["memory"].add(gigabytes(value))
+    ips = {ip.strip() for ip in props.get("system.ips", "").split(",") + [props.get("auto.network.address", "")]}
+    ips = {ip for ip in ips if usable_ip(ip)}
+    if usable_ip(device.get("name", "")):
         ips.add(device["name"])
     if ips:
         got["ips"] = ips
@@ -170,6 +203,10 @@ def compare(a, b, va, vb):
             if not (va.get("ips") and vb.get("ips")):
                 continue
             hit = a["name"].lower() == b["name"].lower() or a["name"] in vb["ips"] or b["name"] in va["ips"]
+        elif check == "memory":
+            if not (va.get("memory") and vb.get("memory")):
+                continue
+            hit = any(abs(x - y) <= 0.02 * max(x, y) for x in va["memory"] for y in vb["memory"])
         else:
             if not (va.get(check) and vb.get(check)):
                 continue

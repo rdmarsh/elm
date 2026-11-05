@@ -554,23 +554,29 @@ tools/elm-duplicate-devices.py --jsonl | jq -r 'select(.matched == .compared) | 
 ```
 | # | Match | Device | Monitored as | Status | Other device | Monitored as | Status | Matched on | Differs |
 |---:|---|---|---|---|---|---|---|---|---|
-| 1 | 5 of 5 (100%) | WEB01 | 192.0.2.10 | normal | web01.example.com | web01.example.com | normal | serial, mac, sysname, address, name | - |
+| 1 | 7 of 7 (100%) | WEB01 | 192.0.2.10 | normal | web01.example.com | web01.example.com | normal | serial, mac, sysname, address, name, os, memory | - |
 | 2 | 1 of 3 (33%) | db01 | db01.example.com | normal | 10.0.0.5 | 10.0.0.5 | dead | address | serial, sysname |
 ```
 
-It compares five things, each only when both devices have a value:
+It compares seven things, each only when both devices have a value:
 
 - **serial**: any auto property with "serial" in its name (BIOS, Cisco,
   Fortinet, entPhysical ...)
 - **mac**: `auto.network.mac_address`
 - **sysname**: `system.sysname`, the name the device gives itself
 - **address**: one is monitored at an address in the other's `system.ips`
+  or `auto.network.address` (loopback and link-local left out)
 - **name**: the short display name or hostname, so `WEB01` matches
   `web01.example.com`
+- **os**: `auto.os.version`
+- **memory**: `system.totalphysicalmemory`, within 2% (8.00GB and 7.99GB agree)
 
 "x of y" is how many of the checks both devices could be compared on agree.
-A pair is listed only if serial, mac, sysname or address match (a name alone
-is not enough: two customers can each have a web01). A low score means
+A pair is listed only if serial, mac, sysname or address match. Name, os and
+memory only count in the score: two customers can each have a web01, and on
+the test portal 9 devices run Windows build 10.0.17763 and 11 have 8 GB. So
+read os or memory under Differs as strong evidence of two machines, and under
+Matched on as a weak hint. A low score means
 values differ, so it is more likely two machines sharing one thing, such as
 a cluster address. A value on more than `--max-share` devices (default 4),
 such as "To be filled by O.E.M.", identifies nothing and is ignored.
