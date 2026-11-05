@@ -21,6 +21,42 @@ Each entry: date, what was run, the result, what it means.
   the scores.
 
 
+## 2026-11-05: duplicate devices (tools/elm-duplicate-devices.py)
+
+Started from a real case: one device added by IP, again by FQDN, same
+serial and MAC.
+
+* Five checks (serial, MAC, sysname, address, short name), scored "x of y"
+  over the checks both devices have a value for. The score is what makes it
+  usable: the test portal's pair was 5 of 5; a 1 of 3 pair shared an
+  address but not serial or sysname, so two machines.
+* It found a second duplicate that serial and MAC missed (neither device
+  had one): matched on address and name.
+* A name alone never lists a pair: two customers can each have a web01.
+* Values on more than a few devices ("To be filled by O.E.M.", Docker's
+  default bridge address) are noise; drop them rather than list a JUNK set forever.
+* Across portals an address is weak evidence (private IPs repeat across
+  customers), so a pair across needs serial, MAC or sysname.
+* Test trick: two profiles on the same portal. Every device with a serial,
+  MAC or sysname must pair with itself: 72 expected, 72 found, plus the
+  known pair both ways round = 74.
+* LM stops offset paging at 10,000 rows with no error. Paging by id
+  (`-S id -F id>LAST`) gets past it; checked with 100-row pages.
+* LM UI link to a device: `resources-ID` alone does not open it;
+  `resourceGroups-1,resources-ID` does, whatever its group.
+
+
+## 2026-11-05: severity questions go wrong on every model
+
+"show me errors or worse" was confidently wrong on all three models run so
+far (qwen3-8b, qwen3-vl-4b, qwen3.5-9b), through the alerts recipe and
+through the model's own query: one model passed only critical, another no
+severity, a third added a "started today" window to "how many warnings are
+open?". The recipe is right; the arguments the model picks are not. Fix to
+try: read "X or worse" and the time window from the question in code
+(recipes.from_question), as is already done for "cleared".
+
+
 ## 2026-11-05: speed against accuracy
 
 Every eval since 11-01, per model. "Per right answer" is the run's total time
