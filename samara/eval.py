@@ -30,7 +30,7 @@ Asking a local model costs only time; this never presses Think harder.
 
 Requires: python 3.11+ (tomllib), elm, and Samara running.
 """
-import argparse, datetime, json, os, re, shlex, subprocess, sys, time, tomllib, urllib.request
+import argparse, datetime, json, os, re, shlex, statistics, subprocess, sys, time, tomllib, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -168,6 +168,7 @@ def main():
     print(f"Samara {health.get('model_id')} · build {health.get('build')} · elm {health.get('elm_version')} "
           f"· {datetime.datetime.now():%Y-%m-%d %H:%M}")
     tally = {"PASS": 0, "FAIL": 0, "WRONG": 0}
+    took = {"PASS": [], "FAIL": [], "WRONG": []}   # seconds per ask, by verdict
     with open(out, "a") as log:
         for case in cases:
             if a.only not in case["q"]:
@@ -187,6 +188,7 @@ def main():
                 except Exception as exc:   # one broken ask is a FAIL, not the end of the run
                     verdict, misses = "FAIL", [f"driver: {exc}"]
                 tally[verdict] += 1
+                took[verdict].append(secs)
                 log.write(json.dumps({"at": began.isoformat(timespec="seconds"), "q": case["q"], "verdict": verdict, "misses": misses, "facts": facts, "secs": secs,
                                       "events": events}) + "\n")
                 log.flush()
@@ -199,6 +201,11 @@ def main():
     if total:
         print(f"\n{total} asks: {tally['PASS']} pass ({100 * tally['PASS'] // total}%), {tally['FAIL']} fail, "
               f"{tally['WRONG']} confidently wrong ({100 * tally['WRONG'] // total}%). Answers in {out}")
+        every = sorted(sum(took.values(), []))
+        mid = lambda xs: f"{statistics.median(xs):.0f}s" if xs else "-"
+        print(f"Time: median {mid(every)}, 90% under {every[(9 * len(every) - 1) // 10]}s; "
+              f"pass {mid(took['PASS'])}, fail {mid(took['FAIL'])}, wrong {mid(took['WRONG'])}; "
+              f"{sum(every) / max(tally['PASS'], 1):.0f}s per right answer")
 
 
 if __name__ == "__main__":
