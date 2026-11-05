@@ -60,7 +60,14 @@ MODELS=(
     "8091 sonnet claude"
     # copied from this Mac by the laptop's cron, so the laptop gives them its own ids
     "8092 qwen3-14b-mlx $LAPTOP"
-    "8094 mistral-small-3.2-24b-instruct-2506 $LAPTOP"   # GGUF: slower than MLX
+    # GGUF: slower than MLX. Asked "is web01 okay?" with a tool, it wrote steps in prose and
+    # called nothing (2026-11-05): maybe this build's template, so try an MLX build first
+    "8094 mistral-small-3.2-24b-instruct-2506 $LAPTOP"
+    # BFCL's best small function-caller; CC-BY-NC licence, so a comparison only, not for work use
+    # Salesforce's GGUF: LM Studio rejects its tool calls ("does not match the expected
+    # peg-native format", 2026-11-05), so it needs another build or server before an eval
+    "8099 llama-xlam-2-8b-fc-r $LAPTOP"
+    "8100 qwen3-4b-instruct-2507 $LAPTOP"
     # how small can it go: under 4B, all trained for tool use
     "8095 ibm/granite-4-micro $MINI"   # GGUF
     "8096 liquid/lfm2-1.2b $MINI"
