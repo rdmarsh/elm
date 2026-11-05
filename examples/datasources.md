@@ -7,6 +7,7 @@ Queries relating to datasources, datasource coverage, and which devices have a d
 - [collectors.md](collectors.md) for collector-side datasource queries
 
 <!--ts-->
+   * [Find every device with a datasource matching a name](#find-every-device-with-a-datasource-matching-a-name)
    * [Find devices that don't have a datasource applied](#find-devices-that-dont-have-a-datasource-applied)
    * [Count instances and datapoints on a device](#count-instances-and-datapoints-on-a-device)
       * [Instance count](#instance-count)
@@ -17,6 +18,37 @@ Queries relating to datasources, datasource coverage, and which devices have a d
    * [How some datasources collect](#how-some-datasources-collect)
    * [meta](#meta)
 <!--te-->
+
+## Find every device with a datasource matching a name
+
+For a family of datasources such as `Juniper_COS_*`: find the datasources by
+name, then the devices each one is applied to, and merge them per device.
+In a `:` filter, `*` is a wildcard (`name:Juniper_COS_*`); without it, `:` is
+an exact match (tested on DatasourceList 2026-11-05).
+
+```shell
+pat='Juniper_COS_*'
+elm -f jsonl DatasourceList -s0 -f id,name -F "name:$pat" |
+  while read -r ds; do
+    elm -f jsonl AssociatedDeviceListByDataSourceId --id "$(jq -r .id <<<"$ds")" \
+        -s0 -f id,displayName,hasActiveInstance |
+      jq -c --arg ds "$(jq -r .name <<<"$ds")" '. + {datasource: $ds}'
+  done |
+  jq -rs 'group_by(.id)[] | [.[0].displayName,
+      (map(.datasource + (if .hasActiveInstance then "" else " (not collecting)" end)) | join(", "))] | @tsv' |
+  sort | column -t -s$'\t'
+```
+
+```
+core01  Juniper_COS_BestEffort, Juniper_COS_NetworkControl
+edge01  Juniper_COS_BestEffort (not collecting), Juniper_COS_NetworkControl
+```
+
+API calls: 1 + 1 per matching datasource. "Applied" means the datasource's
+`appliesTo` matches the device; `hasActiveInstance` says whether it found
+anything to collect (see [logicmodules.md](logicmodules.md)). A datasource
+applied to no device prints `Warning: no data found` on stderr. Each one caps
+at 1000 devices (see below).
 
 ## Find devices that don't have a datasource applied
 

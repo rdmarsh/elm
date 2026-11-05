@@ -38,6 +38,7 @@ Portal reports and backups
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Group paths](#group-paths) — `tools/elm-group-paths.sh`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
+- [Same device, two names](#same-device-two-names) — `tools/elm-same-device.py`
 - [Every row, past 10,000](#every-row-past-10000) — `tools/elm-page.py`
 
 Profiles and tokens
@@ -535,6 +536,50 @@ Cost: about one call per DataSource per device, so a whole portal is slow;
 growing wait. On a test portal of 387 live devices, `--jobs 8` took 7
 minutes and 3,400 calls. `--datasource` only visits the devices that DataSource applies
 to. It reads, never writes.
+
+## Same device, two names
+
+`tools/elm-same-device.py` finds devices that are probably one machine added
+twice: once by IP and once by FQDN, say, so its data and alerts are split
+between the two.
+
+```shell
+tools/elm-same-device.py                          # the whole portal
+tools/elm-same-device.py -p portal01 --min 100    # only pairs that agree on everything
+tools/elm-same-device.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
+```
+
+```
+| Match | Device | Monitored as | Status | Other device | Monitored as | Status | Matched on | Differs |
+|---|---|---|---|---|---|---|---|---|
+| 5 of 5 (100%) | WEB01 | 192.0.2.10 | normal | web01.example.com | web01.example.com | normal | serial, mac, sysname, address, name | - |
+| 1 of 3 (33%) | db01 | db01.example.com | normal | 10.0.0.5 | 10.0.0.5 | dead | address | serial, sysname |
+```
+
+It compares five things, each only when both devices have a value:
+
+- **serial**: any auto property with "serial" in its name (BIOS, Cisco,
+  Fortinet, entPhysical ...)
+- **mac**: `auto.network.mac_address`
+- **sysname**: `system.sysname`, the name the device gives itself
+- **address**: one is monitored at an address in the other's `system.ips`
+- **name**: the short display name or hostname, so `WEB01` matches
+  `web01.example.com`
+
+"x of y" is how many of the checks both devices could be compared on agree.
+A pair is listed only if serial, mac, sysname or address match (a name alone
+is not enough: two customers can each have a web01). A low score means
+values differ, so it is more likely two machines sharing one thing, such as
+a cluster address. A value on more than `--max-share` devices (default 4),
+such as "To be filled by O.E.M.", identifies nothing and is ignored.
+
+One DeviceList query, real devices only (`deviceType` 0), paged 1,000 at a
+time by id (`-S id -F id>LAST`) rather than by offset, so it gets past LM's
+10,000-row limit; each page is cut down to the compared values as it arrives,
+so memory stays small. About a second for 600 devices on the test portal
+(2026-11-05), where it found the IP/FQDN pair it was written for and one more;
+paging was checked there with 100-device pages, not yet on a portal over
+10,000. It reads, never writes.
 
 ## Group paths
 

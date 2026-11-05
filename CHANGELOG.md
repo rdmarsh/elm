@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `tools/elm-same-device.py`: devices that are probably one machine under two names (added once by IP, once by FQDN). Pairs devices on a shared serial, MAC address, `system.sysname`, or one monitored at an address in the other's `system.ips`, and scores each pair "x of y" (with %) over the checks both can be compared on, the short name included. Values on more than `--max-share` devices (O.E.M. placeholders) are ignored; `--min PERCENT`, `--jsonl`.
+- examples/datasources.md: every device with a datasource matching a name (`-F 'name:Juniper_COS_*'`: `*` is a wildcard in a `:` filter), with which of them it collects on.
 - elm says why after "no data found" with `-S`: LM returns nothing, and no error, for a field it cannot sort on (DeviceGroupList `-S numOfHosts`), so it suggests trying again without `-S`.
 - Samara's `run_elm` takes `sort` (elm's `-S`: `name`, `-name`), so a model sorts in the query, not in jq. LM returns no rows and no error for a field it cannot sort on (DeviceGroupList `-S -numOfHosts`), so an empty sorted result is fetched again unsorted, and the model is told to sort with jq. `elm --ai` says the same about `-S`.
 - Samara sorts a built-in check's table as the question asks: "..., sorted by name", "ordered by devices, smallest first", "sorted by name descending". Samara reads it from the question, so the model passes nothing; numbers go largest first and text A to Z unless the question says. A column the table does not have is said, and the table keeps its order.
