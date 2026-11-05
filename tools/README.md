@@ -546,6 +546,7 @@ between the two.
 ```shell
 tools/elm-duplicate-devices.py                        # the whole portal
 tools/elm-duplicate-devices.py -p portal01 --min 100  # only pairs that agree on everything
+tools/elm-duplicate-devices.py --portal portal01 > dupes.md   # device names link to the portal
 tools/elm-duplicate-devices.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
 ```
 
@@ -572,6 +573,14 @@ is not enough: two customers can each have a web01). A low score means
 values differ, so it is more likely two machines sharing one thing, such as
 a cluster address. A value on more than `--max-share` devices (default 4),
 such as "To be filled by O.E.M.", identifies nothing and is ignored.
+
+`--portal NAME` (the bit before `.logicmonitor.com`) makes each device name a
+link to it in Resources (jsonl: a `url` on each device). The id alone does
+not open a device; with the root group in front it does, whatever group the
+device is in: `.../santaba/uiv4/resources/treeNodes?resourcePath=resourceGroups-1%2Cresources-{id}`
+(checked by hand, 2026-11-05). `--url-template` overrides it, with `{portal}`
+and `{id}`. As with the module tools, the portal name is not worked out from
+elm: only `-f api` and `-vv` show it, and both show credential material too.
 
 One DeviceList query, real devices only (`deviceType` 0), paged 1,000 at a
 time by id (`-S id -F id>LAST`) rather than by offset, so it gets past LM's

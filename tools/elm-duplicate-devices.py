@@ -29,11 +29,12 @@ Scope: real devices only (deviceType 0), the whole portal: one DeviceList
 query, paged 1000 at a time by id, so past LM's 10,000-row limit.
 
 Output: Markdown on stdout, best matches first (--jsonl: one record per
-pair, for pipes); progress and errors on stderr.
+pair, for pipes); progress and errors on stderr. With --portal NAME each
+device name links to the device in the portal (jsonl: a "url" on each).
 
 Examples:
   elm-duplicate-devices.py
-  elm-duplicate-devices.py -p portal01 --min 100
+  elm-duplicate-devices.py -p portal01 --portal portal01 --min 100
   elm-duplicate-devices.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
 
 Requires: elm
@@ -56,6 +57,13 @@ JUNK = {"", "none", "(none)", "null", "0", "n/a", "na", "unknown", "not specifie
         "default string", "to be filled by o.e.m.", "system serial number", "chassis serial number",
         "serial number", "localhost", "localhost.localdomain"}
 KEEP = ("id", "displayName", "name", "hostStatus", "currentCollectorId")
+# The device in the portal's Resources tree. The REST API gives no UI link.
+# The id alone (resourcePath=resources-ID) does not open it; with the root
+# group in front it does, whatever group the device is in (checked by hand on
+# a work portal, 2026-11-05). The portal name is not worked out from elm: only
+# -f api and -vv show it, and both show credential material too.
+DEFAULT_URL_TEMPLATE = ("https://{portal}.logicmonitor.com/santaba/uiv4/resources/treeNodes"
+                        "?resourcePath=resourceGroups-1%2Cresources-{id}")
 TARGET = []         # ["--profile", P] or ["--config", PATH]
 
 
@@ -171,7 +179,14 @@ def main():
     p.add_argument("--max-share", type=int, default=4, metavar="N",
                    help="ignore a value shared by more than N devices (default: 4)")
     p.add_argument("--jsonl", action="store_true", help="one JSON record per pair instead of Markdown")
+    p.add_argument("--portal", metavar="NAME",
+                   help="portal subdomain (the bit before .logicmonitor.com): link each device to it")
+    p.add_argument("--url-template", metavar="URL",
+                   help="override the link format. Placeholders: {portal} {id}")
     a = p.parse_args()
+    template = a.url_template or (DEFAULT_URL_TEMPLATE if a.portal else None)
+    if template and "{portal}" in template and not a.portal:
+        p.error("that link template needs {portal}: pass --portal NAME")
     TARGET.extend(["--config", a.config] if a.config else ["--profile", a.profile])
 
     err("Fetching devices ...")
@@ -218,7 +233,10 @@ def main():
             continue
         rows.append({"matched": len(matched), "compared": len(compared), "percent": pct,
                      "on": matched, "differs": [c for c in compared if c not in matched],
-                     "a": dx, "b": dy})
+                     "a": dict(dx), "b": dict(dy)})
+        if template:
+            for d in (rows[-1]["a"], rows[-1]["b"]):
+                d["url"] = template.format(portal=a.portal or "", id=d["id"])
     rows.sort(key=lambda r: (-r["percent"], -r["matched"], r["a"]["displayName"].lower()))
 
     err(f"{len(found)} devices, {len(rows)} likely pairs"
@@ -230,12 +248,18 @@ def main():
     if not rows:
         print("No devices look like the same device under two names.")
         return
+    def cell(text):
+        return str(text).replace("|", "\\|")
+
+    def device(d):
+        return f"[{cell(d['displayName'])}]({d['url']})" if d.get("url") else cell(d["displayName"])
+
     print("| Match | Device | Monitored as | Status | Other device | Monitored as | Status | Matched on | Differs |")
     print("|---|---|---|---|---|---|---|---|---|")
     for r in rows:
         print(f"| {r['matched']} of {r['compared']} ({r['percent']}%) "
-              f"| {r['a']['displayName']} | {r['a']['name']} | {r['a']['hostStatus']} "
-              f"| {r['b']['displayName']} | {r['b']['name']} | {r['b']['hostStatus']} "
+              f"| {device(r['a'])} | {cell(r['a']['name'])} | {r['a']['hostStatus']} "
+              f"| {device(r['b'])} | {cell(r['b']['name'])} | {r['b']['hostStatus']} "
               f"| {', '.join(r['on'])} | {', '.join(r['differs']) or '-'} |")
 
 
