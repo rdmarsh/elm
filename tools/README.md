@@ -547,6 +547,7 @@ between the two.
 tools/elm-duplicate-devices.py                        # the whole portal
 tools/elm-duplicate-devices.py -p portal01 --min 100  # only pairs that agree on everything
 tools/elm-duplicate-devices.py --portal portal01 > dupes.md   # device names link to the portal
+tools/elm-duplicate-devices.py -p portal01,portal02 --across  # monitored in both portals
 tools/elm-duplicate-devices.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
 ```
 
@@ -574,11 +575,24 @@ values differ, so it is more likely two machines sharing one thing, such as
 a cluster address. A value on more than `--max-share` devices (default 4),
 such as "To be filled by O.E.M.", identifies nothing and is ignored.
 
+**Two or more portals** (`-p portal01,portal02`): a device monitored in both,
+after a migration or by two teams, is a pair across them, and the table gains
+a Portal column for each side. `--across` lists only those pairs, not each
+portal's own. Across portals an address match is weak (customers reuse
+private IPs: 10.0.0.5 in one portal is rarely 10.0.0.5 in the other), so a
+pair across needs a serial, mac or sysname match; address and name still
+count in its score. `--max-share` counts within each portal, so one device in
+both is not mistaken for a common value. Checked with `-p config,ai`, two
+profiles on the same portal (2026-11-05): 74 pairs across, exactly the 72
+devices with a serial, MAC or sysname matched with themselves, plus the
+IP/FQDN pair both ways round.
+
 `--portal NAME` (the bit before `.logicmonitor.com`) makes each device name a
 link to it in Resources (jsonl: a `url` on each device). The id alone does
 not open a device; with the root group in front it does, whatever group the
 device is in: `.../santaba/uiv4/resources/treeNodes?resourcePath=resourceGroups-1%2Cresources-{id}`
-(checked by hand, 2026-11-05). `--url-template` overrides it, with `{portal}`
+(checked by hand, 2026-11-05); with several portals, `--portal
+portal01=acme,portal02=acme2` names each profile's. `--url-template` overrides it, with `{portal}`
 and `{id}`. As with the module tools, the portal name is not worked out from
 elm: only `-f api` and `-vv` show it, and both show credential material too.
 
