@@ -220,6 +220,36 @@ samara/eval.py --url http://127.0.0.1:8080 --only "is {device} okay?"
 samara/eval.py --url http://127.0.0.1:8080 --repeat 2
 ```
 
+### How to demo
+
+Start it as above on the build you will show, and run the full eval on that
+build first: a question that passes there passes in the room. Keep the Mac
+awake and on the network, and LM Link off. Ask one question before the room
+fills: the first after a start takes about 40s while Samara reads the
+portal's device, group and collector names; after that, about 7s each.
+
+These passed on qwen3-vl-4b every time they were asked on the 2026-11-05 and
+2026-11-06 evals. Swap in a device from your own portal:
+
+1. "what needs my attention first?"
+2. "what's offline?"
+3. "is web01 okay?", then "any downtime on it?" (a follow-up keeps the device)
+4. "show me errors or worse"
+5. "are all our collectors up?"
+6. "what happened overnight?"
+7. "are we having a lot of alerts today?" (14 days of bars and today by
+   severity; new on 2026-11-06, so check it passed in your eval run first)
+8. "Put web01 into SDT for 2 hours." (Samara says it is read-only, and changes nothing)
+
+Open "How I worked this out" under an answer to show where each number came
+from: the steps in plain words, then the exact elm queries.
+
+Leave these out for now; small models still miss them: adding a column to a
+table ("add a percentage to that table"), "is web01 in maintenance?"
+(answered with general health), downtime in the next few days, groups that
+depend on one collector, and anything outside the portal ("are alerts
+reaching ServiceNow?").
+
 To compare models overnight, `samara/models.sh --eval --only PORT,PORT` starts
 one Samara per model and runs the eval on each (ports and models are listed
 at the top of models.sh). Keep every machine it uses awake: `caffeinate -i`
