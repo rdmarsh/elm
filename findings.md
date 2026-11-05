@@ -21,6 +21,42 @@ Each entry: date, what was run, the result, what it means.
   the scores.
 
 
+## 2026-11-06: severity from the question, overnight on two machines
+
+Build 85dfb15: Samara reads "errors or worse", a named severity and the
+time window from the question itself, and runs a recipe whose name the model
+typed as text. Six ports, mini and laptop queues side by side.
+
+| Model | Machine | Before (11-05) | Now, real asks | Confidently wrong | Unreachable |
+|---|---|---|---|---|---|
+| qwen3-vl-4b | mini | 87%, 4 wrong | 95% (155/164) | 0 | 44 |
+| qwen3-8b | mini | 89%, 2 wrong | 85% (166/195) | 0 | 13 |
+| qwen3.5-9b | mini | 90%, 4 wrong | 87% (155/179) | 2 | 29 |
+| qwen3-8b | laptop | - | 89% (164/184) | 1 | 24 |
+| qwen3-vl-4b, qwen3-4b-instruct-2507 | laptop | - | not run | - | all |
+
+* The fix worked: "show me errors or worse" and "how many warnings are open?"
+  were confidently wrong on every model before and pass on every model now.
+  Confidently wrong went from 2-4 per model to 0-2, and neither of those
+  is an alert count.
+* Taking the argument out of the model's hands beats asking it better. The
+  model still picks the wrong window or the wrong recipe; Samara now
+  overrules it with what the question's own words say.
+* Infrastructure is now the biggest source of fails. The laptop left the
+  network at 02:57 and two of its three models never ran (caffeinate on the
+  mini does not keep the laptop awake). The mini's LM Studio missed Samara's
+  1.5s connect check now and then: 13-44 asks per model failed in 2s.
+  "Unreachable" asks are left out of the percentages above.
+* A device that shares its name with a collector went to the collector on
+  every ask for the first 15 minutes, on the two ports that started at the
+  same moment, then came right. The router's first name list most likely
+  came back without devices and was kept 15 minutes (fixed in 6a1a8dc: kept
+  60s when a list is missing). That is most of qwen3-8b's drop on the mini.
+* One false fail: "How many alerts cleared yesterday?" ran the right query
+  after Samara rerouted it, but the eval grades the recipe the model named,
+  not the one that ran.
+
+
 ## 2026-11-05: duplicate devices (tools/elm-duplicate-devices.py)
 
 Started from a real case: one device added by IP, again by FQDN, same
