@@ -39,6 +39,7 @@ Portal reports and backups
 - [Group paths](#group-paths) — `tools/elm-group-paths.sh`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
 - [Duplicate devices](#duplicate-devices) — `tools/elm-duplicate-devices.py`
+- [Missing groups and devices](#missing-groups-and-devices) — `tools/elm-missing-refs.py`
 - [Every row, past 10,000](#every-row-past-10000) — `tools/elm-page.py`
 
 Profiles and tokens
@@ -536,6 +537,48 @@ Cost: about one call per DataSource per device, so a whole portal is slow;
 growing wait. On a test portal of 387 live devices, `--jobs 8` took 7
 minutes and 3,400 calls. `--datasource` only visits the devices that DataSource applies
 to. It reads, never writes.
+
+## Missing groups and devices
+
+`tools/elm-missing-refs.py` lists the dashboards, reports and alert rules that
+name a group or device the portal no longer has: a renamed or moved group, a
+retired device. Nothing in LM warns about these: the widget goes blank, the
+report comes out empty, the alert rule stops routing.
+
+```shell
+tools/elm-missing-refs.py                          # dashboards, reports and alert rules
+tools/elm-missing-refs.py -p portal01 rules        # just the alert rules
+tools/elm-missing-refs.py --group "Servers/Old DC" # before removing a group: what uses it
+tools/elm-missing-refs.py --group 123 dashboards   # the same, by group id
+tools/elm-missing-refs.py --jsonl | jq -r 'select(.problem == "no group") | .name' | sort -u
+```
+
+```
+## Alert rules: 2 missing
+
+| Alert rule | Priority | Problem | Name | Moved to? |
+|---|---|---|---|---|
+| Web critical | 11 | no group | Servers/Web* | ~admin/Obsolete/Web |
+| Lab test | 10001 | no device | lab-web01 |  |
+```
+
+The problems are **no group**, **no device** (no display name or hostname
+matches), **not in group** (both exist, but no matching device is in a
+matching group or below it), **no token** (a `##token##` the dashboard
+doesn't set) and **no dashboard** (a dashboard report's dashboard is gone).
+Dashboard tokens such as `##defaultResourceGroup##` are filled in first.
+**Moved to?** suggests up to three groups with the same last name, which is
+usually where a moved group went.
+
+Globs are matched generously (`*` crosses `/`, any case), so anything listed
+really matches nothing. Tokens set on a single widget rather than the
+dashboard aren't read yet, so such a widget can show as "no token".
+
+`--group` checks a group, and every group below it, before you remove it. It
+lists each widget, report and alert rule that names it, a subgroup, or a glob
+that takes it in. Globs that take in everything (`*`) are left out, because
+removing one group doesn't break them. A widget that names only a device
+keeps working wherever the device goes.
 
 ## Duplicate devices
 
