@@ -38,7 +38,7 @@ Portal reports and backups
 - [Backups](#backups) — `tools/elm-backup.sh`, `tools/elm-collector-config-backup.py`
 - [Group paths](#group-paths) — `tools/elm-group-paths.sh`
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
-- [Same device, two names](#same-device-two-names) — `tools/elm-same-device.py`
+- [Duplicate devices](#duplicate-devices) — `tools/elm-duplicate-devices.py`
 - [Every row, past 10,000](#every-row-past-10000) — `tools/elm-page.py`
 
 Profiles and tokens
@@ -537,16 +537,16 @@ growing wait. On a test portal of 387 live devices, `--jobs 8` took 7
 minutes and 3,400 calls. `--datasource` only visits the devices that DataSource applies
 to. It reads, never writes.
 
-## Same device, two names
+## Duplicate devices
 
-`tools/elm-same-device.py` finds devices that are probably one machine added
+`tools/elm-duplicate-devices.py` finds devices that are probably one machine added
 twice: once by IP and once by FQDN, say, so its data and alerts are split
 between the two.
 
 ```shell
-tools/elm-same-device.py                          # the whole portal
-tools/elm-same-device.py -p portal01 --min 100    # only pairs that agree on everything
-tools/elm-same-device.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
+tools/elm-duplicate-devices.py                        # the whole portal
+tools/elm-duplicate-devices.py -p portal01 --min 100  # only pairs that agree on everything
+tools/elm-duplicate-devices.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
 ```
 
 ```

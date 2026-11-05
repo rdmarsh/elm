@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""elm-same-device: find devices that are probably one device under two names.
+"""elm-duplicate-devices: find devices that are probably one device under two names.
 
 A device added once by IP and once by FQDN (or by two collectors) shows up
 twice, with its data and alerts split between them. This pairs devices that
@@ -32,9 +32,9 @@ Output: Markdown on stdout, best matches first (--jsonl: one record per
 pair, for pipes); progress and errors on stderr.
 
 Examples:
-  elm-same-device.py
-  elm-same-device.py -p portal01 --min 100
-  elm-same-device.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
+  elm-duplicate-devices.py
+  elm-duplicate-devices.py -p portal01 --min 100
+  elm-duplicate-devices.py --jsonl | jq -r 'select(.matched == .compared) | [.a.id, .b.id] | @tsv'
 
 Requires: elm
 """
@@ -178,7 +178,7 @@ def main():
     try:
         found = devices(",".join(KEEP) + ",systemProperties,autoProperties")
     except ElmError as e:
-        sys.exit(f"elm-same-device: {e}")
+        sys.exit(f"elm-duplicate-devices: {e}")
     by_id = {d["id"]: d for d, _ in found}
     vals = {d["id"]: v for d, v in found}
 
