@@ -7,10 +7,6 @@ Rules that apply across commands. Kept short on purpose: AI assistants (and
   `elm COMMAND --info` (built from `elm-notes.yaml` and the swagger).
 - Longer recipes and background: [`examples/`](examples/).
 
-Add a finding here only if it holds for more than one command. Otherwise add it
-to the command's entry in `elm-notes.yaml`, where `--info` shows it. The budget
-is 8,000 characters (`make testdocs`): replace or delete, don't just append.
-
 ---
 
 ## Running elm
@@ -90,10 +86,6 @@ literal comma with `\,`.
   1000-row cap, or the list is newest first (1000 AuditLogList entries can
   cover a few days), page or filter on the time field before answering "never"
   or "none", and say what range was covered.
-- **Response shapes:** most endpoints return `{total, items}`; `...ById`,
-  MetricsSummary and MetricsUsage return one object; V4Metadata and
-  ContractInfoByCompany return a bare array. elm normalises all three, but raw
-  responses differ.
 - **`userPermission`**, on about 22 object types, is the calling token's rights
   on that object (`read`, `write`, `write,debug`). Check it rather than probing
   for data a read-only token cannot see.
