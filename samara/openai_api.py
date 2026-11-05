@@ -7,6 +7,7 @@ shape into a chat-completions request, and the reply back into it.
 
 import json
 import re
+import time
 
 import requests
 
@@ -15,18 +16,22 @@ class ModelError(Exception):
     """The model's API could not be reached, or refused the request."""
 
 
-def models(url, key, timeout=1.5):
+def models(url, key, timeout=1.5, tries=1):
     """The model ids the API offers, or None if it sends no list it understands.
 
     Short timeout: the page's health check calls this on every load. LM Studio
     with just-in-time loading lists every downloaded model, loaded or not.
-    Raises ModelError when the API cannot be reached.
+    Raises ModelError when the API cannot be reached, tries times a second apart.
     """
     headers = {"Authorization": f"Bearer {key}"} if key else {}
-    try:
-        r = requests.get(url.rstrip("/") + "/models", headers=headers, timeout=timeout)
-    except requests.RequestException as exc:
-        raise ModelError(f"Could not reach the model API at {url}: {exc}") from exc
+    for attempt in range(tries):
+        try:
+            r = requests.get(url.rstrip("/") + "/models", headers=headers, timeout=timeout)
+            break
+        except requests.RequestException as exc:
+            if attempt == tries - 1:
+                raise ModelError(f"Could not reach the model API at {url}: {exc}") from exc
+            time.sleep(1)
     try:
         return [m["id"] for m in r.json()["data"]] if r.ok else None
     except (ValueError, KeyError, TypeError):
@@ -99,10 +104,21 @@ def create(url, key, model, system, tools, messages, n=0):
     }
     headers = {"Authorization": f"Bearer {key}"} if key else {}
     endpoint = url.rstrip("/") + "/chat/completions"
-    try:
-        r = requests.post(endpoint, json=body, headers=headers, timeout=600)
-    except requests.RequestException as exc:
-        raise ModelError(f"Could not reach the model at {url}: {exc}") from exc
+    # Once more after a dropped connection or a 5xx: LM Studio on the mini sent
+    # "Internal Server Error" now and then, and each failed a whole ask (2026-11-06).
+    for attempt in range(2):
+        try:
+            r = requests.post(endpoint, json=body, headers=headers, timeout=600)
+        except requests.ConnectionError as exc:
+            if attempt:
+                raise ModelError(f"Could not reach the model at {url}: {exc}") from exc
+            time.sleep(3)
+            continue
+        except requests.RequestException as exc:   # a read timeout: 600s gone, not worth another
+            raise ModelError(f"Could not reach the model at {url}: {exc}") from exc
+        if r.status_code < 500 or attempt:
+            break
+        time.sleep(3)
     if not r.ok:
         raise ModelError(f"The model at {url} refused the request (HTTP {r.status_code}): {r.text[:300]}")
     try:

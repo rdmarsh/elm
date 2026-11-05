@@ -101,8 +101,12 @@ def where(model):
     return None if host in ("localhost", "host.docker.internal") else host
 
 
-def config_problem():
-    """What stops the ladder working, said before anything is asked, or None."""
+def config_problem(tries=1):
+    """What stops the ladder working, said before anything is asked, or None.
+
+    tries: how often to try the model server. The page's health check asks once;
+    a question asks three times, a second apart: a 1.5s miss on the mini's LM
+    Studio failed 13-44 asks per model in one night (2026-11-06)."""
     others = [m for m in MODELS if not is_claude(m)]
     if others and not MODEL_URL:
         return (f"SAMARA_MODEL names {', '.join(others)}, which {'is not a Claude model' if len(others) == 1 else 'are not Claude models'}, "
@@ -113,7 +117,7 @@ def config_problem():
         # loaded" from LM Studio (gemma-3-12b, deleted but still in SAMARA_MODEL,
         # 2026-11-04). Say so before anything is asked.
         try:
-            offered = openai_api.models(MODEL_URL, MODEL_KEY)
+            offered = openai_api.models(MODEL_URL, MODEL_KEY, tries=tries)
         except openai_api.ModelError as exc:
             return str(exc)
         # Ollama lists qwen3:latest for qwen3.
@@ -798,7 +802,13 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 raise Stopped()
             emit({"type": "status", "text": DOING.get(openai_api.block(block, "name"), "Working") + "..."})
             call = f"{openai_api.block(block, 'name')} {json.dumps(openai_api.block(block, 'input'), sort_keys=True)}"
-            emit({"type": "call", "name": openai_api.block(block, "name"), "input": openai_api.block(block, "input")})
+            asked = openai_api.block(block, "input")
+            ran_as = recipes.from_question(conv.question, asked) if openai_api.block(block, "name") == "recipe" else asked
+            # What runs, as call_tool will run it, so the eval grades the recipe that ran;
+            # "asked" keeps the model's own pick when Samara changed it ("cleared yesterday"
+            # asked as alerts_unacknowledged, run as alerts: graded a fail, 2026-11-06).
+            emit({"type": "call", "name": openai_api.block(block, "name"), "input": ran_as,
+                  **({"asked": asked} if ran_as != asked else {})})
             if call in done_calls:
                 # The same call again, after it worked: its result is already in
                 # the conversation. Run again, a recipe put its table on the page

@@ -153,7 +153,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
 
         emit({"type": "conversation", "id": conv_id})
-        problem = agent.config_problem() or elm_tools.profile_status()["problem"]
+        problem = agent.config_problem(tries=3) or elm_tools.profile_status()["problem"]
         if problem:
             return emit({"type": "error", "text": problem})
         try:
