@@ -362,6 +362,9 @@ def with_covers(answer, covered):
 
 
 # Sent back with an answer that looked nothing up (agent._ask).
+# An answer that starts with a recipe's name, alone or before a colon: a call typed as text.
+RECIPE_TEXT = re.compile(r"\s*[`*]*([a-z]+(?:_[a-z]+)+)[`*]*\s*(?::|$)")
+
 LOOK_IT_UP = ("You answered without looking anything up, so nothing in that answer came from "
               "the portal. If the question is about this portal's devices, groups, collectors, "
               "alerts, downtime or websites, call a recipe or a tool now and answer only from "
@@ -660,6 +663,20 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         if not tool_uses:
             # The model's own words, before Samara tidies them: for the bug report (index.html).
             emit({"type": "draft", "text": "\n\n".join(texts)})
+            named = RECIPE_TEXT.match("\n".join(texts))
+            if named and named[1] in recipes.RECIPES and not used - LOOKUP_TOOLS and "named" not in sent_back:
+                # A recipe's name typed as the answer, not called: "critical_alerts", and
+                # "open_alerts: 148 alerts are open" with nothing run (qwen3-4b-instruct-2507,
+                # 2026-11-05, 5 of its 8 confidently wrong). Samara runs that recipe for it.
+                sent_back["named"] = len(conv.messages) - 1
+                call = {"recipe": named[1]}
+                for h in routed["found"]:
+                    if h["kind"] in recipes.RECIPES[named[1]].get("params", []):
+                        call[h["kind"]] = h["name"]
+                inject = {"type": "tool_use", "id": "samara-named", "name": "recipe", "input": call}
+                conv.messages.append({"role": "user", "content": "Samara ran it: answer from this."})
+                emit({"type": "status", "text": "Looking it up..."})
+                continue
             if (not used - LOOKUP_TOOLS and routed["found"] and "look" in sent_back and "ran" not in sent_back
                     and forced is None):
                 # Sent back, and it still looked nothing up about a device, group or

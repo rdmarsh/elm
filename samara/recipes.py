@@ -195,6 +195,27 @@ def choose(r, given):
 CLEARED = re.compile(r"\b(clear(ed|s)?|recover\w*|resolv\w*|closed)\b", re.I)
 STARTED = re.compile(r"\b(start\w*|began|begun|new|raised|opened|fired)\b", re.I)
 OPEN = re.compile(r"\b(open|still|active|ongoing|unresolved|outstanding|now|current\w*)\b", re.I)
+# "errors or worse", "warnings and above": that severity and every one above it.
+WORSE = re.compile(r"\b(critical|errors?|warnings?)\s+(?:or|and)\s+(?:worse|above|higher|up|more severe)\b", re.I)
+WORSE_IS = {"crit": "critical", "erro": "error_or_critical", "warn": None}
+SEVERITY_IS = {r"\bcriticals?\b": "critical", r"\berrors?\b": "error", r"\bwarnings?\b": "warning"}
+# Time words WINDOWS has no value for ("since Monday", "in the last 3 days"): the model's window stays.
+TIMEISH = re.compile(r"\b(since|ago|before|after|recent\w*|lately|last|past|this|morning|night|week\w*|month\w*|"
+                     r"days?|hours?|minutes?|mon|tues|wednes|thurs|fri|satur|sun)(day)?\b", re.I)
+ALERT_RECIPES = {"alerts", "open_alerts", "critical_alerts", "alerts_unacknowledged"}
+# The question's own time window, as the alerts recipe names it; first match wins.
+WINDOWS = [
+    (r"\b(last|past)\s+hour\b", "last_hour"),
+    (r"\b(last|past)\s+24\s*h(ours?)?\b|\bovernight\b", "last_24_hours"),
+    (r"\btoday\b|\bthis morning\b", "today"),
+    (r"\byesterday\b", "yesterday"),
+    (r"\bthis week\b", "this_week"),
+    (r"\b(last|past)\s+(7|seven)\s+days\b", "last_7_days"),
+    (r"\blast week\b", "last_week"),
+    (r"\bthis month\b", "this_month"),
+    (r"\b(last|past)\s+(30|thirty)\s+days\b", "last_30_days"),
+    (r"\blast month\b", "last_month"),
+]
 
 
 # "sorted by name", "ordered by devices, largest first": the table's order,
@@ -250,10 +271,35 @@ def from_question(question, args):
     args = dict(args)
     if sort_from(question):
         args["sort"] = sort_from(question)
+    worse = WORSE.search(question)
+    if worse and args.get("recipe") in ALERT_RECIPES:
+        # "show me errors or worse" ran critical_alerts on two models, and a
+        # third left out the severity (2026-11-05): the alerts recipe, at that
+        # severity and up, is the answer.
+        args["recipe"] = "alerts"
+    if args.get("recipe") in ("alerts_unacknowledged", "open_alerts") and CLEARED.search(question):
+        # "How many alerts cleared yesterday?" ran alerts_unacknowledged, which
+        # only has open ones (qwen3-vl-4b, 2026-11-05).
+        args["recipe"] = "alerts"
     if args.get("recipe") != "alerts":
         return args
-    if args.get("started") and not args.get("ended") and CLEARED.search(question) and not STARTED.search(question):
-        args["ended"] = args.pop("started")
+    if worse:
+        args["severity"] = WORSE_IS[worse[1].lower()[:4]]
+        if args["severity"] is None:
+            args.pop("severity")   # "warnings or worse": everything but info
+    elif (only := [v for k, v in SEVERITY_IS.items() if re.search(k, question, re.I)]) and len(only) == 1:
+        args["severity"] = only[0]   # "how many warnings are open?" came with no severity (qwen3-4b)
+    window = next((v for k, v in WINDOWS if re.search(k, question, re.I)), None)
+    if window is None and not TIMEISH.search(question):
+        # No time in the question, so none in the answer: "how many warnings are
+        # open?" came as started=today, and 6 is not 130 (qwen3-vl-4b, 2026-11-05).
+        args.pop("started", None)
+        args.pop("ended", None)
+    elif window and CLEARED.search(question) and not STARTED.search(question):
+        # "How many alerts cleared yesterday?" came as started=yesterday,
+        # ended=last_hour (qwen3-4b-instruct-2507, 2026-11-05).
+        args.pop("started", None)
+        args["ended"] = window
     if args.get("state") == "open" and (args.get("started") or args.get("ended")) and not OPEN.search(question):
         del args["state"]   # the window's own state applies: any for started, cleared for ended
     return args
