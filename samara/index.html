@@ -65,8 +65,8 @@
   /* Quiet actions read as links (Dig deeper, Try again); Think harder stays a button. */
   button.link { background: none; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted);
                 text-decoration: underline; font-size: .85rem; }
-  button.link.md-toggle, button.link.debug { display: inline-flex; align-items: center; text-decoration: none; }
-  button.link.md-toggle svg, button.link.debug svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6;
+  button.link.md-toggle, button.link.debug, .rate button.link { display: inline-flex; align-items: center; text-decoration: none; }
+  button.link.md-toggle svg, button.link.debug svg, .rate button.link svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6;
                               stroke-linecap: round; stroke-linejoin: round; }
   button.link.md-toggle[aria-pressed="true"] { color: var(--ink); background: var(--code); }
   button:disabled { opacity: .5; cursor: default; }
@@ -107,9 +107,18 @@
      buttons that ask again (Dig deeper, Think harder) on the right. */
   .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
   .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-  .turn-foot .buttons { margin-left: auto; }
-  .rate button { text-decoration: none; font-size: 1rem; }
-  .rate-why, .rate-done { color: var(--muted); font-size: .85rem; }
+  .turn-foot .buttons { margin-left: auto; align-items: center; }
+  .rate { display: inline-flex; align-items: center; }
+  .rate-done { color: var(--muted); font-size: .85rem; padding: 4px 6px; }
+  /* Rating opens on its own line, under the buttons, so nothing lands where the thumb was. */
+  .rate-panel { display: block; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: .85rem; }
+  .rate-panel .choices { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 8px; }
+  .rate-panel label { display: inline-flex; align-items: center; gap: 4px; }
+  .rate-panel textarea { width: 100%; box-sizing: border-box; min-height: 3.2em; font: inherit; margin-bottom: 6px; }
+  .rate-panel .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+  .rate-panel .note { color: var(--muted); }
+  .rate-panel .rate-actions { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+  .rate-panel[hidden] { display: none; }
   .part.detail { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
   /* An answer replaced by Think harder folds to its question until asked for. */
   .turn.earlier:not(.open) > :not(.question) { display: none; }
@@ -246,6 +255,8 @@ const ICON = {
   source: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 1.5 8l4 4M10.5 4l4 4-4 4M9 2.5 7 13.5"/></svg>`,
   bug: `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="9.5" rx="3.5" ry="4.5"/><path d="M6 5a2 2 0 0 1 4 0M8 5.5V14M4.5 8H2M4.5 11.5H2.5M11.5 8H14M11.5 11.5h2M5.5 5.5 4 4M10.5 5.5 12 4"/></svg>`,
   md: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M4 11V6l2 2.5L8 6v5M11 6v3.5M11 10l1.5-1.5M11 10 9.5 8.5"/></svg>`,
+  up: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 7v7H2V7h3ZM5 7l2.6-5a1.5 1.5 0 0 1 2.4 1.5L9.4 6.5h3.4a1.5 1.5 0 0 1 1.5 1.8l-1 4.5a1.5 1.5 0 0 1-1.5 1.2H5"/></svg>`,
+  down: `<svg viewBox="0 0 16 16" aria-hidden="true"><g transform="matrix(1 0 0 -1 0 16)"><path d="M5 7v7H2V7h3ZM5 7l2.6-5a1.5 1.5 0 0 1 2.4 1.5L9.4 6.5h3.4a1.5 1.5 0 0 1 1.5 1.8l-1 4.5a1.5 1.5 0 0 1-1.5 1.2H5"/></g></svg>`,
 };
 // The label above each answer: what Samara knows about where it came from.
 const SOURCE = {
@@ -301,15 +312,7 @@ fetch("/api/health").then(r => r.json()).then(h => {
     + `<span class="setup">${portal}Profile: ${esc(h.profile)} `
     + `(<button id="show-commands" type="button">${scope}</button>)</span>`
     + `<span class="setup">Default model: ${esc(h.model)}${h.model_id && h.model_id !== h.model ? ` (${esc(h.model_id)})` : ""}${h.effort ? `, effort ${esc(h.effort)}` : ""}`
-    + `${h.off ? `, sends questions and portal data to ${esc(h.off)}` : ", on this machine"}</span>`
-    // Only when the person running Samara turned the log on (SAMARA_LOG=1), and
-    // off until each reader ticks it: their questions, not Samara's to take.
-    + (h.log ? `<label class="setup"><input type="checkbox" id="save-questions"> Save my questions, to help test Samara</label>` : "");
-  if (h.log) {
-    const box = $("#save-questions");
-    try { box.checked = localStorage.getItem("samara-save") === "1"; } catch {}
-    box.addEventListener("change", () => { try { localStorage.setItem("samara-save", box.checked ? "1" : "0"); } catch {} });
-  }
+    + `${h.off ? `, sends questions and portal data to ${esc(h.off)}` : ", on this machine"}</span>`;
   $("#show-commands").addEventListener("click", () => {
     const panel = $("#commands");
     panel.hidden = !panel.hidden;
@@ -459,9 +462,6 @@ function debugText(t) {
     "```json", JSON.stringify({ health, page: location.pathname + location.search, browser: navigator.userAgent }),
     ...t.events.map(ev => JSON.stringify(ev)), "```"].join("\n");
 }
-
-// Whether this reader has said their questions may be saved (the footer box).
-const saving = () => !!($("#save-questions") && $("#save-questions").checked);
 
 let current = null;   // the AbortController of the request in progress, if any
 const announce = text => $("#announce").textContent = text;
@@ -617,12 +617,23 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
         <button class="link debug" type="button" title="Copy everything about this answer, for a bug report" aria-label="Copy for a bug report" hidden>${ICON.bug}</button>
       </span>
       <span class="buttons">
-        <span class="rate" hidden><button class="link up" type="button" title="Right" aria-label="Right">👍</button><button class="link down" type="button" title="Wrong" aria-label="Wrong">👎</button></span>
-        <span class="rate-why" hidden>What was wrong? <button class="link wrong" type="button">Wrong facts</button><button class="link missed" type="button">Not what I asked</button><button class="link partly" type="button">Right, but incomplete</button></span>
+        <span class="rate" hidden><button class="link up" type="button" title="Rate this answer: right" aria-label="Rate this answer: right">${ICON.up}</button><button class="link down" type="button" title="Rate this answer: wrong" aria-label="Rate this answer: wrong">${ICON.down}</button></span>
         <button class="link more-detail" type="button" title="Look further in the portal: patterns, likely causes, what to check next" hidden>Dig deeper</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
     </div>
+    <form class="rate-panel" hidden>
+      <div class="choices" role="radiogroup" aria-label="How was this answer?">
+        <label><input type="radio" name="rating" value="right"> Right</label>
+        <label><input type="radio" name="rating" value="wrong"> Wrong facts</label>
+        <label><input type="radio" name="rating" value="missed"> Not what I asked</label>
+        <label><input type="radio" name="rating" value="partly"> Right, but incomplete</label>
+      </div>
+      <textarea name="comment" maxlength="4000" placeholder="Anything else? (optional)"></textarea>
+      <label><input type="checkbox" name="include" checked> Include the answer (it has portal data)</label>
+      <div class="row"><span class="note">Sent to whoever runs this Samara, and kept on their machine.</span>
+        <span class="rate-actions"><button class="link cancel" type="button">cancel</button><button class="secondary send" type="submit">Send</button></span></div>
+    </form>
     <div class="markdown-view" hidden>
       <textarea readonly></textarea>
       <div class="row"><button class="secondary download" type="button">Download</button>
@@ -671,25 +682,31 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   $(".md-toggle", turn).addEventListener("click", () => showMarkdown(view.hidden));
   // The bug: the answer, what Samara and elm were, and every event the server
   // sent (the model's own calls and draft among them), in one paste.
-  // Thumbs up, or thumbs down and why: saved for testing (app.py feedback), with
-  // the whole conversation only if the reader agrees, as it holds portal data.
-  const rate = async rating => {
-    if (!saving() && !confirm("Save this question and your rating, to test Samara with later?")) return;
-    const transcript = rating !== "right" && confirm("Include the answers too, so whoever tests Samara can see "
-      + "what went wrong? They contain portal data.") ? debugText(t) : "";
+  // Rating an answer is how a reader shares it (app.py feedback): nothing is
+  // sent until Send, and the panel says what goes. A thumb only picks the
+  // first choice, so a slip of the mouse sends nothing.
+  const panel = $(".rate-panel", turn);
+  const openRating = rating => {
+    panel.hidden = false;
+    panel.elements.rating.value = rating;
+    panel.elements.comment.focus();
+  };
+  $(".up", turn).addEventListener("click", () => openRating("right"));
+  $(".down", turn).addEventListener("click", () => openRating("wrong"));
+  $(".cancel", panel).addEventListener("click", () => { panel.hidden = true; });
+  panel.addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = panel.elements;
     try {
       const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, question: t.md.question, rating,
-                               source: t.md.source, transcript }) });
+        body: JSON.stringify({ conversation_id: conversationId, question: t.md.question, rating: f.rating.value,
+                               comment: f.comment.value.trim(), source: t.md.source,
+                               transcript: f.include.checked ? debugText(t) : "" }) });
       if (!r.ok) throw new Error(r.statusText);
-      $(".rate", turn).hidden = true; $(".rate-why", turn).outerHTML = `<span class="rate-done">Thanks</span>`;
-    } catch (err) { announce(`Could not save the rating: ${err.message}`); }
-  };
-  $(".up", turn).addEventListener("click", () => rate("right"));
-  $(".down", turn).addEventListener("click", () => { $(".rate", turn).hidden = true; $(".rate-why", turn).hidden = false; });
-  $(".wrong", turn).addEventListener("click", () => rate("wrong"));
-  $(".missed", turn).addEventListener("click", () => rate("missed"));
-  $(".partly", turn).addEventListener("click", () => rate("partly"));
+      panel.hidden = true;
+      $(".rate", turn).outerHTML = `<span class="rate-done">Thanks</span>`;
+    } catch (err) { announce(`Could not send the rating: ${err.message}`); }
+  });
   $(".debug", turn).addEventListener("click", async e => {
     const b = e.currentTarget, text = debugText(t);
     try {
@@ -805,7 +822,7 @@ async function stream(t, part, body, onAnswer) {
     const resp = await fetch("/api/ask", {
       method: "POST", headers: { "Content-Type": "application/json" }, signal: current.signal,
       body: JSON.stringify({
-        ...body, conversation_id: conversationId, save: saving(),
+        ...body, conversation_id: conversationId,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,     // e.g. Australia/Sydney
         utc_offset_minutes: -new Date().getTimezoneOffset(),            // e.g. 600
       }),

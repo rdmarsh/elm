@@ -24,9 +24,9 @@ import openai_api
 HOST = elm_tools.setting("HOST", "127.0.0.1")
 PORT = int(elm_tools.setting("PORT", "8080"))
 IDLE_SECONDS = 3600
-# The question log, when the person running Samara turns it on (run.sh with
-# SAMARA_LOG=1 mounts a folder here). Each person still opts in on the page:
-# nothing is written for a question unless they ticked the box or rated it.
+# The question log: run.sh mounts a folder here unless SAMARA_LOG=0. Each
+# person still decides on the page: nothing is written for a question unless
+# they rate its answer and press Send.
 LOG_DIR = os.environ.get("SAMARA_LOG_DIR")
 LOG_LOCK = threading.Lock()
 HERE = Path(__file__).resolve().parent
@@ -187,9 +187,9 @@ class Handler(BaseHTTPRequestHandler):
     def feedback(self):
         """A reader's rating of an answer, and the conversation if they shared it.
 
-        right (thumbs up); or after a thumbs down, wrong (wrong facts), missed (not
-        what was asked) or partly (right, but incomplete): pass, fail and partial,
-        as the eval grades them.
+        right, wrong (wrong facts), missed (not what was asked) or partly (right,
+        but incomplete): pass, fail and partial, as the eval grades them. comment
+        is what the reader typed; transcript the answer, if they left it ticked.
         """
         if not LOG_DIR:
             return self.send_json(404, {"error": "the question log is off"})
@@ -203,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
         log({"kind": "rating", "conversation": str(body.get("conversation_id") or "")[:64],
              "question": str(body.get("question") or "")[:2000], "rating": rating,
              "source": str(body.get("source") or "")[:16] or None,
+             "comment": str(body.get("comment") or "")[:4000] or None,
              "transcript": str(body.get("transcript") or "")[:200000] or None})
         self.send_json(200, {"ok": True})
 

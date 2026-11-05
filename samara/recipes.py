@@ -197,17 +197,61 @@ STARTED = re.compile(r"\b(start\w*|began|begun|new|raised|opened|fired)\b", re.I
 OPEN = re.compile(r"\b(open|still|active|ongoing|unresolved|outstanding|now|current\w*)\b", re.I)
 
 
+# "sorted by name", "ordered by devices, largest first": the table's order,
+# from the question's own words, for any recipe. Small models drop such
+# arguments, so Samara reads it itself, as it does the alert windows below.
+SORT = re.compile(r"\b(?:sort(?:ed)?|order(?:ed)?)\s+(?:it\s+|them\s+)?by\s+(?:the\s+)?(?:(most|largest|biggest|highest|"
+                  r"fewest|least|smallest|lowest)\s+)?([a-z][\w %-]*?)(?:,?\s+(asc\w*|desc\w*|a-z|z-a|(?:largest|biggest|"
+                  r"highest|most|smallest|lowest|fewest|least|newest|oldest) first|reversed?))?\s*[?.!]*\s*$", re.I)
+DOWN = re.compile(r"desc|z-a|largest|biggest|highest|most|newest|revers", re.I)
+UP = re.compile(r"asc|a-z|smallest|lowest|fewest|least|oldest", re.I)
+
+
+def sort_from(question):
+    """(column words, "asc" | "desc" | None) the question asks the table sorted by, or None."""
+    m = SORT.search(question or "")
+    if not m:
+        return None
+    how = " ".join(filter(None, (m[1], m[3])))
+    return m[2].strip(), "desc" if DOWN.search(how) else "asc" if UP.search(how) else None
+
+
+def sorted_rows(expression, columns, sort):
+    """The table's jq with a sort on the column sort names; (expression, what to tell the model)."""
+    words, way = sort
+    want = words.lower().rstrip("s")
+    plain = {c: c.lower().rstrip("s") for c in columns}
+    col = (next((c for c, p in plain.items() if p == want), None)
+           or next((c for c, p in plain.items() if p.startswith(want) or want.startswith(p)), None)
+           or next((c for c, p in plain.items() if want in p or p in want), None))
+    if col is None and want in ("name", "alphabetical", "alphabet"):
+        col = columns[0]   # the thing listed: Group, Device, Collector ...
+    if col is None:
+        return expression, f"There is no {words!r} column to sort by (columns: {', '.join(columns)}); the table keeps its order."
+    c = json.dumps(col)
+    # Unless the question says which way: numbers largest first (a count), text A to Z.
+    down = {"desc": "true", "asc": "false"}.get(way, f"([.[][{c}] | select(. != null)][0] | type) == \"number\"")
+    return (f"({expression}) | sort_by(.[{c}] | if type == \"string\" then ascii_downcase else . end)"
+            f" | if {down} then reverse else . end", f"The table is sorted by {col}, as asked.")
+
+
 def from_question(question, args):
-    """The alerts recipe's options, with what the question's own words settle put right.
+    """The recipe's arguments, with what the question's own words settle put right.
+
+    Any recipe: the sort the question asks for. The alerts recipe:
 
     The model picks the options, and small ones pick the wrong window: "What
     alerts cleared in the last hour?" came as started=last_hour, state=cleared
     (qwen3-vl-4b), and "How many alerts started yesterday?" as state=open, which
     left out the 129 that had cleared (qwen3-8b), both on the 2026-11-01 eval.
     """
-    if not isinstance(args, dict) or args.get("recipe") != "alerts" or not question:
+    if not isinstance(args, dict) or not question:
         return args
     args = dict(args)
+    if sort_from(question):
+        args["sort"] = sort_from(question)
+    if args.get("recipe") != "alerts":
+        return args
     if args.get("started") and not args.get("ended") and CLEARED.search(question) and not STARTED.search(question):
         args["ended"] = args.pop("started")
     if args.get("state") == "open" and (args.get("started") or args.get("ended")) and not OPEN.search(question):
@@ -215,7 +259,8 @@ def from_question(question, args):
     return args
 
 
-def run_recipe(session, recipe=None, device=None, group=None, collector=None, person=None, days=None, **options):
+def run_recipe(session, recipe=None, device=None, group=None, collector=None, person=None, days=None, sort=None,
+               **options):
     """Run one recipe; return (text for the model, [step and table events]).
 
     With no recipe named and one thing to look at, it is that thing's health
@@ -387,7 +432,11 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                  f"({data}); add nothing else.")
     if "table" in r:
         t = r["table"]
-        note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), jq(t["rows"]), t["columns"])
+        rows = jq(t["rows"])
+        if isinstance(sort, (list, tuple)) and len(sort) == 2:   # from from_question, never the model
+            rows, said = sorted_rows(rows, t["columns"], sort)
+            text += "\n\n" + said
+        note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), rows, t["columns"])
         if table["total"]:
             events.append(table)
     worked = [f"Found the {p} by name." for p in r.get("params", [])]

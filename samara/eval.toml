@@ -309,6 +309,14 @@ q = "which collectors need upgrading?"
 recipe = ["collectors_out_of_date"]
 
 [[case]]
+q = "Show me all the root groups in the portal"   # ran portal_health on qwen3-vl-4b, 2026-11-05
+recipe = ["root_groups"]
+
+[[case]]
+q = "show me the root device groups, sorted by name"   # looped on jq over null, 2026-11-05
+recipe = ["root_groups"]
+
+[[case]]
 q = "where are our single points of failure?"
 recipe = ["collectors_no_failover"]
 

@@ -405,7 +405,10 @@ KEY SUBCOMMAND FLAGS (most commands support these)
   -o, --offset N   Pagination offset
   -f, --fields F   Comma-separated field names to return
   -F, --filter F   Filter expression; multiple -F flags are AND'd
-  -S, --sort F     Sort field (+field asc, -field desc)
+  -S, --sort F     Sort field (+field asc, -field desc): -S name, -S -name
+                   Sort here, not afterwards. A field LM cannot sort on
+                   returns NO rows and no error ("no data found"): if a
+                   sorted query comes back empty, run it again without -S.
   -c, --count      Count the rows fetched (respects -F and -s: use -s0)
   -C, --total      LM's server-side total (ignores -s, RESPECTS -F)
                    Prefer -C: -c caps at 1000 and under-reports anything larger.

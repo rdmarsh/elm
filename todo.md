@@ -148,3 +148,37 @@ started:
   work, but each provider needs its own testing against the question set.
   `ANTHROPIC_BASE_URL` already covers an Anthropic-compatible gateway.
 
+## Samara: report_check (after the recipe-split comparison)
+
+Agreed 2026-11-05. Add once branch `samara-recipe-split` has been compared
+with main on the same models, so the comparison tests one change at a time.
+A sixth tool, `report_check`, alongside device_check and the others:
+
+- `reports_scheduled`: which reports run on a schedule, how often, and when
+  each last ran.
+- `reports_for_person`: reports owned by or sent to a person (`person`),
+  matched in jq: owner and recipients stay hidden from the model, as they
+  are now.
+- `report_detail`: one report by name: type, schedule, delivery, last run.
+
+ReportList has `delivery`, `lastGenerateOn`, `recipients`, `groupId`; check
+on the portal whether it has the owner at all before promising "owned by".
+
+"Owned by me": Samara does not know who is asking. It should say so and ask
+for their login name ("I don't know who you are: tell me your LogicMonitor
+login name"); the next message ("I'm joe") then answers as person=joe.
+
+## Samara: who is asking (idea)
+
+A small settings page (name or LogicMonitor login, email) kept in the browser
+(localStorage, as the save checkbox already is) and sent with each question,
+as the timezone already is (`index.html`, `timezone:`). It stays on one
+browser, which is fine for most people. Then "my reports" and "what am I
+working on?" need no follow-up. It is also where "Share every question I ask"
+goes (the footer box was removed 2026-11-05: rating an answer is how a reader
+shares it); the page sends `save: true` with each question and app.py already
+logs those. Timezone needs no setting: the browser's
+is already sent. Not from the API token: every reader of one Samara shares
+its token (an API-only user), so its description names the instance, not
+the person; a `whoami` would say the same.
+

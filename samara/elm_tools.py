@@ -307,7 +307,7 @@ def find_commands(session, keyword=""):
     return text, None
 
 
-def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
+def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=None, total=False, sort=None):
     """Validate the model's request and build the elm argument list."""
     if command not in COMMANDS:
         if command in RECIPE_NAMES:
@@ -349,6 +349,13 @@ def build_elm_args(command, filter=None, fields=None, size=0, offset=0, params=N
         if "fields" not in has:
             raise ValueError(f"{command} takes no fields.")
         args += ["-f", ",".join(fields) if isinstance(fields, list) else str(fields)]
+    if sort and not total:
+        # LM sorts, on one field: "name", "+name" or "-numOfHosts" (largest first)
+        if "filter" not in has:   # -S comes with -F on every list command; commands.json lists neither
+            raise ValueError(f"{command} takes no sort: it does not return a list.")
+        if not re.fullmatch(r"[+-]?[\w.]+", str(sort)):
+            raise ValueError("sort is one field name, with - in front for largest or Z first: 'name' or '-numOfHosts'")
+        args += ["-S", str(sort)]
     return args
 
 
@@ -382,13 +389,13 @@ class Refused(Exception):
 READER = threading.local()
 
 
-def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, total=False):
+def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, total=False, sort=None):
     """Run one elm query; return (jsonl lines, stderr, removed, shown), or the -C value for total.
 
     The lines are redacted, so neither the model, jq nor the page sees a
     secret; the caller stores them with session.add. Raises Refused on failure.
     """
-    args = build_elm_args(command, filter, fields, size, offset, params, total)
+    args = build_elm_args(command, filter, fields, size, offset, params, total, sort)
     # Shell-quoted, so the page can offer the queries as a script to paste and rerun.
     shown = "elm " + shlex.join(args)
     # --halt-on-api-error: without it a failed request (a TLS proxy's CA
@@ -456,7 +463,7 @@ def why_failed(stderr):
 RECIPE_NAMES = set()   # filled in by recipes.py, so a recipe asked for as a command is pointed at it
 
 
-def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False, **extra):
+def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False, sort=None, **extra):
     """Run one read-only elm query and store the rows as a dataset.
 
     An argument run_elm does not have is taken as one of params: run_elm(id=2767)
@@ -468,7 +475,16 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     """
     params = {**extra, **(params or {})} or None
     try:
-        lines, stderr, removed, shown = fetch(command, filter, fields, size, offset, params, total)
+        lines, stderr, removed, shown = fetch(command, filter, fields, size, offset, params, total, sort)
+        unsorted = None
+        if sort and not total and not lines:
+            # LM returns nothing, with no error, for a field it cannot sort on:
+            # DeviceGroupList -S -numOfHosts (2026-11-05). Ask again unsorted, so
+            # no rows means no rows.
+            lines, stderr, removed, shown = fetch(command, filter, fields, size, offset, params, total)
+            if lines:
+                unsorted = (f"LM cannot sort {command} by {sort.lstrip('+-')}: sorted, it returned nothing. "
+                            f"These rows are unsorted; sort them with jq.")
     except Refused as exc:
         return exc.args
 
@@ -512,6 +528,8 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
             result["counts"] = counts
     if result["may_have_more"]:
         result["note"] = f"Hit the {limit}-row page limit; fetch the next page with offset={offset + limit}."
+    if unsorted:
+        result["sort_note"] = unsorted
     if not lines and command == "DeviceList" and re.search(r"(^|,)name[:~]", filter or ""):
         result["note"] = ("name is the hostname or IP, not the name people use: "
                           "look the device up by displayName instead.")
@@ -580,7 +598,13 @@ def jq_hint(expression, stderr):
 
 
 def run_jq(session, expression):
-    """Filter, join, count or reshape stored datasets with jq."""
+    """Filter, join, count or reshape stored datasets with jq.
+
+    An expression that names no dataset reads the newest one: `sort_by(.name)`
+    after a DeviceGroupList ran on null, and "Cannot iterate over null" sent
+    qwen3-vl-4b round the same call seven times (2026-11-05)."""
+    if session.datasets and not re.search(r"\$d\d+", expression):
+        expression = f"${list(session.datasets)[-1]} | ({expression})"
     out = _jq(session, expression, model=True)
     step = {"type": "step", "command": f"jq {expression}", "result": f"{len(out.splitlines())} line(s)",
             "expression": expression}
@@ -670,6 +694,8 @@ TOOLS = [
                 "offset": {"type": "integer", "description": "Paging offset (default 0)"},
                 "params": {"type": "object", "description": "Command-specific parameters such as {\"deviceId\": 123}"},
                 "total": {"type": "boolean", "description": "Return LM's total match count only (-C)"},
+                "sort": {"type": "string", "description": "elm -S: one field to sort the rows by, e.g. 'name', "
+                         "or '-numOfHosts' for largest first. Sort here, not in jq"},
             },
             "required": ["command"],
         },

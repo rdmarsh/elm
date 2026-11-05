@@ -357,6 +357,15 @@ def report(elm, flags, obj, url, auth):
         shown = localtime(items) if elm.localtime else items
         output(explode(shown, elm.explode), elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
         warn(flags, obj, items, known=elm.filter_fields)
+        sort_hint(flags, items)
+
+
+def sort_hint(flags, items, label=''):
+    """After "no data found" with -S: LM returns no rows, and no error, for a
+    field it cannot sort on (DeviceGroupList -S numOfHosts, 2026-11-05)."""
+    if not items and 'sort' in flags:
+        click.secho(f"{label}Hint: LM returns nothing for a field it cannot sort on: "
+                    f"try again without -S {flags['sort']}", fg='yellow', err=True)
 
 
 def requested(flags):
@@ -545,6 +554,7 @@ def rows(elm, flags, obj, profile):
     items = project(flags, obj)
     if not items:
         click.secho(f'{profile}: Warning: no data found', fg='yellow', err=True)
+        sort_hint(flags, items, f'{profile}: ')
     elif not any(items):
         click.secho(f'{profile}: Error: no valid fields selected', fg='red', err=True)
         return [], False

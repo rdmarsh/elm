@@ -61,6 +61,11 @@ MODELS=(
     # copied from this Mac by the laptop's cron, so the laptop gives them its own ids
     "8092 qwen3-14b-mlx $LAPTOP"
     "8094 mistral-small-3.2-24b-instruct-2506 $LAPTOP"   # GGUF: slower than MLX
+    # how small can it go: under 4B, all trained for tool use
+    "8095 ibm/granite-4-micro $MINI"   # GGUF
+    "8096 liquid/lfm2-1.2b $MINI"
+    "8097 qwen/qwen3.5-2b $MINI"
+    "8098 qwen/qwen3-1.7b $MINI"
 )
 NAMED=,8090,8091,
 
@@ -112,7 +117,9 @@ EOF
 progress() {
     local f; f=$(ls -t "$EVALS"/eval-*-"$1".txt 2>/dev/null | head -n1)
     [[ -n $f ]] || return 0
-    if grep -q ' asks: ' "$f"; then grep ' asks: ' "$f" | sed 's/\. Answers in .*//; s/^ *//'
+    # eval-2026-11-04-0134-8088.txt -> "2026-11-04 01:34": a finished row still up says when it ran
+    local when; when=$(basename "$f" | sed -E 's/^eval-([0-9-]{10})-([0-9]{2})([0-9]{2}).*/\1 \2:\3/')
+    if grep -q ' asks: ' "$f"; then echo "$when: $(grep ' asks: ' "$f" | sed 's/\. Answers in .*//; s/^ *//')"
     else
         local n; n=$(grep -cE '^[0-9][0-9]:[0-9][0-9]  ' "$f")
         echo "$n asks so far$([[ $n -gt 0 ]] && echo ", last at $(grep -E '^[0-9][0-9]:[0-9][0-9]  ' "$f" | tail -n1 | cut -c1-5)")"

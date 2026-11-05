@@ -673,17 +673,16 @@ When an answer goes wrong, add a case with the check that would have caught it.
 
 ### Real questions: the question log
 
-Questions people really ask make better tests than made-up ones. Start Samara
-with `SAMARA_LOG=1 samara/run.sh` and the page offers each reader a box, "Save
-my questions, to help test Samara", off until they tick it, and a thumbs up or
-down under each answer (down asks: wrong facts, not what I asked, or right
-but incomplete). A rating
-saves that question even without the box, after asking; after a thumbs down it
-also asks whether to include the answers, which hold portal data.
+Questions people really ask make better tests than made-up ones. Under each
+answer is a thumbs up and a thumbs down. Either opens a small panel, with
+Right or Wrong facts already chosen (also: Not what I asked, Right but
+incomplete), a box for anything else, and "Include the answer (it has portal
+data)", ticked. Nothing is sent until the reader presses Send: rating an
+answer is how they share it. `SAMARA_LOG=0 samara/run.sh` turns ratings off.
 
 Lines go to `~/.local/state/samara/questions.jsonl` (mode 600) on the machine
-running Samara: the question, the model, the answer's source label, numbers not
-found, any error, and ratings. Never the answers, unless a reader shared them.
+running Samara: the question, the rating, the comment, the model, the
+answer's source label and, if the reader left it ticked, the whole answer.
 It names customers and devices: keep it out of the repo. To ask the saved
 questions again:
 

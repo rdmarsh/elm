@@ -1050,6 +1050,29 @@
 
 # --- One group ----------------------------------------------------------------
 
+- name: root_groups
+  # A model asked "Show me all the root groups in the portal" found no recipe
+  # and ran portal_health (qwen3-vl-4b, 2026-11-05).
+  asks: ["show me the root groups", "what are the top-level groups?", "list the groups at the top of the portal", "what groups are there?", "show me the root device groups"]
+  covers: "the groups at the top of the portal, not their subgroups"
+  steps:
+    - as: groups
+      run: DeviceGroupList
+      # parentId 1 is the portal's root; Normal leaves out dynamic groups
+      filter: parentId:1,groupType:"Normal"
+      fields: [id, name, numOfHosts, numOfDirectSubGroups]
+      size: all
+      says: fetched the groups at the top of the portal
+  summary: |
+    # No total: a device can be in several groups (Devices by Type holds them all again)
+    "\($groups | length) groups at the top of the portal"
+    + (if ($groups | length) > 0 then "; the largest is \($groups | max_by(.numOfHosts) | "\(.name), with \(.numOfHosts) devices")" else "" end) + "."
+  table:
+    title: Groups at the top of the portal
+    columns: [Group, Devices, Subgroups, Id]
+    rows: |
+      $groups | sort_by(.name | ascii_downcase) | map({Group: .name, Devices: .numOfHosts, Subgroups: .numOfDirectSubGroups, Id: .id})
+
 - name: group_health
   asks: ["how is GROUP doing?", "which devices in GROUP are down?", "any problems in GROUP?"]
   covers: "one group now: its devices, how many are down, its open alerts"
