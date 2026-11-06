@@ -1,7 +1,10 @@
 ---
 layout: home
-title: LogicMonitor tools that look but don't touch
+title: elm and Samara
 ---
+
+Tools for LogicMonitor that look but don't touch
+{: .post-subtitle}
 
 Two tools for getting answers out of
 [LogicMonitor](https://www.logicmonitor.com) (a SaaS monitoring platform):

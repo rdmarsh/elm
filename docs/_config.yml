@@ -2,7 +2,7 @@
 # Pages builds this folder only (Settings > Pages > main, /docs), so nothing
 # else in the repo is published. Minima is Jekyll's blog theme; Pages has it.
 title: elm
-description: LogicMonitor tools that look but don't touch
+description: Tools for LogicMonitor that look but don't touch
 author: David Marsh
 github_username: rdmarsh
 theme: minima
