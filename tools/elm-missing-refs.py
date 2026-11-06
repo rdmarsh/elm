@@ -65,12 +65,11 @@ import urllib.parse
 PAGE = 1000
 # Each dashboard and report in the portal's UI (checked by hand on a work
 # portal, 2026-11-06). The REST API gives no UI link. A report's link needs its
-# group (without it the page does not open the report); one with no group
-# keeps the plain form. Alert rules have no page of their own to link to: pass
-# --url-template rules=URL if yours do.
+# group (without it the page does not open the report), 0 for one at the top.
+# Alert rules have no page of their own to link to: pass --url-template
+# rules=URL if yours do.
 URLS = {"dashboards": "https://{portal}.logicmonitor.com/santaba/uiv4/dashboards/dashboards-{id}",
         "reports": "https://{portal}.logicmonitor.com/santaba/uiv4/reports/treeNodes/reportGroups-{group}*,reports-{id}"}
-UNGROUPED = "https://{portal}.logicmonitor.com/santaba/uiv4/reports/treeNodes/reports-{id}"
 LINKED = {"dashboards": ("dashboard", "dashboard_id"), "reports": ("report", "report_id"), "rules": ("rule", "rule_id")}
 SECTIONS = ["dashboards", "reports", "rules"]
 # Keys that name a group, and the key beside them that names a device.
@@ -411,10 +410,7 @@ def main():
     for section, rows in found.items():
         if section in urls:
             for r in rows:
-                url = urls[section]
-                if section == "reports" and not r.get("group_id") and url == URLS["reports"]:
-                    url = UNGROUPED
-                r["url"] = url.format(portal=a.portal or "", id=r[LINKED[section][1]], group=r.get("group_id") or "")
+                r["url"] = urls[section].format(portal=a.portal or "", id=r[LINKED[section][1]], group=r.get("group_id") or 0)
     if a.jsonl:
         for section, rows in found.items():
             for r in rows:

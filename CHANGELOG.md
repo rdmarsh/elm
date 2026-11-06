@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- `tools/elm-missing-refs.py --portal`: a report's link names its group (`reportGroups-9*,reports-105`), so it opens the report; without the group the page did not. `--url-template reports=...` takes `{group}`, and each jsonl report record has its `group_id`.
+- `tools/elm-missing-refs.py --portal`: a report's link names its group (`reportGroups-9*,reports-105`, 0 for one at the top), so it opens the report; without the group the page did not. `--url-template reports=...` takes `{group}`, and each jsonl report record has its `group_id`.
 - `tools/elm-missing-refs.py`: a glob in the Name or Moved to? column (`*Office*`) no longer turns into italics: those columns are code spans, so a pattern shows as typed, and `*`, `_`, `[` and the like in a dashboard, widget, report or rule name are escaped.
 
 ## [1.16.0] - 2026-11-06
