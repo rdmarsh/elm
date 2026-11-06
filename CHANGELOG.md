@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-06
+
 ### Added
 
+- `tools/elm-missing-refs.py`: dashboards, reports and alert rules that name a group or device that is not there (renamed, moved or retired), so a widget goes blank, a report comes out empty or a rule stops routing with no error. Each name is "no group", "no device", "not in group", "no token" (a `##token##` the dashboard does not set) or "no dashboard"; a missing group gets a "moved to?" guess from groups with the same last name. `--group NAME|ID`, before removing a group, lists everything that names it or a group below it. Markdown, or `--jsonl`; `--portal NAME` links each dashboard and report to it in the portal; `-p` for another profile.
+- Samara answers "are we having a lot of alerts today?" (recipe `alerts_by_day`): alerts started on each of the last 14 days, and today so far against the same hours of a usual (median) day, so 30 by 09:34 against 45 reads below usual. It draws the days as a bar chart, with today's alerts by severity as a donut beside it. A recipe's table can name a chart (bar, line or donut from its columns), and the page draws it as SVG from the table's rows, so a chart only ever shows portal data. "What's happened in the last hour?" runs the alerts check over that hour.
+- Samara's "Show me some ideas" link under the question box opens questions that pass on a small local model, one click each. It replaces the two fixed example buttons. Ask with the box empty asks the placeholder, "what needs my attention first?".
 - `tools/elm-duplicate-devices.py`: devices that are probably one machine under two names (added once by IP, once by FQDN). Pairs devices on a shared serial, MAC address, `system.sysname`, or one monitored at an address in the other's `system.ips`, and scores each pair "x of y" (with %) over the checks both can be compared on, the short name, `auto.os.version` and `system.totalphysicalmemory` (within 2%) included; `auto.network.address` counts as one of its addresses. Values on more than `--max-share` devices (O.E.M. placeholders) are ignored; `--min PERCENT`, `--jsonl`; `--portal NAME` links each device to it in Resources (`--url-template` overrides the link). `-p a,b` compares portals: a device monitored in both is a pair across them (`--across` lists only those), which needs a serial, MAC or sysname match, as private IPs repeat across customers.
 - examples/datasources.md: every device with a datasource matching a name (`-F 'name:Juniper_COS_*'`: `*` is a wildcard in a `:` filter), with which of them it collects on.
 - elm says why after "no data found" with `-S`: LM returns nothing, and no error, for a field it cannot sort on (DeviceGroupList `-S numOfHosts`), so it suggests trying again without `-S`.
@@ -52,7 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Samara's ratings: the thumbs (line icons now, not emoji) open a panel under the answer with Right or Wrong facts already chosen (also Not what I asked, Right but incomplete), a box for anything else, and "Include the answer (it has portal data)", ticked. Nothing is sent until Send, so a slip of the mouse sends nothing; the two confirm pop-ups are gone. The "Save my questions" box is gone too: rating an answer is how a reader shares it. The question log is on unless `SAMARA_LOG=0` (it was off unless `SAMARA_LOG=1`), and keeps the comment.
+- Samara's ratings: the thumbs (line icons now, not emoji) open a panel under the answer. Thumbs up asks only for an optional note; thumbs down asks what was wrong (Wrong facts, Not what I asked, Right but incomplete) and Send waits for one. "Include the answer (it has portal data)" is ticked. Nothing is sent until Send (cmd/ctrl-Enter; Esc cancels), so a slip of the mouse sends nothing; the two confirm pop-ups are gone. The panel says who sees ratings and where they are logged: `SAMARA_OWNER`, else the full name of whoever ran `run.sh`. Each rating logs the model that answered. The "Save my questions" box is gone too: rating an answer is how a reader shares it. The question log is on unless `SAMARA_LOG=0` (it was off unless `SAMARA_LOG=1`), and keeps the comment.
 - `ai.example.ini` lists one command per line, so it can be sorted and diffed, and allows every DeviceDatasource command (data for all of a datasource's instances in one call, graphs, thresholds) and the ById of each List it allows (DashboardById, ReportById and their groups, DeviceGroupDatasourceById): 59 commands.
 - Samara's source label warns with a caution triangle when part of the answer came from the model's own queries, or a number was not found in the data.
 - Samara's device check gave a device LogicMonitor still calls up the time its Host Status check went quiet: "web01 is up (since 18:26)". The time now goes with "not responding (since ...)"; a device that is up with that alert open reads "is up, but its Host Status check has had no data from it since ...". A device whose collector is down no longer says so twice.
@@ -65,14 +70,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Samara's Think harder button names the model it asks ("Think harder · sonnet"), and **Ultrathink** is always the ladder's top step, however many models `SAMARA_MODEL` lists. With four, the second and third steps both read Ultrathink, and the fourth printed "undefined" above its answer.
 - Samara's footer puts the portal and profile on one line and the model on the next.
 - Samara's settings are `SAMARA_*` (`SAMARA_MODEL`, `SAMARA_EFFORT`, `SAMARA_MAX_STEPS`, `SAMARA_ALLOW_UNRESTRICTED`, `SAMARA_KEYCHAIN_ITEM`, ...). The `ELM_ASK_*` names still work; the `SAMARA_` one wins. Rebuild the image (`samara/run.sh --build -y`).
-- Samara's empty question box suggests "what alerts started in the last hour?" instead of "which devices are in downtime right now?", which read almost the same as the "Which devices are down?" button.
 - After Think harder or Ultrathink, Samara's follow-up questions stay on that model until Start over: they are usually about the same problem, and dropping back would leave the cheap model building on the dearer one's work. The question box says so ("Follow-ups keep thinking harder. Start over for quick answers."), and each answer shows its cost.
 - Samara answers at `high` effort by default (it was the API's default, medium on Haiku 5.5): the cheap model's slips were lapses of care, and high effort costs a little more thinking, far less than a dearer model. The footer and Markdown exports show the effort.
 - Markdown exports put the answer first, then its tables, as the page does, and no longer end with the queries run: they are on the page, under How I worked this out, to copy from there.
-- Samara's front-page examples are "Is DEVICE okay?" and "Which devices are down?", the questions people ask most. They replace "How many alerts are open right now?" (a bare number) and "How much memory is DEVICE using?" (a three-step read the cheapest model still gets partly wrong).
+- Samara's front-page examples are gone, for the "Show me some ideas" link (see Added). "How many alerts are open right now?" was a bare number and "How much memory is DEVICE using?" a three-step read the cheapest model still got partly wrong.
+- Samara's answer take-aways (copy, CSV, Markdown, report a bug) are one row of icons; Dig deeper is a button and New topic a link.
+- `samara/run.sh` passes the host's timezone to the container, so the question log's times match the page's.
 
 ### Fixed
 
+- Samara reads the severity and time from an alert question itself, not only from the model's pick: "show me errors or worse" ran the critical-only check on two small models, and "how many warnings are open?" came back limited to today. "X or worse" and a named severity are read from the question, a window the question never asked for is dropped, and "cleared yesterday" filters on when alerts ended.
+- Samara runs a check when the model replies with only its name as text ("critical_alerts", "open_alerts: 148 ...") and nothing run: 5 of one 4B model's 8 confidently wrong answers in an eval.
+- Samara tries the local model server three times before failing a question, and sends a chat request once more after a dropped connection or a 5xx: an eval lost up to 44 questions per model to one missed check.
+- "Is luna okay?" (a device and a collector both called luna) could run the collector check for the first 15 minutes after Samara started: a name list missing a kind for a failure was kept for the cache's whole 15 minutes. It is now fetched again after a minute.
 - Samara's jq tool runs an expression that names no dataset on the newest one: `sort_by(.name)` ran on nothing, and "Cannot iterate over null" sent a small model round the same call until the turn gave up.
 - `-F` on an alert's `endEpoch` gives the alerts it should when the period is still going: `endEpoch:now/d` (cleared today) gave none, because LM returns no rows for an `endEpoch` range that ends in the future. elm sends now as the end, and refuses an end after now (`endEpoch>:now+1h`), which LM answers with HTTP 500. Raised for LogicMonitor as #58.
 - `-F` refuses a time range with its bounds the wrong way round (`startEpoch>:now-1d,startEpoch<:now-2d`): LM answered it with no rows, or on `endEpoch` with HTTP 500, so the mistake never showed. The message gives both dates.
@@ -851,7 +861,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/rdmarsh/elm/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/rdmarsh/elm/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/rdmarsh/elm/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/rdmarsh/elm/compare/v1.13.0...v1.14.0
