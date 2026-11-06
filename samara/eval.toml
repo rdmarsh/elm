@@ -378,6 +378,12 @@ q = "are we having a lot of alerts today?"
 recipe = ["alerts_by_day"]
 fact = ["$ELM AlertList -c -s0 -F 'startEpoch>:now/d,cleared:*'"]
 
+# Asked on the page and rated right (2026-11-06): the same check in other words.
+[[case]]
+q = "are there a lot of alerts today?"
+recipe = ["alerts_by_day"]
+fact = ["$ELM AlertList -c -s0 -F 'startEpoch>:now/d,cleared:*'"]
+
 [[case]]
 q = "are there more alerts than usual?"
 recipe = ["alerts_by_day"]

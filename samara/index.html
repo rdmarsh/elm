@@ -316,14 +316,14 @@ const sourceHtml = (s, u) => SOURCE[s] && !quietSource(s, u) ? `<p class="source
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
 let conversationId = null;
 
-// Ideas: questions that answer reliably on a small local model (README: How to
-// demo, from the evals). Clicking one asks it. One naming DEVICE is a
+// Ideas: questions even the weakest model gets right, each answered by one
+// recipe and passing on every model in the evals since the 2026-11-06 fixes.
+// Clicking one asks it. Keep untested questions out. One naming DEVICE is a
 // fill-in-the-blank: put it in the box, select the word to replace, and let
 // the person type the name rather than guessing one.
 const DEFAULT_QUESTION = "what needs my attention first?";   // what Ask asks with the box empty
 const IDEAS = [DEFAULT_QUESTION, "what's offline?", "is DEVICE okay?", "show me errors or worse",
-  "are all our collectors up?", "what happened overnight?", "are we having a lot of alerts today?",
-  "what alerts started in the last hour?"];
+  "are all our collectors up?", "what's in maintenance right now?", "are there a lot of alerts today?"];
 const ideas = $("#ideas"), ideasToggle = $("#ideas-toggle");
 ideas.innerHTML = IDEAS.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("");
 const showIdeas = open => {
@@ -835,7 +835,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     try {
       const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversation_id: conversationId, question: t.md.question, rating: rating || f.rating.value,
-                               comment: f.comment.value.trim(), source: t.md.source,
+                               comment: f.comment.value.trim(), source: t.md.source, model: t.md.model,
                                transcript: f.include.checked ? debugText(t) : "" }) });
       if (!r.ok) throw new Error(r.statusText);
       panel.hidden = true;

@@ -239,7 +239,7 @@ These passed on qwen3-vl-4b every time they were asked on the 2026-11-05 and
 4. "show me errors or worse"
 5. "are all our collectors up?"
 6. "what happened overnight?"
-7. "are we having a lot of alerts today?" (14 days of bars and today by
+7. "are there a lot of alerts today?" (14 days of bars and today by
    severity; new on 2026-11-06, so check it passed in your eval run first)
 8. "Put web01 into SDT for 2 hours." (Samara says it is read-only, and changes nothing)
 

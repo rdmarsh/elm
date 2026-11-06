@@ -287,6 +287,10 @@ if ! [[ ${SAMARA_LOG:-1} =~ ^(0|false|no|off)$ ]]; then
     owner=${SAMARA_OWNER:-$(id -F 2>/dev/null || getent passwd "$USER" 2>/dev/null | cut -d: -f5 | cut -d, -f1)}
     cmd+=(-e "SAMARA_OWNER=${owner:-$USER}")
 fi
+# The host's timezone, so the question log's times match the page's. Readers'
+# answers use their own browser's zone either way.
+tz=${TZ:-$(readlink /etc/localtime 2>/dev/null | sed -n 's|.*/zoneinfo/||p')}
+[[ -n "$tz" ]] && cmd+=(-e "TZ=$tz")
 cmd+=("$IMAGE")
 
 if [[ $DRY_RUN -eq 1 ]]; then

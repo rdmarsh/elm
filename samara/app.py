@@ -204,6 +204,7 @@ class Handler(BaseHTTPRequestHandler):
         log({"kind": "rating", "conversation": str(body.get("conversation_id") or "")[:64],
              "question": str(body.get("question") or "")[:2000], "rating": rating,
              "source": str(body.get("source") or "")[:16] or None,
+             "model": str(body.get("model") or "")[:120] or None,   # to group ratings by model
              "comment": str(body.get("comment") or "")[:4000] or None,
              "transcript": str(body.get("transcript") or "")[:200000] or None})
         self.send_json(200, {"ok": True})
