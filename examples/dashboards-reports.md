@@ -4,6 +4,10 @@ Queries relating to dashboards, dashboard groups, and reports.
 
 **See also:**
 - [devices.md](devices.md) for device group queries used as dashboard resource groups
+- [`tools/elm-missing-refs.py`](../tools/README.md#missing-groups-and-devices): every dashboard,
+  report and alert rule that names a group or device that is gone, and with
+  `--group`, everything that uses a group before you remove it (globs and
+  dashboard tokens included, which the two queries below miss)
 
 <!--ts-->
    * [Find Dashboards that match a defaultResourceGroup](#find-dashboards-that-match-a-defaultresourcegroup)

@@ -92,6 +92,7 @@ def health():
         "elm_version": elm_version(),
         "build": os.environ.get("SAMARA_BUILD") or None,   # git describe at docker build
         "log": bool(LOG_DIR),   # whether the page may offer to save questions
+        "owner": os.environ.get("SAMARA_OWNER", "").strip()[:80] or None,   # who ratings go to (run.sh)
     }
 
 

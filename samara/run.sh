@@ -50,7 +50,8 @@
 # for a proxy CA that Python 3.13 rejects (README: Behind a proxy).
 # Readers' ratings of answers (and the answer, if they include it) are kept in
 # $XDG_STATE_HOME/samara/ on this machine; SAMARA_LOG=0 turns that off
-# (README: Real questions).
+# (README: Real questions). The page says they go to you, by your full name;
+# SAMARA_OWNER="NOC team" names someone else.
 #
 # Examples:
 #   run.sh                                   # prompts, then starts
@@ -281,6 +282,10 @@ if ! [[ ${SAMARA_LOG:-1} =~ ^(0|false|no|off)$ ]]; then
     LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/samara"
     mkdir -p "$LOG_DIR" && chmod 700 "$LOG_DIR"
     cmd+=(-v "$LOG_DIR:/state" -e SAMARA_LOG_DIR=/state)
+    # Who the page says ratings go to: SAMARA_OWNER, else your full name (the
+    # GECOS field: id -F on macOS, getent on Linux), else your login.
+    owner=${SAMARA_OWNER:-$(id -F 2>/dev/null || getent passwd "$USER" 2>/dev/null | cut -d: -f5 | cut -d, -f1)}
+    cmd+=(-e "SAMARA_OWNER=${owner:-$USER}")
 fi
 cmd+=("$IMAGE")
 

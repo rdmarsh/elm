@@ -227,6 +227,8 @@ build first: a question that passes there passes in the room. Keep the Mac
 awake and on the network, and LM Link off. Ask one question before the room
 fills: the first after a start takes about 40s while Samara reads the
 portal's device, group and collector names; after that, about 7s each.
+Pressing Ask with the box empty asks the first question below, and most of
+the rest are under "Show me some ideas" on the page, one click each.
 
 These passed on qwen3-vl-4b every time they were asked on the 2026-11-05 and
 2026-11-06 evals. Swap in a device from your own portal:
@@ -748,11 +750,18 @@ When an answer goes wrong, add a case with the check that would have caught it.
 ### Real questions: the question log
 
 Questions people really ask make better tests than made-up ones. Under each
-answer is a thumbs up and a thumbs down. Either opens a small panel, with
-Right or Wrong facts already chosen (also: Not what I asked, Right but
-incomplete), a box for anything else, and "Include the answer (it has portal
-data)", ticked. Nothing is sent until the reader presses Send: rating an
-answer is how they share it. `SAMARA_LOG=0 samara/run.sh` turns ratings off.
+answer is a thumbs up and a thumbs down. Either opens a small panel under
+the answer. A thumbs up asks only for an optional note. A thumbs down asks
+what was wrong (Wrong facts, Not what I asked, Right but incomplete), and Send
+waits until one is picked. Both have a box for anything else and "Include the
+answer", ticked. Nothing is sent until the reader presses Send (or
+cmd/ctrl-Enter; Esc cancels): rating an answer is how they share it.
+`SAMARA_LOG=0 samara/run.sh` turns ratings off.
+
+The panel names who the rating goes to: `SAMARA_OWNER` if it is set
+(`SAMARA_OWNER="NOC team" samara/run.sh`), else the full name of whoever
+started run.sh (`id -F` on macOS, the passwd GECOS field on Linux), else
+their login.
 
 Lines go to `~/.local/state/samara/questions.jsonl` (mode 600) on the machine
 running Samara: the question, the rating, the comment, the model, the

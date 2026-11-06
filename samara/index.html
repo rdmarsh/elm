@@ -21,7 +21,7 @@
     }
   }
   * { box-sizing: border-box; }
-  [hidden] { display: none !important; }   /* or a display rule (button.icon) shows it anyway */
+  [hidden] { display: none !important; }   /* or a display rule (button.link.ico) shows it anyway */
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 900px; margin: 0 auto; padding: 32px 16px 120px; }
@@ -44,8 +44,9 @@
            background: var(--accent); color: var(--accent-ink); }
   #go { min-width: 110px; }   /* wide enough to read as a button, not an icon */
   #go.stop { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  /* New topic: only once there is something to move on from. */
-  #topic { background: transparent; color: var(--ink); border: 1px solid var(--line); white-space: nowrap; }
+  /* New topic: only once there is something to move on from. A link, so it
+     doesn't read as a second Ask. */
+  #topic { background: none; color: var(--muted); text-decoration: underline; padding: 0 6px; font-size: .9rem; white-space: nowrap; }
   body:not(.has-results) #topic { display: none; }
   /* The line New topic draws between conversations (newest is on top). */
   .topic-break { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .8rem; margin: 24px 0 0; }
@@ -67,21 +68,28 @@
   /* Quiet actions read as links (Dig deeper, Try again); Think harder stays a button. */
   button.link { background: none; border: 0; padding: 4px 6px; border-radius: 4px; color: var(--muted);
                 text-decoration: underline; font-size: .85rem; }
-  button.link.md-toggle, button.link.debug, .rate button.link { display: inline-flex; align-items: center; text-decoration: none; }
-  button.link.md-toggle svg, button.link.debug svg, .rate button.link svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6;
-                              stroke-linecap: round; stroke-linejoin: round; }
-  button.link.md-toggle[aria-pressed="true"] { color: var(--ink); background: var(--code); }
+  /* Icon buttons: the take-aways (copy, CSV, Markdown, bug report) and the thumbs. */
+  button.link.ico { display: inline-flex; align-items: center; text-decoration: none; padding: 5px 6px; }
+  button.link.ico svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6;
+                        stroke-linecap: round; stroke-linejoin: round; }
+  button.link.ico:hover { color: var(--ink); background: var(--code); }
+  button.link.ico[aria-pressed="true"] { color: var(--ink); background: var(--code); }
   button:disabled { opacity: .5; cursor: default; }
   button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
 
-  /* Two, side by side: the questions people ask most (one fill-in-the-blank,
-     one list), and ones that answer reliably. */
-  .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px auto 0; max-width: 620px; }
-  body.has-results .examples { display: none; }
-  .examples button { background: var(--panel); color: var(--ink); border: 1px solid var(--line);
-                     padding: 10px 14px; font-size: .9rem; text-align: center; }
-  @media (max-width: 520px) { .examples { grid-template-columns: 1fr; } }
+  /* "Show me some ideas": a quiet link under the box, like the allowed-commands
+     one, opening questions that answer reliably (README: How to demo). */
+  #ideas-bar { text-align: center; margin: 10px 0 0; }
+  body.has-results #ideas-bar { text-align: left; margin: 6px 0 0 10px; }
+  #ideas-bar button { background: none; border: 0; padding: 0; color: var(--muted); font-size: .85rem;
+                      text-decoration: underline; cursor: pointer; }
+  #ideas { list-style: none; padding: 0; margin: 10px auto 0; max-width: 620px; display: flex; flex-wrap: wrap;
+           gap: 6px; justify-content: center; }
+  body.has-results #ideas { justify-content: flex-start; margin-left: 0; }
+  #ideas button { background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+                  padding: 6px 12px; font-size: .85rem; }
+  #ideas button:hover { border-color: var(--accent); }
 
   #banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
   #banner code { background: transparent; }
@@ -89,9 +97,6 @@
   .turn { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-top: 16px; }
   .turn .question { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; display: flex; gap: 12px; justify-content: space-between; align-items: start; }
   .turn .question .actions { flex: none; display: flex; gap: 8px; }
-  button.icon { display: inline-flex; align-items: center; gap: 6px; }
-  button.icon svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6;
-                    stroke-linecap: round; stroke-linejoin: round; }
   .markdown-view { margin-top: 12px; }
   .markdown-view textarea { width: 100%; height: 320px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
       padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--code); color: var(--ink); resize: vertical; }
@@ -105,22 +110,31 @@
   .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1em 0 .3em; }
   code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
-  /* The card's last row: take-away (Copy, CSV, </> for the Markdown) on the left, the
-     buttons that ask again (Dig deeper, Think harder) on the right. */
-  .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
-  .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-  .turn-foot .buttons { margin-left: auto; align-items: center; }
+  /* The card's last row: the take-aways as icons on the left (copy, CSV, the
+     Markdown, a bug report); on the right the thumbs, then the next steps as
+     buttons (Dig deeper, Think harder). */
+  .turn-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+  .turn-foot .exports, .turn-foot .buttons { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+  .turn-foot .buttons { margin-left: auto; gap: 8px; }
   .rate { display: inline-flex; align-items: center; }
   .rate-done { color: var(--muted); font-size: .85rem; padding: 4px 6px; }
   /* Rating opens on its own line, under the buttons, so nothing lands where the thumb was. */
-  .rate-panel { display: block; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: .85rem; }
-  .rate-panel .choices { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 8px; }
-  .rate-panel label { display: inline-flex; align-items: center; gap: 4px; }
-  .rate-panel textarea { width: 100%; box-sizing: border-box; min-height: 3.2em; font: inherit; margin-bottom: 6px; }
-  .rate-panel .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
-  .rate-panel .note { color: var(--muted); }
-  .rate-panel .rate-actions { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
-  .rate-panel[hidden] { display: none; }
+  .rate-panel { display: block; margin-top: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: .85rem; }
+  .rate-panel .rate-q { margin: 0 0 8px; font-weight: 600; }
+  .rate-panel .choices { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  /* A thumbs-down asks what was wrong: one chip, no radio dots. The radio is
+     still there for the keyboard and screen readers. */
+  .rate-panel .chip { position: relative; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  .rate-panel .chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .rate-panel .chip:has(input:checked) { border-color: var(--accent); background: var(--code); color: var(--ink); font-weight: 600; }
+  .rate-panel .chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rate-panel textarea { width: 100%; min-height: 3.2em; font: inherit; margin-bottom: 8px; padding: 6px 8px;
+                         border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); resize: vertical; }
+  .rate-panel .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; justify-content: space-between; }
+  .rate-panel .include { display: inline-flex; align-items: baseline; gap: 6px; color: var(--muted); }
+  .rate-panel .rate-actions { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+  .rate-panel .cancel { text-decoration: none; }
+  .rate-panel .send { padding: 5px 18px; font-size: .85rem; }
   .part.detail { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
   /* An answer replaced by Think harder folds to its question until asked for. */
   .turn.earlier:not(.open) > :not(.question) { display: none; }
@@ -224,7 +238,7 @@
   @media print {
     body { background: #fff; color: #000; }
     main { max-width: none; padding: 0; }
-    header, form, .examples, #banner, footer, button { display: none !important; }
+    header, form, #ideas-bar, #ideas, #banner, footer, button { display: none !important; }
     .markdown-view { display: none; }
     .turn { border: 0; padding: 0; margin: 0; }
     .turn .question { display: block; font-size: 1.1rem; }
@@ -247,15 +261,13 @@
   <div id="announce" class="sr-only" aria-live="polite"></div>
 
   <form id="form">
-    <input id="q" autocomplete="off" placeholder="e.g. what alerts started in the last hour?" autofocus>
+    <input id="q" autocomplete="off" placeholder="e.g. what needs my attention first?" autofocus>
     <button id="go" type="submit">Ask</button>
     <button id="topic" type="button" title="Ask something unrelated: Samara forgets the questions before">New topic</button>
   </form>
 
-  <div class="examples">
-    <button type="button">Is DEVICE okay?</button>
-    <button type="button">Which devices are down?</button>
-  </div>
+  <p id="ideas-bar"><button id="ideas-toggle" type="button" aria-expanded="false" aria-controls="ideas">Show me some ideas</button></p>
+  <ul id="ideas" hidden></ul>
 
   <div id="banner" hidden></div>
   <div id="results"></div>
@@ -272,6 +284,8 @@ const ICON = {
   csv: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="12" rx="2"/><path d="M1 6h14M6 6v8"/></svg>`,
   source: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 1.5 8l4 4M10.5 4l4 4-4 4M9 2.5 7 13.5"/></svg>`,
   bug: `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="9.5" rx="3.5" ry="4.5"/><path d="M6 5a2 2 0 0 1 4 0M8 5.5V14M4.5 8H2M4.5 11.5H2.5M11.5 8H14M11.5 11.5h2M5.5 5.5 4 4M10.5 5.5 12 4"/></svg>`,
+  copy: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg>`,
+  check: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg>`,
   md: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M4 11V6l2 2.5L8 6v5M11 6v3.5M11 10l1.5-1.5M11 10 9.5 8.5"/></svg>`,
   up: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 7v7H2V7h3ZM5 7l2.6-5a1.5 1.5 0 0 1 2.4 1.5L9.4 6.5h3.4a1.5 1.5 0 0 1 1.5 1.8l-1 4.5a1.5 1.5 0 0 1-1.5 1.2H5"/></svg>`,
   down: `<svg viewBox="0 0 16 16" aria-hidden="true"><g transform="matrix(1 0 0 -1 0 16)"><path d="M5 7v7H2V7h3ZM5 7l2.6-5a1.5 1.5 0 0 1 2.4 1.5L9.4 6.5h3.4a1.5 1.5 0 0 1 1.5 1.8l-1 4.5a1.5 1.5 0 0 1-1.5 1.2H5"/></g></svg>`,
@@ -302,10 +316,26 @@ const sourceHtml = (s, u) => SOURCE[s] && !quietSource(s, u) ? `<p class="source
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
 let conversationId = null;
 
-// An example naming DEVICE is a fill-in-the-blank: put it in the box, select the
-// word to replace, and let the person type the name rather than guessing one.
-document.querySelectorAll(".examples button").forEach(b =>
+// Ideas: questions that answer reliably on a small local model (README: How to
+// demo, from the evals). Clicking one asks it. One naming DEVICE is a
+// fill-in-the-blank: put it in the box, select the word to replace, and let
+// the person type the name rather than guessing one.
+const DEFAULT_QUESTION = "what needs my attention first?";   // what Ask asks with the box empty
+const IDEAS = [DEFAULT_QUESTION, "what's offline?", "is DEVICE okay?", "show me errors or worse",
+  "are all our collectors up?", "what happened overnight?", "are we having a lot of alerts today?",
+  "what alerts started in the last hour?"];
+const ideas = $("#ideas"), ideasToggle = $("#ideas-toggle");
+ideas.innerHTML = IDEAS.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("");
+const showIdeas = open => {
+  ideas.hidden = !open;
+  ideasToggle.setAttribute("aria-expanded", open);
+  ideasToggle.textContent = open ? "Hide the ideas" : "Show me some ideas";
+};
+ideasToggle.addEventListener("click", () => showIdeas(ideas.hidden));
+ideas.querySelectorAll("button").forEach(b =>
   b.addEventListener("click", () => {
+    if (current) return;
+    showIdeas(false);
     input.value = b.textContent;
     const blank = input.value.indexOf("DEVICE");
     if (blank < 0) { form.requestSubmit(); return; }
@@ -550,7 +580,8 @@ let current = null;   // the AbortController of the request in progress, if any
 const announce = text => $("#announce").textContent = text;
 form.addEventListener("submit", e => {
   e.preventDefault();
-  const question = input.value.trim();
+  // With the box empty, the first Ask asks the question its placeholder shows.
+  const question = input.value.trim() || (document.body.classList.contains("has-results") ? "" : DEFAULT_QUESTION);
   if (question && !current) ask(question, 0);
 });
 // While Samara works, Ask is Stop. Closing the request makes the server stop at
@@ -670,6 +701,7 @@ function addScript(t, entry) {
 
 async function ask(question, harder, next) {   // next: {model, top} of the step Think harder asks
   document.body.classList.add("has-results");
+  showIdeas(false);
   input.value = "";
   if (harder) { level = harder; atTop = next.top; } else { level = 0; atTop = false; }
   setPlaceholder();
@@ -694,28 +726,28 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
       <pre class="script" hidden></pre></details>
     <div class="turn-foot">
       <span class="exports">
-        <button class="secondary icon copy" type="button" title="Copy this answer as Markdown" hidden>${ICON.md}Copy</button>
-        <button class="secondary icon csv" type="button" title="Download the tables as CSV" hidden>${ICON.csv}CSV</button>
-        <button class="link md-toggle" type="button" title="Show the Markdown, to read or download" aria-label="Show the Markdown" aria-pressed="false" hidden>${ICON.source}</button>
-        <button class="link debug" type="button" title="Copy everything about this answer, for a bug report" aria-label="Copy for a bug report" hidden>${ICON.bug}</button>
+        <button class="link ico copy" type="button" title="Copy this answer as Markdown" aria-label="Copy this answer as Markdown" hidden>${ICON.copy}</button>
+        <button class="link ico csv" type="button" title="Download the tables as CSV" aria-label="Download the tables as CSV" hidden>${ICON.csv}</button>
+        <button class="link ico md-toggle" type="button" title="Show the Markdown, to read or download" aria-label="Show the Markdown" aria-pressed="false" hidden>${ICON.source}</button>
+        <button class="link ico debug" type="button" title="Copy everything about this answer, for a bug report" aria-label="Copy for a bug report" hidden>${ICON.bug}</button>
       </span>
       <span class="buttons">
-        <span class="rate" hidden><button class="link up" type="button" title="Rate this answer: right" aria-label="Rate this answer: right">${ICON.up}</button><button class="link down" type="button" title="Rate this answer: wrong" aria-label="Rate this answer: wrong">${ICON.down}</button></span>
-        <button class="link more-detail" type="button" title="Look further in the portal: patterns, likely causes, what to check next" hidden>Dig deeper</button>
+        <span class="rate" hidden><button class="link ico up" type="button" title="Good answer" aria-label="Good answer" aria-pressed="false">${ICON.up}</button><button class="link ico down" type="button" title="Something was wrong" aria-label="Something was wrong" aria-pressed="false">${ICON.down}</button></span>
+        <button class="secondary more-detail" type="button" title="Look further in the portal: patterns, likely causes, what to check next" hidden>Dig deeper</button>
         <button class="secondary harder" type="button" title="Ask this again on a more capable model" hidden></button>
       </span>
     </div>
     <form class="rate-panel" hidden>
-      <div class="choices" role="radiogroup" aria-label="How was this answer?">
-        <label><input type="radio" name="rating" value="right"> Right</label>
-        <label><input type="radio" name="rating" value="wrong"> Wrong facts</label>
-        <label><input type="radio" name="rating" value="missed"> Not what I asked</label>
-        <label><input type="radio" name="rating" value="partly"> Right, but incomplete</label>
+      <p class="rate-q"></p>
+      <div class="choices" role="radiogroup" aria-label="What was wrong?">
+        <label class="chip"><input type="radio" name="rating" value="wrong"> Wrong facts</label>
+        <label class="chip"><input type="radio" name="rating" value="missed"> Not what I asked</label>
+        <label class="chip"><input type="radio" name="rating" value="partly"> Right, but incomplete</label>
       </div>
       <textarea name="comment" maxlength="4000" placeholder="Anything else? (optional)"></textarea>
-      <label><input type="checkbox" name="include" checked> Include the answer (it has portal data)</label>
-      <div class="row"><span class="note">Sent to whoever runs this Samara, and kept on their machine.</span>
-        <span class="rate-actions"><button class="link cancel" type="button">cancel</button><button class="secondary send" type="submit">Send</button></span></div>
+      <div class="row">
+        <label class="include"><input type="checkbox" name="include" checked><span>Include the answer: it has portal data. <span class="to"></span></span></label>
+        <span class="rate-actions"><button class="link cancel" type="button">Cancel</button><button class="send" type="submit">Send</button></span></div>
     </form>
     <div class="markdown-view" hidden>
       <textarea readonly></textarea>
@@ -766,28 +798,48 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   // The bug: the answer, what Samara and elm were, and every event the server
   // sent (the model's own calls and draft among them), in one paste.
   // Rating an answer is how a reader shares it (app.py feedback): nothing is
-  // sent until Send, and the panel says what goes. A thumb only picks the
-  // first choice, so a slip of the mouse sends nothing.
-  const panel = $(".rate-panel", turn);
-  const openRating = rating => {
+  // sent until Send, and the panel says what goes and to whom. A thumbs-up
+  // asks only for an optional note; a thumbs-down asks what was wrong, and
+  // Send waits for an answer. A slip of the mouse sends nothing.
+  const panel = $(".rate-panel", turn), f = panel.elements, send = $(".send", panel);
+  let rating = "";
+  const ready = () => send.disabled = !(rating === "right" || f.rating.value);
+  const openRating = up => {
+    rating = up ? "right" : "";
     panel.hidden = false;
-    panel.elements.rating.value = rating;
-    panel.elements.comment.focus();
+    $(".up", turn).setAttribute("aria-pressed", up);
+    $(".down", turn).setAttribute("aria-pressed", !up);
+    $(".rate-q", panel).textContent = up ? "Glad it helped. Anything to add?" : "What was wrong?";
+    $(".choices", panel).hidden = up;
+    if (up) f.rating.forEach(r => r.checked = false);
+    $(".to", panel).textContent = `Sent to ${health && health.owner ? health.owner : "whoever runs this Samara"} and kept on the machine Samara runs on.`;
+    ready();
+    (up ? f.comment : f.rating[0]).focus();
   };
-  $(".up", turn).addEventListener("click", () => openRating("right"));
-  $(".down", turn).addEventListener("click", () => openRating("wrong"));
-  $(".cancel", panel).addEventListener("click", () => { panel.hidden = true; });
+  const closeRating = () => {
+    panel.hidden = true;
+    turn.querySelectorAll(".rate button").forEach(b => b.setAttribute("aria-pressed", "false"));
+  };
+  $(".up", turn).addEventListener("click", () => openRating(true));
+  $(".down", turn).addEventListener("click", () => openRating(false));
+  panel.addEventListener("change", ready);
+  $(".cancel", panel).addEventListener("click", closeRating);
+  // Esc cancels, cmd/ctrl-Enter sends, as in most comment boxes.
+  panel.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !current) { e.preventDefault(); closeRating(); $(".rate button", turn).focus(); }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !send.disabled) { e.preventDefault(); panel.requestSubmit(); }
+  });
   panel.addEventListener("submit", async e => {
     e.preventDefault();
-    const f = panel.elements;
+    if (send.disabled) return;
     try {
       const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, question: t.md.question, rating: f.rating.value,
+        body: JSON.stringify({ conversation_id: conversationId, question: t.md.question, rating: rating || f.rating.value,
                                comment: f.comment.value.trim(), source: t.md.source,
                                transcript: f.include.checked ? debugText(t) : "" }) });
       if (!r.ok) throw new Error(r.statusText);
       panel.hidden = true;
-      $(".rate", turn).outerHTML = `<span class="rate-done">Thanks</span>`;
+      $(".rate", turn).outerHTML = `<span class="rate-done">Thanks, sent</span>`;
     } catch (err) { announce(`Could not send the rating: ${err.message}`); }
   });
   $(".debug", turn).addEventListener("click", async e => {
@@ -806,8 +858,8 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     const b = e.currentTarget;
     try {
       await navigator.clipboard.writeText(answerMarkdown({ ...t.md, costText: costText(t) }));
-      b.innerHTML = ICON.md + "Copied";
-      setTimeout(() => b.innerHTML = ICON.md + "Copy", 2000);
+      b.innerHTML = ICON.check; b.title = "Copied"; announce("Copied");
+      setTimeout(() => { b.innerHTML = ICON.copy; b.title = "Copy this answer as Markdown"; }, 2000);
     } catch {
       showMarkdown(true); box.select(); note.textContent = "Press ctrl/cmd-C to copy";
     }
