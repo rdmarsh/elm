@@ -38,12 +38,15 @@ also find empty may slip through. Tokens set on a single widget, not the
 dashboard, aren't read: such a widget may show as "no token".
 
 Run with no section for all three. Output: Markdown on stdout (--jsonl: one
-record per missing name, for pipes); progress and errors on stderr.
+record per missing name, for pipes); progress and errors on stderr. With
+--portal NAME each dashboard and report name links to it in the portal
+(jsonl: a "url" on each).
 
 Examples:
   elm-missing-refs.py
   elm-missing-refs.py -p portal01 rules
   elm-missing-refs.py dashboards reports > missing.md
+  elm-missing-refs.py --portal portal01 > missing.md    # names link to the portal
   elm-missing-refs.py --group "Servers/Old DC"      # before removing it
   elm-missing-refs.py --group 123 rules
   elm-missing-refs.py --jsonl | jq -r 'select(.problem == "no group") | .name' | sort -u
@@ -60,6 +63,12 @@ import time
 import urllib.parse
 
 PAGE = 1000
+# Each dashboard and report in the portal's UI (checked by hand on a work
+# portal, 2026-11-06). The REST API gives no UI link. Alert rules have no page
+# of their own to link to: pass --url-template rules=URL if yours do.
+URLS = {"dashboards": "https://{portal}.logicmonitor.com/santaba/uiv4/dashboards/dashboards-{id}",
+        "reports": "https://{portal}.logicmonitor.com/santaba/uiv4/reports/treeNodes/reports-{id}"}
+LINKED = {"dashboards": ("dashboard", "dashboard_id"), "reports": ("report", "report_id"), "rules": ("rule", "rule_id")}
 SECTIONS = ["dashboards", "reports", "rules"]
 # Keys that name a group, and the key beside them that names a device.
 PAIRS = [("deviceGroupFullPath", "deviceDisplayName"), ("groupFullPath", "deviceDisplayName"),
@@ -315,6 +324,12 @@ def table(title, rows, cols):
     def cell(text):
         return str(text).replace("|", "\\|").replace("\n", " ")
 
+    def show(r, k):
+        # The name links to the portal when there is a url (--portal).
+        if r.get("url") and k in ("dashboard", "report", "rule"):
+            return f"[{cell(r[k]).replace('[', '(').replace(']', ')')}]({r['url']})"
+        return cell(r[k])
+
     print(f"## {title}\n")
     if not rows:
         print("None.\n")
@@ -322,7 +337,7 @@ def table(title, rows, cols):
     print("| " + " | ".join(h for h, _ in cols) + " |")
     print("|" + "---|" * len(cols))
     for r in rows:
-        print("| " + " | ".join(cell(r[k]) for _, k in cols) + " |")
+        print("| " + " | ".join(show(r, k) for _, k in cols) + " |")
     print()
 
 
@@ -335,7 +350,19 @@ def main():
     p.add_argument("-p", "--profile", default="config", help="elm credential profile (default: config)")
     p.add_argument("-c", "--config", metavar="PATH", help="elm config file, instead of --profile")
     p.add_argument("--jsonl", action="store_true", help="one JSON record per missing name instead of Markdown")
+    p.add_argument("--portal", metavar="NAME",
+                   help="portal subdomain (the bit before .logicmonitor.com): link each dashboard and report to it")
+    p.add_argument("--url-template", metavar="SECTION=URL", action="append", default=[],
+                   help="override a section's link (dashboards, reports or rules). Placeholders: {portal} {id}")
     a = p.parse_args()
+    urls = dict(URLS) if a.portal else {}
+    for t in a.url_template:
+        section, _, url = t.partition("=")
+        if section not in SECTIONS or not url:
+            p.error(f"--url-template is SECTION=URL, SECTION one of {', '.join(SECTIONS)}")
+        if "{portal}" in url and not a.portal:
+            p.error("that link template needs {portal}: pass --portal NAME")
+        urls[section] = url
     target = ["--config", a.config] if a.config else ["--profile", a.profile]
     want = a.sections or SECTIONS
     if set(want) - set(SECTIONS):
@@ -360,6 +387,10 @@ def main():
     except ElmError as e:
         err(f"elm-missing-refs: {e}")
         return 1
+    for section, rows in found.items():
+        if section in urls:
+            for r in rows:
+                r["url"] = urls[section].format(portal=a.portal or "", id=r[LINKED[section][1]])
     if a.jsonl:
         for section, rows in found.items():
             for r in rows:

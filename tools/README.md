@@ -550,6 +550,7 @@ tools/elm-missing-refs.py                          # dashboards, reports and ale
 tools/elm-missing-refs.py -p portal01 rules        # just the alert rules
 tools/elm-missing-refs.py --group "Servers/Old DC" # before removing a group: what uses it
 tools/elm-missing-refs.py --group 123 dashboards   # the same, by group id
+tools/elm-missing-refs.py --portal portal01 > missing.md   # dashboard and report names link to the portal
 tools/elm-missing-refs.py --jsonl | jq -r 'select(.problem == "no group") | .name' | sort -u
 ```
 
@@ -569,6 +570,12 @@ doesn't set) and **no dashboard** (a dashboard report's dashboard is gone).
 Dashboard tokens such as `##defaultResourceGroup##` are filled in first.
 **Moved to?** suggests up to three groups with the same last name, which is
 usually where a moved group went.
+
+With `--portal NAME`, the subdomain before `.logicmonitor.com`, each
+dashboard and report name links to its page in the portal (jsonl: a `url` on
+each). Alert rules have no page of their own, so they stay plain;
+`--url-template rules=URL` adds a link if yours do (placeholders `{portal}`
+and `{id}`, and the same for `dashboards=` and `reports=`).
 
 Globs are matched generously (`*` crosses `/`, any case), so anything listed
 really matches nothing. Tokens set on a single widget rather than the
