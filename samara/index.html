@@ -812,7 +812,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     $(".rate-q", panel).textContent = up ? "Glad it helped. Anything to add?" : "What was wrong?";
     $(".choices", panel).hidden = up;
     if (up) f.rating.forEach(r => r.checked = false);
-    $(".to", panel).textContent = `Sent to ${health && health.owner ? health.owner : "whoever runs this Samara"} and kept on the machine Samara runs on.`;
+    $(".to", panel).textContent = `Visible to ${health && health.owner ? health.owner : "whoever runs this Samara"} and logged to the host Samara runs on.`;
     ready();
     (up ? f.comment : f.rating[0]).focus();
   };
