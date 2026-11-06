@@ -64,10 +64,13 @@ import urllib.parse
 
 PAGE = 1000
 # Each dashboard and report in the portal's UI (checked by hand on a work
-# portal, 2026-11-06). The REST API gives no UI link. Alert rules have no page
-# of their own to link to: pass --url-template rules=URL if yours do.
+# portal, 2026-11-06). The REST API gives no UI link. A report's link needs its
+# group (without it the page does not open the report); one with no group
+# keeps the plain form. Alert rules have no page of their own to link to: pass
+# --url-template rules=URL if yours do.
 URLS = {"dashboards": "https://{portal}.logicmonitor.com/santaba/uiv4/dashboards/dashboards-{id}",
-        "reports": "https://{portal}.logicmonitor.com/santaba/uiv4/reports/treeNodes/reports-{id}"}
+        "reports": "https://{portal}.logicmonitor.com/santaba/uiv4/reports/treeNodes/reportGroups-{group}*,reports-{id}"}
+UNGROUPED = "https://{portal}.logicmonitor.com/santaba/uiv4/reports/treeNodes/reports-{id}"
 LINKED = {"dashboards": ("dashboard", "dashboard_id"), "reports": ("report", "report_id"), "rules": ("rule", "rule_id")}
 SECTIONS = ["dashboards", "reports", "rules"]
 # Keys that name a group, and the key beside them that names a device.
@@ -291,7 +294,7 @@ def reports(target, portal, dashboard_ids, uses=None):
         if not uses and r.get("dashboardId") and r["dashboardId"] not in dashboard_ids:
             problems.append(("no dashboard", r.get("dashboardName") or str(r["dashboardId"]), ""))
         for problem, name, hint in dict.fromkeys(problems):
-            out.append({"report": r["name"], "report_id": r["id"], "type": r.get("type"),
+            out.append({"report": r["name"], "report_id": r["id"], "group_id": r.get("groupId"), "type": r.get("type"),
                         "problem": problem, "name": name, "moved": hint})
     return out
 
@@ -320,15 +323,33 @@ def rules(target, portal, uses=None):
     return out
 
 
+# Columns holding a group path or device name, often a glob (*Office*): shown
+# in a code span so Markdown leaves * and _ alone. Other text is escaped.
+CODE = ("name", "moved")
+
+
 def table(title, rows, cols):
     def cell(text):
-        return str(text).replace("|", "\\|").replace("\n", " ")
+        return str(text).replace("\n", " ")
+
+    def text(t):
+        return re.sub(r"([\\`*_\[\]<>~|])", r"\\\1", cell(t))
+
+    def code(t):
+        t = cell(t)
+        if not t:
+            return ""
+        tick = "``" if "`" in t else "`"
+        pad = " " if len(tick) == 2 else ""
+        return f"{tick}{pad}{t.replace('|', chr(92) + '|')}{pad}{tick}"
 
     def show(r, k):
+        if k in CODE:
+            return code(r[k])
         # The name links to the portal when there is a url (--portal).
         if r.get("url") and k in ("dashboard", "report", "rule"):
-            return f"[{cell(r[k]).replace('[', '(').replace(']', ')')}]({r['url']})"
-        return cell(r[k])
+            return f"[{text(r[k])}]({r['url']})"
+        return text(r[k])
 
     print(f"## {title}\n")
     if not rows:
@@ -353,7 +374,7 @@ def main():
     p.add_argument("--portal", metavar="NAME",
                    help="portal subdomain (the bit before .logicmonitor.com): link each dashboard and report to it")
     p.add_argument("--url-template", metavar="SECTION=URL", action="append", default=[],
-                   help="override a section's link (dashboards, reports or rules). Placeholders: {portal} {id}")
+                   help="override a section's link (dashboards, reports or rules). Placeholders: {portal} {id}, and {group} for reports")
     a = p.parse_args()
     urls = dict(URLS) if a.portal else {}
     for t in a.url_template:
@@ -390,7 +411,10 @@ def main():
     for section, rows in found.items():
         if section in urls:
             for r in rows:
-                r["url"] = urls[section].format(portal=a.portal or "", id=r[LINKED[section][1]])
+                url = urls[section]
+                if section == "reports" and not r.get("group_id") and url == URLS["reports"]:
+                    url = UNGROUPED
+                r["url"] = url.format(portal=a.portal or "", id=r[LINKED[section][1]], group=r.get("group_id") or "")
     if a.jsonl:
         for section, rows in found.items():
             for r in rows:
