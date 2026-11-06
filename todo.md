@@ -182,3 +182,12 @@ is already sent. Not from the API token: every reader of one Samara shares
 its token (an API-only user), so its description names the instance, not
 the person; a `whoami` would say the same.
 
+## elm-missing-refs: report links open without Edit (parked 2026-11-06)
+
+`--portal` links a report as `uiv4/reports/treeNodes/reportGroups-<groupId>*,reports-<id>`
+(group 0 at the top), the same URL the address bar shows. Opened directly,
+the report shows but has no Edit button; reached through the tree, the same
+URL has one. Waiting on LogicMonitor: is there a supported deep link that
+opens a report ready to edit, and is the `uiv4` URL stable enough to link to
+(the dashboard links use the same kind)? If not, say in `--portal`'s help
+that a link opens the report and editing needs a click in the tree.
