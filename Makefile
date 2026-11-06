@@ -580,7 +580,7 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: -o after command hints at --filename ; $(testbin) DeviceList -o out.csv 2>&1 | grep -q 'for --filename put it before'
 	@echo testing: format name as --fields gets a hint ; $(testbin) DeviceList -f csv 2>&1 | grep -q 'for --format put it before'
 	@echo testing: --info shows path, notes and fields ; $(testbin) AlertList --info | grep -q '^GET /alert/alerts' && $(testbin) AlertList --info | grep -q '^Notes' && $(testbin) AlertList --info | grep -q '^  severity: integer'
-	@echo testing: --info needs no id for a command that requires one ; $(testbin) DeviceDatasourceList --info | grep -q -- '--deviceId integer (required)'
+	@echo testing: --info needs no id for a command that requires one ; $(testbin) DeviceDatasourceList --info | grep -q -- '--deviceId integer (required, or --id)'
 	@echo testing: --info and --help need no credentials ; h=$$(mktemp -d) && HOME=$$h $(testbin) AlertList --info | grep -q '^GET ' && HOME=$$h $(testbin) AlertList --help | grep -q 'Usage:' ; rc=$$? ; rm -rf $$h ; exit $$rc
 	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
 	@echo testing: -F field not in the swagger is refused, with a suggestion ; $(testbin) AlertList -F sevrity:4 2>&1 | grep -q "no field 'sevrity' in AlertList (did you mean severity?"
