@@ -21,6 +21,57 @@ Each entry: date, what was run, the result, what it means.
   the scores.
 
 
+## 2026-11-07: one recipe tool or five? (the recipe split)
+
+Same six models, two builds, one after the other: main (a32b6b8) from 00:16,
+then branch `samara-recipe-split` (main merged in, 107f700) from 09:51. The
+split offers the recipes as five tools, one per kind of thing
+(`device_check` 7 recipes, `group_check` 2, `collector_check` 2,
+`person_check` 1, `portal_check` 25), name argument required, in place of
+one `recipe` tool listing all 37 with every name optional. 216 asks per
+model per build; nothing else differs.
+
+| Model | Machine | Main | Split | Confidently wrong (main -> split) | Median |
+|---|---|---|---|---|---|
+| qwen3-vl-4b | laptop | **94%** | 91% | 0 -> 0 | 8s |
+| qwen3-vl-4b | mini | **93%** | 90% | 1 -> 0 | 8s |
+| qwen3-4b-instruct-2507 | laptop | **91%** | 77% | 1 -> 12 | 10s |
+| qwen3.5-9b | mini | 89% | 88% | 3 -> 3 | 28-41s |
+| qwen3-8b | laptop | 88% | **90%** | 1 -> 1 | 41s |
+| qwen3-8b | mini | 87% | **92%** | 3 -> 1 | 37s |
+
+* Verdict: do not merge the split. It helps the 8B and hurts the two 4B
+  models, which are the fastest and the most accurate.
+* The 8B gained where it used to pick the wrong recipe of the right kind:
+  "is the collector keeping up / overloaded?", "has DEVICE stopped
+  collecting?", "show me the down collectors" went from 0/2 to 2/2.
+* qwen3-vl-4b lost on those same collector questions, 2/2 to 0/2 on both
+  machines: with only two recipes in `collector_check` it picked
+  collector_health every time. A shorter list is not an easier one for
+  every model.
+* qwen3-4b-instruct-2507 fell apart on portal questions. It wrote "I ran
+  `portal_check` with recipe open_alerts" in prose and gave a made-up
+  number, calling nothing: 11 of its 12 confidently wrong were counts with
+  no call (alerts open, warnings open, "a lot of alerts today?"). On main it
+  called the recipe. Tool names that read like actions seem to invite
+  describing the call instead of making it.
+* Same model, more context: qwen3-vl-4b on the laptop (32768) and the mini
+  (16384) scored within a point again.
+* Infrastructure held. With the laptop kept awake (`caffeinate -dimsu` on
+  the laptop itself) and the model check retried 3x (027c54b), fast
+  can't-reach-the-model fails went from 13-44 per model to 0-5. Every ask
+  counts this time; no "unreachable" column needed.
+* qwen3-4b-instruct-2507 on main went from 82% / 8 wrong (11-05) to
+  91% / 1 wrong: the severity-from-the-question and typed-recipe-name fixes
+  were aimed at its failures, and they worked.
+* Two ideas from it for main, without the split: describe
+  collector_keeping_up so "keeping up / overloaded / behind" lands on it
+  (or route it), and catch "ran X with recipe Y" in prose when nothing was
+  called.
+* The full main and split runs took 9.5 and ~8 hours: the mini's queue
+  (two 8B/9B models at ~40s an ask) is the long pole, not the laptop.
+
+
 ## 2026-11-06: severity from the question, overnight on two machines
 
 Build 85dfb15: Samara reads "errors or worse", a named severity and the
