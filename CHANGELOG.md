@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Samara's portal health summary starts its alerts line with the total open ("522 open; 199 of them besides devices down, ..."), and its table has an "Open alerts in all" row. It counted only the alerts besides devices down, so "how many alerts are open?" answered from it said 204 where 527 were open.
 - Samara runs collector_keeping_up when a model picks collector_health for "is COLLECTOR keeping up / overloaded / falling behind?", and device_collecting when it picks device_health for "has DEVICE stopped collecting?" or "is it missing data?": the question's own words name the recipe. In the 2026-11-07 eval, qwen3-vl-4b failed the collector pair and qwen3-8b the device pair.
 - Samara runs a recipe a model names anywhere in an answer that called nothing ("I ran the recipe open_alerts: 13 are open", with 526 open), not only one named at the very start. A recipe the conversation has already run is not run again, so a follow-up such as "how sure are you?" that cites one answers as before.
 - `tools/elm-missing-refs.py --portal`: a report's link names its group (`reportGroups-9*,reports-105`, 0 for one at the top), so it opens the report; without the group the page did not. `--url-template reports=...` takes `{group}`, and each jsonl report record has its `group_id`.

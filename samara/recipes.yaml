@@ -379,7 +379,10 @@
   # Ranked the way an ops person works through it: collectors first (one down
   # collector blinds every device on it), then devices not responding, then
   # alerts. Host Status alerts are the dead devices again, so they are left
-  # out of the alert counts. Collectors silent for over 30 days are old news.
+  # out of the alert counts, after the total: "how many alerts are open?"
+  # answered from this recipe said 204 where 527 were, the total left out
+  # (qwen3-4b-instruct-2507, 2026-11-08). Collectors silent for over 30 days
+  # are old news.
   summary: |
     ($collectors | map(select(.isDown))) as $cdown
     | ($cdown | map(select(.watchdogUpdatedOn > now - 30 * 86400))) as $recent
@@ -391,7 +394,7 @@
     + (if ($recent | length) > 0 then ", \($recent | length) of them in the last 30 days (\($recent | map(.description) | join(", ")))"
        else ", none in the last 30 days" end) + ".\n"
     + "2. Devices: \($dev | map(select(.hostStatus == "dead")) | length) not responding, \($dev | map(select(.hostStatus == "dead-collector")) | length) behind a down collector.\n"
-    + "3. Alerts (besides devices down): \($al | length) open, \($bad | length) of them critical or error"
+    + "3. Alerts: \($alerts | length) open; \($al | length) of them besides devices down, \($bad | length) of those critical or error"
     + (if ($bad | length) > 0 then ", most on " + ($bad | group_by(.resourceTemplateName) | map({t: .[0].resourceTemplateName, n: length})
          | sort_by(-.n) | .[:2] | map("\(.t) (\(.n))") | join(" and ")) else "" end) + ".\n"
     + "4. Neglected: \($stale | length) of those alerts open more than a day with nobody acknowledging them."
@@ -402,7 +405,8 @@
       ($collectors | map(select(.isDown))) as $cdown
       | ($down | map(select(.deviceType == 0))) as $dev
       | ($alerts | map(select(.resourceTemplateName != "Host Status"))) as $al
-      | [{Area: "Collectors down", Count: ($cdown | length), Detail: "\($cdown | map(select(.watchdogUpdatedOn > now - 30 * 86400)) | length) in the last 30 days"},
+      | [{Area: "Open alerts in all", Count: ($alerts | length), Detail: ($alerts | severities)},
+         {Area: "Collectors down", Count: ($cdown | length), Detail: "\($cdown | map(select(.watchdogUpdatedOn > now - 30 * 86400)) | length) in the last 30 days"},
          {Area: "Devices not responding", Count: ($dev | map(select(.hostStatus == "dead")) | length), Detail: ""},
          {Area: "Devices behind a down collector", Count: ($dev | map(select(.hostStatus == "dead-collector")) | length), Detail: ""},
          {Area: "Open alerts (besides devices down)", Count: ($al | length), Detail: ($al | severities)},
