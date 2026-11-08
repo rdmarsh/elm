@@ -15,9 +15,12 @@
 # server (the laptop, this Mac, Claude) runs its own queue, side by side.
 #
 # A port in NAMED starts only when --only names it: the Claude models are
-# billed per question. Dropped after an eval: gpt-oss-20b (40% on 2026-11-01;
-# the small Qwens 87-95%) and gemma-3-12b (36% on 2026-11-04, mostly by
-# skipping the recipes).
+# billed per question. Dropped after an eval (findings.md has the runs):
+# gpt-oss-20b 40%, qwen3-30b-a3b 60%, gemma-3-12b 36%, qwen3.5-4b 76%,
+# qwen3.5-9b 89% at 30-40s an ask, qwen3-14b no better than the 8B and
+# slower, granite-4-micro 36%, lfm2-1.2b 30%, qwen3.5-2b 43%, qwen3-1.7b 77%;
+# mistral-small-3.2 answered in prose, and LM Studio rejected
+# llama-xlam-2-8b-fc-r's tool calls.
 #
 # Before each eval, models.sh loads that model itself, alone on its server, at
 # the server's context (16384 on this Mac, 32768 on the laptop), and loads it
@@ -50,29 +53,17 @@ PAGE=tmp/samara.html
 MODELS=(
     "8082 qwen3-8b-mlx $MINI"
     "8083 qwen/qwen3-vl-4b $MINI"
-    # the same two on the laptop, at twice the context the mini can give them
+    # the same models on the laptop: same build, same files, 32768 context
     "8084 qwen3-8b-mlx $LAPTOP"
     "8085 qwen/qwen3-vl-4b $LAPTOP"
-    "8086 qwen3.5-4b-mlx $MINI"
-    "8087 qwen/qwen3.5-9b $MINI"
-    "8088 qwen/qwen3-14b $MINI"
     "8090 haiku claude"
     "8091 sonnet claude"
-    # copied from this Mac by the laptop's cron, so the laptop gives them its own ids
-    "8092 qwen3-14b-mlx $LAPTOP"
-    # GGUF: slower than MLX. Asked "is web01 okay?" with a tool, it wrote steps in prose and
-    # called nothing (2026-11-05): maybe this build's template, so try an MLX build first
-    "8094 mistral-small-3.2-24b-instruct-2506 $LAPTOP"
-    # BFCL's best small function-caller; CC-BY-NC licence, so a comparison only, not for work use
-    # Salesforce's GGUF: LM Studio rejects its tool calls ("does not match the expected
-    # peg-native format", 2026-11-05), so it needs another build or server before an eval
-    "8099 llama-xlam-2-8b-fc-r $LAPTOP"
     "8100 qwen3-4b-instruct-2507 $LAPTOP"
-    # how small can it go: under 4B, all trained for tool use
-    "8095 ibm/granite-4-micro $MINI"   # GGUF
-    "8096 liquid/lfm2-1.2b $MINI"
-    "8097 qwen/qwen3.5-2b $MINI"
-    "8098 qwen/qwen3-1.7b $MINI"
+    "8101 qwen3-4b-instruct-2507 $MINI"    # mlx-community's build, as on the laptop
+    # added 2026-11-08: qwen3-vl-4b's small and big siblings, and BFCL's best small family
+    "8102 qwen/qwen3-vl-2b $MINI"
+    "8103 nanbeige_nanbeige4.2-3b $MINI"   # GGUF: LM Studio's MLX engine cannot run its architecture
+    "8104 qwen/qwen3-vl-8b $LAPTOP"
 )
 NAMED=,8090,8091,
 

@@ -21,6 +21,35 @@ Each entry: date, what was run, the result, what it means.
   the scores.
 
 
+## 2026-11-08: the laptop vs the mini, same model, same files
+
+The same MLX builds on both machines (byte-identical downloads), loaded at
+16384 context, given the same 13,500-token prompt (about what Samara sends
+with each question) with prompt caching defeated. LM Studio's own stats:
+
+| Model | Machine | Reading the prompt | Writing |
+|---|---|---|---|
+| qwen3-vl-4b | mini (M2 Pro) | 259-274 tok/s (~50s) | 28.5 tok/s |
+| qwen3-vl-4b | laptop (M3 Pro) | 357-360 tok/s (~38s) | 29.3 tok/s |
+| qwen3-8b | mini | 171 tok/s (~79s) | 22 tok/s |
+| qwen3-8b | laptop | 231 tok/s (~59s) | 21 tok/s |
+
+* The laptop reads a prompt about 35% faster and writes at the same speed.
+  Reading is compute-bound, and the M3 Pro's GPU is newer. Writing is
+  memory-bound, and the M3 Pro has less memory bandwidth (150 GB/s) than
+  the M2 Pro (200 GB/s): its newer GPU only just makes up for that.
+* So in the evals the two machines tie (qwen3-vl-4b: 8s median on both).
+  LM Studio keeps the system prompt cached between questions, so each ask
+  reads only the new part, and the 35% applies to a small slice of the time.
+  The first question after a model loads pays the full ~40-50s.
+* What sets the speed is the model's size, not the machine: the 8B reads
+  1.5x slower and writes 1.3x slower than the 4B on either one.
+* Nanbeige4.2-3B ships as its own architecture (NanbeigeForCausalLM): LM
+  Studio's MLX engine fails to load it ("Failed to load model"), its
+  llama.cpp engine runs the GGUF. A new model family can be GGUF-only for a
+  while, whatever the Mac.
+
+
 ## 2026-11-08: the question's words over the model's pick (04f7984)
 
 Two fixes on main, tested on the three 4B models (216 asks each), compared
