@@ -21,6 +21,8 @@
 #                        TLS-inspecting proxy whose CA Python 3.13 rejects)
 #   --yes, -y            don't ask anything: use the model (and --url) chosen
 #                        last time, else the defaults
+#   --no-open            don't open the browser (it opens when run.sh is
+#                        started from a terminal, -y or not)
 #   --dry-run            print the docker command instead of running it
 #   --set-key            store (or replace) the Claude API key in the macOS
 #                        keychain, then exit
@@ -90,6 +92,7 @@ BUILD=0
 ASK=1
 DRY_RUN=0
 SET_KEY=0
+OPEN=1
 CREDS_DIR="$HOME/.config/logicmonitor/credentials"
 LAST="${XDG_CONFIG_HOME:-$HOME/.config}/samara/last"   # MODEL<tab>URL of the last start
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -103,6 +106,7 @@ while [[ $# -gt 0 ]]; do
         --port)       PORT=$2; shift 2 ;;
         --build)      BUILD=1; shift ;;
         --yes|-y)     ASK=0; shift ;;
+        --no-open)    OPEN=0; shift ;;
         --dry-run)    DRY_RUN=1; shift ;;
         --set-key)    SET_KEY=1; shift ;;
         -h|--help)    sed -n '2,/^$/p' "$0" | sed -E 's/^# ?//'; exit 0 ;;
@@ -295,6 +299,9 @@ fi
 # answers use their own browser's zone either way.
 tz=${TZ:-$(readlink /etc/localtime 2>/dev/null | sed -n 's|.*/zoneinfo/||p')}
 [[ -n "$tz" ]] && cmd+=(-e "TZ=$tz")
+# Someone is at the terminal (not models.sh, whose output goes to a log): have
+# the local model read the prompt now, so the first question is not the slow one.
+[[ -t 1 ]] && cmd+=(-e SAMARA_WARM=1)
 cmd+=("$IMAGE")
 
 if [[ $DRY_RUN -eq 1 ]]; then
@@ -313,9 +320,10 @@ URL="http://127.0.0.1:$PORT/"
 printf 'Open %s  (ctrl-c here to stop)\n\n' "$URL"
 
 # Open the browser once the server answers: opened sooner, it shows a "can't
-# connect" page. Only when someone is at a terminal and did not say --yes. The
-# waiting runs in the background, so it outlives the exec below.
-if [[ $ASK -eq 1 && -t 1 ]] && opener=$(command -v open || command -v xdg-open); then
+# connect" page. Only when someone is at a terminal (models.sh's runs log to a
+# file, so its ports open nothing), unless --no-open. The waiting runs in the
+# background, so it outlives the exec below.
+if [[ $OPEN -eq 1 && -t 1 ]] && opener=$(command -v open || command -v xdg-open); then
     ( for _ in $(seq 60); do
           curl -fs -o /dev/null "$URL" && exec "$opener" "$URL"
           sleep 0.5

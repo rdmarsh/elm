@@ -253,6 +253,8 @@ def main():
     relax_x509_strict()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"Samara listening on http://{HOST}:{PORT}  (model {agent.MODEL})", flush=True)
+    if os.environ.get("SAMARA_WARM"):   # run.sh, when someone is at the terminal
+        threading.Thread(target=agent.warm, daemon=True).start()
     server.serve_forever()
 
 

@@ -8,10 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `samara/run.sh` opens the browser with `-y` too, whenever it is started from a terminal (`--no-open` to skip), and Samara has a local model read its prompt (system prompt and tools, ~7,400 tokens) as soon as it starts, so the first question is not the slow one: on the mini, qwen3-vl-4b's first answer took 23s more than the rest; after the warm-up it took 1s. `models.sh` runs do neither.
+- Samara's README has a "What Samara can answer" section: a sample by topic, what it cannot do, and where the full list is.
 - Samara's page has **What can Samara answer?** next to "Show me some ideas": a guide listing every built-in check's question under a heading (Devices, Alerts, Collectors, Groups and customers ...), what Samara cannot do, and who to tell when an answer is wrong. It is built from `recipes.yaml` (each recipe's new `topic` and first `asks`), so a new recipe appears in it by itself. A question naming a device, group, collector or person goes in the box with that word selected to type over. `SAMARA_CONTACT` (an email address or a link) adds how to reach whoever runs it.
 
 ### Fixed
 
+- Samara's "what's PERSON working on?" failed for anyone with something to show ("no key True in the rows"), and the model then repeated a line of its instructions as the answer: YAML reads the table's bare `On` column as `true`. It is quoted, and Samara will not start if a recipe's table column is not text.
 - Samara's portal health summary starts its alerts line with the total open ("522 open; 199 of them besides devices down, ..."), and its table has an "Open alerts in all" row. It counted only the alerts besides devices down, so "how many alerts are open?" answered from it said 204 where 527 were open.
 - Samara runs collector_keeping_up when a model picks collector_health for "is COLLECTOR keeping up / overloaded / falling behind?", and device_collecting when it picks device_health for "has DEVICE stopped collecting?" or "is it missing data?": the question's own words name the recipe. In the 2026-11-07 eval, qwen3-vl-4b failed the collector pair and qwen3-8b the device pair.
 - Samara runs a recipe a model names anywhere in an answer that called nothing ("I ran the recipe open_alerts: 13 are open", with 526 open), not only one named at the very start. A recipe the conversation has already run is not run again, so a follow-up such as "how sure are you?" that cites one answers as before.

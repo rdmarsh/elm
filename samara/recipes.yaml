@@ -1281,7 +1281,7 @@
        else " \($d | length | n("downtime")) set by them or naming them: \($d | map(select(.isEffective)) | length) in effect now." end)
   table:
     title: What {person[name]} is on
-    columns: [On, What, When, Note]
+    columns: ["On", What, When, Note]   # quoted: YAML reads a bare On as true
     rows: |
       ($person[0].name | ascii_downcase) as $k
       | ($alerts | map(select(.acked and ((((.ackComment // "") + " " + (.ackedBy // "")) | ascii_downcase | contains($k)))))

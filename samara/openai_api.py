@@ -89,7 +89,7 @@ def from_chat(message, n):
     return content
 
 
-def create(url, key, model, system, tools, messages, n=0):
+def create(url, key, model, system, tools, messages, n=0, max_tokens=8192):
     """(content blocks, stop reason, usage) in Anthropic's terms, for agent.py."""
     body = {
         "model": model,
@@ -97,7 +97,7 @@ def create(url, key, model, system, tools, messages, n=0):
         # each sent nothing for 600s on the 2026-11-01 eval. A step's reply is
         # normally a tool call or a short answer; this stops a loop in minutes, as
         # an answer cut off at the length limit rather than an error.
-        "max_tokens": 8192,
+        "max_tokens": max_tokens,
         "messages": to_chat(system, messages),
         "tools": [{"type": "function", "function": {"name": t["name"], "description": t["description"],
                                                     "parameters": t["input_schema"]}} for t in tools],

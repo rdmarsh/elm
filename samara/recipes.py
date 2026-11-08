@@ -52,6 +52,11 @@ import router
 
 HERE = Path(__file__).resolve().parent
 RECIPES = {r["name"]: r for r in yaml.safe_load((HERE / "recipes.yaml").read_text())}
+for _r in RECIPES.values():
+    # A bare On, Yes or No is a boolean to YAML: working_on's "On" column came out
+    # as True, and every person with rows got an error, not a table (2026-11-08).
+    if any(not isinstance(c, str) for c in _r.get("table", {}).get("columns", [])):
+        raise ValueError(f"{_r['name']}: quote every table column in recipes.yaml ({_r['table']['columns']})")
 for _r in RECIPES.values():   # a chart names its table's columns: a typo fails here, not on the page
     _charts = _r.get("table", {}).get("chart") or []
     for _c in _charts if isinstance(_charts, list) else [_charts]:

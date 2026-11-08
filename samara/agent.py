@@ -202,6 +202,25 @@ def create(client, model, messages, emit):
     })
 
 
+def warm():
+    """Read the system prompt and tools into the local model once, at start.
+
+    They are ~7,400 tokens, the same every time (the question and the time go
+    in the user message), so LM Studio keeps them and later questions skip
+    them; without this the first question reads them all: 23s for
+    qwen3-vl-4b on the mini, then 1s for the question (2026-11-08).
+    Not for Claude: its cache lasts minutes, and the read is billed."""
+    if is_claude(MODELS[0]):
+        return
+    t = time.time()
+    try:
+        openai_api.create(MODEL_URL, MODEL_KEY, MODELS[0], SYSTEM[0]["text"], elm_tools.TOOLS,
+                          [{"role": "user", "content": "Reply with OK."}], max_tokens=1)
+        print(f"Samara: {MODELS[0]} has read the prompt ({time.time() - t:.0f}s)", flush=True)
+    except Exception as exc:   # only a head start: the first question tries again
+        print(f"Samara: could not warm up {MODELS[0]}: {exc}", flush=True)
+
+
 def create_claude(client, model, messages, emit):
     """One request to Claude, dropping effort if this model will not take it.
 

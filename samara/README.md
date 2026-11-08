@@ -46,6 +46,36 @@ Python or jq installed.
 
 **Status: prototype.**
 
+## What Samara can answer
+
+Samara looks things up in one LogicMonitor portal and never changes anything.
+It has built-in checks for the questions people ask most: written and tested
+beforehand, so their numbers should be correct. Ask them in your own words.
+For anything else, the model works out a query of its own, and the answer is
+labelled so: check those.
+
+| Topic | For example |
+|---|---|
+| Everything at once | give me a health summary · what needs my attention first? |
+| Devices | is DEVICE okay? · which devices are down? · is DEVICE collecting everything? · which collector monitors DEVICE? |
+| Alerts | how many alerts are open? · show me errors or worse · are we having a lot of alerts today? · what alerts is nobody looking at? |
+| Common problems | are any certificates expiring? · what disks are about to fill up? · any NTP or time problems? |
+| Collectors | are all our collectors up? · which collectors need upgrading? · is COLLECTOR keeping up? |
+| Groups and customers | how is GROUP doing? · what dashboards does GROUP have? |
+| Downtime and alerting off | what's in maintenance right now? · is anything in downtime too long? · which devices won't alert? |
+| Websites | are any websites down? |
+| People | what's PERSON working on? |
+
+It cannot change anything (acknowledge, schedule downtime, edit settings);
+see users, roles, API tokens, the audit log, alert rules, escalation chains or
+integrations; or look at another portal at the same time.
+
+The page lists every built-in check under **What can Samara answer?**, next
+to "Show me some ideas". That list comes from `recipes.yaml` (each recipe's
+`topic` and first `asks`), so it is always the current one; this table is a
+sample. Clicking a question asks it; one naming DEVICE, GROUP, COLLECTOR or
+PERSON goes in the box with that word selected to type over.
+
 ## How it keeps data safe
 
 - **Read-only.** Every LogicMonitor call goes through elm, which only has GET
@@ -204,9 +234,13 @@ lms load qwen/qwen3-vl-4b --context-length 32768    # 16384 on a 16 GB Mac
 samara/run.sh --build -y -m qwen/qwen3-vl-4b --url http://host.docker.internal:1234/v1
 ```
 
-Then open <http://127.0.0.1:8080>. Load the model yourself first: loaded
-on demand, LM Studio uses its own default context, which Samara's prompt does
-not fit. After that, `samara/run.sh --build -y` starts the same model again.
+The browser opens <http://127.0.0.1:8080> once Samara answers (`--no-open`
+to skip), and Samara has the model read its prompt straight away, so the
+first question is as quick as the rest (both only when run.sh is started from
+a terminal: `models.sh` runs do neither). Load the model yourself first:
+loaded on demand, LM Studio uses its own default context, which Samara's
+prompt does not fit. After that, `samara/run.sh --build -y` starts the same
+model again.
 
 With Colima for Docker, start it first: `colima start && docker context use
 colima`. Behind a proxy that inspects TLS, build on Python 3.12

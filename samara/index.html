@@ -377,7 +377,7 @@ function renderGuide(h) {
   const who = h.owner ? esc(h.owner) : "whoever runs this Samara";
   guide.innerHTML =
     `<p>Samara looks things up in ${h.portal ? esc(h.portal) : "your portal"} and never changes anything. `
-    + `It has built-in checks for the questions below: written and tested beforehand, so their numbers are right. `
+    + `It has built-in checks for the questions below: written and tested beforehand, so their numbers should be correct. `
     + `Ask them in your own words. Anything else, it works out a query of its own, and the answer says so: check those.</p>`
     + h.guide.filter(t => t.asks.length).map(t => `<h2>${esc(t.topic)}</h2><ul>`
       + t.asks.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("") + `</ul>`).join("")
