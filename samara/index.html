@@ -133,6 +133,9 @@
   .turn-foot .buttons { margin-left: auto; gap: 8px; }
   .rate { display: inline-flex; align-items: center; }
   .rate-done { color: var(--muted); font-size: .85rem; padding: 4px 6px; }
+  /* Under a refusal: the question may be one nobody thought of, which is the
+     one worth hearing about. */
+  .refused-ask { margin: 10px 0 0; font-size: .85rem; color: var(--muted); }
   /* Rating opens on its own line, under the buttons, so nothing lands where the thumb was. */
   .rate-panel { display: block; margin-top: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: .85rem; }
   .rate-panel .rate-q { margin: 0 0 8px; font-weight: 600; }
@@ -330,6 +333,8 @@ const sourceHtml = (s, u) => SOURCE[s] && !quietSource(s, u) ? `<p class="source
   esc(sourceText(s, u))}</p>` : "";
 
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
+// The off-topic sentence (system_prompt.md), and the instruction a model once copied out instead.
+const REFUSAL = /only answers? questions about (this|the) LogicMonitor portal/i;
 let conversationId = null;
 
 // Ideas: questions even the weakest model gets right, each answered by one
@@ -863,6 +868,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     $(".down", turn).setAttribute("aria-pressed", !up);
     $(".rate-q", panel).textContent = up ? "Glad it helped. Anything to add?" : "What was wrong?";
     $(".choices", panel).hidden = up;
+    f.comment.placeholder = "Anything else? (optional)";
     if (up) f.rating.forEach(r => r.checked = false);
     $(".to", panel).textContent = `Visible to ${health && health.owner ? health.owner : "whoever runs this Samara"} and logged to the host Samara runs on.`;
     ready();
@@ -931,6 +937,24 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     $(".md-toggle", turn).hidden = false;
     $(".more-detail", turn).hidden = false;
     $(".rate", turn).hidden = !(health && health.log);
+    // Refused as not about the portal (system_prompt.md's sentence): it may be
+    // a portal question no one foresaw, so say how to pass it on, with the
+    // rating panel ready: "Not what I asked", and a box for what they wanted.
+    if (health && health.log && REFUSAL.test(ev.markdown || "") && !$(".refused-ask", turn)) {
+      const p = document.createElement("p");
+      p.className = "refused-ask";
+      p.innerHTML = `Was it about your portal? <button class="link" type="button">Tell ${
+        esc(health.owner || "whoever runs this Samara")} what you were after</button>`;
+      panel.before(p);
+      $("button", p).addEventListener("click", () => {
+        openRating(false);
+        f.rating.forEach(r => r.checked = r.value === "missed");
+        $(".rate-q", panel).textContent = "What were you trying to find out?";
+        f.comment.placeholder = "In your own words: what did you want to know?";
+        ready();
+        f.comment.focus();
+      });
+    }
     if (t.more || t.level) {   // a harder model left, or a note that there is none
       const b = $(".harder", turn);
       b.hidden = false; b.disabled = !t.more;

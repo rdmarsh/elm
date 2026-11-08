@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Under an answer Samara refused as not about the portal, a line asks "Was it about your portal? Tell OWNER what you were after": it opens the rating panel with "Not what I asked" picked and a box for what they wanted, so a question nobody foresaw reaches whoever runs Samara (the question log) instead of ending at the refusal. Only when the question log is on.
 - `samara/run.sh` opens the browser with `-y` too, whenever it is started from a terminal (`--no-open` to skip), and Samara has a local model read its prompt (system prompt and tools, ~7,400 tokens) as soon as it starts, so the first question is not the slow one: on the mini, qwen3-vl-4b's first answer took 23s more than the rest; after the warm-up it took 1s. `models.sh` runs do neither.
 - Samara's README has a "What Samara can answer" section: a sample by topic, what it cannot do, and where the full list is.
 - Samara's page has **What can Samara answer?** next to "Show me some ideas": a guide listing every built-in check's question under a heading (Devices, Alerts, Collectors, Groups and customers ...), what Samara cannot do, and who to tell when an answer is wrong. It is built from `recipes.yaml` (each recipe's new `topic` and first `asks`), so a new recipe appears in it by itself. A question naming a device, group, collector or person goes in the box with that word selected to type over. `SAMARA_CONTACT` (an email address or a link) adds how to reach whoever runs it.
