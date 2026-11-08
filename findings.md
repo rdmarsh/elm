@@ -21,6 +21,47 @@ Each entry: date, what was run, the result, what it means.
   the scores.
 
 
+## 2026-11-08: the question's words over the model's pick (04f7984)
+
+Two fixes on main, tested on the three 4B models (216 asks each), compared
+with main the night before (a32b6b8):
+
+1. A health recipe picked for a question its sibling answers is swapped:
+   collector_health -> collector_keeping_up for "keeping up / overloaded /
+   falling behind", device_health -> device_collecting for "stopped
+   collecting / no data".
+2. A recipe named anywhere in an answer that called nothing is run for the
+   model (it used to have to be the first word), unless the conversation
+   already ran it.
+
+| Model | Machine | Main (11-07) | 04f7984 | Confidently wrong |
+|---|---|---|---|---|
+| qwen3-vl-4b | mini | 93% | 94% | 1 -> 0 |
+| qwen3-vl-4b | laptop | 94% | 94% | 0 -> 0 |
+| qwen3-4b-instruct-2507 | laptop | 91% | 90% | 1 -> 2 |
+
+* Fix 1 works: "has DEVICE stopped collecting data?" went from 0/2 to 2/2
+  on both qwen3-vl-4b ports, and every keeping-up / overloaded ask passed
+  on all three models. Same lesson as the severity fix: when the
+  question's own words settle it, overrule the model.
+* qwen3-4b-instruct-2507's two confidently wrong answers were not the fix
+  going wrong. It typed `portal_health` instead of calling open_alerts;
+  Samara ran it, and portal_health reports "204 open (besides devices
+  down)" where the question wants all 527. The rescue ran the recipe the
+  model named; the recipe's summary lacked the number. Fix idea:
+  portal_health states the total too.
+* "has this happened before?" (after "what's wrong with DEVICE?") depends
+  on the time of day: device_health, PASS, when the eval reached it at
+  03:45-05:00; devices_down started=yesterday, FAIL, at 14:30-18:00, on
+  both builds and before this fix existed. The first answer is the same
+  word for word. Most likely the date and time in the prompt: "before"
+  read as "yesterday". An eval that runs at a different hour can move a
+  case on its own: compare runs at similar times, or fix the case.
+* Speed: the two qwen3-vl-4b ports took ~30 minutes each (8-9s median),
+  qwen3-4b-instruct-2507 ~45 minutes. A 4B-only eval is an evening job,
+  not an overnight one.
+
+
 ## 2026-11-07: one recipe tool or five? (the recipe split)
 
 Same six models, two builds, one after the other: main (a32b6b8) from 00:16,
