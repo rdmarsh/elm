@@ -213,6 +213,13 @@ TIMEISH = re.compile(r"\b(since|ago|before|after|recent\w*|lately|last|past|this
                      r"days?|hours?|minutes?|mon|tues|wednes|thurs|fri|satur|sun)(day)?\b", re.I)
 HAPPENED = re.compile(r"\b(happen\w*|going on|changed|new)\b", re.I)
 ALERT_RECIPES = {"alerts", "open_alerts", "critical_alerts", "alerts_unacknowledged"}
+# The health recipe picked for a question its sibling answers: (picked, words, run instead).
+SIBLINGS = [
+    ("collector_health", re.compile(r"\b(keep(ing)? up|overload\w*|(falling|fallen|fell|gets?) behind|"
+                                    r"drop(ping|s|ped)? data|backlog\w*|queue\w*)\b", re.I), "collector_keeping_up"),
+    ("device_health", re.compile(r"\b(collecting|no data|missing data|returning nothing)\b", re.I),
+     "device_collecting"),
+]
 # The question's own time window, as the alerts recipe names it; first match wins.
 WINDOWS = [
     (r"\bsince\b", None),   # "since yesterday" is yesterday until now, not yesterday: the model's window stays
@@ -282,6 +289,12 @@ def from_question(question, args):
     args = dict(args)
     if sort_from(question):
         args["sort"] = sort_from(question)
+    for picked, words, instead in SIBLINGS:
+        if args.get("recipe") == picked and words.search(question):
+            # "is collector COLLECTOR keeping up?" ran collector_health on every ask on
+            # qwen3-vl-4b, and "has DEVICE stopped collecting data?" device_health on
+            # qwen3-8b (2026-11-07): the question's own words name the other recipe.
+            args["recipe"] = instead
     worse = WORSE.search(question)
     if worse and args.get("recipe") in ALERT_RECIPES:
         # "show me errors or worse" ran critical_alerts on two models, and a

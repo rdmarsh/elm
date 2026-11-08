@@ -366,8 +366,17 @@ def with_covers(answer, covered):
 
 
 # Sent back with an answer that looked nothing up (agent._ask).
-# An answer that starts with a recipe's name, alone or before a colon: a call typed as text.
-RECIPE_TEXT = re.compile(r"\s*[`*]*([a-z]+(?:_[a-z]+)+)[`*]*\s*(?::|$)")
+# A recipe's name anywhere in an answer that called nothing: a call typed as text
+# (snake_case, so not an English word).
+RECIPE_TEXT = re.compile(r"\b[a-z]+(?:_[a-z]+)+\b")
+
+def ran_recipes(conv):
+    """The recipes this conversation has run: a follow-up citing one ("how sure are
+    you?" answered from open_alerts' earlier result) is not one it forgot to call."""
+    return {(openai_api.block(b, "input") or {}).get("recipe")
+            for m in conv.messages if m["role"] == "assistant" and isinstance(m["content"], list)
+            for b in m["content"] if openai_api.block(b, "type") == "tool_use"}
+
 
 LOOK_IT_UP = ("You answered without looking anything up, so nothing in that answer came from "
               "the portal. If the question is about this portal's devices, groups, collectors, "
@@ -667,15 +676,18 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         if not tool_uses:
             # The model's own words, before Samara tidies them: for the bug report (index.html).
             emit({"type": "draft", "text": "\n\n".join(texts)})
-            named = RECIPE_TEXT.match("\n".join(texts))
-            if named and named[1] in recipes.RECIPES and not used - LOOKUP_TOOLS and "named" not in sent_back:
-                # A recipe's name typed as the answer, not called: "critical_alerts", and
+            named = next((n for n in RECIPE_TEXT.findall("\n".join(texts)) if n in recipes.RECIPES), None)
+            if (named and not used - LOOKUP_TOOLS and "named" not in sent_back and question != DETAIL_REQUEST
+                    and named not in ran_recipes(conv)):
+                # A recipe named in the answer, not called: "critical_alerts", and
                 # "open_alerts: 148 alerts are open" with nothing run (qwen3-4b-instruct-2507,
-                # 2026-11-05, 5 of its 8 confidently wrong). Samara runs that recipe for it.
+                # 2026-11-05, 5 of its 8 confidently wrong); "I ran the recipe open_alerts:
+                # 13 are open" in prose, 526 were (the same model, 2026-11-07). Samara runs
+                # the first one named for it.
                 sent_back["named"] = len(conv.messages) - 1
-                call = {"recipe": named[1]}
+                call = recipes.from_question(question, {"recipe": named})
                 for h in routed["found"]:
-                    if h["kind"] in recipes.RECIPES[named[1]].get("params", []):
+                    if h["kind"] in recipes.RECIPES[call["recipe"]].get("params", []):
                         call[h["kind"]] = h["name"]
                 inject = {"type": "tool_use", "id": "samara-named", "name": "recipe", "input": call}
                 conv.messages.append({"role": "user", "content": "Samara ran it: answer from this."})
