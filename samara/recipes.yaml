@@ -1280,7 +1280,7 @@
     + (if ($d | length) == 0 then " No downtime in effect or to come was set by them or names them."
        else " \($d | length | n("downtime")) set by them or naming them: \($d | map(select(.isEffective)) | length) in effect now." end)
   table:
-    title: What {person[name]} is on
+    title: What {person[name]} is working on
     columns: ["On", What, When, Note]   # quoted: YAML reads a bare On as true
     rows: |
       ($person[0].name | ascii_downcase) as $k
