@@ -790,6 +790,10 @@ what was wrong (Wrong facts, Not what I asked, Right but incomplete), and Send
 waits until one is picked. Both have a box for anything else and "Include the
 answer", ticked. Nothing is sent until the reader presses Send (or
 cmd/ctrl-Enter; Esc cancels): rating an answer is how they share it.
+Under an answer that refuses the question as not about the portal, a line
+asks "Was it about your portal? Tell OWNER what you were after": it opens
+the same panel at "Not what I asked", with a box for what they wanted. Those
+are the questions nobody foresaw, and the log is where new recipes come from.
 `SAMARA_LOG=0 samara/run.sh` turns ratings off.
 
 Under the box, next to "Show me some ideas", **What can Samara answer?**
