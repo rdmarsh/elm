@@ -7,6 +7,7 @@
 # --- One device -------------------------------------------------------------
 
 - name: device_health
+  topic: Devices
   asks: ["is DEVICE okay?", "what's wrong with DEVICE?", "what alerts are open on DEVICE?", "how many open alerts does DEVICE have, by severity?", "what's the latest alert on DEVICE?", "is DEVICE down and since when?", "why didn't DEVICE alert?"]
   covers: "one device now: up or down, its open alerts, downtime and collector"
   params: [device]
@@ -68,6 +69,7 @@
         Acknowledged: ack})
 
 - name: device_downtime
+  topic: Devices
   asks: ["is any downtime scheduled for DEVICE?", "is DEVICE in maintenance?", "when is DEVICE's next SDT?"]
   covers: "one device's downtime, now and scheduled"
   params: [device]
@@ -100,6 +102,7 @@
         "In effect now": (if .isEffective then "yes" else "no" end)})
 
 - name: device_collector
+  topic: Devices
   asks: ["which collector monitors DEVICE?", "is DEVICE's collector okay?"]
   covers: "which collector monitors one device, and whether it is up"
   params: [device]
@@ -123,6 +126,7 @@
       + "." end
 
 - name: device_properties
+  topic: Devices
   asks: ["what properties does DEVICE have?", "what custom properties does DEVICE have?", "what OS is DEVICE running?", "what is DEVICE's property X?"]
   covers: "how many properties one device has, and its OS (the values are in the table)"
   params: [device]
@@ -165,6 +169,7 @@
       | map(.[1] as $on | $p[.[0]] | sort_by(.name) | map({Property: .name, Value: .value, "Set on": $on})) | add
 
 - name: device_memory
+  topic: Devices
   asks: ["how much memory is DEVICE using?", "is DEVICE short of memory?", "what's DEVICE's memory usage?"]
   covers: "one device's memory use over the last hour"
   params: [device]
@@ -226,6 +231,7 @@
           and ((.Check | test("(?i)mem")) or (.Datapoint | test("(?i)mem")))))
 
 - name: device_collecting
+  topic: Devices
   asks: ["is DEVICE collecting everything?", "has DEVICE stopped collecting data?", "is DEVICE still collecting?", "has anything on DEVICE stopped collecting?", "is DEVICE returning No Data anywhere?", "which checks on DEVICE have no data?", "is DEVICE missing data?"]
   covers: "whether every check (DataSource) on one device is collecting now, and which are not"
   params: [device]
@@ -337,6 +343,7 @@
       | sort_by(.Problem, .DataSource, .Instance)
 
 - name: find_device
+  topic: Devices
   asks: ["is DEVICE monitored?", "do we monitor DEVICE?", "find DEVICE", "which device has IP or hostname X?"]
   covers: "whether a device is monitored, and whether it is up"
   params: [device]
@@ -356,6 +363,7 @@
 # --- Whole portal -------------------------------------------------------------
 
 - name: portal_health
+  topic: Everything at once
   asks: ["give me a health summary", "how is everything this morning?", "what needs attention first?", "is everything okay?"]
   covers: "the whole portal now: collectors down, devices down, open alerts"
   steps:
@@ -413,6 +421,7 @@
          {Area: "Alerts unacknowledged for over a day", Count: ($al | map(select((.acked | not) and (.sdted | not) and .startEpoch < now - 86400)) | length), Detail: ""}]
 
 - name: devices_down
+  topic: Devices
   asks: ["which devices are down?", "what's offline?", "what's not responding?", "how many devices are dead, and since when?"]
   covers: "devices down now, across the portal"
   steps:
@@ -455,6 +464,7 @@
              Collector: .collectorDescription})
 
 - name: collectors_down
+  topic: Collectors
   asks: ["which collectors are down?", "are all our collectors up?", "how long have the collectors been down?"]
   covers: "collectors down now"
   steps:
@@ -483,6 +493,7 @@
              "Last heard from": (.watchdogUpdatedOn | at), "In downtime": (if .inSDT then "yes" else "no" end)})
 
 - name: collectors_out_of_date
+  topic: Collectors
   asks: ["which collectors are out of date?", "which collectors need upgrading?", "what versions are our collectors on?"]
   covers: "collector versions now, against the newest release"
   steps:
@@ -518,6 +529,7 @@
       | map({Collector: .description, Version: (.build | ver), Group: .collectorGroupName, Devices: .numberOfHosts})
 
 - name: collectors_no_failover
+  topic: Collectors
   asks: ["which collectors have no failover?", "where are our single points of failure?", "which collectors have no backup?"]
   covers: "collectors with no failover collector"
   steps:
@@ -547,6 +559,7 @@
              Failover: (if .backupAgentId == 0 then "none" else "\($by[.backupAgentId | tostring].description // .backupAgentId) (down)" end)})
 
 - name: dead_devices_by_collector
+  topic: Collectors
   asks: ["is any collector carrying a lot of dead devices?", "which collectors have the most devices down?"]
   covers: "devices down now, counted by collector"
   steps:
@@ -585,6 +598,7 @@
       | sort_by(-."Not responding")
 
 - name: open_alerts
+  topic: Alerts
   asks: ["how many alerts are open?", "how many errors are there?", "how many alerts right now?"]
   covers: "open alerts now, across the portal, by severity"
   steps:
@@ -605,6 +619,7 @@
         Acknowledged: (map(select(.acked)) | length), "In downtime": (map(select(.sdted)) | length)})
 
 - name: critical_alerts
+  topic: Alerts
   asks: ["what critical alerts are open?", "show me the critical alerts"]
   covers: "open critical alerts now, across the portal"
   steps:
@@ -628,6 +643,7 @@
         Started: (.startEpoch | at), Acknowledged: ack})
 
 - name: alerts
+  topic: Alerts
   asks: ["how many alerts started yesterday?", "what alerts cleared in the last hour?", "what started in the last hour?",
          "are any alerts still open that started during SDT?", "which warnings started this week?",
          "how many Host Status alerts cleared today?", "what alerts started today?"]
@@ -708,6 +724,7 @@
         Acknowledged: ack, "In downtime": (if .sdted then "yes" else "no" end)})
 
 - name: top_alert_devices
+  topic: Alerts
   asks: ["which device has the most open alerts?", "what are the noisiest devices?"]
   covers: "devices with the most open alerts now, across the portal"
   steps:
@@ -732,6 +749,7 @@
         Warning: (map(select(.severity == 2)) | length)}) | sort_by(-."Open alerts") | .[:10]
 
 - name: alerts_unacknowledged
+  topic: Alerts
   asks: ["which alerts have been open more than a day with no ack?", "what alerts is nobody looking at?", "what's the oldest open alert?"]
   covers: "open alerts older than a day that nobody has acknowledged and no downtime covers"
   steps:
@@ -754,6 +772,7 @@
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Started: (.startEpoch | at)})
 
 - name: alert_types
+  topic: Alerts
   asks: ["what are the most common alerts?", "are there common issues across one type of device?", "what kind of problems do we have?", "is one problem hitting lots of devices?"]
   covers: "open alerts now, grouped by what is alerting"
   steps:
@@ -781,6 +800,7 @@
       | sort_by(-.Devices, -.Alerts)
 
 - name: certificates_expiring
+  topic: Common problems
   asks: ["which SSL certificates are close to expiry?", "are any certificates expiring?"]
   covers: "open alerts on SSL certificates close to expiry"
   steps:
@@ -809,6 +829,7 @@
         "Days left": (.alertValue | tonumber? // . | if type == "number" then floor else . end), Since: (.startEpoch | at)})
 
 - name: disks_filling
+  topic: Common problems
   asks: ["what disks are about to fill up?", "which filesystems are nearly full?", "is anything running out of disk space?"]
   covers: "open alerts on disks past their space threshold"
   steps:
@@ -838,6 +859,7 @@
              Value: .alertValue, Since: (.startEpoch | at)})
 
 - name: clocks_out_of_sync
+  topic: Common problems
   asks: ["are any clocks out of sync?", "any NTP or time problems?"]
   covers: "open alerts on clocks out of sync"
   steps:
@@ -860,6 +882,7 @@
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Value: .alertValue, Since: (.startEpoch | at)})
 
 - name: new_alerts
+  topic: Alerts
   asks: ["is anything worse than yesterday?", "what's new since yesterday?", "what started alerting today?"]
   covers: "alerts that started in the last 24 hours (no comparison with earlier days)"
   steps:
@@ -885,6 +908,7 @@
              Started: (.startEpoch | at), Open: (if .cleared then "cleared" else "open" end)})
 
 - name: alerts_by_day
+  topic: Alerts
   asks: ["are we having a lot of alerts today?", "are there more alerts than usual?", "is today worse than usual?",
          "how many alerts a day do we get?", "show me alerts per day"]
   covers: "alerts started on each of the last 14 days, and today so far against the same hours of a usual day"
@@ -933,6 +957,7 @@
              Critical: ($x | map(select(.severity == 4)) | length), Error: ($x | map(select(.severity == 3)) | length),
              Warning: ($x | map(select(.severity == 2)) | length)})
 - name: noisiest_week
+  topic: Alerts
   asks: ["what's the noisiest alert or device this week?", "what alerted most in the last 7 days?", "what should we tune?"]
   covers: "alerts that started in the last 7 days, counted by device and kind"
   steps:
@@ -960,6 +985,7 @@
              Times: length, Worst: (max_by(.severity).severity | sev)}) | sort_by(-.Times) | .[:20]
 
 - name: long_downtime
+  topic: Downtime and alerting off
   asks: ["which downtimes have no end date or last more than a week?", "is anything in downtime too long?"]
   covers: "downtimes with no end or longer than a week"
   steps:
@@ -986,6 +1012,7 @@
         Days: ((.endDateTime - .startDateTime) / 86400000 | floor), "In effect now": (if .isEffective then "yes" else "no" end)})
 
 - name: alerting_disabled
+  topic: Downtime and alerting off
   asks: ["what devices have alerting disabled?", "which devices won't alert?"]
   covers: "devices with alerting turned off, by themselves or a group"
   steps:
@@ -1010,6 +1037,7 @@
       | map({Device: .displayName, "Disabled by": (.alertDisableStatus | disabled_by | join(", "))})
 
 - name: downtime
+  topic: Downtime and alerting off
   asks: ["what's in scheduled downtime now?", "what downtime is scheduled this week?", "what's in maintenance?",
          "is any work planned this weekend?", "is there a maintenance window coming up?",
          "which SDTs start in the next 3 days?"]
@@ -1040,6 +1068,7 @@
         "In effect now": (if .isEffective then "yes" else "no" end)})
 
 - name: websites_failing
+  topic: Websites
   asks: ["which website checks are failing?", "are any websites down?"]
   covers: "website checks with open alerts now"
   steps:
@@ -1068,6 +1097,7 @@
       | sort_by(-.s, .Website)
 
 - name: device_counts
+  topic: Devices
   asks: ["how many devices do we monitor?", "how many devices are there?"]
   covers: "how many objects are monitored, by kind and how many are down"
   steps:
@@ -1101,6 +1131,7 @@
 # --- One group ----------------------------------------------------------------
 
 - name: root_groups
+  topic: Groups and customers
   # A model asked "Show me all the root groups in the portal" found no recipe
   # and ran portal_health (qwen3-vl-4b, 2026-11-05).
   asks: ["show me the root groups", "what are the top-level groups?", "list the groups at the top of the portal", "what groups are there?", "show me the root device groups"]
@@ -1124,6 +1155,7 @@
       $groups | sort_by(.name | ascii_downcase) | map({Group: .name, Devices: .numOfHosts, Subgroups: .numOfDirectSubGroups, Id: .id})
 
 - name: group_health
+  topic: Groups and customers
   asks: ["how is GROUP doing?", "which devices in GROUP are down?", "any problems in GROUP?"]
   covers: "one group now: its devices, how many are down, its open alerts"
   params: [group]
@@ -1166,6 +1198,7 @@
       | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Status: (.hostStatus | state)})
 
 - name: group_dashboards_reports
+  topic: Groups and customers
   asks: ["what dashboards does GROUP have?", "what reports does GROUP get?", "what dashboards or reports does GROUP have?"]
   covers: "the dashboards and reports for one group or customer, matched by name, folder or tenant"
   params: [group]
@@ -1215,6 +1248,7 @@
 # --- One person -----------------------------------------------------------------
 
 - name: working_on
+  topic: People
   asks: ["what's PERSON working on?", "what has PERSON acknowledged?", "is PERSON looking at anything?",
          "did PERSON put anything in downtime?"]
   covers: "open alerts one person acknowledged, and downtime they set, or with their name in the note"
@@ -1266,6 +1300,7 @@
 # --- One collector -------------------------------------------------------------
 
 - name: collector_health
+  topic: Collectors
   asks: ["is COLLECTOR healthy?", "is the COLLECTOR host itself okay?", "are there common issues on COLLECTOR?", "which devices on COLLECTOR are down?"]
   covers: "one collector now: up or down, its devices and their alerts"
   params: [collector]
@@ -1317,6 +1352,7 @@
       | sort_by(-.Devices, -.Alerts)
 
 - name: collector_keeping_up
+  topic: Collectors
   asks: ["is COLLECTOR keeping up?", "is COLLECTOR overloaded?", "is COLLECTOR falling behind?", "is COLLECTOR dropping data?"]
   covers: "whether one collector kept up with its work in the last hour"
   params: [collector]

@@ -20,6 +20,7 @@ import anthropic
 import agent
 import elm_tools
 import openai_api
+import recipes
 
 HOST = elm_tools.setting("HOST", "127.0.0.1")
 PORT = int(elm_tools.setting("PORT", "8080"))
@@ -93,6 +94,9 @@ def health():
         "build": os.environ.get("SAMARA_BUILD") or None,   # git describe at docker build
         "log": bool(LOG_DIR),   # whether the page may offer to save questions
         "owner": os.environ.get("SAMARA_OWNER", "").strip()[:80] or None,   # who ratings go to (run.sh)
+        # How to reach them, for the guide: an email address or a link (run.sh)
+        "contact": os.environ.get("SAMARA_CONTACT", "").strip()[:200] or None,
+        "guide": recipes.guide(),
     }
 
 

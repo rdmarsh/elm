@@ -51,7 +51,8 @@
 # Readers' ratings of answers (and the answer, if they include it) are kept in
 # $XDG_STATE_HOME/samara/ on this machine; SAMARA_LOG=0 turns that off
 # (README: Real questions). The page says they go to you, by your full name;
-# SAMARA_OWNER="NOC team" names someone else.
+# SAMARA_OWNER="NOC team" names someone else. SAMARA_CONTACT (an email
+# address or a link) adds how to reach them to the page's guide.
 #
 # Examples:
 #   run.sh                                   # prompts, then starts
@@ -287,6 +288,9 @@ if ! [[ ${SAMARA_LOG:-1} =~ ^(0|false|no|off)$ ]]; then
     owner=${SAMARA_OWNER:-$(id -F 2>/dev/null || getent passwd "$USER" 2>/dev/null | cut -d: -f5 | cut -d, -f1)}
     cmd+=(-e "SAMARA_OWNER=${owner:-$USER}")
 fi
+# How to reach whoever runs this Samara, shown at the end of the page's guide:
+# an email address or a link (SAMARA_CONTACT=noc@example.com).
+[[ -n "${SAMARA_CONTACT:-}" ]] && cmd+=(-e SAMARA_CONTACT)
 # The host's timezone, so the question log's times match the page's. Readers'
 # answers use their own browser's zone either way.
 tz=${TZ:-$(readlink /etc/localtime 2>/dev/null | sed -n 's|.*/zoneinfo/||p')}

@@ -758,6 +758,13 @@ answer", ticked. Nothing is sent until the reader presses Send (or
 cmd/ctrl-Enter; Esc cancels): rating an answer is how they share it.
 `SAMARA_LOG=0 samara/run.sh` turns ratings off.
 
+Under the box, next to "Show me some ideas", **What can Samara answer?**
+opens a guide: every built-in check's first question (its first `asks` in
+`recipes.yaml`), under the recipe's `topic`, what Samara cannot do, and who to
+tell. A recipe with no `topic` stays out of it. Set `SAMARA_CONTACT` (an email
+address or a link: `SAMARA_CONTACT=noc@example.com samara/run.sh`) to add how
+to reach the owner.
+
 The panel names who the rating goes to: `SAMARA_OWNER` if it is set
 (`SAMARA_OWNER="NOC team" samara/run.sh`), else the full name of whoever
 started run.sh (`id -F` on macOS, the passwd GECOS field on Linux), else

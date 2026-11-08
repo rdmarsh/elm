@@ -11,6 +11,8 @@ elm (see samara/questions.md); the model running Samara cannot change them.
 
 recipes.yaml, one entry per recipe:
   name, asks    the recipe's name and the questions it answers
+  topic         its heading in the page's "What can Samara answer?" guide,
+                one of TOPICS, which lists its first ask; none keeps it out
   covers        what it answers, in a few words, shown under the answer: a
                 near-miss recipe answering a different question ("this week"
                 answered as "now") then says so
@@ -59,6 +61,19 @@ for _r in RECIPES.values():   # a chart names its table's columns: a typo fails 
                     and not set(_c["slices"]) - _cols)):
             raise ValueError(f"{_r['name']}: a chart is bar or line with x and y, or donut with row "
                              f"(first or last) and slices, all from the table's columns")
+# The guide's headings, in the order the page shows them.
+TOPICS = ["Everything at once", "Devices", "Alerts", "Common problems", "Collectors", "Groups and customers",
+          "Downtime and alerting off", "Websites", "People"]
+for _r in RECIPES.values():
+    if _r.get("topic") not in TOPICS + [None]:
+        raise ValueError(f"{_r['name']}: topic is one of {', '.join(TOPICS)}, or none")
+
+
+def guide():
+    """The page's "What can Samara answer?": each topic with its recipes' first asks."""
+    return [{"topic": t, "asks": [r["asks"][0] for r in RECIPES.values() if r.get("topic") == t]} for t in TOPICS]
+
+
 MAX_PAGES = 10   # LM stops paging at 10,000 rows
 MAX_EACH = 10    # an `each` step's queries, one per item
 MOST_EACH = 150  # a step's own `most` (one per DataSource on a device) stops here

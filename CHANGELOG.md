@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Samara's page has **What can Samara answer?** next to "Show me some ideas": a guide listing every built-in check's question under a heading (Devices, Alerts, Collectors, Groups and customers ...), what Samara cannot do, and who to tell when an answer is wrong. It is built from `recipes.yaml` (each recipe's new `topic` and first `asks`), so a new recipe appears in it by itself. A question naming a device, group, collector or person goes in the box with that word selected to type over. `SAMARA_CONTACT` (an email address or a link) adds how to reach whoever runs it.
+
 ### Fixed
 
 - Samara's portal health summary starts its alerts line with the total open ("522 open; 199 of them besides devices down, ..."), and its table has an "Open alerts in all" row. It counted only the alerts besides devices down, so "how many alerts are open?" answered from it said 204 where 527 were open.
