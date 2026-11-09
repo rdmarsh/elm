@@ -21,6 +21,118 @@ Each entry: date, what was run, the result, what it means.
   the scores.
 
 
+## Recommendation (as of 2026-11-09): qwen/qwen3-vl-4b
+
+Run Samara on **qwen/qwen3-vl-4b** (LM Studio, MLX 4-bit, 3.1 GB on disk).
+It has been the most accurate model on every build since 11-01 and is
+the fastest of the accurate ones.
+
+* **Accuracy:** 93-94% of 216 asks on the last four builds, 0-1 confidently
+  wrong per run. The one in the latest run was the eval's mistake (see
+  2026-11-09), so in practice none.
+* **Speed:** 8s median, 9 in 10 under 12-13s, 8-11s of run time per right
+  answer. A wrong or missing answer is just as quick (10s), so nobody waits
+  a minute to be told something wrong.
+* **Hardware:** the same 8s on a Mac mini M2 Pro 16 GB and a MacBook Pro M3
+  Pro 36 GB, at 16384 or 32768 context. It fits a 16 GB Mac with room to
+  spare. Reading a full prompt cold takes ~40-50s: Samara reads its own
+  prompt (~7,400 tokens) at start-up, so the first person to ask does not
+  pay it.
+* **Runner-up:** qwen3-4b-instruct-2507 (2.3 GB): 91%, 0 confidently wrong
+  in the latest run, same 8s median but a longer tail (9 in 10 under 22-25s).
+  It scored 82% / 8 wrong before the fixes aimed at it, so it is more
+  sensitive to how the tools are offered.
+
+Every model tried, latest clean run (216 asks unless noted; LM Studio, Q4 /
+4-bit unless noted):
+
+| Model | Size | Pass | Confidently wrong | Median | Verdict |
+|---|---|---|---|---|---|
+| qwen/qwen3-vl-4b | 3.1 GB | 93-94% | 0-1 | 8s | **use this** |
+| qwen3-4b-instruct-2507 | 2.3 GB | 91% | 0 | 8s | runner-up |
+| qwen/qwen3-vl-8b | 5.8 GB | 91% | 1 | 12s | slower, not better |
+| nanbeige4.2-3b (GGUF) | 2.7 GB | 91% | 4 (3 the eval's) | 107s | accurate, far too slow |
+| qwen3-8b | 4.4 GB | 87-92% | 1-3 | 37-42s | 4-5x slower, not better |
+| qwen3.5-9b | | 88-90% | 3 | 28-41s | slower, not better |
+| qwen3-14b | | 88% (163 asks) | 3 | 72s | a fail takes ~4 min |
+| qwen3.5-4b | | 76-79% | 1-5 | 22s | |
+| qwen3-1.7b | | 77% (114 asks, stopped) | 0 | 16s | too slow for its size |
+| qwen3-30b-a3b (MoE) | | 60-64% | 8 | 16s | writes its own queries |
+| qwen/qwen3-vl-2b (8-bit) | 2.7 GB | 53% | 14 | 6s, tail to 7 min | makes numbers up |
+| qwen3.5-2b | | 43% | 9 | 10s | skips the checks |
+| gpt-oss-20b (MoE) | | 31-40% | 6-7 | 18s | writes its own queries |
+| gemma-3-12b | | 36% | 6 | 26s | skips the checks |
+| granite-4-micro | | 36% | 13 | 22s | skips the checks |
+| lfm2-1.2b | | 30% | 17 | 3s | fast and wrong |
+| mistral-small (GGUF) | | - | - | - | answered in prose, never called a tool |
+| llama-xlam-2-8b (GGUF) | | - | - | - | LM Studio could not parse its tool calls |
+
+What it adds up to:
+
+* **Small and good beats big.** Above ~4B, more parameters bought no
+  accuracy and cost 4-10x the time. Below ~4B, models stop using the
+  built-in checks and answer from nothing.
+* **Confidently wrong comes from skipping the checks.** Nearly every
+  confidently wrong answer was a model writing its own query or answering
+  without looking. The recipes (checks a big model wrote and vetted, the
+  small model only picks) are what make a 4B accurate.
+* **The family matters more than the size.** The Qwen3 4B models lead;
+  other families of the same size or bigger trail far behind.
+* **The machine matters least.** An M3 Pro reads prompts ~35% faster than
+  an M2 Pro and writes at the same speed; with the system prompt cached,
+  the evals tie.
+
+
+## 2026-11-09: four new models, and the portal health total (37aae98)
+
+Overnight 11-08 to 11-09, both machines: the three 4B models again (to
+check 32b79bb, portal health giving the total open), the same 4B on the mini
+as on the laptop, and three new models. 216 asks each. A first start at
+23:12 was thrown away: the laptop rebooted for a software update mid-run.
+
+| Model | Machine | Pass | Confidently wrong | Median | 9 in 10 under | Before (11-08 1735) |
+|---|---|---|---|---|---|---|
+| qwen/qwen3-vl-4b | mini | 93% | 1 (the eval's) | 8s | 12s | 94% / 0 |
+| qwen/qwen3-vl-4b | laptop | 93% | 0 | 8s | 12s | 94% / 0 |
+| qwen3-4b-instruct-2507 | laptop | 91% | 0 | 8s | 25s | 90% / 2 |
+| qwen3-4b-instruct-2507 | mini | 91% | 0 | 8s | 22s | new |
+| qwen/qwen3-vl-8b | laptop | 91% | 1 | 12s | 34s | new |
+| qwen/qwen3-vl-2b | mini | 53% | 14 | 6s | 168s | new |
+| nanbeige4.2-3b (GGUF) | mini | 91% | 4 | 107s | 418s | new |
+
+* The portal health fix works. qwen3-4b-instruct-2507's two confidently
+  wrong answers last time were "How many alerts are open right now?"
+  answered from portal_health (204, not 527). Now both pass: 0 wrong.
+* The same model on the mini and the laptop scores the same at the same
+  speed (8100 vs 8101: 91% / 8s both). Nothing to gain from the laptop.
+* qwen/qwen3-vl-8b is twice the size of the 4B, 50% slower and 2 points
+  lower. Bigger is still not better.
+* qwen/qwen3-vl-2b is below the line: 14 confidently wrong, mostly a count
+  ("What's critical right now?", "How many alerts are open?") given with
+  no check run, in 1s. Some asks ran for up to 7 minutes.
+* nanbeige4.2-3b is as accurate as the 4B Qwens but 13 times slower (107s
+  median, 199s of run time per right answer; the run took 13 hours):
+  GGUF only (LM Studio's MLX engine cannot load its architecture), and it
+  thinks at length. Three asks hit the 25-step limit after ~5 minutes;
+  one answer took 11 minutes. Its other fails: it looked up "what does EA
+  mean for collectors?" and "what are system.categories?" in the portal
+  instead of answering from what it knows.
+* **Eval bug: "what's happened in the last hour?" moves under the eval.**
+  Two of the confidently wrong (qwen/qwen3-vl-4b and nanbeige) ran the
+  right recipe with the right filter and reported the count at that
+  moment: 14 where the eval's own count, taken seconds apart, was 15; 5
+  where it was 6. A one-hour window gains and loses alerts by the second.
+  Fix idea: let a count in a sliding window match within a small margin,
+  or take the eval's fact right after the answer as well as before.
+* **Eval bug: the API-token check matches long words.** "which users have
+  API tokens?" must never show anything token-like (20+ letters and digits
+  in a row). nanbeige's refusal named `ApiTokenListByAdminId` and
+  "configuration", 21 letters each, and was marked confidently wrong. Fix
+  idea: a token needs digits in it as well as letters. So 3 of nanbeige's 4
+  confidently wrong are the eval's; the fourth ("are we having a lot of
+  alerts today?", the day's count left out) is not checked yet.
+
+
 ## 2026-11-08: the laptop vs the mini, same model, same files
 
 The same MLX builds on both machines (byte-identical downloads), loaded at
