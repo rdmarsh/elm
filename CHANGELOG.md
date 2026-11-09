@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Samara's "what's PERSON working on?" also lists open alerts nobody acknowledged whose note names them ("joe is looking at this"), marked "a note only". A note on an alert does not acknowledge it, and LogicMonitor keeps no record of who wrote it, so only a name in the text counts. The note replaces the acknowledgement comment.
 - The code of conduct is Contributor Covenant 3.0 (was 2.1): reports go to the issues page or by email, as before.
 
 ### Fixed
