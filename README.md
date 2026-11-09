@@ -10,7 +10,7 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/rdmarsh/elm)
 ![GitHub](https://img.shields.io/github/license/rdmarsh/elm)
 ![OSS Lifecycle](https://img.shields.io/osslifecycle/rdmarsh/elm)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-3.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 > A cli tool for extracting LogicMonitor data via the API
 

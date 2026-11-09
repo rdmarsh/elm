@@ -1,6 +1,6 @@
 # Contributing
 
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-3.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 We welcome contributions! To contribute, please fork the repository and
 create a feature branch for your changes. Pull requests are encouraged.

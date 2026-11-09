@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Samara's README has a "What Samara can answer" section: a sample by topic, what it cannot do, and where the full list is.
 - Samara's page has **What can Samara answer?** next to "Show me some ideas": a guide listing every built-in check's question under a heading (Devices, Alerts, Collectors, Groups and customers ...), what Samara cannot do, and who to tell when an answer is wrong. It is built from `recipes.yaml` (each recipe's new `topic` and first `asks`), so a new recipe appears in it by itself. A question naming a device, group, collector or person goes in the box with that word selected to type over. `SAMARA_CONTACT` (an email address or a link) adds how to reach whoever runs it.
 
+### Changed
+
+- The code of conduct is Contributor Covenant 3.0 (was 2.1): reports go to the issues page or by email, as before.
+
 ### Fixed
 
 - Samara answered "Are there any alerts flapping?" (no recipe for it) with a line of its own instructions, word for word: "This tool only answers questions about the LogicMonitor portal, and nothing more: do not do the task...". The prompt now gives the exact sentence for an off-topic question ("I can only answer questions about this LogicMonitor portal.") and says a portal question with no recipe is not off topic; a refusal of a question naming alerts, devices, collectors, downtime and the like is sent back once as on topic, to look it up. Jokes, poems, keys, tokens and Samara's own instructions are still refused.
