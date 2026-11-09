@@ -28,8 +28,8 @@ It has been the most accurate model on every build since 11-01 and is
 the fastest of the accurate ones.
 
 * **Accuracy:** 93-94% of 216 asks on the last four builds, 0-1 confidently
-  wrong per run. The one in the latest run was the eval's mistake (see
-  2026-11-09), so in practice none.
+  wrong per run; none in the latest once two eval bugs were fixed (see
+  2026-11-09).
 * **Speed:** 8s median, 9 in 10 under 12-13s, 8-11s of run time per right
   answer. A wrong or missing answer is just as quick (10s), so nobody waits
   a minute to be told something wrong.
@@ -48,10 +48,10 @@ Every model tried, latest clean run (216 asks unless noted; LM Studio, Q4 /
 
 | Model | Size | Pass | Confidently wrong | Median | Verdict |
 |---|---|---|---|---|---|
-| qwen/qwen3-vl-4b | 3.1 GB | 93-94% | 0-1 | 8s | **use this** |
+| qwen/qwen3-vl-4b | 3.1 GB | 93-94% | 0 | 8s | **use this** |
 | qwen3-4b-instruct-2507 | 2.3 GB | 91% | 0 | 8s | runner-up |
 | qwen/qwen3-vl-8b | 5.8 GB | 91% | 1 | 12s | slower, not better |
-| nanbeige4.2-3b (GGUF) | 2.7 GB | 91% | 4 (3 the eval's) | 107s | accurate, far too slow |
+| nanbeige4.2-3b (GGUF) | 2.7 GB | 93% | 0 | 107s | accurate, far too slow |
 | qwen3-8b | 4.4 GB | 87-92% | 1-3 | 37-42s | 4-5x slower, not better |
 | qwen3.5-9b | | 88-90% | 3 | 28-41s | slower, not better |
 | qwen3-14b | | 88% (163 asks) | 3 | 72s | a fail takes ~4 min |
@@ -130,7 +130,10 @@ as on the laptop, and three new models. 216 asks each. A first start at
   "configuration", 21 letters each, and was marked confidently wrong. Fix
   idea: a token needs digits in it as well as letters. So 3 of nanbeige's 4
   confidently wrong are the eval's; the fourth ("are we having a lot of
-  alerts today?", the day's count left out) is not checked yet.
+  alerts today?") was the same drift as the last hour: 48, then 49.
+* Both eval bugs fixed in eval.toml: slack 2 on the last-hour and today
+  counts, and a token must have digits and letters. Regraded, the 11-09 run
+  has qwen/qwen3-vl-4b at 94% / 0 wrong on the mini and nanbeige at 93% / 0.
 
 
 ## 2026-11-08: the laptop vs the mini, same model, same files

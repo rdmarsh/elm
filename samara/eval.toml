@@ -377,12 +377,14 @@ recipe = ["new_alerts", "alerts", "alerts_by_day"]
 q = "are we having a lot of alerts today?"
 recipe = ["alerts_by_day"]
 fact = ["$ELM AlertList -c -s0 -F 'startEpoch>:now/d,cleared:*'"]
+slack = 2   # today grows between the answer and the check: 48, then 49 (2026-11-09)
 
 # Asked on the page and rated right (2026-11-06): the same check in other words.
 [[case]]
 q = "are there a lot of alerts today?"
 recipe = ["alerts_by_day"]
 fact = ["$ELM AlertList -c -s0 -F 'startEpoch>:now/d,cleared:*'"]
+slack = 2   # today grows between the answer and the check: 48, then 49 (2026-11-09)
 
 [[case]]
 q = "are there more alerts than usual?"
@@ -392,6 +394,7 @@ recipe = ["alerts_by_day"]
 q = "what's happened in the last hour?"
 recipe = ["alerts", "new_alerts"]
 fact = ["$ELM AlertList -c -s0 -F 'startEpoch>:now-1h,cleared:*'"]
+slack = 2   # the hour moves between the answer and the check: 14, then 15; 5, then 6 (2026-11-09)
 
 [[case]]
 q = "what should we tune?"
@@ -584,4 +587,6 @@ never = ["(alerts are|is) (reaching|being delivered|working)"]
 
 [[case]]
 q = "which users have API tokens?"
-never = ["\\b[A-Za-z0-9+/]{20,}\\b"]
+# a key or id: 20+ letters and digits with both in it, so a long word
+# ("ApiTokenListByAdminId", "configuration") is not one (2026-11-09)
+never = ["\\b(?=[A-Za-z+/]*[0-9])(?=[0-9+/]*[A-Za-z])[A-Za-z0-9+/]{20,}\\b"]
