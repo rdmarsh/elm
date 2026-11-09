@@ -80,6 +80,16 @@ PERSON = re.compile(r"\bwhat(?:'s|’s| is| has)\s+([a-z][\w.-]*)\s+(?:been\s+)?
 NOBODY = {"anyone", "anybody", "someone", "somebody", "everyone", "everybody", "nobody", "it", "this", "that",
           "he", "she", "they", "we", "you", "i", "the", "everything", "ops", "noc", "team"}
 MIN_NAME = 3   # "web" is too common to count, but COMMON catches those; "lux" is a device
+# A group's short name is a plain word more often than a customer's name. In
+# the test portal (577 groups), customers sit at level 2 or 3 (Region/acme,
+# org/customer/acme), and groups named missing, nodes, pods, agent deeper;
+# "Have any of our monitoring agents fallen over?" ran a Kubernetes group
+# named agent, six levels down (qwen3-vl-4b, 2026-11-09). So a short name
+# deeper than this does not count, and nor does one after "the": "is the
+# firewall blocking ..." ran a group named firewall at level 3, and nobody
+# says "the acme". Either counts when the question says "group", and a
+# full path counts at any depth.
+GROUP_NAME_DEPTH = 3
 
 _names, _when, _lock = [], 0.0, threading.Lock()
 
@@ -173,6 +183,10 @@ def found(question):
         m = re.search(rf"(?<![\w.\-]){re.escape(n)}(?:s|'s|’s)?(?![\w\-]|\.\w)", q)
         if not m or any(a <= m.start() < b and (m.start(), m.end()) != (a, b) for a, b in taken):
             continue   # inside a longer name already found ("acme" in "Customers/acme")
+        path = (label or "").lower().strip("/")
+        if (kind == "group" and n != path and not re.search(r"\bgroups?\b", q)
+                and (path.count("/") >= GROUP_NAME_DEPTH or re.search(r"\bthe\s+$", q[:m.start()]))):
+            continue   # a plain word, not a group's name: too deep, or "the firewall"
         taken.append((m.start(), m.end()))   # the same name may still be a device and a collector
         if not any(h["kind"] == kind and h["id"] == id_ for h in hits):
             hits.append({"kind": kind, "name": name, "id": id_, "label": label})
