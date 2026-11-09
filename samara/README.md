@@ -234,7 +234,7 @@ lms load qwen/qwen3-vl-4b --context-length 32768    # 16384 on a 16 GB Mac
 samara/run.sh --build -y -m qwen/qwen3-vl-4b --url http://host.docker.internal:1234/v1
 ```
 
-The browser opens <http://127.0.0.1:8080> once Samara answers (`--no-open`
+The browser opens `http://127.0.0.1:8080` once Samara answers (`--no-open`
 to skip), and Samara has the model read its prompt straight away, so the
 first question is as quick as the rest (both only when run.sh is started from
 a terminal: `models.sh` runs do neither). Load the model yourself first:
@@ -354,7 +354,7 @@ not found. Only that one profile is mounted, so the container never holds the
 rest of your credentials, and it drops the Linux capabilities elm has no use
 for.
 
-Then open <http://localhost:8080>.
+Then open `http://localhost:8080`.
 
 ### Choosing the profile
 
