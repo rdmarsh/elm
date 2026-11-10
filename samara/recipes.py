@@ -34,7 +34,10 @@ recipes.yaml, one entry per recipe:
                 list: the step runs once per item ({row[id]}, at most MAX_EACH,
                 or the step's `most`, up to MOST_EACH; `noun` names the items
                 for the "only part was checked" note) and every result row
-                carries its item as `of`
+                carries its item as `of`; `narrow` is a list of {filter, covers,
+                says} tried in turn while the step's own filter has over OVER
+                rows (too many to go through): the first under it is fetched,
+                and jq sees its covers as `narrowed.<as>` (null when not narrowed)
   summary       jq giving the answer's text
   table_only    the rows hold free text (properties): the model is not told
                 where they are, so planted text reaches only the reader
@@ -83,6 +86,7 @@ MAX_PAGES = 10   # LM stops paging at 10,000 rows
 MAX_EACH = 10    # an `each` step's queries, one per item
 MOST_EACH = 150  # a step's own `most` (one per DataSource on a device) stops here
 MAX_DAYS = 90    # how far ahead a `days` recipe may look
+OVER = 9000      # a `narrow` step with more rows than this fetches a narrower filter
 
 # Defined in front of every recipe expression. Times are the reader's (jq
 # runs in their timezone); SDT times are milliseconds, so divide first.
@@ -390,6 +394,8 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                     f"or, if none fits, run_elm."), []
     names, records, events = {}, {}, []   # names: step name -> dataset id
     cut, skipped = [], set()   # steps LM's 10,000-row limit cut short; steps whose `when` was false
+    narrowed = {}              # step name -> what its narrower filter covers
+    says_now = {}              # step name -> its says, when narrowed
     capped = []                # `each` steps that stopped at their limit
 
     def keep(name, lines, shown, what, command):
@@ -402,7 +408,8 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
         for name, ds_id in names.items():
             expression = re.sub(rf"\${name}\b", f"${ds_id}", expression)
         return (PRELUDE + (f"def days: {ahead};\n" if ahead else "")
-                + f"def which: {json.dumps(before + 'alert')}; def qual: {json.dumps(after)};\n" + expression)
+                + f"def which: {json.dumps(before + 'alert')}; def qual: {json.dumps(after)};\n"
+                + f"def narrowed: {json.dumps(narrowed)};\n" + expression)
 
     try:
         for param in r.get("params", []):
@@ -485,7 +492,26 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                     shown = one if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
                 keep(step["as"], lines, shown, step["as"], step["run"])
                 continue
-            kw = {"filter": step["filter"].format(**records, options=chosen) if "filter" in step else None,
+            wanted = step["filter"].format(**records, options=chosen) if "filter" in step else None
+            if "narrow" in step:
+                # 9,991 open alerts gave a summary of counts "possibly too low",
+                # from rows LM picked (2026-11-10). Over OVER is too many to go
+                # through anyway: one row at that offset says whether a filter
+                # is, in one request. A narrower filter still over is still
+                # fetched last, and cut short as any other.
+                for n in [None] + step["narrow"]:
+                    tried = n["filter"].format(**records, options=chosen) if n else wanted
+                    over, _, _, check = elm_tools.fetch(step["run"], filter=tried, fields=step.get("fields"),
+                                                        size=1, offset=OVER)
+                    events.append({"type": "step", "command": check,
+                                   "result": f"{'over' if over else 'under'} {OVER:,}"})
+                    if not over:
+                        break
+                if n:
+                    wanted = tried
+                    narrowed[step["as"]] = n["covers"]
+                    says_now[step["as"]] = n["says"]
+            kw = {"filter": wanted,
                   "fields": step.get("fields"),
                   "params": {k: str(v).format(**records) for k, v in step.get("params", {}).items()} or None}
             if step.get("size") == "all":
@@ -539,7 +565,8 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
         if table["total"]:
             events.append(table)
     worked = [f"Found the {p} by name." for p in r.get("params", [])]
-    says = [step.get("says", step["as"]).format(**fill) for step in r.get("steps", []) if step["as"] not in skipped]
+    says = [says_now.get(step["as"], step.get("says", step["as"])).format(**fill)
+            for step in r.get("steps", []) if step["as"] not in skipped]
     worked += [line[:1].upper() + line[1:] + "." for line in says]
     events.append({"type": "worked", "lines": worked, "summary": summary, "covers": covers})
     return text, events
