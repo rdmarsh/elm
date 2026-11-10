@@ -257,6 +257,10 @@ trusting a count (on the test portal, 0 open and 0 in the last 7 days had it).
   and `elm DashboardList -s0 -F 'name~"Service Health"' -f id,name`.
   - 2026-11-10 · recipe alone, no model · pass · 15 widgets on 15 dashboards, none by
     their own title; "Overview" found 27 by title and 4 by widget, 2 of them private.
+  - 2026-11-11 · qwen3-vl-4b · fail · "show me the widgets that have the title "Top
+    Cisco ASAs by Connections (Trend)"" ran find_group on Cisco ASA, a group name
+    inside the title. Fixed: quoted titles are not looked up as names, and become
+    find_dashboard's title. Titles with "(" found nothing until sent as "[(]".
 
 ## Off topic
 

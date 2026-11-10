@@ -228,6 +228,10 @@ _global:
       (-F 'name~foo\\' became name~\"foo\\\" -> 400 Bad Request) and the
       workaround was to double the backslash. That workaround is now wrong: with
       auto-escaping, -F 'name~foo\\\\' matches TWO literal backslashes."
+    - "An open bracket in a ~ value finds nothing: -F 'name~Health (Real-time)'
+      returned no widgets while 'name~Health [(]Real-time)' and the exact
+      'name:Azure Resource Health (Real-time)' found them (WidgetList, 2026-11-11).
+      A closing bracket alone is fine, and * matches anything. Write ( as [(]."
     - "Comma is the filter-clause separator, so a literal comma in a search VALUE
       must be escaped as \\, — otherwise elm splits the value into two clauses and
       the second (which has no operator) errors with 'format must be FIELD[op]VALUE'.

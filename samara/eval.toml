@@ -785,3 +785,9 @@ column = ["\\bOn\\b"]
 q = "which dashboard is the Service Health widget on?"
 recipe = ["find_dashboard"]
 column = ["Matched on"]
+
+# A quoted widget title with a group's name in it (Cisco ASA): find_group ran on qwen3-vl-4b (2026-11-11)
+[[case]]
+q = 'show me the widgets that have the title "Azure Resource Health (Real-time)"'
+recipe = ["find_dashboard"]
+column = ["Matched on"]

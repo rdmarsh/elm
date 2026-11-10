@@ -180,6 +180,14 @@ def page(command, fields, filter=None):
         offset += elm_tools.MAX_ROWS
 
 
+# A title in quotes, in a question about widgets or dashboards: what is inside
+# is the title, not names. "Show me the widgets that have the title "Top Cisco
+# ASAs by Connections (Trend)"" found the group Cisco ASA, and the model ran
+# find_group on it (qwen3-vl-4b, 2026-11-11).
+QUOTED = re.compile(r'["\u201c]([^"\u201d]{2,})["\u201d]')
+ABOUT_TITLES = re.compile(r"\b(widgets?|dashboards?)\b", re.I)
+
+
 def found(question):
     """The portal's devices, groups, collectors and people named in the question, longest name first.
 
@@ -189,6 +197,7 @@ def found(question):
     """
     q = question.lower()
     hits, taken = [], []
+    titles = [m.span(1) for m in QUOTED.finditer(q)] if ABOUT_TITLES.search(q) else []
     for name, kind, id_, label in sorted(names(), key=lambda n: -len(n[0])):
         n = name.lower().strip("/")
         # "acmes servers" and "acme's" both mean acme. A name may start with
@@ -204,6 +213,8 @@ def found(question):
                 break
         if not m or any(a <= m.start() < b and (m.start(), m.end()) != (a, b) for a, b in taken):
             continue   # inside a longer name already found ("acme" in "Customers/acme")
+        if any(a <= m.start() < b for a, b in titles):
+            continue   # part of a quoted widget or dashboard title
         path = (label or "").lower().strip("/")
         if (kind == "group" and n != path and not re.search(r"\bgroups?\b", q)
                 and (path.count("/") >= GROUP_NAME_DEPTH or re.search(r"\bthe\s+$", q[:m.start()]))):

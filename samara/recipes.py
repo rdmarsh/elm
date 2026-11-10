@@ -169,7 +169,7 @@ THINGS = {
     "downtime": r"downtimes?|sdts?|maintenance", "properties": r"propert(?:y|ies)",
     "DataSources": r"datasources?|data sources?|logicmodules?", "certificates": r"certificates?|certs?|ssl",
     "disks": r"disks?|filesystems?|volumes?|disk space", "clocks": r"clocks?|ntp|time sync",
-    "memory": r"memory|ram",
+    "memory": r"memory|ram", "widgets": r"widgets?",
 }
 _THINGS = {k: re.compile(rf"\b(?:{v})\b", re.I) for k, v in THINGS.items()}
 
@@ -280,7 +280,10 @@ def choose(r, given):
     for name, o in opts.items():
         if name in picked:
             spec = o["text"] if "text" in o else o["values"][picked[name]]
-            filters.append(spec["filter"].format(picked[name], field=o.get("field", "")))
+            # LM's ~ finds nothing with a "(" in the value; "[(]" matches it ("Health
+            # [(]Real-time)" found "Azure Resource Health (Real-time)", 2026-11-11).
+            value = picked[name].replace("(", "[(]") if "text" in o else picked[name]
+            filters.append(spec["filter"].format(value, field=o.get("field", "")))
             if name not in quiet:
                 words = o.get("verb", "") + spec["words"].format(picked[name])
                 before, after = (before + words, after) if o.get("before") else (before, after + words)
@@ -375,6 +378,15 @@ def from_question(question, args):
     args = dict(args)
     if sort_from(question):
         args["sort"] = sort_from(question)
+    title = router.QUOTED.search(question)
+    if title and (re.search(r"\bwidgets?\b", question, re.I) or args.get("recipe") == "find_dashboard"
+                  or (re.search(r"\bdashboards?\b", question, re.I)
+                      and args.get("recipe") != "group_dashboards_reports")):   # 'what dashboards does "acme" have?'
+        # A widget or dashboard title in quotes is find_dashboard's, whatever the
+        # model picked: "Show me the widgets that have the title "Top Cisco ASAs by
+        # Connections (Trend)"" ran find_group on Cisco ASA (qwen3-vl-4b, 2026-11-11).
+        args = {"recipe": "find_dashboard", "title": title[1].strip(),
+                **({"sort": args["sort"]} if "sort" in args else {})}
     for picked, words, instead in SIBLINGS:
         if args.get("recipe") == picked and words.search(question):
             # "is collector COLLECTOR keeping up?" ran collector_health on every ask on
