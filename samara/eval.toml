@@ -779,3 +779,9 @@ never = ["I can only answer questions about this LogicMonitor portal", "only ans
 q = "what's {person_busy} working on?"
 recipe = ["working_on"]
 column = ["\\bOn\\b"]
+
+# A widget's title, not a dashboard's: the answer is the dashboards it is on
+[[case]]
+q = "which dashboard is the Service Health widget on?"
+recipe = ["find_dashboard"]
+column = ["Matched on"]

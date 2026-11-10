@@ -61,7 +61,8 @@ labelled so: check those.
 | Alerts | how many alerts are open? · show me errors or worse · are we having a lot of alerts today? · what alerts is nobody looking at? |
 | Common problems | are any certificates expiring? · what disks are about to fill up? · any NTP or time problems? |
 | Collectors | are all our collectors up? · which collectors need upgrading? · is COLLECTOR keeping up? |
-| Groups and customers | how is GROUP doing? · what dashboards does GROUP have? |
+| Groups and customers | which groups are named GROUP? · how is GROUP doing? · what dashboards does GROUP have? |
+| Dashboards | which dashboard is TITLE on? |
 | Downtime and alerting off | what's in maintenance right now? · is anything in downtime too long? · which devices won't alert? |
 | Websites | are any websites down? |
 | People | what's PERSON working on? |

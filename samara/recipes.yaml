@@ -387,8 +387,9 @@
       says: fetched every open alert
       # Over 9,000 open is too many to go through, and paging stops at
       # 10,000: critical and error only, then those that started today,
-      # then in the last hour.
-      narrow:
+      # then in the last hour. Reused (*critical_error) by the other
+      # whole-portal alert recipes.
+      narrow: &critical_error
         - filter: cleared:false,severity>:3
           covers: critical and error alerts
           says: found over 9,000 open alerts, so fetched only the critical and error ones
@@ -557,7 +558,8 @@
 
 - name: collectors_no_failover
   topic: Collectors
-  asks: ["which collectors have no failover?", "where are our single points of failure?", "which collectors have no backup?"]
+  asks: ["which collectors have no failover?", "where are our single points of failure?", "which collectors have no backup?",
+         "which groups depend on a single collector?"]
   covers: "collectors with no failover collector"
   steps:
     - as: collectors
@@ -635,9 +637,12 @@
       fields: [severity, acked, sdted]
       size: all
       says: fetched every open alert
+      over: open alerts
+      narrow: *critical_error
   summary: |
+    if ($alerts | length) == 0 then nothing("No alerts are open.") else
     "\($alerts | length | n("open alert")): \($alerts | severities). "
-    + "\($alerts | map(select(.acked)) | length | commas) acknowledged; \($alerts | map(select(.sdted)) | length | commas) on things in scheduled downtime."
+    + "\($alerts | map(select(.acked)) | length | commas) acknowledged; \($alerts | map(select(.sdted)) | length | commas) on things in scheduled downtime." end
   table:
     title: Open alerts by severity
     columns: [Severity, Open, Acknowledged, In downtime]
@@ -656,8 +661,16 @@
       fields: [monitorObjectId, monitorObjectType, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked, ackComment, ackedBy, ackedEpoch]
       size: all
       says: fetched every open critical alert
+      over: open critical alerts
+      narrow:
+        - filter: cleared:false,severity:4,startEpoch>:now/d
+          covers: critical alerts that started today
+          says: found over 9,000 open critical alerts, so fetched only those that started today
+        - filter: cleared:false,severity:4,startEpoch>:now-1h
+          covers: critical alerts that started in the last hour
+          says: found over 9,000 open critical alerts, so fetched only those that started in the last hour
   summary: |
-    if ($alerts | length) == 0 then "No critical alerts are open."
+    if ($alerts | length) == 0 then nothing("No critical alerts are open.")
     else "\($alerts | length | n("critical alert")) open, on \($alerts | map(.monitorObjectName) | unique | length | commas) different devices or checks; "
       + "the newest started \($alerts | max_by(.startEpoch).startEpoch | at), the oldest \($alerts | min_by(.startEpoch).startEpoch | at). "
       + "\($alerts | map(select(.acked)) | length | commas) acknowledged." end
@@ -763,10 +776,12 @@
       fields: [monitorObjectId, monitorObjectType, monitorObjectName, severity]
       size: all
       says: fetched every open alert and counted them by device
+      over: open alerts
+      narrow: *critical_error
   summary: |
     ($alerts | group_by(.monitorObjectName) | map({name: .[0].monitorObjectName, count: length, all: .})
      | sort_by(-.count)) as $top
-    | if ($top | length) == 0 then "No alerts are open."
+    | if ($top | length) == 0 then nothing("No alerts are open.")
       else "\($top[0].name) has the most open alerts: \($top[0].count) (\($top[0].all | severities))."
       + (if ($top | length) > 1 then " Next: " + ($top[1:3] | map("\(.name) (\(.count))") | join(", ")) + "." else "" end) end
   table:
@@ -789,8 +804,18 @@
       fields: [monitorObjectId, monitorObjectType, severity, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
       size: all
       says: fetched the open alerts older than a day that nobody has acknowledged and no downtime covers
+      # 9,759 of them on one portal (2026-11-10). All over a day old, so no
+      # "today": critical and error, then critical.
+      over: alerts open more than a day with no acknowledgement
+      narrow:
+        - filter: cleared:false,acked:false,sdted:false,startEpoch<:now-24h,severity>:3
+          covers: critical and error ones
+          says: found over 9,000 alerts open more than a day with no acknowledgement, so fetched only the critical and error ones
+        - filter: cleared:false,acked:false,sdted:false,startEpoch<:now-24h,severity:4
+          covers: critical ones
+          says: found over 9,000 alerts open more than a day with no acknowledgement, so fetched only the critical ones
   summary: |
-    if ($alerts | length) == 0 then "Every alert open for more than a day has been acknowledged or is in scheduled downtime."
+    if ($alerts | length) == 0 then nothing("Every alert open for more than a day has been acknowledged or is in scheduled downtime.")
     else "\($alerts | length | n("alert")) have been open for more than a day with no acknowledgement (\($alerts | severities)). "
       + ($alerts | min_by(.startEpoch) | "The oldest, on \(.monitorObjectName), started \(.startEpoch | at).")
       + (($alerts | map(select(.startEpoch < now - 30 * 86400)) | length) as $k | if $k > 0 then " \($k) are over 30 days old." else "" end) end
@@ -813,12 +838,14 @@
       fields: [monitorObjectName, severity, resourceTemplateName, dataPointName]
       size: all
       says: fetched every open alert and grouped them by what is alerting
+      over: open alerts
+      narrow: *critical_error
   # The same alert on many devices points at one cause (an expired password,
   # a changed community string, a bad threshold) rather than many faults.
   summary: |
     ($alerts | group_by(.resourceTemplateName)
      | map({t: .[0].resourceTemplateName, d: (map(.monitorObjectName) | unique | length), all: .}) | sort_by(-.d)) as $types
-    | if ($alerts | length) == 0 then "No alerts are open."
+    | if ($alerts | length) == 0 then nothing("No alerts are open.")
       else "\($alerts | length | n("open alert")) of \($types | length | commas) kinds. Most widespread: "
       + ($types[:3] | map("\(.t) on \(.d | n("device")) (\(.all | severities))") | join("; ")) + "." end
   table:
@@ -1253,12 +1280,37 @@
   summary: |
     # No total: a device can be in several groups (Devices by Type holds them all again)
     "\($groups | length | commas) groups at the top of the portal"
-    + (if ($groups | length) > 0 then "; the largest is \($groups | max_by(.numOfHosts) | "\(.name), with \(.numOfHosts) devices")" else "" end) + "."
+    + (if ($groups | length) > 0 then "; the largest is \($groups | max_by(.numOfHosts) | "\(.name), with \(.numOfHosts | n("device"))")" else "" end) + "."
   table:
     title: Groups at the top of the portal
     columns: [Group, Devices, Subgroups, Id]
     rows: |
       $groups | sort_by(.name | ascii_downcase) | map({Group: .name, Devices: .numOfHosts, Subgroups: .numOfDirectSubGroups, Id: .id})
+
+- name: find_group
+  topic: Groups and customers
+  asks: ["which groups are named GROUP?", "where is the GROUP group?", "find group GROUP", "why do we have two GROUP groups?"]
+  # "Why" is not in LM: where each group sits, what is in it and its
+  # description are, and usually say (2026-11-10, two admin groups).
+  covers: "groups with a name like that: where they sit, how big they are and their description, not why they exist"
+  params: [group]
+  many: true
+  # Names before paths: "admin" by path found every subgroup of both admin
+  # groups, 20 of them, before trying the names.
+  lookup: ['name:"{}"', 'name~"{}"', 'fullPath:"{}"', 'fullPath~"{}"']
+  summary: |
+    ($group | length) as $n
+    | if $n == 1 then $group[0] | "One group has that name: \(path), with \(.numOfHosts | n("device")) and \(.numOfDirectSubGroups | n("subgroup"))."
+      else "\(if $n == 20 then "At least 20" else $n end) groups have that name: "
+        + ($group | sort_by(.fullPath | ascii_downcase) | map("\(path) (\(.numOfHosts | n("device")))") | join(", ")) + "."
+      end
+    + " Each group's description, if it has one, is in the table."
+  table:
+    title: Groups with that name
+    columns: [Group, Devices, Subgroups, Description, Id]
+    rows: |
+      $group | sort_by(.fullPath | ascii_downcase)
+      | map({Group: path, Devices: .numOfHosts, Subgroups: .numOfDirectSubGroups, Description: (.description // ""), Id: .id})
 
 - name: group_health
   topic: Groups and customers
@@ -1351,6 +1403,75 @@
          | sort_by(.name) | map({Kind: "report", Name: .name, Folder: ($names[.groupId | tostring] // ""),
              "Sent to": (if .delivery == "email" then (.recipients // [] | map(.addr) | join(", ")) else "nobody" end),
              "Last run": (if (.lastGenerateOn // 0) > 0 then .lastGenerateOn | at else "never" end)}))
+
+# --- Dashboards -----------------------------------------------------------------
+
+- name: find_dashboard
+  topic: Dashboards
+  asks: ["which dashboard is TITLE on?", "find the TITLE dashboard", "which dashboard has a widget called TITLE?",
+         "where is the TITLE widget?"]
+  covers: "dashboards whose own title, or one of whose widgets' titles, has those words in it"
+  # Titles only: what is inside a widget (a text widget's HTML, a NOC widget's
+  # filters) is not searched. LM's ~ is case-insensitive and takes a phrase
+  # ("service health" found "Azure Service Health", 2026-11-10). Only id, name
+  # and dashboardId are asked for; a dashboard's widgetTokens never are, and
+  # are removed from every row anyway (elm_tools.REMOVED_FIELDS).
+  options:
+    title:
+      about: "the title words as the person wrote them, of a dashboard or a widget (\"Device Power Status\")"
+      required: true
+      text: {filter: 'name~"{}"', words: ' titled like "{}"'}
+  steps:
+    - as: dashboards
+      run: DashboardList
+      filter: "{options}"
+      fields: [id, name, groupFullPath]
+      size: all
+      says: "looked for dashboards{qual}"
+    - as: widgets
+      run: WidgetList
+      filter: "{options}"
+      fields: [id, name, dashboardId]
+      size: all
+      says: "looked for widgets{qual}"
+    - as: all
+      run: DashboardList
+      fields: [id, name, groupFullPath]
+      size: all
+      when: ($widgets | length) > 0
+      says: fetched every dashboard to name the ones those widgets are on
+  summary: |
+    ($all + $dashboards | map({key: (.id | tostring), value: .name}) | from_entries) as $name
+    | ($widgets | map(.dashboardId) | unique) as $on
+    | (($dashboards | map(.id)) + $on | unique) as $ids
+    | ($on | map(select($name[tostring] == null))) as $unseen
+    # Same-named dashboards in different folders are one name, counted: "AWS EBS (2)"
+    | ($ids | map($name[tostring] // empty) | group_by(.)
+       | map(.[0] + (if length > 1 then " (\(length))" else "" end))) as $named
+    | if ($ids | length) == 0 then "No dashboard or widget is\(qual)."
+      else "Found \($ids | length | n("dashboard"))\(qual) or with a widget\(qual): "
+        + ([if ($dashboards | length) > 0 then "\($dashboards | length | commas) by \(if ($dashboards | length) == 1 then "its" else "their" end) own title" else empty end,
+            if ($on | length) > 0 then "\($on | length | commas) by \($widgets | length | n("widget"))" else empty end] | join(", "))
+        + (if ($unseen | length) > 0 then " (\($unseen | length | n("dashboard")) not visible to this profile)" else "" end)
+        + (if ($named | length) > 0 then ". " + ($named | .[:5] | join(", "))
+             + (if ($named | length) > 5 then " and \($named | length - 5 | n("other"))" else "" end) else "" end)
+        + "." end
+  table:
+    title: Dashboards and widgets{qual}
+    columns: [Dashboard, Folder, Matched on, Id]
+    # Private dashboards link too: the reader may be allowed to see what the profile is not
+    links: {Dashboard: dashboard}
+    rows: |
+      ($all | map({key: (.id | tostring), value: .}) | from_entries) as $by
+      | (($dashboards | map(.id)) + ($widgets | map(.dashboardId)) | unique)
+      | map(. as $i
+          | ($by[$i | tostring] // ($dashboards | map(select(.id == $i)))[0]
+             // {name: "(not visible to this profile)", groupFullPath: ""}) as $d
+          | {Dashboard: $d.name, Dashboard_id: $i, Folder: ($d.groupFullPath // ""), Id: $i,
+             "Matched on": ((if ($dashboards | any(.id == $i)) then ["its title"] else [] end)
+                            + ($widgets | map(select(.dashboardId == $i)) | map("widget \"\(.name)\"") | sort)
+                            | join("; "))})
+      | sort_by(.Folder, .Dashboard)
 
 # --- One person -----------------------------------------------------------------
 

@@ -412,6 +412,31 @@ ON_TOPIC = ("That question is about this portal's {word}, so it is on topic: do 
             "it, so find the command with find_commands, run it with run_elm, and answer only from what "
             "comes back. If the profile does not allow what it needs, say which command that is.")
 
+
+
+def refused_again(question, answer, portal=None):
+    """Samara's words for a portal question the model refused twice, or None.
+
+    "Why do we have 2 admin groups?" was refused, sent back as on topic,
+    and refused again: the reader got "I can only answer questions about
+    this LogicMonitor portal." about the portal's own groups (qwen3-vl-4b,
+    2026-11-10). That is wrong; what is true is that it could not work out
+    how to look it up.
+    """
+    about = PORTAL_WORDS.search(question)
+    if not REFUSED.search(answer) or not about or NOT_LOOKUPS.search(question):
+        return None
+    # The page adds "Tell OWNER what you were after" under it when answers are logged (index.html REFUSAL).
+    text = (f"Sorry, I can't answer that one yet: none of my built-in checks covers "
+            f"{portal or 'the portal'}'s {about[0].lower()}. Try asking it another way, or pick a "
+            f"question from **What can I ask?** under the box.")
+    if re.match(r"\s*why\b", question, re.I):
+        # The model cannot say why from LM's data, and should not guess.
+        text += (" LogicMonitor records what is set up, not why, so I can show what is there "
+                 "(where it sits, what is in it, its description) but not the reason for it.")
+    return text
+
+
 LOOK_IT_UP = ("You answered without looking anything up, so nothing in that answer came from "
               "the portal. If the question is about this portal's devices, groups, collectors, "
               "alerts, downtime or websites, call a recipe or a tool now and answer only from "
@@ -767,6 +792,8 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 continue
             answer = (no_echoes(no_commands(PLANNING.sub("", MARKUP.sub("", CALL_TEXT.sub("", "\n\n".join(texts))))))
                       or "\n\n".join(dict.fromkeys(summaries)) or NO_ANSWER)
+            if "look" in sent_back and (again := refused_again(question, answer, elm_tools.portal())):
+                answer = again   # refused after being sent back as on topic
             if tabled:
                 answer = tidy(answer)
             elif TABLE_ROW.search(answer) and not fetched:
@@ -886,6 +913,12 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                 if sum(failed_calls.values()) - len(failed_calls) >= 3:
                     # three repeats: answer now, from what came back
                     forced = forced or "I could not finish this: the same step kept failing."
+                continue
+            if openai_api.block(block, "name") == "recipe" and (
+                    why := recipes.not_covered(conv.question, (ran_as or {}).get("recipe"))):
+                # A recipe about something else: its summary would be the answer.
+                results.append({"type": "tool_result", "tool_use_id": openai_api.block(block, "id"),
+                                "is_error": True, "content": why})
                 continue
             result, events = call_tool(conv, block)
             results.append(result)

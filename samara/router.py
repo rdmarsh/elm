@@ -191,8 +191,17 @@ def found(question):
     hits, taken = [], []
     for name, kind, id_, label in sorted(names(), key=lambda n: -len(n[0])):
         n = name.lower().strip("/")
-        # "acmes servers" and "acme's" both mean acme
-        m = re.search(rf"(?<![\w.\-]){re.escape(n)}(?:s|'s|’s)?(?![\w\-]|\.\w)", q)
+        # "acmes servers" and "acme's" both mean acme. A name may start with
+        # punctuation to sort it first ("~admin", "~ admin groups"): people
+        # leave it out, and "why do we have 2 admin groups?" found neither
+        # (2026-11-10). The name passed on keeps it, for the exact lookup.
+        # Only with the word group: bare, "admin" is a plain word ("who is the admin here?").
+        bare = re.sub(r"^[^\w]+", "", n)
+        plain = kind == "group" and len(bare) >= MIN_NAME and bare not in COMMON and re.search(r"\bgroups?\b", q)
+        for said in dict.fromkeys([n] + ([bare] if plain else [])):
+            m = re.search(rf"(?<![\w.\-]){re.escape(said)}(?:s|'s|’s)?(?![\w\-]|\.\w)", q)
+            if m:
+                break
         if not m or any(a <= m.start() < b and (m.start(), m.end()) != (a, b) for a, b in taken):
             continue   # inside a longer name already found ("acme" in "Customers/acme")
         path = (label or "").lower().strip("/")

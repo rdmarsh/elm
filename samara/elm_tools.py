@@ -664,8 +664,8 @@ def run_jq(session, expression):
 def show_table(session, title, expression, columns, links=None):
     """Send a table to the user's screen (the model does not see the rows).
 
-    links ({column: "device"}, recipes only): that column's cells link to the
-    device in LM, from each row's "<column>_id". Only the ids go to the page,
+    links ({column: "device"} or "dashboard", recipes only): that column's cells
+    link to the device or dashboard in LM, from each row's "<column>_id". Only the ids go to the page,
     which makes the URL from the portal's name: a link in the data (planted
     text on a device) is never followed.
     """

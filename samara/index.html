@@ -345,7 +345,9 @@ const sourceHtml = (s, u) => SOURCE[s] && !quietSource(s, u) ? `<p class="source
 
 const form = $("#form"), input = $("#q"), go = $("#go"), results = $("#results");
 // The off-topic sentence (system_prompt.md), and the instruction a model once copied out instead.
-const REFUSAL = /only answers? questions about (this|the) LogicMonitor portal/i;
+// Refused, or a portal question Samara had no way to answer (agent.refused_again):
+// either may be one no one foresaw, so the reader is asked to pass it on.
+const REFUSAL = /only answers? questions about (this|the) LogicMonitor portal|^Sorry, I can't answer that one yet/i;
 let conversationId = null;
 
 // Ideas: questions even the weakest model gets right, each answered by one
@@ -357,12 +359,12 @@ const DEFAULT_QUESTION = "what needs my attention first?";   // what Ask asks wi
 const IDEAS = [DEFAULT_QUESTION, "what's offline?", "is DEVICE okay?", "show me errors or worse",
   "are all our collectors up?", "what's in maintenance right now?", "are there a lot of alerts today?"];
 // A suggested question: asked at once, or, with a name to fill in (DEVICE,
-// GROUP ...), put in the box with that word selected for the person to type over.
+// GROUP, TITLE ...), put in the box with that word selected for the person to type over.
 const askThis = q => {
   if (current) return;
   showGuide(false);
   input.value = q;
-  const blank = /\b(DEVICE|GROUP|COLLECTOR|PERSON|WEBSITE)\b/.exec(q);
+  const blank = /\b(DEVICE|GROUP|COLLECTOR|PERSON|WEBSITE|TITLE)\b/.exec(q);
   if (!blank) { form.requestSubmit(); return; }
   input.focus();
   input.setSelectionRange(blank.index, blank.index + blank[0].length);
@@ -564,13 +566,17 @@ function renderChart(ev, chart) {
 const cellText = (v, col) => typeof v === "number" && Number.isInteger(v) && Math.abs(v) >= 1000 && !/\bid$/i.test(col)
   ? v.toLocaleString("en-US") : v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
 
-// A cell's link to the device in LM, made here from the portal's name and the
-// row's id alone: a URL in the data (planted text on a device) is never used.
+// A cell's link to a device or dashboard in LM, made here from the portal's name
+// and the row's id alone: a URL in the data (planted text on a device) is never used.
+const LM_PATHS = {
+  // resourceGroups-1 opens the device whatever group it is in
+  device: id => `resources/treeNodes?resourcePath=resourceGroups-1,resources-${id}`,
+  dashboard: id => `dashboards/dashboards-${id}`,
+};
 function lmLink(t, col, row) {
   const l = t.links && t.links[t.columns[col]], id = l && l.ids[row], portal = health && health.portal;
-  if (!l || l.to !== "device" || !Number.isInteger(id) || id <= 0 || !/^[a-z0-9-]+$/i.test(portal || "")) return null;
-  // resourceGroups-1 opens the device whatever group it is in
-  return `https://${portal}.logicmonitor.com/santaba/uiv4/resources/treeNodes?resourcePath=resourceGroups-1,resources-${id}`;
+  if (!l || !Object.hasOwn(LM_PATHS, l.to) || !Number.isInteger(id) || id <= 0 || !/^[a-z0-9-]+$/i.test(portal || "")) return null;
+  return `https://${portal}.logicmonitor.com/santaba/uiv4/${LM_PATHS[l.to](id)}`;
 }
 
 function renderTable(ev) {

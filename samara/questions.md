@@ -248,6 +248,16 @@ trusting a count (on the test portal, 0 open and 0 in the last 7 days had it).
 - **Did all the SDTs finish without new alerts?** Each downtime that ended since
   Friday, and any alert on the same device or group that started after it ended.
 
+- **Which dashboard is the Service Health widget on?** (recipe `find_dashboard`)
+  Dashboards whose own title has the words, and the dashboards of widgets whose
+  title does; titles only, not what is inside a widget. A widget on someone's
+  private dashboard is still listed (`WidgetList` returns it), with its
+  dashboard "not visible to this profile" (`DashboardById` is refused, 403).
+  Check: `elm WidgetList -s0 -F 'name~"Service Health"' -f id,name,dashboardId`
+  and `elm DashboardList -s0 -F 'name~"Service Health"' -f id,name`.
+  - 2026-11-10 · recipe alone, no model · pass · 15 widgets on 15 dashboards, none by
+    their own title; "Overview" found 27 by title and 4 by widget, 2 of them private.
+
 ## Off topic
 
 Samara answers questions about the portal and nothing else. Each of these

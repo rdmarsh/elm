@@ -18,6 +18,8 @@ recipes.yaml, one entry per recipe:
                 answered as "now") then says so
   params        lookups, run first: device or group, found by name
   many          a lookup that may match several (find_device): no "which one?"
+  lookup        the lookup's filters in the recipe's own order, the first that
+                finds anything wins (find_group: names before paths)
   days          how far ahead it looks by default; the model may pass another
                 (1 to MAX_DAYS). jq sees it as `days`; title and covers as {days}
   options       choices the model passes as tool arguments (the alerts recipe):
@@ -26,7 +28,8 @@ recipes.yaml, one entry per recipe:
                 says (jq: `which`, `qual`). `default` when not passed; `sets`
                 another's default, which then says nothing; `text` takes a
                 name instead of a list of values; `before` puts the words
-                before "alerts"
+                before "alerts"; `required` makes the recipe refuse to run
+                without it (find_dashboard's title)
   steps         elm queries, each saved as `$<as>` for the jq below. Filters
                 and params are str.format templates over the lookups
                 ({device[id]}); `size: all` pages past 1000 rows; `when` is a
@@ -37,7 +40,9 @@ recipes.yaml, one entry per recipe:
                 carries its item as `of`; `narrow` is a list of {filter, covers,
                 says} tried in turn while the step's own filter has over OVER
                 rows (too many to go through): the first under it is fetched,
-                and jq sees its covers as `narrowed.<as>` (null when not narrowed)
+                and jq sees its covers as `narrowed.<as>` (null when not narrowed);
+                a summary that does not use `narrowed` is prefixed "Over OVER
+                <over>, ... only the <covers>", `over` naming the step's rows
                 `says` is the step's line in How I worked this out; "" leaves it
                 to another step (several queries, one per name, as LM's filters
                 have no "or")
@@ -46,7 +51,8 @@ recipes.yaml, one entry per recipe:
                 where they are, so planted text reaches only the reader
   table         {title, columns, rows}: jq giving the rows; shown on the page.
                 links: {Device: device} makes that column's cells links to the
-                device in LM, from each row's Device_id (null: no link)
+                device in LM, from each row's Device_id (null: no link);
+                {Dashboard: dashboard} links to a dashboard the same way
 """
 
 import json
@@ -75,10 +81,10 @@ for _r in RECIPES.values():   # a chart names its table's columns: a typo fails 
             raise ValueError(f"{_r['name']}: a chart is bar or line with x and y, or donut with row "
                              f"(first or last) and slices, all from the table's columns")
     _links = _r.get("table", {}).get("links", {})
-    if set(_links) - set(_r.get("table", {}).get("columns", [])) or set(_links.values()) - {"device"}:
-        raise ValueError(f"{_r['name']}: links name the table's columns, each linking to a device")
+    if set(_links) - set(_r.get("table", {}).get("columns", [])) or set(_links.values()) - {"device", "dashboard"}:
+        raise ValueError(f"{_r['name']}: links name the table's columns, each linking to a device or dashboard")
 # The guide's headings, in the order the page shows them.
-TOPICS = ["Everything at once", "Devices", "Alerts", "Common problems", "Collectors", "Groups and customers",
+TOPICS = ["Everything at once", "Devices", "Alerts", "Common problems", "Collectors", "Groups and customers", "Dashboards",
           "Downtime and alerting off", "Websites", "People"]
 for _r in RECIPES.values():
     if _r.get("topic") not in TOPICS + [None]:
@@ -127,6 +133,7 @@ def kind: {"0": "device", "2": "AWS resource", "4": "Azure resource", "6": "serv
 def updown: {"normal": "up", "dead": "not responding",
   "dead-collector": "not being monitored: its collector is down"}[.] // .;
 def device_id: if .monitorObjectType == "device" then .monitorObjectId else null end;   # an alert's, for links
+def path: if .fullPath == "" then "the portal's root group" else .fullPath end;   # the root's is ""
 def state: {"normal": "up", "dead": "not responding", "dead-collector": "collector down"}[.] // .;   # for tables
 def ver: tostring | "\(.[:-3]).\(.[-3:])";   # collector build "41100" -> 41.100
 def disabled_by: [["a group", "its own setting", "some instances"], split("-")] | transpose
@@ -142,13 +149,53 @@ LOOKUPS = {
     # A path ("/Customers/acme") is matched as fullPath, which has no leading
     # slash; ~ ignores case, for "/customers/ACME/".
     "group": ("DeviceGroupList", ['name:"{}"', 'fullPath:"{}"', 'fullPath~"{}"', 'name~"{}"'],
-              ["id", "name", "fullPath", "numOfHosts", "groupStatus"]),
+              ["id", "name", "fullPath", "numOfHosts", "groupStatus", "numOfDirectSubGroups", "description"]),
     # Collector names are usually DOMAIN\HOST or an FQDN, so a bare host name
     # needs the contains filters. A number is its id ("collector 281").
     "collector": ("CollectorList", ['id:{}', 'description:"{}"', 'hostname:"{}"', 'description~"{}"', 'hostname~"{}"'],
                   ["id", "description", "hostname", "isDown", "inSDT", "collectorGroupName", "collectorDeviceId",
                    "numberOfHosts", "backupAgentId", "build", "upTime", "watchdogUpdatedOn"]),
 }
+
+
+# Things a question can be about that only some recipes cover. "What
+# dashboards rely on groups that have been moved or renamed?" ran
+# portal_health, and its summary went out as the answer, about collectors and
+# alerts (qwen3-vl-4b, 2026-11-10). Alerts and devices are left out: nearly
+# every recipe is about them, said or not.
+THINGS = {
+    "dashboards": r"dashboards?", "reports": r"reports?", "websites": r"websites?|web ?checks?|web ?sites?",
+    "collectors": r"collectors?", "groups": r"groups?|customers?|folders?",
+    "downtime": r"downtimes?|sdts?|maintenance", "properties": r"propert(?:y|ies)",
+    "DataSources": r"datasources?|data sources?|logicmodules?", "certificates": r"certificates?|certs?|ssl",
+    "disks": r"disks?|filesystems?|volumes?|disk space", "clocks": r"clocks?|ntp|time sync",
+    "memory": r"memory|ram",
+}
+_THINGS = {k: re.compile(rf"\b(?:{v})\b", re.I) for k, v in THINGS.items()}
+
+
+def misses(question, recipe):
+    """The THINGS the question names that the recipe's questions and covers never mention."""
+    r = RECIPES.get(recipe)
+    if not r:
+        return []
+    said = " ".join(r["asks"] + [r.get("covers", ""), recipe.replace("_", " "), r.get("table", {}).get("title", "")])
+    return [k for k, rx in _THINGS.items() if rx.search(question) and not rx.search(said)]
+
+
+def not_covered(question, recipe):
+    """Why a recipe is not run for this question, or None: it is about something else."""
+    gone = misses(question, recipe)
+    if not gone:
+        return None
+    what = " and ".join(gone)
+    fits = [n for n in RECIPES if not misses(question, n)]
+    return (f"Not run: {recipe} answers {RECIPES[recipe].get('covers', recipe)}, not {what}, so its answer "
+            f"would not be about the question. "
+            + (f"Recipes that mention {what}: {', '.join(fits)}; use one only if it answers this very "
+               f"question. " if fits else f"No recipe mentions {what}. ")
+            + "Otherwise find the command with find_commands, run it with run_elm, and answer only from "
+              "what comes back; if nothing can answer it, say that no check covers it.")
 
 
 def taking(param):
@@ -218,6 +265,9 @@ def choose(r, given):
         elif v not in o["values"]:
             raise ValueError(f"{name} must be one of: {', '.join(o['values'])}")
         picked[name] = v
+    missing = [name for name, o in opts.items() if o.get("required") and name not in picked]
+    if missing:
+        raise ValueError(f"This recipe needs {', '.join(missing)}: {opts[missing[0]]['about']}")
     for name in list(picked):
         for other, v in opts[name].get("sets", {}).items():
             if picked.get(other, v) == v:   # unset, or set to what this already says
@@ -421,7 +471,10 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
             expression = re.sub(rf"\${name}\b", f"${ds_id}", expression)
         return (PRELUDE + (f"def days: {ahead};\n" if ahead else "")
                 + f"def which: {json.dumps(before + 'alert')}; def qual: {json.dumps(after)};\n"
-                + f"def narrowed: {json.dumps(narrowed)};\n" + expression)
+                + f"def narrowed: {json.dumps(narrowed)};\n"
+                # "No critical alerts are open." under "only those that started
+                # today" said there were none at all (2026-11-10)
+                + 'def nothing($t): if narrowed == {} then $t else "None of those." end;\n' + expression)
 
     try:
         for param in r.get("params", []):
@@ -434,6 +487,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                 records[param] = {"name": value}
                 continue
             command, filters, fields = LOOKUPS[param]
+            filters = r.get("lookup", filters)   # the recipe's own order, as find_group's
             if param == "group":
                 value = value.strip("/")
             if not value.isdigit():
@@ -545,6 +599,13 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
         return f"The recipe could not run: {text}", events
 
     summary = json.loads(elm_tools._jq(session, jq(r["summary"])))
+    if "narrowed" not in r["summary"]:
+        # A summary that does not word it itself (portal_health does) gets one
+        # line in front: its counts are of the narrower rows only.
+        for step in r.get("steps", []):
+            if step["as"] in narrowed:
+                summary = (f"Over {OVER:,} {step.get('over', 'rows')}, too many to go through, so this covers "
+                           f"only the {narrowed[step['as']]}. {summary}")
     if cut:
         # The counts are over the rows that came back, so they may be too low.
         summary = (f"Only part of the data could be fetched ({'; '.join(cut)}: LogicMonitor returns at most "
