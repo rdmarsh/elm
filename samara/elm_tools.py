@@ -661,8 +661,14 @@ def run_jq(session, expression):
     return truncate(out or "(no output)"), step
 
 
-def show_table(session, title, expression, columns):
-    """Send a table to the user's screen (the model does not see the rows)."""
+def show_table(session, title, expression, columns, links=None):
+    """Send a table to the user's screen (the model does not see the rows).
+
+    links ({column: "device"}, recipes only): that column's cells link to the
+    device in LM, from each row's "<column>_id". Only the ids go to the page,
+    which makes the URL from the portal's name: a link in the data (planted
+    text on a device) is never followed.
+    """
     # A table typed in by the model (jq -n '[{"Device": "x", ...}]') shows
     # whatever it wrote, not what the portal returned, and its rerun script
     # replays a snapshot. It must come from a fetched dataset.
@@ -692,6 +698,10 @@ def show_table(session, title, expression, columns):
         "total": len(rows),
         "expression": expression,
     }
+    if links:
+        ok = lambda v: v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+        table["links"] = {c: {"to": to, "ids": [ok(r.get(f"{c}_id")) for r in rows[:MAX_TABLE_ROWS]]}
+                          for c, to in links.items()}
     note = f"Showed a table of {len(rows)} rows to the user."
     if len(rows) > MAX_TABLE_ROWS:
         note += f" Only the first {MAX_TABLE_ROWS} are displayed."

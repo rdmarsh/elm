@@ -356,8 +356,9 @@
   table:
     title: Matching devices
     columns: [Device, Hostname or IP, Kind, Status, Collector]
+    links: {Device: device}
     rows: |
-      $device | map({Device: .displayName, "Hostname or IP": .name, Kind: (.deviceType | kind),
+      $device | map({Device: .displayName, Device_id: .id, "Hostname or IP": .name, Kind: (.deviceType | kind),
                      Status: (.hostStatus | state), Collector: .collectorDescription})
 
 # --- Whole portal -------------------------------------------------------------
@@ -477,10 +478,11 @@
   table:
     title: Devices that are down, longest first
     columns: [Device, Status, Down since, Collector]
+    links: {Device: device}
     rows: |
       ($hs | group_by(.monitorObjectId) | map({key: "\(.[0].monitorObjectId)", value: (map(.startEpoch) | min)}) | from_entries) as $since
       | $down | map(select(.deviceType == 0)) | map(. + {s: $since["\(.id)"]}) | sort_by(.hostStatus, .s // 9e9, .displayName)
-      | map({Device: .displayName, Status: (.hostStatus | state), "Down since": (if .s then .s | at else "" end),
+      | map({Device: .displayName, Device_id: .id, Status: (.hostStatus | state), "Down since": (if .s then .s | at else "" end),
              Collector: .collectorDescription})
 
 - name: collectors_down
@@ -646,7 +648,7 @@
     - as: alerts
       run: AlertList
       filter: cleared:false,severity:4
-      fields: [monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked, ackComment, ackedBy, ackedEpoch]
+      fields: [monitorObjectId, monitorObjectType, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch, acked, ackComment, ackedBy, ackedEpoch]
       size: all
       says: fetched every open critical alert
   summary: |
@@ -657,8 +659,9 @@
   table:
     title: Open critical alerts, newest first
     columns: [Device, Alert, Started, Acknowledged]
+    links: {Device: device}
     rows: |
-      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName,
+      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName, Device_id: device_id,
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         Started: (.startEpoch | at), Acknowledged: ack})
 
@@ -722,7 +725,7 @@
     - as: alerts
       run: AlertList
       filter: "{options}"
-      fields: [severity, cleared, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch,
+      fields: [monitorObjectId, monitorObjectType, severity, cleared, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch,
                endEpoch, sdted, acked, ackComment, ackedBy, ackedEpoch]
       size: all
       says: "fetched the {alerts}{qual}"
@@ -737,8 +740,9 @@
   table:
     title: "{Alerts}{qual}, newest first"
     columns: [Device, Severity, Alert, Started, Cleared, Acknowledged, In downtime]
+    links: {Device: device}
     rows: |
-      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
+      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName, Device_id: device_id, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         Started: (.startEpoch | at), Cleared: (if .cleared then (.endEpoch | at) else "still open" end),
         Acknowledged: ack, "In downtime": (if .sdted then "yes" else "no" end)})
@@ -751,7 +755,7 @@
     - as: alerts
       run: AlertList
       filter: cleared:false
-      fields: [monitorObjectName, severity]
+      fields: [monitorObjectId, monitorObjectType, monitorObjectName, severity]
       size: all
       says: fetched every open alert and counted them by device
   summary: |
@@ -763,8 +767,9 @@
   table:
     title: Devices with the most open alerts
     columns: [Device, Open alerts, Critical, Error, Warning]
+    links: {Device: device}
     rows: |
-      $alerts | group_by(.monitorObjectName) | map({Device: .[0].monitorObjectName, "Open alerts": length,
+      $alerts | group_by(.monitorObjectName) | map({Device: .[0].monitorObjectName, Device_id: (.[0] | device_id), "Open alerts": length,
         Critical: (map(select(.severity == 4)) | length), Error: (map(select(.severity == 3)) | length),
         Warning: (map(select(.severity == 2)) | length)}) | sort_by(-."Open alerts") | .[:10]
 
@@ -776,7 +781,7 @@
     - as: alerts
       run: AlertList
       filter: cleared:false,acked:false,sdted:false,startEpoch<:now-24h
-      fields: [severity, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
+      fields: [monitorObjectId, monitorObjectType, severity, monitorObjectName, resourceTemplateName, instanceName, dataPointName, startEpoch]
       size: all
       says: fetched the open alerts older than a day that nobody has acknowledged and no downtime covers
   summary: |
@@ -787,8 +792,9 @@
   table:
     title: Open alerts with no acknowledgement for more than a day, oldest first
     columns: [Device, Severity, Alert, Started]
+    links: {Device: device}
     rows: |
-      $alerts | sort_by(.startEpoch) | map({Device: .monitorObjectName, Severity: (.severity | sev),
+      $alerts | sort_by(.startEpoch) | map({Device: .monitorObjectName, Device_id: device_id, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Started: (.startEpoch | at)})
 
 - name: alert_types
@@ -856,7 +862,7 @@
     - as: alerts
       run: AlertList
       filter: cleared:false
-      fields: [monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      fields: [monitorObjectId, monitorObjectType, monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
       size: all
       says: fetched every open alert and kept the disk space ones (used or free percent on a disk, volume or filesystem)
   # hrStorage covers memory as well as disks: its memory instances are left out
@@ -871,11 +877,12 @@
   table:
     title: Disks past their space threshold, fullest first
     columns: [Device, Disk, Severity, Value, Since]
+    links: {Device: device}
     rows: |
       $alerts | map(select((.dataPointName | test("(?i)used ?percent|percent ?used|free ?percent|percent ?free|capacity"))
          and ((.instanceName // "") | test("(?i)memory|swap|ram\\b|buffer|cache") | not)))
       | sort_by(-(.alertValue | tonumber? // 0))
-      | map({Device: .monitorObjectName, Disk: (.instanceName // .resourceTemplateName), Severity: (.severity | sev),
+      | map({Device: .monitorObjectName, Device_id: device_id, Disk: (.instanceName // .resourceTemplateName), Severity: (.severity | sev),
              Value: .alertValue, Since: (.startEpoch | at)})
 
 - name: clocks_out_of_sync
@@ -886,7 +893,7 @@
     - as: alerts
       run: AlertList
       filter: cleared:false
-      fields: [monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      fields: [monitorObjectId, monitorObjectType, monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
       size: all
       says: fetched every open alert and kept the time ones (NTP, clock offset)
   summary: |
@@ -896,9 +903,10 @@
   table:
     title: Time and NTP alerts
     columns: [Device, Severity, Alert, Value, Since]
+    links: {Device: device}
     rows: |
       $alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))
-      | sort_by(-.severity, .monitorObjectName) | map({Device: .monitorObjectName, Severity: (.severity | sev),
+      | sort_by(-.severity, .monitorObjectName) | map({Device: .monitorObjectName, Device_id: device_id, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Value: .alertValue, Since: (.startEpoch | at)})
 
 - name: new_alerts
@@ -909,7 +917,7 @@
     - as: alerts
       run: AlertList
       filter: startEpoch>:now-24h,cleared:*
-      fields: [monitorObjectName, resourceTemplateName, dataPointName, severity, cleared, startEpoch]
+      fields: [monitorObjectId, monitorObjectType, monitorObjectName, resourceTemplateName, dataPointName, severity, cleared, startEpoch]
       size: all
       says: fetched every alert that started in the last 24 hours, open or cleared
   # "Is it worse than usual?" is alerts_by_day: it counts each day's starts.
@@ -922,9 +930,10 @@
   table:
     title: Alerts that started in the last 24 hours, newest first
     columns: [Device, Alert, Severity, Started, Open]
+    links: {Device: device}
     rows: |
       $alerts | sort_by(-.startEpoch)
-      | map({Device: .monitorObjectName, Alert: "\(.resourceTemplateName) / \(.dataPointName)", Severity: (.severity | sev),
+      | map({Device: .monitorObjectName, Device_id: device_id, Alert: "\(.resourceTemplateName) / \(.dataPointName)", Severity: (.severity | sev),
              Started: (.startEpoch | at), Open: (if .cleared then "cleared" else "open" end)})
 
 - name: alerts_by_day
@@ -984,7 +993,7 @@
     - as: alerts
       run: AlertList
       filter: startEpoch>:now-7d,cleared:*
-      fields: [monitorObjectName, resourceTemplateName, dataPointName, severity]
+      fields: [monitorObjectId, monitorObjectType, monitorObjectName, resourceTemplateName, dataPointName, severity]
       size: all
       says: fetched every alert that started in the last 7 days, open or cleared, and counted them
   # Alerts that fire and clear over and over are what tuning fixes, so count
@@ -999,9 +1008,10 @@
   table:
     title: Alerts that fired most in the last 7 days
     columns: [Device, Alert, Times, Worst]
+    links: {Device: device}
     rows: |
       $alerts | group_by([.monitorObjectName, .resourceTemplateName, .dataPointName])
-      | map({Device: .[0].monitorObjectName, Alert: "\(.[0].resourceTemplateName) / \(.[0].dataPointName)",
+      | map({Device: .[0].monitorObjectName, Device_id: (.[0] | device_id), Alert: "\(.[0].resourceTemplateName) / \(.[0].dataPointName)",
              Times: length, Worst: (max_by(.severity).severity | sev)}) | sort_by(-.Times) | .[:20]
 
 - name: long_downtime
@@ -1052,9 +1062,10 @@
   table:
     title: Devices with alerting disabled
     columns: [Device, Disabled by]
+    links: {Device: device}
     rows: |
       $devices | map(select(.deviceType == 0 and (.alertDisableStatus | test("disable")))) | sort_by(.displayName)
-      | map({Device: .displayName, "Disabled by": (.alertDisableStatus | disabled_by | join(", "))})
+      | map({Device: .displayName, Device_id: .id, "Disabled by": (.alertDisableStatus | disabled_by | join(", "))})
 
 - name: downtime
   topic: Downtime and alerting off
@@ -1211,11 +1222,12 @@
   table:
     title: Devices down in {group[fullPath]}
     columns: [Device, Status]
+    links: {Device: device}
     rows: |
       $group[0] as $g
       | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
       | $down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))
-      | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Status: (.hostStatus | state)})
+      | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Device_id: .id, Status: (.hostStatus | state)})
 
 - name: group_dashboards_reports
   topic: Groups and customers

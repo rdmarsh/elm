@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- In Samara's tables, a device's name links to it in LogicMonitor (opens in a new tab): devices down, alerts, critical and unacknowledged alerts, devices with the most alerts, disks, clocks, new and noisiest alerts, alerting disabled, a group's devices and a device lookup. The Markdown copy carries the links too. Only alerts on devices link: a website or service check has no device page (one website check on the test portal is named like a host, so its row is left plain). The page makes each URL from the portal's name and the device's id, never from text in the data.
 - Under an answer Samara refused as not about the portal, a line asks "Was it about your portal? Tell OWNER what you were after": it opens the rating panel with "Not what I asked" picked and a box for what they wanted, so a question nobody foresaw reaches whoever runs Samara (the question log) instead of ending at the refusal. Only when the question log is on.
 - `samara/run.sh` opens the browser with `-y` too, whenever it is started from a terminal (`--no-open` to skip), and Samara has a local model read its prompt (system prompt and tools, ~7,400 tokens) as soon as it starts, so the first question is not the slow one: on the mini, qwen3-vl-4b's first answer took 23s more than the rest; after the warm-up it took 1s. `models.sh` runs do neither.
 - Samara's README has a "What Samara can answer" section: a sample by topic, what it cannot do, and where the full list is.

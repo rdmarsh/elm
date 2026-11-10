@@ -555,6 +555,15 @@ function renderChart(ev, chart) {
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(said)}">${svg}</svg>`;
 }
 
+// A cell's link to the device in LM, made here from the portal's name and the
+// row's id alone: a URL in the data (planted text on a device) is never used.
+function lmLink(t, col, row) {
+  const l = t.links && t.links[t.columns[col]], id = l && l.ids[row], portal = health && health.portal;
+  if (!l || l.to !== "device" || !Number.isInteger(id) || id <= 0 || !/^[a-z0-9-]+$/i.test(portal || "")) return null;
+  // resourceGroups-1 opens the device whatever group it is in
+  return `https://${portal}.logicmonitor.com/santaba/uiv4/resources/treeNodes?resourcePath=resourceGroups-1,resources-${id}`;
+}
+
 function renderTable(ev) {
   const block = document.createElement("div");
   block.className = "table-block";
@@ -563,21 +572,24 @@ function renderTable(ev) {
     <div class="table-scroll"><table><thead><tr>${ev.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody></tbody></table></div>
     <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > ev.rows.length ? ` (showing first ${ev.rows.length})` : ""} · click a heading to sort</div>`;
   const tbody = $("tbody", block);
-  const draw = rows => tbody.innerHTML = rows.map(r =>
-    `<tr>${r.map(v => { const text = v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
-      return `<td${text.length > 24 ? ' class="long"' : ""}>${cellHtml(text, esc(text))}</td>`; }).join("")}</tr>`).join("");
-  let rows = ev.rows.slice(), sortCol = -1, dir = 1;
-  draw(rows);
+  // Sorted as row numbers, so each row keeps its links.
+  const draw = order => tbody.innerHTML = order.map(i =>
+    `<tr>${ev.rows[i].map((v, j) => { const text = v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
+      const href = lmLink(ev, j, i);
+      const html = href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text);
+      return `<td${text.length > 24 ? ' class="long"' : ""}>${cellHtml(text, html)}</td>`; }).join("")}</tr>`).join("");
+  let order = ev.rows.map((_, i) => i), sortCol = -1, dir = 1;
+  draw(order);
   block.querySelectorAll("th").forEach((th, i) => th.addEventListener("click", () => {
     dir = sortCol === i ? -dir : 1; sortCol = i;
     block.querySelectorAll("th").forEach(h => h.removeAttribute("aria-sort"));
     th.setAttribute("aria-sort", dir > 0 ? "ascending" : "descending");
-    rows.sort((a, b) => {
-      const x = a[i], y = b[i];
+    order.sort((a, b) => {
+      const x = ev.rows[a][i], y = ev.rows[b][i];
       if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
       return String(x ?? "").localeCompare(String(y ?? ""), undefined, { numeric: true }) * dir;
     });
-    draw(rows);
+    draw(order);
   }));
   return block;
 }
@@ -592,7 +604,10 @@ function tableMarkdown(t) {
   return [`**${t.title}**`, "",
     `| ${t.columns.join(" | ")} |`,
     `| ${t.columns.map(() => "---").join(" | ")} |`,
-    ...t.rows.map(r => `| ${r.map(cell).join(" | ")} |`),
+    ...t.rows.map((r, i) => `| ${r.map((v, j) => {
+      const href = lmLink(t, j, i);
+      return href ? `[${cell(v).replace(/[[\]]/g, "\\$&")}](${href})` : cell(v);
+    }).join(" | ")} |`),
     t.total > t.rows.length ? `\n(${t.total} rows, first ${t.rows.length} shown)` : ""].join("\n");
 }
 

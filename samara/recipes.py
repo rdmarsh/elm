@@ -41,7 +41,9 @@ recipes.yaml, one entry per recipe:
   summary       jq giving the answer's text
   table_only    the rows hold free text (properties): the model is not told
                 where they are, so planted text reaches only the reader
-  table         {title, columns, rows}: jq giving the rows; shown on the page
+  table         {title, columns, rows}: jq giving the rows; shown on the page.
+                links: {Device: device} makes that column's cells links to the
+                device in LM, from each row's Device_id (null: no link)
 """
 
 import json
@@ -69,6 +71,9 @@ for _r in RECIPES.values():   # a chart names its table's columns: a typo fails 
                     and not set(_c["slices"]) - _cols)):
             raise ValueError(f"{_r['name']}: a chart is bar or line with x and y, or donut with row "
                              f"(first or last) and slices, all from the table's columns")
+    _links = _r.get("table", {}).get("links", {})
+    if set(_links) - set(_r.get("table", {}).get("columns", [])) or set(_links.values()) - {"device"}:
+        raise ValueError(f"{_r['name']}: links name the table's columns, each linking to a device")
 # The guide's headings, in the order the page shows them.
 TOPICS = ["Everything at once", "Devices", "Alerts", "Common problems", "Collectors", "Groups and customers",
           "Downtime and alerting off", "Websites", "People"]
@@ -115,6 +120,7 @@ def kind: {"0": "device", "2": "AWS resource", "4": "Azure resource", "6": "serv
   "18": "synthetic check"}[tostring] // "type \(.)";
 def updown: {"normal": "up", "dead": "not responding",
   "dead-collector": "not being monitored: its collector is down"}[.] // .;
+def device_id: if .monitorObjectType == "device" then .monitorObjectId else null end;   # an alert's, for links
 def state: {"normal": "up", "dead": "not responding", "dead-collector": "collector down"}[.] // .;   # for tables
 def ver: tostring | "\(.[:-3]).\(.[-3:])";   # collector build "41100" -> 41.100
 def disabled_by: [["a group", "its own setting", "some instances"], split("-")] | transpose
@@ -558,7 +564,8 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
         if isinstance(sort, (list, tuple)) and len(sort) == 2:   # from from_question, never the model
             rows, said = sorted_rows(rows, t["columns"], sort)
             text += "\n\n" + said
-        note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), rows, t["columns"])
+        note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), rows, t["columns"],
+                                           t.get("links"))
         if t.get("chart") and table["total"]:
             # Drawn by the page from these rows, so a chart can only show what the portal returned.
             table["chart"] = t["chart"] if isinstance(t["chart"], list) else [t["chart"]]
