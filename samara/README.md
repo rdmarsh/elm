@@ -375,8 +375,15 @@ docker run --rm -p 127.0.0.1:8080:8080 --user "$(id -u)" \
 
 `ELM_PROFILE=NAME` still works, for a container with the whole credentials
 folder mounted at `/home/app/.config/logicmonitor/credentials`; `ELM_CONFIG`
-wins when both are set. Either way the profile must set
-`allowed_commands`, unless you also add `-e SAMARA_ALLOW_UNRESTRICTED=1`. The
+wins when both are set. Either way the profile must be named `ai` or
+`ai-NAME` (`ai-portal01.ini`, never an `*.example.ini`) and must set
+`allowed_commands`; there is no override. The name only guards against
+starting Samara on an everyday token by mistake: what it may do is set by
+`allowed_commands` and the token's LogicMonitor role. With other profiles
+named portal first (`portal01_manage`, `portal01_backup`), the two parts say
+different things: a suffix says what the token can do, the `ai-` prefix who
+it is for (an AI tool, not you), so `ai-portal01` sits with the other AI
+profiles in `elm --list`. The
 page footer names the portal and the profile, and its "N allowed commands" is a
 button that lists them.
 
@@ -389,8 +396,7 @@ different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
 |---|---|---|
 | `ANTHROPIC_API_KEY` | | Claude API key; needed when any step of `SAMARA_MODEL` is Claude |
 | `ANTHROPIC_BASE_URL` | Anthropic API | Send Claude requests through a gateway instead |
-| `ELM_PROFILE` | `ai` | Credential profile name, as `elm --profile`. Must set `allowed_commands` |
-| `SAMARA_ALLOW_UNRESTRICTED` | | Set to `1` to allow a profile without `allowed_commands` |
+| `ELM_PROFILE` | `ai` | Credential profile name, as `elm --profile`: `ai` or `ai-NAME`, and must set `allowed_commands` |
 | `ELM_CONFIG` | | Path to a specific `.ini` inside the container (overrides `ELM_PROFILE`) |
 | `ELM_CACERT` | | CA bundle for networks that inspect TLS, as `elm --cacert` (mount the file too; unnecessary if the CA was built in, see [Build](#behind-a-proxy-that-inspects-tls)) |
 | `SAMARA_MODEL` | `haiku` | Model line (`haiku`, `sonnet`, `opus`: the newest model in it answers), an exact model id, or a comma list, one per Think harder step |

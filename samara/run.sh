@@ -130,6 +130,18 @@ if [[ $SET_KEY -eq 1 ]]; then
     exit 0
 fi
 
+# Only an ai profile, as qlm and Samara itself (elm_tools.AI_PROFILE): never an
+# everyday token by mistake. allowed_commands is checked inside the container.
+case $PROFILE in
+    *.example) ;;
+    ai|ai-*) ai_ok=1 ;;
+esac
+[[ -n "${ai_ok:-}" ]] || {
+    echo "Profile '$PROFILE' is not an ai profile: Samara uses only one named ai or ai-NAME (ai-$PROFILE.ini)." >&2
+    echo "Copy ai.example.ini there as ai-$PROFILE.ini and put a read-only API token in it." >&2
+    exit 1
+}
+
 [[ -f "$CREDS_DIR/$PROFILE.ini" || $DRY_RUN -eq 1 ]] || {
     echo "No profile '$PROFILE' in $CREDS_DIR." >&2
     echo "Copy ai.example.ini there as $PROFILE.ini and put a read-only API token in it." >&2

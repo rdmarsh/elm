@@ -32,8 +32,12 @@ ELM_CMD = [sys.executable, str(ELM_HOME / "elm.py")]
 # change these; only whoever starts Samara can.
 ELM_PROFILE = os.environ.get("ELM_PROFILE") or "ai"   # --profile NAME
 ELM_CONFIG = os.environ.get("ELM_CONFIG")             # --config PATH (wins over profile)
-# Refuse to answer with a profile that has no allowed_commands, unless this is set.
-ALLOW_UNRESTRICTED = setting("ALLOW_UNRESTRICTED") == "1"
+# Samara answers only with a profile named ai or ai-NAME (ai-portal01.ini),
+# never an *.example one, and only when it sets allowed_commands: there is no
+# override. qlm has the same name rule. The name guards against starting it on
+# an everyday token by mistake (portal01.ini, 2026-11-10); what it may do is
+# still set by allowed_commands and the token's LM role.
+AI_PROFILE = re.compile(r"ai(-[^/]+)?")
 ELM_CACERT = os.environ.get("ELM_CACERT")        # --cacert PATH for TLS-inspecting proxies
 
 MAX_ROWS = 1000          # LM's page cap; -s0 means "up to 1000"
@@ -242,9 +246,12 @@ def profile_status():
     elif not exists:
         problem = (f"Profile '{name}' not found. Create ~/.config/logicmonitor/credentials/{name}.ini from "
                    f"ai.example.ini, with a read-only API token.")
-    elif not restricted and not ALLOW_UNRESTRICTED:
-        problem = (f"Profile '{name}' has no allowed_commands, so it can run every command. Add allowed_commands "
-                   f"(see ai.example.ini), or set SAMARA_ALLOW_UNRESTRICTED=1 to use it anyway.")
+    elif not AI_PROFILE.fullmatch(short := Path(name).name.removesuffix(".ini")) or short.endswith(".example"):
+        problem = (f"Profile '{short}' is not an ai profile: Samara uses only one named ai or ai-NAME "
+                   f"(ai-{short}.ini), made from ai.example.ini with a read-only API token.")
+    elif not restricted:
+        problem = (f"Profile '{name}' has no allowed_commands, so it can run every command. "
+                   f"Add allowed_commands (see ai.example.ini).")
     return {"name": name, "account": account, "exists": exists, "restricted": restricted,
             "allowed": sorted(allowed), "problem": problem}
 

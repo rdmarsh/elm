@@ -69,6 +69,7 @@ for profile in ${QLM_PROFILE:-ai}; do
     # token. A guard against your own mistake, not a boundary: what a profile
     # may do is decided by its allowed_commands and its LM role, not its name.
     case $profile in
+        *.example) echo "qlm: '$profile' is an example, not a profile" >&2; exit 2 ;;
         ai|ai-*) ;;
         *) echo "qlm: only 'ai' profiles can be used, not '$profile' (see samara/README.md)" >&2; exit 2 ;;
     esac
