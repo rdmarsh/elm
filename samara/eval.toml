@@ -791,3 +791,9 @@ column = ["Matched on"]
 q = 'show me the widgets that have the title "Azure Resource Health (Real-time)"'
 recipe = ["find_dashboard"]
 column = ["Matched on"]
+
+# Several titles, one with a THINGS word (memory) in it: find_dashboard was refused (qwen3-vl-4b, 2026-11-11)
+[[case]]
+q = 'show me the dashboards that have widgets titled "Azure Service Health" and "Azure Resource Health (Real-time)" and "Free Memory Pool"'
+recipe = ["find_dashboard"]
+says = ["some of them"]

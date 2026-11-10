@@ -1418,8 +1418,9 @@
   # are removed from every row anyway (elm_tools.REMOVED_FIELDS).
   options:
     title:
-      about: "the title words as the person wrote them, of a dashboard or a widget (\"Device Power Status\")"
+      about: "the title words as the person wrote them, of a dashboard or a widget (\"Device Power Status\"); several: separate them with \" | \""
       required: true
+      many: true
       text: {filter: 'name~"{}"', words: ' titled like "{}"'}
   steps:
     - as: dashboards
@@ -1448,8 +1449,26 @@
     # Same-named dashboards in different folders are one name, counted: "AWS EBS (2)"
     | ($ids | map($name[tostring] // empty) | group_by(.)
        | map(.[0] + (if length > 1 then " (\(length))" else "" end))) as $named
-    | if ($ids | length) == 0 then "No dashboard or widget is\(qual)."
-      else "Found \($ids | length | n("dashboard"))\(qual) or with a widget\(qual): "
+    # Several titles: one query each, every row carrying its title as .of
+    | ([$dashboards[] | {id, t: (.of // titles[0])}] + [$widgets[] | {id: .dashboardId, t: (.of // titles[0])}]) as $hits
+    | ($hits | group_by(.id) | map({id: .[0].id, n: (map(.t) | unique | length)})) as $per
+    | ($per | map(select(.n == (titles | length))) | map(.id)) as $every
+    | (($per | length) - ($every | length)) as $some
+    | (titles - ($hits | map(.t) | unique)) as $none
+    | def names: map($name[tostring] // empty) | group_by(.) | map(.[0] + (if length > 1 then " (\(length))" else "" end))
+        | (.[:5] | join(", ")) + (if length > 5 then " and \(length - 5 | n("other"))" else "" end);
+    if ($ids | length) == 0 then "No dashboard or widget is\(qual)."
+    elif (titles | length) > 1 then
+      (if (titles | length) == 2 then "both" else "all \(titles | length)" end) as $all_of
+      | (if ($every | length) == 0 then "No dashboard has \($all_of) titles"
+       else "\($every | length | n("dashboard")) \(if ($every | length) == 1 then "has" else "have" end) \($all_of) "
+         + "titles, as widgets or \(if ($every | length) == 1 then "its" else "their" end) own title"
+         + (if ($every | names) != "" then ": \($every | names)" else "" end) end)
+      + (if $some > 0 then "; \($some | n(if ($every | length) > 0 then "other dashboard" else "dashboard" end)) "
+           + "\(if $some == 1 then "has" else "have" end) some of them" else "" end)
+      + (if ($none | length) > 0 then ". Nothing is titled like \($none | map("\"\(.)\"") | join(" or "))" else "" end)
+      + "."
+    else "Found \($ids | length | n("dashboard"))\(qual) or with a widget\(qual): "
         + ([if ($dashboards | length) > 0 then "\($dashboards | length | commas) by \(if ($dashboards | length) == 1 then "its" else "their" end) own title" else empty end,
             if ($on | length) > 0 then "\($on | length | commas) by \($widgets | length | n("widget"))" else empty end] | join(", "))
         + (if ($unseen | length) > 0 then " (\($unseen | length | n("dashboard")) not visible to this profile)" else "" end)
@@ -1470,8 +1489,11 @@
           | {Dashboard: $d.name, Dashboard_id: $i, Folder: ($d.groupFullPath // ""), Id: $i,
              "Matched on": ((if ($dashboards | any(.id == $i)) then ["its title"] else [] end)
                             + ($widgets | map(select(.dashboardId == $i)) | map("widget \"\(.name)\"") | sort)
-                            | join("; "))})
-      | sort_by(.Folder, .Dashboard)
+                            | join("; ")),
+             # how many of the titles it has, for the order: all of them first
+             n: ([$dashboards[] | select(.id == $i) | .of] + [$widgets[] | select(.dashboardId == $i) | .of]
+                 | unique | length)})
+      | sort_by(-.n, .Folder, .Dashboard)
 
 # --- One person -----------------------------------------------------------------
 

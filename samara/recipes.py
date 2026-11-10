@@ -29,7 +29,10 @@ recipes.yaml, one entry per recipe:
                 another's default, which then says nothing; `text` takes a
                 name instead of a list of values; `before` puts the words
                 before "alerts"; `required` makes the recipe refuse to run
-                without it (find_dashboard's title)
+                without it (find_dashboard's title); `many` lets a text option
+                take several values (a list, or "a | b"): steps filtered by
+                {options} run once per value, each row carrying its value as
+                `of`, and jq sees the values as `titles`
   steps         elm queries, each saved as `$<as>` for the jq below. Filters
                 and params are str.format templates over the lookups
                 ({device[id]}); `size: all` pages past 1000 rows; `when` is a
@@ -180,6 +183,9 @@ def misses(question, recipe):
     if not r:
         return []
     said = " ".join(r["asks"] + [r.get("covers", ""), recipe.replace("_", " "), r.get("table", {}).get("title", "")])
+    # Not words inside quotes: "Bottom 25 Free Memory Pool" is a widget's title, and
+    # find_dashboard was refused as not about memory (qwen3-vl-4b, 2026-11-11).
+    question = router.QUOTED.sub('""', question)
     return [k for k, rx in _THINGS.items() if rx.search(question) and not rx.search(said)]
 
 
@@ -385,7 +391,8 @@ def from_question(question, args):
         # A widget or dashboard title in quotes is find_dashboard's, whatever the
         # model picked: "Show me the widgets that have the title "Top Cisco ASAs by
         # Connections (Trend)"" ran find_group on Cisco ASA (qwen3-vl-4b, 2026-11-11).
-        args = {"recipe": "find_dashboard", "title": title[1].strip(),
+        quoted = [t.strip() for t in router.QUOTED.findall(question) if t.strip()]
+        args = {"recipe": "find_dashboard", "title": quoted if len(quoted) > 1 else quoted[0],
                 **({"sort": args["sort"]} if "sort" in args else {})}
     for picked, words, instead in SIBLINGS:
         if args.get("recipe") == picked and words.search(question):
@@ -448,7 +455,19 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
     if not r:
         raise ValueError(f"No recipe {recipe!r}. Recipes: {', '.join(RECIPES)}")
     # Options on a recipe without them are ignored, as days is.
-    chosen, before, after = choose(r, options)
+    # A `many` option with several values: one query per value (LM's filters
+    # have no "or"), and the words name them all.
+    many = next((n for n, o in r.get("options", {}).items() if o.get("many")), None)
+    values = options.get(many) if many else None
+    if isinstance(values, str):
+        values = values.split(" | ")
+    values = list(dict.fromkeys(str(v).strip() for v in values or [] if str(v).strip()))
+    per = [(v, choose(r, {**options, many: v})[0]) for v in values] if len(values) > 1 else None
+    chosen, before, after = choose(r, {**options, many: values[0]} if values else options)
+    if per:
+        joined = '", "'.join(values[:-1]) + '" or "' + values[-1]
+        after = after.replace(r["options"][many]["text"]["words"].format(values[0]),
+                              r["options"][many]["text"]["words"].format(joined))
     # days on a recipe without it is ignored: the answer says what it covers.
     ahead = None
     if "days" in r:
@@ -484,6 +503,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
         return (PRELUDE + (f"def days: {ahead};\n" if ahead else "")
                 + f"def which: {json.dumps(before + 'alert')}; def qual: {json.dumps(after)};\n"
                 + f"def narrowed: {json.dumps(narrowed)};\n"
+                + f"def titles: {json.dumps(values)};\n"
                 # "No critical alerts are open." under "only those that started
                 # today" said there were none at all (2026-11-10)
                 + 'def nothing($t): if narrowed == {} then $t else "None of those." end;\n' + expression)
@@ -568,6 +588,18 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                     got, _, _, one = elm_tools.fetch(step["run"], fields=step.get("fields"), params=params, size=0)
                     lines += [json.dumps(json.loads(line) | {"of": row}) for line in got]
                     shown = one if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
+                keep(step["as"], lines, shown, step["as"], step["run"])
+                continue
+            if per and "{options}" in step.get("filter", ""):
+                lines, shown = [], None
+                for i, (value, option) in enumerate(per):
+                    got, first, total = fetch_all(step["run"], filter=step["filter"].format(**records, options=option),
+                                                  fields=step.get("fields"))
+                    if total:
+                        cut.append(f"{step['as']} {value!r}: {len(got)} rows, "
+                                   + ("possibly more" if total.startswith(">") else f"of {total}"))
+                    lines += [json.dumps(json.loads(line) | {"of": value}) for line in got]
+                    shown = first if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
                 keep(step["as"], lines, shown, step["as"], step["run"])
                 continue
             wanted = step["filter"].format(**records, options=chosen) if "filter" in step else None

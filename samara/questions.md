@@ -264,6 +264,10 @@ trusting a count (on the test portal, 0 open and 0 in the last 7 days had it).
   - 2026-11-11 · qwen3-vl-4b · fail · the same question, after that fix: it called
     find_dashboard as a tool of its own, "Unknown tool". Fixed: a recipe called by its
     name runs as that recipe.
+  - 2026-11-11 · qwen3-vl-4b · fail · three quoted widget titles, one with "Memory" in it:
+    find_dashboard was refused as not about memory, and it answered "I can only answer
+    questions about this LogicMonitor portal." Fixed: quoted words are not topics, and
+    find_dashboard takes several titles (which dashboards have all of them).
 
 ## Off topic
 

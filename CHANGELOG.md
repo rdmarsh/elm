@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- "Show me the dashboards that have widgets titled "Availability SLA" and "Top 25 CPU Usage" and "Bottom 25 Free Memory Pool"" was refused: the word "memory" inside a title made Samara turn down the find-dashboard check as not about memory, and the model gave up. Words in quotes no longer count as what a question is about. The find-dashboard check also takes several titles now, one query each: the answer says which dashboards have all of them, how many have some, and which titles nothing has; dashboards with every title come first in the table.
 - A model that called a built-in check by its own name ("find_dashboard" with a title, not the recipe tool) got "Unknown tool find_dashboard" and gave up (qwen3-vl-4b). Samara now runs it as that check.
 - Samara's "show me the widgets that have the title "Top Cisco ASAs by Connections (Trend)"" answered with the group Cisco ASA: the name was found inside the quoted title, and the model ran the group lookup. In a question about widgets or dashboards, a quoted title is now the title: names inside it are not looked up, and the question runs the find-dashboard check with that title whatever the model picked. A device or group check is not run for a question about widgets.
 - A title or check name with an open bracket found nothing ("Azure Resource Health (Real-time)"): LogicMonitor's `~` filter finds nothing with `(` in the value. Samara now sends it as `[(]`, which matches it. elm-notes says so under the filter notes.
