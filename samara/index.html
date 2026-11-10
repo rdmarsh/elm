@@ -99,13 +99,17 @@
   #guide h2 { font-size: .95rem; font-weight: 600; margin: 14px 0 4px; }
   #guide > h2:first-child { margin-top: 0; }
   #guide a { color: inherit; }
-  #guide > p { margin: 0 0 6px; color: var(--muted); }
+  /* The panel in three parts split by a rule: ideas, the tested questions,
+     then what else to know. Each part says one thing, instead of an intro
+     paragraph saying all of it before anything to click (2026-11-10). */
+  #guide .part { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+  #guide .part p { margin: 0 0 6px; color: var(--muted); }
+  #guide .part p strong { color: var(--ink); font-weight: 600; }
   #guide ul { list-style: none; padding: 0; margin: 0; columns: 2 260px; column-gap: 24px; }
   #guide li { break-inside: avoid; }
   #guide li button { background: none; border: 0; padding: 2px 0; color: var(--ink); font-size: .9rem;
                      text-align: left; cursor: pointer; }
   #guide li button:hover { color: var(--accent); text-decoration: underline; }
-  #guide .cannot, #guide .contact { margin-top: 14px; color: var(--muted); }
 
   #banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
   #banner code { background: transparent; }
@@ -375,19 +379,20 @@ function renderGuide(h) {
       ? (/^[^\s@]+@[^\s@]+$/.test(h.contact) ? `mailto:${h.contact}` : /^https?:\/\//.test(h.contact) ? h.contact : null)
       : null;
     const who = h.owner ? esc(h.owner) : "whoever runs this Samara";
-    guide.innerHTML = tried +
-      `<p>Samara reads ${h.portal ? esc(h.portal) : "your portal"} and never changes it. `
-      + `The questions below have tested answers; ask them in your own words.<br>`
-      + `Anything else, Samara works out for itself and says so: check those answers.</p>`
+    guide.innerHTML = tried
+      + `<div class="part"><p>Every question with a tested answer, by topic. Word it however you like.</p>`
       + h.guide.filter(t => t.asks.length).map(t => `<h2>${esc(t.topic)}</h2><ul>`
         + t.asks.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("") + `</ul>`).join("")
-      + `<p class="cannot">It cannot: change anything (acknowledge, schedule downtime, edit settings); see users, roles, `
-      + `API tokens, the audit log, alert rules, escalation chains or integrations; or look at another portal.</p>`
-      + (h.log || h.contact ? `<p class="contact">`
-        + (h.log ? `An answer wrong, or something missing? Rate it with the thumbs under the answer: it goes to ${who}. ` : "")
+      + `</div><div class="part">`
+      + `<p><strong>Something else?</strong> Ask anyway. Samara works it out for itself and says so in the answer, so check it.</p>`
+      + `<p><strong>It cannot</strong> change anything (acknowledge, schedule downtime, edit settings), see users, roles, `
+      + `API tokens, the audit log, alert rules, escalation chains or integrations, or look at another portal.</p>`
+      + (h.log || h.contact ? `<p><strong>Wrong or missing?</strong> `
+        + (h.log ? `Rate the answer with the thumbs under it: it goes to ${who}. ` : "")
         + (h.contact ? `To ask ${who} anything else: ${reach
             ? `<a href="${esc(reach)}" target="_blank" rel="noopener">${esc(h.contact)}</a>` : esc(h.contact)}.` : "")
-        + `</p>` : "");
+        + `</p>` : "")
+      + `</div>`;
   }
   guide.querySelectorAll("li button").forEach(b => b.addEventListener("click", () => askThis(b.textContent)));
 }
