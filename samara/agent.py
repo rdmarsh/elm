@@ -912,8 +912,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
                     if event["type"] == "step" and str(event.get("result", "")).startswith("failed: Request failed:"):
                         # The portal cannot be reached (TLS, proxy, DNS): every other
                         # query would fail the same way, so answer with the reason now.
-                        why = f"I could not get an answer from {elm_tools.portal() or 'the portal'}: the query " \
-                              f"failed. elm said: {event['result'].removeprefix('failed: ')}"
+                        why = elm_tools.cannot_answer(event['result'].removeprefix('failed: '))
                         if why not in summaries and not any("could not get an answer" in s for s in summaries):
                             summaries.append(why)
                         forced = ""

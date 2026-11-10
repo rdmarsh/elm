@@ -460,6 +460,44 @@ def why_failed(stderr):
     return reason if len(reason) <= 500 else reason[:499] + "…"
 
 
+# Certificate failures in words someone without TLS knowledge can act on. The
+# raw "Basic Constraints of CA cert not marked critical" went straight into the
+# answer on the work laptop (2026-11-10), which told its reader nothing.
+CERT_TROUBLE = [
+    (r"not marked critical|VERIFY_X509_STRICT",
+     "the company network checks secure connections and swaps in its own security certificate. "
+     "Samara has that certificate, but it is missing a marking that newer software insists on, "
+     "so Samara refused the connection to stay safe."),
+    (r"unable to get local issuer|self[- ]signed certificate",
+     "something on the network (often a company web filter) swapped the portal's security certificate "
+     "for one Samara does not know, so Samara refused the connection to stay safe."),
+    (r"certificate has expired",
+     "the portal's security certificate, or one on the network in between, has expired, "
+     "so Samara refused the connection to stay safe."),
+    (r"[Hh]ostname mismatch|doesn't match",
+     "the security certificate that came back was made out to a different name, "
+     "so Samara refused the connection to stay safe."),
+    (r"CERTIFICATE_VERIFY_FAILED|SSLError|SSL:",
+     "the secure connection to it could not be checked, so Samara refused it to stay safe."),
+]
+
+
+def cannot_answer(reason):
+    """The answer when the portal cannot be reached: plain words for a certificate
+    problem, who to tell and where the fix is, with elm's own words kept last for
+    whoever fixes it. Keeps "could not get an answer", which agent.py looks for."""
+    where = portal() or "the portal"
+    plain = next((text for pattern, text in CERT_TROUBLE if re.search(pattern, reason)), None)
+    if not plain:
+        return f"I could not get an answer from {where}: the query failed. elm said: {reason}"
+    who = os.environ.get("SAMARA_OWNER", "").strip() or "whoever runs Samara"
+    contact = os.environ.get("SAMARA_CONTACT", "").strip()
+    return (f"I could not get an answer from {where}: {plain} Nothing is wrong with your question "
+            f"or with LogicMonitor, and every question will fail the same way until this is fixed.\n\n"
+            f"Please tell {who}{f' ({contact})' if contact else ''}. The fix is in Samara's README, "
+            f"under \"Behind a proxy that inspects TLS\".\n\nTechnical detail: {reason}")
+
+
 RECIPE_NAMES = set()   # filled in by recipes.py, so a recipe asked for as a command is pointed at it
 
 

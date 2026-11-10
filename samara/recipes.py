@@ -502,8 +502,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
         # Samara's words, not the model's: the reason is what someone can act on.
         reason = step["result"].removeprefix("failed: ")
         events.append({"type": "worked", "lines": [f"Asked {elm_tools.portal() or 'the portal'}: the query failed."],
-                       "summary": f"I could not get an answer from {elm_tools.portal() or 'the portal'}: "
-                                  f"the query failed. elm said: {reason}",
+                       "summary": elm_tools.cannot_answer(reason),
                        "covers": None})
         return f"The recipe could not run: {text}", events
 

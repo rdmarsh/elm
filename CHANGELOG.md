@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Samara explains a certificate failure in plain words instead of pasting Python's `SSLError`: a company network swapping in a certificate that is missing a marking newer software insists on ("Basic Constraints of CA cert not marked critical"), one Samara does not know, one expired or made out to another name. The answer says nothing is wrong with the question or LogicMonitor, that every question will fail until it is fixed, to tell `SAMARA_OWNER` (and `SAMARA_CONTACT` when set), and where the fix is in the README; elm's own words follow as "Technical detail". Other failures read as before.
 - Samara's "what's PERSON working on?" also lists open alerts nobody acknowledged whose note names them ("joe is looking at this"), marked "a note only". A note on an alert does not acknowledge it, and LogicMonitor keeps no record of who wrote it, so only a name in the text counts. The note replaces the acknowledgement comment.
 - The code of conduct is Contributor Covenant 3.0 (was 2.1): reports go to the issues page or by email, as before.
 
