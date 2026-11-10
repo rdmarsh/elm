@@ -70,8 +70,8 @@ It cannot change anything (acknowledge, schedule downtime, edit settings);
 see users, roles, API tokens, the audit log, alert rules, escalation chains or
 integrations; or look at another portal at the same time.
 
-The page lists every built-in check under **What can Samara answer?**, next
-to "Show me some ideas". That list comes from `recipes.yaml` (each recipe's
+The page lists every built-in check under **What can I ask?**, after a row
+of questions to try first. That list comes from `recipes.yaml` (each recipe's
 `topic` and first `asks`), so it is always the current one; this table is a
 sample. Clicking a question asks it; one naming DEVICE, GROUP, COLLECTOR or
 PERSON goes in the box with that word selected to type over.
@@ -262,7 +262,8 @@ awake and on the network, and LM Link off. Ask one question before the room
 fills: the first after a start takes about 40s while Samara reads the
 portal's device, group and collector names; after that, about 7s each.
 Pressing Ask with the box empty asks the first question below, and most of
-the rest are under "Show me some ideas" on the page, one click each.
+the rest are under "Try one of these" in **What can I ask?** on the page, one
+click each.
 
 These passed on qwen3-vl-4b every time they were asked on the 2026-11-05 and
 2026-11-06 evals. Swap in a device from your own portal:
@@ -796,8 +797,9 @@ the same panel at "Not what I asked", with a box for what they wanted. Those
 are the questions nobody foresaw, and the log is where new recipes come from.
 `SAMARA_LOG=0 samara/run.sh` turns ratings off.
 
-Under the box, next to "Show me some ideas", **What can Samara answer?**
-opens a guide: every built-in check's first question (its first `asks` in
+Under the box, **What can I ask?** opens a guide: a row of questions to try
+first (they pass on a small local model), then every built-in check's first
+question (its first `asks` in
 `recipes.yaml`), under the recipe's `topic`, what Samara cannot do, and who to
 tell. A recipe with no `topic` stays out of it. Set `SAMARA_CONTACT` (an email
 address or a link: `SAMARA_CONTACT=noc@example.com samara/run.sh`) to add how

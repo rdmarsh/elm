@@ -78,25 +78,25 @@
   button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 4px 12px; font-size: .85rem; }
 
-  /* "Show me some ideas": a quiet link under the box, like the allowed-commands
-     one, opening questions that answer reliably (README: How to demo). */
+  /* "What can I ask?": a quiet link under the box, like the allowed-commands
+     one. It opens the guide: questions that answer reliably as buttons (README:
+     How to demo), then every built-in check's question by topic, from
+     recipes.yaml (/api/health guide). Clicking any of them asks it. It was two
+     links, "Show me some ideas" and "What can Samara answer?", that both opened
+     questions to click (2026-11-10). */
   #ideas-bar { text-align: center; margin: 10px 0 0; }
   body.has-results #ideas-bar { text-align: left; margin: 6px 0 0 10px; }
   #ideas-bar button { background: none; border: 0; padding: 0; color: var(--muted); font-size: .85rem;
                       text-decoration: underline; cursor: pointer; }
-  #ideas { list-style: none; padding: 0; margin: 10px auto 0; max-width: 620px; display: flex; flex-wrap: wrap;
-           gap: 6px; justify-content: center; }
-  body.has-results #ideas { justify-content: flex-start; margin-left: 0; }
-  #ideas button { background: var(--panel); color: var(--ink); border: 1px solid var(--line);
-                  padding: 6px 12px; font-size: .85rem; }
-  #ideas button:hover { border-color: var(--accent); }
-  #ideas-bar .sep { color: var(--muted); margin: 0 8px; font-size: .85rem; }
+  #guide #ideas { margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  #guide #ideas button { background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+                         padding: 6px 12px; font-size: .85rem; }
+  #guide #ideas button:hover { border-color: var(--accent); color: var(--ink); text-decoration: none; }
 
-  /* "What can Samara answer?": every built-in check's question, by topic, from
-     recipes.yaml (/api/health guide). Clicking one asks it, like the ideas. */
   #guide { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px;
            margin: 12px auto 0; max-width: 700px; font-size: .9rem; }
   #guide h2 { font-size: .95rem; font-weight: 600; margin: 14px 0 4px; }
+  #guide > h2:first-child { margin-top: 0; }
   #guide a { color: inherit; }
   #guide > p { margin: 0 0 6px; color: var(--muted); }
   #guide ul { list-style: none; padding: 0; margin: 0; columns: 2 260px; column-gap: 24px; }
@@ -256,7 +256,7 @@
   @media print {
     body { background: #fff; color: #000; }
     main { max-width: none; padding: 0; }
-    header, form, #ideas-bar, #ideas, #guide, #banner, footer, button { display: none !important; }
+    header, form, #ideas-bar, #guide, #banner, footer, button { display: none !important; }
     .markdown-view { display: none; }
     .turn { border: 0; padding: 0; margin: 0; }
     .turn .question { display: block; font-size: 1.1rem; }
@@ -284,8 +284,7 @@
     <button id="topic" type="button" title="Ask something unrelated: Samara forgets the questions before">New topic</button>
   </form>
 
-  <p id="ideas-bar"><button id="ideas-toggle" type="button" aria-expanded="false" aria-controls="ideas">Show me some ideas</button><span id="guide-sep" class="sep" hidden>·</span><button id="guide-toggle" type="button" aria-expanded="false" aria-controls="guide" hidden>What can Samara answer?</button></p>
-  <ul id="ideas" hidden></ul>
+  <p id="ideas-bar"><button id="guide-toggle" type="button" aria-expanded="false" aria-controls="guide">What can I ask?</button></p>
   <section id="guide" hidden></section>
 
   <div id="banner" hidden></div>
@@ -345,19 +344,10 @@ let conversationId = null;
 const DEFAULT_QUESTION = "what needs my attention first?";   // what Ask asks with the box empty
 const IDEAS = [DEFAULT_QUESTION, "what's offline?", "is DEVICE okay?", "show me errors or worse",
   "are all our collectors up?", "what's in maintenance right now?", "are there a lot of alerts today?"];
-const ideas = $("#ideas"), ideasToggle = $("#ideas-toggle");
-ideas.innerHTML = IDEAS.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("");
-const showIdeas = open => {
-  ideas.hidden = !open;
-  ideasToggle.setAttribute("aria-expanded", open);
-  ideasToggle.textContent = open ? "Hide the ideas" : "Show me some ideas";
-};
-ideasToggle.addEventListener("click", () => { showGuide(false); showIdeas(ideas.hidden); });
 // A suggested question: asked at once, or, with a name to fill in (DEVICE,
 // GROUP ...), put in the box with that word selected for the person to type over.
 const askThis = q => {
   if (current) return;
-  showIdeas(false);
   showGuide(false);
   input.value = q;
   const blank = /\b(DEVICE|GROUP|COLLECTOR|PERSON|WEBSITE)\b/.exec(q);
@@ -365,38 +355,42 @@ const askThis = q => {
   input.focus();
   input.setSelectionRange(blank.index, blank.index + blank[0].length);
 };
-ideas.querySelectorAll("button").forEach(b => b.addEventListener("click", () => askThis(b.textContent)));
 const guide = $("#guide"), guideToggle = $("#guide-toggle");
 const showGuide = open => {
   guide.hidden = !open;
   guideToggle.setAttribute("aria-expanded", open);
+  guideToggle.textContent = open ? "Hide this" : "What can I ask?";
 };
-guideToggle.addEventListener("click", () => { showIdeas(false); showGuide(guide.hidden); });
-// Filled in from /api/health: the topics come from recipes.yaml, so a new
-// recipe shows up here without touching the page.
+guideToggle.addEventListener("click", () => showGuide(guide.hidden));
+// The ideas at once; the rest when /api/health answers: the topics come from
+// recipes.yaml, so a new recipe shows up here without touching the page.
 function renderGuide(h) {
-  if (!h.guide || !h.guide.length) return;
-  const reach = h.contact
-    ? (/^[^\s@]+@[^\s@]+$/.test(h.contact) ? `mailto:${h.contact}` : /^https?:\/\//.test(h.contact) ? h.contact : null)
-    : null;
-  const who = h.owner ? esc(h.owner) : "whoever runs this Samara";
-  guide.innerHTML =
-    `<p>Samara looks things up in ${h.portal ? esc(h.portal) : "your portal"} and never changes anything. `
-    + `It has built-in checks for the questions below: written and tested beforehand, so their numbers should be correct. `
-    + `Ask them in your own words. Anything else, it works out a query of its own, and the answer says so: check those.</p>`
-    + h.guide.filter(t => t.asks.length).map(t => `<h2>${esc(t.topic)}</h2><ul>`
-      + t.asks.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("") + `</ul>`).join("")
-    + `<p class="cannot">It cannot: change anything (acknowledge, schedule downtime, edit settings); see users, roles, `
-    + `API tokens, the audit log, alert rules, escalation chains or integrations; or look at another portal.</p>`
-    + (h.log || h.contact ? `<p class="contact">`
-      + (h.log ? `An answer wrong, or something missing? Rate it with the thumbs under the answer: it goes to ${who}. ` : "")
-      + (h.contact ? `To ask ${who} anything else: ${reach
-          ? `<a href="${esc(reach)}" target="_blank" rel="noopener">${esc(h.contact)}</a>` : esc(h.contact)}.` : "")
-      + `</p>` : "");
+  const tried = `<h2>Try one of these</h2><ul id="ideas">`
+    + IDEAS.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("") + `</ul>`;
+  if (!h.guide || !h.guide.length) {
+    guide.innerHTML = tried;
+  } else {
+    const reach = h.contact
+      ? (/^[^\s@]+@[^\s@]+$/.test(h.contact) ? `mailto:${h.contact}` : /^https?:\/\//.test(h.contact) ? h.contact : null)
+      : null;
+    const who = h.owner ? esc(h.owner) : "whoever runs this Samara";
+    guide.innerHTML = tried +
+      `<p>Samara reads ${h.portal ? esc(h.portal) : "your portal"} and never changes it. `
+      + `The questions below have tested answers; ask them in your own words. `
+      + `Anything else, Samara works out for itself and says so: check those answers.</p>`
+      + h.guide.filter(t => t.asks.length).map(t => `<h2>${esc(t.topic)}</h2><ul>`
+        + t.asks.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("") + `</ul>`).join("")
+      + `<p class="cannot">It cannot: change anything (acknowledge, schedule downtime, edit settings); see users, roles, `
+      + `API tokens, the audit log, alert rules, escalation chains or integrations; or look at another portal.</p>`
+      + (h.log || h.contact ? `<p class="contact">`
+        + (h.log ? `An answer wrong, or something missing? Rate it with the thumbs under the answer: it goes to ${who}. ` : "")
+        + (h.contact ? `To ask ${who} anything else: ${reach
+            ? `<a href="${esc(reach)}" target="_blank" rel="noopener">${esc(h.contact)}</a>` : esc(h.contact)}.` : "")
+        + `</p>` : "");
+  }
   guide.querySelectorAll("li button").forEach(b => b.addEventListener("click", () => askThis(b.textContent)));
-  guideToggle.hidden = false;
-  $("#guide-sep").hidden = false;
 }
+renderGuide({});
 
 fetch("/api/health").then(r => r.json()).then(h => {
   health = h;
@@ -757,7 +751,6 @@ function addScript(t, entry) {
 
 async function ask(question, harder, next) {   // next: {model, top} of the step Think harder asks
   document.body.classList.add("has-results");
-  showIdeas(false);
   showGuide(false);
   input.value = "";
   if (harder) { level = harder; atTop = next.top; } else { level = 0; atTop = false; }

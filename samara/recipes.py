@@ -11,7 +11,7 @@ elm (see samara/questions.md); the model running Samara cannot change them.
 
 recipes.yaml, one entry per recipe:
   name, asks    the recipe's name and the questions it answers
-  topic         its heading in the page's "What can Samara answer?" guide,
+  topic         its heading in the page's "What can I ask?" guide,
                 one of TOPICS, which lists its first ask; none keeps it out
   covers        what it answers, in a few words, shown under the answer: a
                 near-miss recipe answering a different question ("this week"
@@ -75,7 +75,7 @@ for _r in RECIPES.values():
 
 
 def guide():
-    """The page's "What can Samara answer?": each topic with its recipes' first asks."""
+    """The page's "What can I ask?": each topic with its recipes' first asks."""
     return [{"topic": t, "asks": [r["asks"][0] for r in RECIPES.values() if r.get("topic") == t]} for t in TOPICS]
 
 
