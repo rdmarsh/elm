@@ -261,6 +261,9 @@ trusting a count (on the test portal, 0 open and 0 in the last 7 days had it).
     Cisco ASAs by Connections (Trend)"" ran find_group on Cisco ASA, a group name
     inside the title. Fixed: quoted titles are not looked up as names, and become
     find_dashboard's title. Titles with "(" found nothing until sent as "[(]".
+  - 2026-11-11 · qwen3-vl-4b · fail · the same question, after that fix: it called
+    find_dashboard as a tool of its own, "Unknown tool". Fixed: a recipe called by its
+    name runs as that recipe.
 
 ## Off topic
 

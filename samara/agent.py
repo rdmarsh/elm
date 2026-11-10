@@ -533,6 +533,21 @@ def unchecked(partly, more):
     return f"_I'm best at {BEST_AT}" + (": Think harder asks a bigger model._" if more else "._")
 
 
+def as_recipe(block):
+    """A call to a recipe by its own name, as the recipe call it meant.
+
+    "Show me the widgets that have the title ..." came as find_dashboard
+    {title: ...}, not recipe {recipe: find_dashboard, title: ...}, and failed as
+    an unknown tool (qwen3-vl-4b, 2026-11-11). The conversation keeps the
+    model's own block; the tool result answers it by id.
+    """
+    name, args = openai_api.block(block, "name"), openai_api.block(block, "input")
+    if name in elm_tools.HANDLERS or name not in recipes.RECIPES or not isinstance(args, dict):
+        return block
+    return {"type": "tool_use", "id": openai_api.block(block, "id"), "name": "recipe",
+            "input": {**args, "recipe": name}}
+
+
 def call_tool(conv, block):
     """Run one tool_use block; return (tool_result, ui_event_or_None)."""
     name, args, use_id = (openai_api.block(block, k) for k in ("name", "input", "id"))
@@ -730,7 +745,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
         kind = lambda b: openai_api.block(b, "type")
         texts = [openai_api.block(b, "text") for b in response.content
                  if kind(b) == "text" and openai_api.block(b, "text").strip()]
-        tool_uses = [b for b in response.content if kind(b) == "tool_use"]
+        tool_uses = [as_recipe(b) for b in response.content if kind(b) == "tool_use"]
 
         if not tool_uses:
             # The model's own words, before Samara tidies them: for the bug report (index.html).
