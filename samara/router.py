@@ -113,7 +113,11 @@ def names():
                 # Not allowed, or the portal cannot be reached: route without them.
                 why = str(exc.args[0] if exc.args else exc)
                 if "is not allowed for this profile" not in why:   # that answer will not change in a minute
-                    missing.append(f"{command} ({why[:120]})")
+                    # The step's one-line reason, not elm's stderr: that was cut at 120
+                    # characters to "Error: request failed", the part that says nothing
+                    # (a proxy's CA refused on Python 3.13, work laptop, 2026-11-10).
+                    step = exc.args[1] if len(exc.args) > 1 and isinstance(exc.args[1], dict) else {}
+                    missing.append((command, step.get("result", "").removeprefix("failed: ") or why[:120]))
                 continue
             if kind == "person":
                 found += people({r.get(fields[0]) for r in rows})
@@ -135,7 +139,15 @@ def names():
         # may pass is not kept long; a command the profile does not allow is.
         _names, _when = found, time.time() + (RETRY_SECONDS if missing else REFRESH_SECONDS)
         if missing:
-            print(f"router: names without {', '.join(missing)}; trying again in {RETRY_SECONDS}s", file=sys.stderr, flush=True)
+            # One line per reason: every command fails the same way when the portal cannot be reached.
+            for reason in dict.fromkeys(r for _, r in missing):
+                commands = ", ".join(c for c, r in missing if r == reason)
+                plain = elm_tools.cert_trouble(reason)
+                if plain:
+                    reason = (f"{plain} Every question will fail until it is fixed: see Samara's README, "
+                              f"\"Behind a proxy that inspects TLS\". Technical detail: {reason}")
+                print(f"router: names without {commands}: {reason}; trying again in {RETRY_SECONDS}s",
+                      file=sys.stderr, flush=True)
         return _names
 
 

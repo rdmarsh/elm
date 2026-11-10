@@ -482,12 +482,17 @@ CERT_TROUBLE = [
 ]
 
 
+def cert_trouble(reason):
+    """A certificate failure in plain words, or None when the reason is something else."""
+    return next((text for pattern, text in CERT_TROUBLE if re.search(pattern, reason)), None)
+
+
 def cannot_answer(reason):
     """The answer when the portal cannot be reached: plain words for a certificate
     problem, who to tell and where the fix is, with elm's own words kept last for
     whoever fixes it. Keeps "could not get an answer", which agent.py looks for."""
     where = portal() or "the portal"
-    plain = next((text for pattern, text in CERT_TROUBLE if re.search(pattern, reason)), None)
+    plain = cert_trouble(reason)
     if not plain:
         return f"I could not get an answer from {where}: the query failed. elm said: {reason}"
     who = os.environ.get("SAMARA_OWNER", "").strip() or "whoever runs Samara"
