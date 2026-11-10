@@ -830,16 +830,43 @@
   asks: ["which SSL certificates are close to expiry?", "are any certificates expiring?"]
   covers: "open alerts on SSL certificates close to expiry"
   steps:
-    - as: alerts
+    - as: ssl
       run: AlertList
-      filter: cleared:false
-      fields: [monitorObjectName, monitorObjectType, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      filter: cleared:false,resourceTemplateName~ssl
+      fields: &cert_fields [id, monitorObjectName, monitorObjectType, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
       size: all
-      says: fetched every open alert and kept the certificate ones (SSL certificate checks and website certificate expiry)
+      says: fetched the open alerts whose DataSource or datapoint names SSL or a certificate, or whose datapoint counts days (one query each, as LM has no "or"), and kept the certificate ones (SSL certificate checks and website certificate expiry)
+    - as: certif
+      run: AlertList
+      filter: cleared:false,resourceTemplateName~certif
+      fields: *cert_fields
+      size: all
+      says: ""   # said by the first query
+    - as: ssl_dp
+      run: AlertList
+      filter: cleared:false,dataPointName~ssl
+      fields: *cert_fields
+      size: all
+      says: ""   # said by the first query
+    - as: certif_dp
+      run: AlertList
+      filter: cleared:false,dataPointName~certif
+      fields: *cert_fields
+      size: all
+      says: ""   # said by the first query
+    - as: days
+      run: AlertList
+      filter: cleared:false,dataPointName~days
+      fields: *cert_fields
+      size: all
+      says: ""   # said by the first query
   # From alerts, so "close" means past the warning threshold the portal sets;
-  # a certificate no check covers cannot show up here.
+  # a certificate no check covers cannot show up here. One query per name:
+  # LM has no "or" in a filter, and fetching every open alert stops at 10,000
+  # (a 9,991-alert portal, 2026-11-10). The regex below has the last word.
   summary: |
-    ($alerts | map(select((.resourceTemplateName + " " + .dataPointName) | test("(?i)ssl|certif|days ?(remaining|until ?expir)")))) as $c
+    ($ssl + $certif + $ssl_dp + $certif_dp + $days | unique_by(.id)) as $alerts
+    | ($alerts | map(select((.resourceTemplateName + " " + .dataPointName) | test("(?i)ssl|certif|days ?(remaining|until ?expir)")))) as $c
     | if ($c | length) == 0 then "No certificate alerts are open: no monitored certificate is past its expiry warning."
       else "\($c | length | n("certificate alert")) open (\($c | severities)), on \($c | map(.monitorObjectName) | unique | length) devices or websites"
         + (($c | map(select((.alertValue | tonumber? // 1) < 0)) | length) as $x | if $x > 0 then "; \($x) of the certificates have already expired" else "" end)
@@ -849,7 +876,8 @@
     title: Certificates past their expiry warning
     columns: [Where, Severity, Alert, Days left, Since]
     rows: |
-      $alerts | map(select((.resourceTemplateName + " " + .dataPointName) | test("(?i)ssl|certif|days ?(remaining|until ?expir)")))
+      ($ssl + $certif + $ssl_dp + $certif_dp + $days | unique_by(.id)) as $alerts
+      | $alerts | map(select((.resourceTemplateName + " " + .dataPointName) | test("(?i)ssl|certif|days ?(remaining|until ?expir)")))
       | sort_by(.alertValue | tonumber? // 0) | map({Where: .monitorObjectName, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         "Days left": (.alertValue | tonumber? // . | if type == "number" then floor else . end), Since: (.startEpoch | at)})
@@ -859,16 +887,24 @@
   asks: ["what disks are about to fill up?", "which filesystems are nearly full?", "is anything running out of disk space?"]
   covers: "open alerts on disks past their space threshold"
   steps:
-    - as: alerts
+    - as: percent
       run: AlertList
-      filter: cleared:false
-      fields: [monitorObjectId, monitorObjectType, monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      filter: cleared:false,dataPointName~percent
+      fields: &disk_fields [id, monitorObjectId, monitorObjectType, monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
       size: all
-      says: fetched every open alert and kept the disk space ones (used or free percent on a disk, volume or filesystem)
+      says: fetched the open alerts on a percent or capacity datapoint (one query each), and kept the disk space ones (used or free percent on a disk, volume or filesystem)
+    - as: capacity
+      run: AlertList
+      filter: cleared:false,dataPointName~capacity
+      fields: *disk_fields
+      size: all
+      says: ""   # said by the first query
+  # One query per datapoint name (see certificates_expiring).
   # hrStorage covers memory as well as disks: its memory instances are left out
   # by name. From alerts, so "about to fill" means past the portal's threshold.
   summary: |
-    ($alerts | map(select((.dataPointName | test("(?i)used ?percent|percent ?used|free ?percent|percent ?free|capacity"))
+    ($percent + $capacity | unique_by(.id)) as $alerts
+    | ($alerts | map(select((.dataPointName | test("(?i)used ?percent|percent ?used|free ?percent|percent ?free|capacity"))
        and ((.instanceName // "") | test("(?i)memory|swap|ram\\b|buffer|cache") | not)))) as $d
     | if ($d | length) == 0 then "No disk space alerts are open: no monitored disk is past its threshold."
       else "\($d | length | n("disk space alert")) open (\($d | severities)), on \($d | map(.monitorObjectName) | unique | length | n("device"))."
@@ -879,7 +915,8 @@
     columns: [Device, Disk, Severity, Value, Since]
     links: {Device: device}
     rows: |
-      $alerts | map(select((.dataPointName | test("(?i)used ?percent|percent ?used|free ?percent|percent ?free|capacity"))
+      ($percent + $capacity | unique_by(.id)) as $alerts
+      | $alerts | map(select((.dataPointName | test("(?i)used ?percent|percent ?used|free ?percent|percent ?free|capacity"))
          and ((.instanceName // "") | test("(?i)memory|swap|ram\\b|buffer|cache") | not)))
       | sort_by(-(.alertValue | tonumber? // 0))
       | map({Device: .monitorObjectName, Device_id: device_id, Disk: (.instanceName // .resourceTemplateName), Severity: (.severity | sev),
@@ -890,14 +927,46 @@
   asks: ["are any clocks out of sync?", "any NTP or time problems?"]
   covers: "open alerts on clocks out of sync"
   steps:
-    - as: alerts
+    - as: ntp
       run: AlertList
-      filter: cleared:false
-      fields: [monitorObjectId, monitorObjectType, monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
+      filter: cleared:false,resourceTemplateName~ntp
+      fields: &clock_fields [id, monitorObjectId, monitorObjectType, monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, alertValue]
       size: all
-      says: fetched every open alert and kept the time ones (NTP, clock offset)
+      says: fetched the open alerts whose DataSource names NTP, a clock or time, or whose datapoint is an offset, skew or stratum (one query each), and kept the time ones
+    - as: clock
+      run: AlertList
+      filter: cleared:false,resourceTemplateName~clock
+      fields: *clock_fields
+      size: all
+      says: ""   # said by the first query
+    - as: time
+      run: AlertList
+      filter: cleared:false,resourceTemplateName~time
+      fields: *clock_fields
+      size: all
+      says: ""   # said by the first query
+    - as: offset
+      run: AlertList
+      filter: cleared:false,dataPointName~offset
+      fields: *clock_fields
+      size: all
+      says: ""   # said by the first query
+    - as: skew
+      run: AlertList
+      filter: cleared:false,dataPointName~skew
+      fields: *clock_fields
+      size: all
+      says: ""   # said by the first query
+    - as: stratum
+      run: AlertList
+      filter: cleared:false,dataPointName~stratum
+      fields: *clock_fields
+      size: all
+      says: ""   # said by the first query
+  # One query per name (see certificates_expiring).
   summary: |
-    ($alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))) as $t
+    ($ntp + $clock + $time + $offset + $skew + $stratum | unique_by(.id)) as $alerts
+    | ($alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))) as $t
     | if ($t | length) == 0 then "No time or NTP alerts are open."
       else "\($t | length | n("time alert")) open (\($t | severities)), on \($t | map(.monitorObjectName) | unique | length | n("device"))." end
   table:
@@ -905,7 +974,8 @@
     columns: [Device, Severity, Alert, Value, Since]
     links: {Device: device}
     rows: |
-      $alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))
+      ($ntp + $clock + $time + $offset + $skew + $stratum | unique_by(.id)) as $alerts
+      | $alerts | map(select((.resourceTemplateName | test("(?i)ntp|clock|time ?(stats|sync|offset)")) or (.dataPointName | test("(?i)offset|skew|stratum"))))
       | sort_by(-.severity, .monitorObjectName) | map({Device: .monitorObjectName, Device_id: device_id, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")), Value: .alertValue, Since: (.startEpoch | at)})
 
@@ -1110,10 +1180,10 @@
       says: fetched every website check
     - as: alerts
       run: AlertList
-      filter: cleared:false
+      filter: cleared:false,type:websiteAlert
       fields: [monitorObjectType, monitorObjectName, severity, startEpoch]
       size: all
-      says: fetched every open alert and kept the ones on website checks
+      says: fetched the open alerts on website checks
   summary: |
     ($alerts | map(select(.monitorObjectType == "website"))) as $web
     | "\($web | map(.monitorObjectName) | unique | length) of \($sites | length) website checks have open alerts"
@@ -1299,6 +1369,12 @@
       fields: [monitorObjectName, severity, resourceTemplateName, instanceName, dataPointName, startEpoch, acked, ackComment, ackedBy, ackedEpoch]
       size: all
       says: fetched the open alerts, and kept the ones with the name in the note or the login of whoever acknowledged them
+      # LM ignores ackedBy and ackComment as filters (2026-11-10), so a name
+      # cannot be looked for there; acked can.
+      narrow:
+        - filter: cleared:false,acked:true
+          covers: acknowledged alerts
+          says: found over 9,000 open alerts, so fetched only the acknowledged ones, and kept those with the name in the note or the login of whoever acknowledged them
     - as: sdts
       run: SDTList
       size: all
@@ -1315,6 +1391,8 @@
          + "\($m | map(select(.acked | not)) | length | if . > 0 then "; \(.) of them \(if . == 1 then "has" else "have" end) a note only, not acknowledged" else "" end)." end)
     + (if ($d | length) == 0 then " No downtime in effect or to come was set by them or names them."
        else " \($d | length | n("downtime")) set by them or naming them: \($d | map(select(.isEffective)) | length) in effect now." end)
+    + (if narrowed.alerts then " Over 9,000 alerts are open, too many to go through, so only acknowledged ones were read: "
+         + "a name in the note of an alert nobody acknowledged would be missed." else "" end)
   table:
     title: What {person[name]} is working on
     columns: ["On", What, When, Note]   # quoted: YAML reads a bare On as true

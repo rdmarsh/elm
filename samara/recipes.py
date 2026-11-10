@@ -38,6 +38,9 @@ recipes.yaml, one entry per recipe:
                 says} tried in turn while the step's own filter has over OVER
                 rows (too many to go through): the first under it is fetched,
                 and jq sees its covers as `narrowed.<as>` (null when not narrowed)
+                `says` is the step's line in How I worked this out; "" leaves it
+                to another step (several queries, one per name, as LM's filters
+                have no "or")
   summary       jq giving the answer's text
   table_only    the rows hold free text (properties): the model is not told
                 where they are, so planted text reaches only the reader
@@ -574,6 +577,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
     worked = [f"Found the {p} by name." for p in r.get("params", [])]
     says = [says_now.get(step["as"], step.get("says", step["as"])).format(**fill)
             for step in r.get("steps", []) if step["as"] not in skipped]
+    says = [line for line in says if line]   # "": said by another step (one query per name)
     worked += [line[:1].upper() + line[1:] + "." for line in says]
     events.append({"type": "worked", "lines": worked, "summary": summary, "covers": covers})
     return text, events
