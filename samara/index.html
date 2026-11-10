@@ -216,6 +216,10 @@
   th { white-space: nowrap; }
   td { white-space: nowrap; }
   td.long { white-space: normal; overflow-wrap: anywhere; min-width: 16ch; }   /* only long cells wrap */
+  /* A device's link to LM: the cell's own colour, not the browser's blue and
+     purple, which were hard to read in dark mode (2026-11-10). */
+  td a { color: inherit; text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 2px; }
+  td a:hover, td a:focus-visible { color: var(--accent); text-decoration-color: currentColor; }
   th { position: sticky; top: 0; background: var(--panel); cursor: pointer; user-select: none; }
   tr:last-child td { border-bottom: 0; }
   .note { color: var(--muted); font-size: .8rem; margin-top: 4px; }
@@ -555,6 +559,11 @@ function renderChart(ev, chart) {
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(said)}">${svg}</svg>`;
 }
 
+// A cell as shown: 5421 as 5,421, like the answer's "over 9,000", except an id.
+// The CSV keeps the plain number, for a spreadsheet.
+const cellText = (v, col) => typeof v === "number" && Number.isInteger(v) && Math.abs(v) >= 1000 && !/\bid$/i.test(col)
+  ? v.toLocaleString("en-US") : v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
+
 // A cell's link to the device in LM, made here from the portal's name and the
 // row's id alone: a URL in the data (planted text on a device) is never used.
 function lmLink(t, col, row) {
@@ -574,7 +583,7 @@ function renderTable(ev) {
   const tbody = $("tbody", block);
   // Sorted as row numbers, so each row keeps its links.
   const draw = order => tbody.innerHTML = order.map(i =>
-    `<tr>${ev.rows[i].map((v, j) => { const text = v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
+    `<tr>${ev.rows[i].map((v, j) => { const text = cellText(v, ev.columns[j]);
       const href = lmLink(ev, j, i);
       const html = href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text);
       return `<td${text.length > 24 ? ' class="long"' : ""}>${cellHtml(text, html)}</td>`; }).join("")}</tr>`).join("");
@@ -600,13 +609,13 @@ let health = null;
 const slug = s => s.replace(/[^\w-]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "samara";
 
 function tableMarkdown(t) {
-  const cell = v => String(v ?? "").replace(/\|/g, "\\|");
+  const cell = (v, j) => cellText(v, t.columns[j]).replace(/\|/g, "\\|");
   return [`**${t.title}**`, "",
     `| ${t.columns.join(" | ")} |`,
     `| ${t.columns.map(() => "---").join(" | ")} |`,
     ...t.rows.map((r, i) => `| ${r.map((v, j) => {
       const href = lmLink(t, j, i);
-      return href ? `[${cell(v).replace(/[[\]]/g, "\\$&")}](${href})` : cell(v);
+      return href ? `[${cell(v, j).replace(/[[\]]/g, "\\$&")}](${href})` : cell(v, j);
     }).join(" | ")} |`),
     t.total > t.rows.length ? `\n(${t.total} rows, first ${t.rows.length} shown)` : ""].join("\n");
 }

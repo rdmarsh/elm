@@ -109,7 +109,10 @@ def ago: (. - now) as $s | ($s | fabs) as $a
   | if $a < 60 then (if $s > 0 then "in under a minute" else "just now" end)
     elif $s > 0 then "in about \($span)" elif $unit == "day" then "\($span) ago" else "about \($span) ago" end;
 def at: "\(when), \(ago)";
-def n($word): "\(.) \($word)\(if . == 1 then "" else "s" end)";
+def commas: if type == "number" and . == floor and fabs >= 1000   # 5421 -> "5,421", as "over 9,000"
+  then (if . < 0 then "-" else "" end) + (fabs | tostring | explode | reverse
+    | [recurse(.[3:]; length > 0) | .[:3] | reverse | implode] | reverse | join(",")) else tostring end;
+def n($word): "\(commas) \($word)\(if . == 1 then "" else "s" end)";
 def pct($of): if $of > 0 then (100 * . / $of) as $p   # 3 | pct(4) -> "75%"; a sliver is "<1%", not "0%"
   | if $p > 0 and $p < 1 then "<1%" else "\($p | round)%" end else "" end;
 def ack: if .acked | not then "no" else "yes"   # when, the note typed then, and who
@@ -117,7 +120,7 @@ def ack: if .acked | not then "no" else "yes"   # when, the note typed then, and
   + (if (.ackComment // "") != "" then ": \(.ackComment)" else "" end)
   + (if (.ackedBy // "") != "" then " (\(.ackedBy))" else "" end) end;
 def severities: (map(.severity | sev) | group_by(.) | map({key: .[0], value: length}) | from_entries) as $c
-  | [("critical", "error", "warning") as $s | select($c[$s]) | "\($c[$s]) \($s)"] | join(", ");
+  | [("critical", "error", "warning") as $s | select($c[$s]) | "\($c[$s] | commas) \($s)"] | join(", ");
 def kind: {"0": "device", "2": "AWS resource", "4": "Azure resource", "6": "service", "7": "GCP resource",
   "8": "Kubernetes resource", "9": "push-metrics device", "11": "synthetic check",
   "18": "synthetic check"}[tostring] // "type \(.)";

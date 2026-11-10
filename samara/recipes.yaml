@@ -147,9 +147,9 @@
   # by people, and a test device's system.description carries the planted text.
   summary: |
     $props[0] as $p
-    | "\($device[0].displayName) has \($p.customProperties | length) custom properties"
-    + " set on the device itself, \($p.inheritedProperties | length) inherited from its groups, "
-    + "\($p.systemProperties | length) system and \($p.autoProperties | length) discovered (auto) properties. "
+    | "\($device[0].displayName) has \($p.customProperties | length | commas) custom properties"
+    + " set on the device itself, \($p.inheritedProperties | length | commas) inherited from its groups, "
+    + "\($p.systemProperties | length | commas) system and \($p.autoProperties | length | commas) discovered (auto) properties. "
     + ($p.systemProperties | map(select(.name == "system.sysinfo" and .value != "")) | first
        | if . then "It reports its operating system as \"\(.value | gsub("[^A-Za-z0-9 .,:()/_#+-]"; "") | .[:100])\". "
          else "It does not report an operating system. " end)
@@ -216,7 +216,7 @@
          + "report values but no percentage: they are in the table."
        elif ($checks | length) > 0 then "\($name)'s memory use is not available: its memory checks "
          + "(\($checks | join(", "))) returned no data in the last hour."
-       else "\($name)'s memory use is not available: none of its \($dss | length) checks is a memory check this recipe knows." end)
+       else "\($name)'s memory use is not available: none of its \($dss | length | commas) checks is a memory check this recipe knows." end)
     + ($coll | map(select(.dp == "CollectorMemory" and .v != null)) | first
        | if . then " Separately, the LogicMonitor collector program running on it is using "
            + "\(.v / 1048576 | round) MB; that is the collector, not the server's memory." else "" end)
@@ -413,18 +413,18 @@
     | ($al | map(select(.severity >= 3))) as $bad
     | ($al | map(select((.acked | not) and (.sdted | not) and .startEpoch < now - 86400))) as $stale
     | narrowed.alerts as $only
-    | "1. Collectors: \($cdown | length) of \($collectors | length) down"
-    + (if ($recent | length) > 0 then ", \($recent | length) of them in the last 30 days (\($recent | map(.description) | join(", ")))"
+    | "1. Collectors: \($cdown | length | commas) of \($collectors | length | commas) down"
+    + (if ($recent | length) > 0 then ", \($recent | length | commas) of them in the last 30 days (\($recent | map(.description) | join(", ")))"
        else ", none in the last 30 days" end) + ".\n"
-    + "2. Devices: \($dev | map(select(.hostStatus == "dead")) | length) not responding, \($dev | map(select(.hostStatus == "dead-collector")) | length) behind a down collector.\n"
+    + "2. Devices: \($dev | map(select(.hostStatus == "dead")) | length | commas) not responding, \($dev | map(select(.hostStatus == "dead-collector")) | length | commas) behind a down collector.\n"
     + "3. Alerts: " + (if $only == null
-         then "\($alerts | length) open; \($al | length) of them besides devices down, \($bad | length) of those critical or error"
-         else "over 9,000 open, too many to go through, so only the \($only) are counted: \($bad | length) besides devices down" end)
+         then "\($alerts | length | commas) open; \($al | length | commas) of them besides devices down, \($bad | length | commas) of those critical or error"
+         else "over 9,000 open, too many to go through, so only the \($only) are counted: \($bad | length | commas) besides devices down" end)
     + (if ($bad | length) > 0 then ", most on " + ($bad | group_by(.resourceTemplateName) | map({t: .[0].resourceTemplateName, n: length})
-         | sort_by(-.n) | .[:2] | map("\(.t) (\(.n))") | join(" and ")) else "" end) + "."
+         | sort_by(-.n) | .[:2] | map("\(.t) (\(.n | commas))") | join(" and ")) else "" end) + "."
     # Alerts that started today or in the last hour are not a day old: no line 4
     + (if $only == null or ($stale | length) > 0
-       then "\n4. Neglected: \($stale | length) of those alerts open more than a day with nobody acknowledging them." else "" end)
+       then "\n4. Neglected: \($stale | length | commas) of those alerts open more than a day with nobody acknowledging them." else "" end)
   table:
     title: Health summary
     columns: [Area, Count, Detail]
@@ -433,13 +433,18 @@
       | ($down | map(select(.deviceType == 0))) as $dev
       | ($alerts | map(select(.resourceTemplateName != "Host Status"))) as $al
       | narrowed.alerts as $only
+      | ($al | map(select((.acked | not) and (.sdted | not) and .startEpoch < now - 86400)) | length) as $stale
       | [if $only == null then {Area: "Open alerts in all", Count: ($alerts | length), Detail: ($alerts | severities)}
          else {Area: "Open alerts in all", Count: "over 9,000", Detail: "too many to go through: the alert rows below are only the \($only)"} end,
          {Area: "Collectors down", Count: ($cdown | length), Detail: "\($cdown | map(select(.watchdogUpdatedOn > now - 30 * 86400)) | length) in the last 30 days"},
          {Area: "Devices not responding", Count: ($dev | map(select(.hostStatus == "dead")) | length), Detail: ""},
          {Area: "Devices behind a down collector", Count: ($dev | map(select(.hostStatus == "dead-collector")) | length), Detail: ""},
-         {Area: "Open alerts (besides devices down)", Count: ($al | length), Detail: ($al | severities)},
-         {Area: "Alerts unacknowledged for over a day", Count: ($al | map(select((.acked | not) and (.sdted | not) and .startEpoch < now - 86400)) | length), Detail: ""}]
+         {Area: (if $only == null then "Open alerts (besides devices down)" else "Open \($only) (besides devices down)" end),
+          Count: ($al | length), Detail: ($al | severities)}]
+      # Of the row above: with only critical and error counted, "Alerts
+      # unacknowledged" read as all of them (2026-11-10). None today or in the
+      # last hour is a day old, so no row then, as in the summary.
+      + (if $only == null or $stale > 0 then [{Area: "Of those, unacknowledged for over a day", Count: $stale, Detail: ""}] else [] end)
 
 - name: devices_down
   topic: Devices
@@ -466,13 +471,13 @@
     | ($real | map(select(.hostStatus == "dead"))) as $dead
     | ($dead | map($since["\(.id)"] // empty)) as $starts
     | ($real | map(select(.hostStatus == "dead-collector"))) as $nocoll
-    | "\($real | length | n("device")) down: \($dead | length) not responding, and \($nocoll | length) not being "
+    | "\($real | length | n("device")) down: \($dead | length | commas) not responding, and \($nocoll | length | commas) not being "
     + "monitored because their collector is down (\($nocoll | map(.collectorDescription) | unique | length | n("collector")))."
-    + (if ($other | length) > 0 then " Left out: \($other | length) objects that are not devices ("
+    + (if ($other | length) > 0 then " Left out: \($other | length | commas) objects that are not devices ("
        + ($other | group_by(.deviceType) | map("\(.[0].deviceType | kind): \(length)") | join(", ")) + ")." else "" end)
     + (if ($starts | length) > 0 then " Of the ones not responding, the longest has been down since \($starts | min | at)"
-       + "; \($starts | map(select(. > now - 86400)) | length) stopped in the last day, "
-       + "\($starts | map(select(. < now - 365 * 86400)) | length) over a year ago"
+       + "; \($starts | map(select(. > now - 86400)) | length | commas) stopped in the last day, "
+       + "\($starts | map(select(. < now - 365 * 86400)) | length | commas) over a year ago"
        + (($dead | length) - ($starts | length) | if . > 0 then "; \(.) have no open Host Status alert, so no start date (alerting may be off for them)" else "" end)
        + "." else "" end)
   table:
@@ -500,7 +505,7 @@
   # so the newest outage is the one worth naming.
   summary: |
     ($collectors | map(select(.isDown))) as $dn
-    | "\($dn | length) of \($collectors | length) collectors are down"
+    | "\($dn | length | commas) of \($collectors | length | commas) collectors are down"
     + (if ($dn | length) > 0 then ", between them monitoring \($dn | map(.numberOfHosts) | add | n("device"))"
        + (($dn | map(select(.inSDT)) | length) as $s | if $s > 0 then "; \($s) of them in scheduled downtime" else "; none is in scheduled downtime" end)
        + ($dn | max_by(.watchdogUpdatedOn) | ". The most recent to go down is \(.description), last heard from \(.watchdogUpdatedOn | at)")
@@ -537,7 +542,7 @@
      | max_by(.majorVersion * 1000 + .minorVersion) | .majorVersion * 1000 + .minorVersion) as $latest
     | ($collectors | map(select(.isDown | not))) as $up
     | ($up | map(select((.build | tonumber) < $latest))) as $old
-    | "The newest collector release is \($latest | ver). \($old | length) of \($up | length) running collectors are older"
+    | "The newest collector release is \($latest | ver). \($old | length | commas) of \($up | length | commas) running collectors are older"
     + (if ($old | length) > 0 then " (oldest: \($old | min_by(.build | tonumber) | "\(.description) on \(.build | ver)"))" else "" end)
     + (($up | map(select((.build | tonumber) > $latest)) | length) as $k | if $k > 0 then "; \($k) \(if $k == 1 then "runs a" else "run" end) pre-release build" else "" end)
     + ". \($collectors | length - ($up | length)) down collectors are left out."
@@ -566,9 +571,9 @@
     | ($collectors | map(select((.isDown | not) and .numberOfHosts > 0))) as $up
     | ($up | map(select(.backupAgentId == 0))) as $none
     | ($up | map(select(.backupAgentId > 0 and ($by[.backupAgentId | tostring].isDown // true)))) as $dead
-    | "\($none | length) of \($up | length) running collectors with devices have no failover collector, "
+    | "\($none | length | commas) of \($up | length | commas) running collectors with devices have no failover collector, "
     + "between them monitoring \($none | map(.numberOfHosts) | add // 0 | n("device"))"
-    + (if ($dead | length) > 0 then "; \($dead | length) more fail over to a collector that is down" else "" end) + "."
+    + (if ($dead | length) > 0 then "; \($dead | length | commas) more fail over to a collector that is down" else "" end) + "."
   table:
     title: Running collectors with no working failover, most devices first
     columns: [Collector, Group, Devices, Failover]
@@ -632,7 +637,7 @@
       says: fetched every open alert
   summary: |
     "\($alerts | length | n("open alert")): \($alerts | severities). "
-    + "\($alerts | map(select(.acked)) | length) acknowledged; \($alerts | map(select(.sdted)) | length) on things in scheduled downtime."
+    + "\($alerts | map(select(.acked)) | length | commas) acknowledged; \($alerts | map(select(.sdted)) | length | commas) on things in scheduled downtime."
   table:
     title: Open alerts by severity
     columns: [Severity, Open, Acknowledged, In downtime]
@@ -653,9 +658,9 @@
       says: fetched every open critical alert
   summary: |
     if ($alerts | length) == 0 then "No critical alerts are open."
-    else "\($alerts | length | n("critical alert")) open, on \($alerts | map(.monitorObjectName) | unique | length) different devices or checks; "
+    else "\($alerts | length | n("critical alert")) open, on \($alerts | map(.monitorObjectName) | unique | length | commas) different devices or checks; "
       + "the newest started \($alerts | max_by(.startEpoch).startEpoch | at), the oldest \($alerts | min_by(.startEpoch).startEpoch | at). "
-      + "\($alerts | map(select(.acked)) | length) acknowledged." end
+      + "\($alerts | map(select(.acked)) | length | commas) acknowledged." end
   table:
     title: Open critical alerts, newest first
     columns: [Device, Alert, Started, Acknowledged]
@@ -732,9 +737,9 @@
   summary: |
     if ($alerts | length) == 0 then "Found no \(0 | n(which) | ltrimstr("0 "))\(qual)."
     else "Found \($alerts | length | n(which))\(qual): \($alerts | severities); "
-      + "\($alerts | map(select(.cleared | not)) | length) still open, \($alerts | map(select(.cleared)) | length) cleared; "
-      + "\($alerts | map(select(.acked)) | length) acknowledged; "
-      + "\($alerts | map(select(.sdted)) | length) on things in scheduled downtime. Most on: "
+      + "\($alerts | map(select(.cleared | not)) | length | commas) still open, \($alerts | map(select(.cleared)) | length | commas) cleared; "
+      + "\($alerts | map(select(.acked)) | length | commas) acknowledged; "
+      + "\($alerts | map(select(.sdted)) | length | commas) on things in scheduled downtime. Most on: "
       + ($alerts | group_by(.monitorObjectName) | map({n: .[0].monitorObjectName, c: length}) | sort_by(-.c) | .[:3]
          | map("\(.n) (\(.c))") | join(", ")) + "." end
   table:
@@ -814,7 +819,7 @@
     ($alerts | group_by(.resourceTemplateName)
      | map({t: .[0].resourceTemplateName, d: (map(.monitorObjectName) | unique | length), all: .}) | sort_by(-.d)) as $types
     | if ($alerts | length) == 0 then "No alerts are open."
-      else "\($alerts | length | n("open alert")) of \($types | length) kinds. Most widespread: "
+      else "\($alerts | length | n("open alert")) of \($types | length | commas) kinds. Most widespread: "
       + ($types[:3] | map("\(.t) on \(.d | n("device")) (\(.all | severities))") | join("; ")) + "." end
   table:
     title: Open alerts by what is alerting, most widespread first
@@ -868,7 +873,7 @@
     ($ssl + $certif + $ssl_dp + $certif_dp + $days | unique_by(.id)) as $alerts
     | ($alerts | map(select((.resourceTemplateName + " " + .dataPointName) | test("(?i)ssl|certif|days ?(remaining|until ?expir)")))) as $c
     | if ($c | length) == 0 then "No certificate alerts are open: no monitored certificate is past its expiry warning."
-      else "\($c | length | n("certificate alert")) open (\($c | severities)), on \($c | map(.monitorObjectName) | unique | length) devices or websites"
+      else "\($c | length | n("certificate alert")) open (\($c | severities)), on \($c | map(.monitorObjectName) | unique | length | commas) devices or websites"
         + (($c | map(select((.alertValue | tonumber? // 1) < 0)) | length) as $x | if $x > 0 then "; \($x) of the certificates have already expired" else "" end)
         + "." end
     + " This covers only certificates that a check watches and that have passed its warning threshold."
@@ -994,9 +999,9 @@
   summary: |
     ($alerts | map(select(.cleared | not))) as $open
     | if ($alerts | length) == 0 then "No alerts started in the last 24 hours."
-      else "\($alerts | length | n("alert")) started in the last 24 hours, \($open | length) still open"
+      else "\($alerts | length | n("alert")) started in the last 24 hours, \($open | length | commas) still open"
       + (if ($open | length) > 0 then " (\($open | severities))" else "" end)
-      + ", on \($alerts | map(.monitorObjectName) | unique | length) different devices or checks." end
+      + ", on \($alerts | map(.monitorObjectName) | unique | length | commas) different devices or checks." end
   table:
     title: Alerts that started in the last 24 hours, newest first
     columns: [Device, Alert, Severity, Started, Open]
@@ -1100,7 +1105,7 @@
     ($sdts | map(select(.sdtType == "oneTime" and (.endDateTime - .startDateTime) > 7 * 86400000))) as $long
     | if ($long | length) == 0 then "No one-off downtime lasts more than 7 days."
       else "\($long | length | n("one-off downtime")) \(if ($long | length) == 1 then "lasts" else "last" end) more than 7 days; "
-      + "\($long | map(select(.isEffective)) | length) in effect now. The longest runs until \($long | max_by(.endDateTime) | .endDateTime / 1000 | at)." end
+      + "\($long | map(select(.isEffective)) | length | commas) in effect now. The longest runs until \($long | max_by(.endDateTime) | .endDateTime / 1000 | at)." end
   table:
     title: One-off downtime lasting more than 7 days
     columns: [For, Starts, Ends, Days, In effect now]
@@ -1126,7 +1131,7 @@
     | ($off | map(select(.deviceType == 0))) as $real
     | ($devices | map(select(.deviceType == 0)) | length) as $all
     | def by($w): $real | map(select(.alertDisableStatus | disabled_by | index($w))) | length;
-    "\($real | length) of \($all) devices have alerting disabled: \(by("a group")) by a group they are in, "
+    "\($real | length | commas) of \($all) devices have alerting disabled: \(by("a group")) by a group they are in, "
     + "\(by("its own setting")) by their own setting, \(by("some instances")) on some instances (a device can have more than one)."
     + (if ($off | length) > ($real | length) then " Another \(($off | length) - ($real | length)) objects that are not devices also have it disabled." else "" end)
   table:
@@ -1153,7 +1158,7 @@
     (now * 1000) as $ms | ($ms + days * 86400000) as $end
     | ($sdts | map(select(.isEffective)) | length) as $on
     | ($sdts | map(select((.isEffective | not) and .startDateTime > $ms and .startDateTime < $end)) | length) as $soon
-    | "\($on) in effect now; \($soon) more \(if $soon == 1 then "starts" else "start" end) in the next \(days | n("day")); \($sdts | length) scheduled in all."
+    | "\($on) in effect now; \($soon) more \(if $soon == 1 then "starts" else "start" end) in the next \(days | n("day")); \($sdts | length | commas) scheduled in all."
   table:
     title: Downtime in effect now or starting in the next {days} days
     columns: [For, Starts, Ends, Repeats, In effect now]
@@ -1186,7 +1191,7 @@
       says: fetched the open alerts on website checks
   summary: |
     ($alerts | map(select(.monitorObjectType == "website"))) as $web
-    | "\($web | map(.monitorObjectName) | unique | length) of \($sites | length) website checks have open alerts"
+    | "\($web | map(.monitorObjectName) | unique | length | commas) of \($sites | length | commas) website checks have open alerts"
     + (if ($web | length) > 0 then " (\($web | length | n("alert")): \($web | severities))" else "" end) + "."
   table:
     title: Website checks with open alerts
@@ -1209,8 +1214,8 @@
       says: fetched every monitored object's type and status
   summary: |
     ($devices | map(select(.deviceType == 0))) as $real
-    | "\($devices | length | n("monitored object")): \($real | length) devices"
-    + " (\($real | map(select(.hostStatus != "normal")) | length) of them down"
+    | "\($devices | length | n("monitored object")): \($real | length | commas) devices"
+    + " (\($real | map(select(.hostStatus != "normal")) | length | commas) of them down"
     + "\($real | map(select(.hostStatus == "dead-collector")) | length | if . > 0 then ", \(.) of those because their collector is down" else "" end)), and "
     + ($devices | map(select(.deviceType != 0) | .kind = (.deviceType | kind)) | group_by(.kind)
        | map("\(.[0].kind): \(length)") | join(", ")) + "."
@@ -1247,7 +1252,7 @@
       says: fetched the groups at the top of the portal
   summary: |
     # No total: a device can be in several groups (Devices by Type holds them all again)
-    "\($groups | length) groups at the top of the portal"
+    "\($groups | length | commas) groups at the top of the portal"
     + (if ($groups | length) > 0 then "; the largest is \($groups | max_by(.numOfHosts) | "\(.name), with \(.numOfHosts) devices")" else "" end) + "."
   table:
     title: Groups at the top of the portal
@@ -1285,8 +1290,8 @@
     | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
     | ($down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))) as $in
     | "\($g.fullPath) has \($g.numOfHosts | n("device")) (subgroups included). "
-    + "\($in | length) down (\($in | map(select(.hostStatus == "dead")) | length) not responding, "
-    + "\($in | map(select(.hostStatus == "dead-collector")) | length) with their collector down). "
+    + "\($in | length | commas) down (\($in | map(select(.hostStatus == "dead")) | length | commas) not responding, "
+    + "\($in | map(select(.hostStatus == "dead-collector")) | length | commas) with their collector down). "
     + (if ($alerts | length) == 0 then "No open alerts."
        else "\($alerts | length | n("open alert")) (\($alerts | severities)) on \($alerts | map(.monitorObjectName) | unique | length | n("device"))." end)
   table:
@@ -1331,7 +1336,7 @@
     | ($dashboards | map(select((.name | has) or (.groupFullPath | has) or ((.tenantIdentifier // "") | ascii_downcase) == $k))) as $d
     | ($reports | map(select((.name | has) or (.groupId as $g | $f | index($g)) or ((.tenantIdentifier // "") | ascii_downcase) == $k))) as $r
     | "\($d | length | n("dashboard")) and \($r | length | n("report")) have \($group[0].name) in their name, folder or tenant"
-    + (if ($r | length) > 0 then "; \($r | map(select(.delivery == "email")) | length) of the reports are emailed." else "." end)
+    + (if ($r | length) > 0 then "; \($r | map(select(.delivery == "email")) | length | commas) of the reports are emailed." else "." end)
   table:
     title: Dashboards and reports for {group[name]}
     columns: [Kind, Name, Folder, Sent to, Last run]
@@ -1390,7 +1395,7 @@
          + "\(if ($m | length) == 1 then "is" else "are" end) acknowledged by \($person[0].name) or name them in the note (\($m | severities))"
          + "\($m | map(select(.acked | not)) | length | if . > 0 then "; \(.) of them \(if . == 1 then "has" else "have" end) a note only, not acknowledged" else "" end)." end)
     + (if ($d | length) == 0 then " No downtime in effect or to come was set by them or names them."
-       else " \($d | length | n("downtime")) set by them or naming them: \($d | map(select(.isEffective)) | length) in effect now." end)
+       else " \($d | length | n("downtime")) set by them or naming them: \($d | map(select(.isEffective)) | length | commas) in effect now." end)
     + (if narrowed.alerts then " Over 9,000 alerts are open, too many to go through, so only acknowledged ones were read: "
          + "a name in the note of an alert nobody acknowledged would be missed." else "" end)
   table:
@@ -1451,7 +1456,7 @@
     + (if $c.collectorDeviceId == 0 then "Its own host is not monitored as a device, so its CPU and memory cannot be checked. "
        elif ($host_alerts | length) == 0 then "Its own host has no open alerts. "
        else "Its own host has \($host_alerts | length | n("open alert")) (\($host_alerts | severities)). " end)
-    + "It monitors \($devices | length | n("device")), \($dead | length) not responding"
+    + "It monitors \($devices | length | n("device")), \($dead | length | commas) not responding"
     + (if ($mine | length) == 0 then "; none has open alerts."
        else "; \($mine | length | n("open alert")) on them (\($mine | severities)). Most widespread: "
        + ($types[:3] | map("\(.t) (\(.d | n("device")))") | join(", ")) + "." end)
@@ -1510,7 +1515,7 @@
     | (per("JVMStatus"; "HeapPercent") | first // null) as $heap
     | ($heap.v[0] // null) as $heapnow
     | ([if ($queued | length) > 0 then "tasks waited in the queue for " + ($queued | map("\(.name) (up to \(.v | max | round))") | join(", ")) else empty end,
-        if ($unsched | length) > 0 then "it had no thread free to run some tasks for " + ($unsched | map("\(.name) (in \(.v | map(select(. > 0)) | length) of \(.v | length) minutes)") | join(", ")) else empty end,
+        if ($unsched | length) > 0 then "it had no thread free to run some tasks for " + ($unsched | map("\(.name) (in \(.v | map(select(. > 0)) | length | commas) of \(.v | length | commas) minutes)") | join(", ")) else empty end,
         if ($dropped | length) > 0 then "tasks were dropped from the " + ($dropped | map(.name) | join(", ")) + " queue" + (if ($dropped | length) > 1 then "s" else "" end) else empty end,
         if ($rejected | length) > 0 then "its throttler turned away \($rejected | join(", ")) tasks" else empty end,
         if $heapnow != null and ($heap.v | min) >= 90 then "its Java heap stayed above 90% all hour (now \($heapnow | num)%)" else empty end]) as $problems

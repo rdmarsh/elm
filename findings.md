@@ -83,6 +83,23 @@ What it adds up to:
   the evals tie.
 
 
+## 2026-11-10: a 10,000-row sample hid two thirds of the critical alerts
+
+On a portal with over 9,000 open alerts, the health summary fetched what LM
+would page (9,991 rows, LM's choice of which) and said "the counts may be too
+low". They were: 1,523 critical or error alerts in that sample, 5,421 when
+asked for directly (`severity>:3`, 5,807 rows, complete). A cut sample is not
+a smaller version of the whole.
+
+* Over 9,000 open, the summary now counts only critical and error alerts
+  (then today's, then the last hour's), and says so. One row at offset 9,000
+  is the size check. Answer time went from 55s to 26s.
+* AlertList's `-C` is no shortcut: it is `>N` while rows follow and a plain
+  `10000` at the limit, so counting rows is the simpler test.
+* Topic checks (clocks, certificates, disks) fetched every open alert to find
+  a few dozen; now one query per name, unioned in jq (LM's filters have no
+  "or"). Clocks on the test portal: 21 rows, not 443.
+
 ## 2026-11-09: four new models, and the portal health total (37aae98)
 
 Overnight 11-08 to 11-09, both machines: the three 4B models again (to
