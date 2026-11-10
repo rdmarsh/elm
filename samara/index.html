@@ -105,6 +105,7 @@
   #guide .part { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
   #guide .part p { margin: 0 0 6px; color: var(--muted); }
   #guide .part p strong { color: var(--ink); font-weight: 600; }
+  #guide .part p.lead { text-align: center; }
   #guide ul { list-style: none; padding: 0; margin: 0; columns: 2 260px; column-gap: 24px; }
   #guide li { break-inside: avoid; }
   #guide li button { background: none; border: 0; padding: 2px 0; color: var(--ink); font-size: .9rem;
@@ -380,7 +381,7 @@ function renderGuide(h) {
       : null;
     const who = h.owner ? esc(h.owner) : "whoever runs this Samara";
     guide.innerHTML = tried
-      + `<div class="part"><p>Every question with a tested answer, by topic. Word it however you like.</p>`
+      + `<div class="part"><p class="lead">Every question with a tested answer, by topic. Word it however you like.</p>`
       + h.guide.filter(t => t.asks.length).map(t => `<h2>${esc(t.topic)}</h2><ul>`
         + t.asks.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("") + `</ul>`).join("")
       + `</div><div class="part">`
