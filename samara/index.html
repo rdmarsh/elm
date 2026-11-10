@@ -88,7 +88,8 @@
   body.has-results #ideas-bar { text-align: left; margin: 6px 0 0 10px; }
   #ideas-bar button { background: none; border: 0; padding: 0; color: var(--muted); font-size: .85rem;
                       text-decoration: underline; cursor: pointer; }
-  #guide #ideas { margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  #guide #ideas { margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  #guide > h2:first-child { text-align: center; }
   #guide #ideas button { background: var(--bg); color: var(--ink); border: 1px solid var(--line);
                          padding: 6px 12px; font-size: .85rem; }
   #guide #ideas button:hover { border-color: var(--accent); color: var(--ink); text-decoration: none; }
@@ -376,7 +377,7 @@ function renderGuide(h) {
     const who = h.owner ? esc(h.owner) : "whoever runs this Samara";
     guide.innerHTML = tried +
       `<p>Samara reads ${h.portal ? esc(h.portal) : "your portal"} and never changes it. `
-      + `The questions below have tested answers; ask them in your own words. `
+      + `The questions below have tested answers; ask them in your own words.<br>`
       + `Anything else, Samara works out for itself and says so: check those answers.</p>`
       + h.guide.filter(t => t.asks.length).map(t => `<h2>${esc(t.topic)}</h2><ul>`
         + t.asks.map(q => `<li><button type="button">${esc(q)}</button></li>`).join("") + `</ul>`).join("")
