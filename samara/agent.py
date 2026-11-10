@@ -815,9 +815,12 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             # Where the answer came from, for the label above it (index.html):
             # what Samara knows, not how sure the model says it is. "What does
             # web02 do?" got a made-up feature with no query (qwen3-30b,
-            # 2026-10-30): the label says nothing was looked up.
+            # 2026-10-30): the label says nothing was looked up. The portal out of
+            # reach is said as that, not "Not looked up": Samara did look, and a
+            # certificate failure read as if it had not tried (2026-11-10).
             failed = any("could not get an answer" in x for x in summaries)
-            source = ("none" if not used - LOOKUP_TOOLS or failed or (not summaries and not any(ok(r) for r in own))
+            source = ("unreachable" if failed
+                      else "none" if not used - LOOKUP_TOOLS or (not summaries and not any(ok(r) for r in own))
                       else "checked" if not any(ok(r) for r in own)
                       # recipe rows made into a new table by the model's jq, with no query of its own
                       else "worked" if summaries and "run_elm" not in used
@@ -836,7 +839,7 @@ def _answer(client, conv, question, model, emit, where, start, more=False):
             spent()
             # Numbers may come from this turn, an earlier one ("243" from the answer
             # before), or the question itself ("devices on collector 281").
-            missing = unfound(answer, conv.seen + seen + summaries + [question]) if source != "none" else []
+            missing = unfound(answer, conv.seen + seen + summaries + [question]) if source not in ("none", "unreachable") else []
             conv.seen += seen + summaries
             emit({"type": "answer", "markdown": answer, "source": source, "unfound": missing})
             return
