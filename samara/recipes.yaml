@@ -675,11 +675,12 @@
       + "the newest started \($alerts | max_by(.startEpoch).startEpoch | at), the oldest \($alerts | min_by(.startEpoch).startEpoch | at). "
       + "\($alerts | map(select(.acked)) | length | commas) acknowledged." end
   table:
-    title: Open critical alerts, newest first
+    title: Open critical alerts, {first} first
+    show: 25
     columns: [Device, Alert, Started, Acknowledged]
     links: {Device: device}
     rows: |
-      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName, Device_id: device_id,
+      $alerts | sort_by(.startEpoch) | if first == "newest" then reverse else . end | map({Device: .monitorObjectName, Device_id: device_id,
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         Started: (.startEpoch | at), Acknowledged: ack})
 
@@ -723,6 +724,13 @@
         open: {filter: "cleared:false", words: " still open"}
         cleared: {filter: "cleared:true", words: " that have cleared"}
         any: {filter: "cleared:*", words: ", open or cleared"}
+    older_than:
+      about: "only alerts that started longer ago than this, if the question says (\"older than a year\", \"open more than a week\")"
+      values:
+        day: {filter: "startEpoch<:now-1d", words: " that started more than a day ago"}
+        week: {filter: "startEpoch<:now-7d", words: " that started more than a week ago"}
+        month: {filter: "startEpoch<:now-1M", words: " that started more than a month ago"}
+        year: {filter: "startEpoch<:now-12M", words: " that started more than a year ago"}
     severity:
       about: "only this severity, if the question says (\"errors or worse\" is error_or_critical)"
       before: true
@@ -756,11 +764,12 @@
       + ($alerts | group_by(.monitorObjectName) | map({n: .[0].monitorObjectName, c: length}) | sort_by(-.c) | .[:3]
          | map("\(.n) (\(.c))") | join(", ")) + "." end
   table:
-    title: "{Alerts}{qual}, newest first"
+    title: "{Alerts}{qual}, {first} first"
+    show: 25
     columns: [Device, Severity, Alert, Started, Cleared, Acknowledged, In downtime]
     links: {Device: device}
     rows: |
-      $alerts | sort_by(-.startEpoch) | map({Device: .monitorObjectName, Device_id: device_id, Severity: (.severity | sev),
+      $alerts | sort_by(.startEpoch) | if first == "newest" then reverse else . end | map({Device: .monitorObjectName, Device_id: device_id, Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         Started: (.startEpoch | at), Cleared: (if .cleared then (.endEpoch | at) else "still open" end),
         Acknowledged: ack, "In downtime": (if .sdted then "yes" else "no" end)})
@@ -821,6 +830,7 @@
       + (($alerts | map(select(.startEpoch < now - 30 * 86400)) | length) as $k | if $k > 0 then " \($k) are over 30 days old." else "" end) end
   table:
     title: Open alerts with no acknowledgement for more than a day, oldest first
+    show: 25
     columns: [Device, Severity, Alert, Started]
     links: {Device: device}
     rows: |
@@ -1031,6 +1041,7 @@
       + ", on \($alerts | map(.monitorObjectName) | unique | length | commas) different devices or checks." end
   table:
     title: Alerts that started in the last 24 hours, newest first
+    show: 25
     columns: [Device, Alert, Severity, Started, Open]
     links: {Device: device}
     rows: |

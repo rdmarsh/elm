@@ -55,7 +55,10 @@ recipes.yaml, one entry per recipe:
   table         {title, columns, rows}: jq giving the rows; shown on the page.
                 links: {Device: device} makes that column's cells links to the
                 device in LM, from each row's Device_id (null: no link);
-                {Dashboard: dashboard} links to a dashboard the same way
+                {Dashboard: dashboard} links to a dashboard the same way.
+                show: N puts only the first N rows on the page and in the
+                copied Markdown; the CSV has them all (467 critical alerts
+                was a page of scrolling, 2026-11-11)
 """
 
 import json
@@ -306,6 +309,13 @@ SEVERITY_IS = {r"\bcriticals?\b": "critical", r"\berrors?\b": "error", r"\bwarni
 # Time words WINDOWS has no value for ("since Monday", "in the last 3 days"): the model's window stays.
 TIMEISH = re.compile(r"\b(since|ago|before|after|recent\w*|lately|last|past|this|morning|night|week\w*|month\w*|"
                      r"days?|hours?|minutes?|mon|tues|wednes|thurs|fri|satur|sun)(day)?\b", re.I)
+# "older than a year", "open for more than a week": older_than, which small
+# models leave out ("critical alerts that are older than a year" came as
+# critical_alerts with started=last_365_days, and listed all 467, qwen3-vl-4b,
+# 2026-11-11).
+OLDER = re.compile(r"\b(?:older than|(?:open|going|active)\s+(?:for\s+)?(?:more|longer) than|over)\s+(?:an?|one|1)\s+"
+                   r"(day|week|month|year)\b|\b(?:an?|one|1)\s+(day|week|month|year)\s+old\b", re.I)
+OLDEST = re.compile(r"\b(older|oldest|longest)\b", re.I)
 HAPPENED = re.compile(r"\b(happen\w*|going on|changed|new)\b", re.I)
 ALERT_RECIPES = {"alerts", "open_alerts", "critical_alerts", "alerts_unacknowledged"}
 # The health recipe picked for a question its sibling answers: (picked, words, run instead).
@@ -411,12 +421,21 @@ def from_question(question, args):
         # new_alerts is the last 24 hours, whatever was asked: "what's happened in
         # the last hour?" is the alerts recipe over that hour.
         args = {"recipe": "alerts", "started": window, **({"sort": args["sort"]} if "sort" in args else {})}
+    older = OLDER.search(question)
+    if older and args.get("recipe") in ALERT_RECIPES - {"alerts_unacknowledged"}:
+        # The alerts recipe has the age filter; critical_alerts and open_alerts do not.
+        args["recipe"] = "alerts"
+    if OLDEST.search(question) and args.get("recipe") in ALERT_RECIPES:
+        args["oldest_first"] = True
     if args.get("recipe") in ("alerts_unacknowledged", "open_alerts") and CLEARED.search(question):
         # "How many alerts cleared yesterday?" ran alerts_unacknowledged, which
         # only has open ones (qwen3-vl-4b, 2026-11-05).
         args["recipe"] = "alerts"
     if args.get("recipe") != "alerts":
         return args
+    if older:
+        args["older_than"] = (older[1] or older[2]).lower()
+        args.pop("started", None)   # "older than a year" is not a window back from now
     if worse:
         args["severity"] = WORSE_IS[worse[1].lower()[:4]]
         if args["severity"] is None:
@@ -442,7 +461,7 @@ def from_question(question, args):
 
 
 def run_recipe(session, recipe=None, device=None, group=None, collector=None, person=None, days=None, sort=None,
-               **options):
+               oldest_first=False, **options):
     """Run one recipe; return (text for the model, [step and table events]).
 
     With no recipe named and one thing to look at, it is that thing's health
@@ -475,7 +494,10 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
             ahead = min(max(int(days or r["days"]), 1), MAX_DAYS)
         except (TypeError, ValueError):
             ahead = r["days"]
-    fill = {"days": ahead, "alerts": f"{before}alerts", "Alerts": f"{before}alerts".capitalize(), "qual": after}
+    # A question about old alerts wants the oldest at the top (from_question, never the model).
+    first = "oldest" if oldest_first or options.get("older_than") else "newest"
+    fill = {"days": ahead, "alerts": f"{before}alerts", "Alerts": f"{before}alerts".capitalize(), "qual": after,
+            "first": first}
     covers = r.get("covers", "").format(**fill) or None
     given = {"device": device, "group": group, "collector": collector, "person": person}
     for param, value in given.items():
@@ -504,6 +526,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                 + f"def which: {json.dumps(before + 'alert')}; def qual: {json.dumps(after)};\n"
                 + f"def narrowed: {json.dumps(narrowed)};\n"
                 + f"def titles: {json.dumps(values)};\n"
+                + f"def first: {json.dumps(first)};\n"
                 # "No critical alerts are open." under "only those that started
                 # today" said there were none at all (2026-11-10)
                 + 'def nothing($t): if narrowed == {} then $t else "None of those." end;\n' + expression)
@@ -677,6 +700,8 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
             text += "\n\n" + said
         note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), rows, t["columns"],
                                            t.get("links"))
+        if t.get("show") and table["total"] > t["show"]:
+            table["show"] = t["show"]
         if t.get("chart") and table["total"]:
             # Drawn by the page from these rows, so a chart can only show what the portal returned.
             table["chart"] = t["chart"] if isinstance(t["chart"], list) else [t["chart"]]

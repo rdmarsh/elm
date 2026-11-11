@@ -83,6 +83,22 @@ What it adds up to:
   the evals tie.
 
 
+## 2026-11-11: "older than a year" was dropped
+
+"Show me the critical alerts that are older than a year" (qwen3-vl-4b, a
+customer portal): the model picked critical_alerts with started=last_365_days,
+an option that recipe does not have, so it was ignored. The answer listed all
+467 open critical alerts, newest first; about 15 were over a year old. Not
+marked WRONG by anyone, but the reader had to scroll to the bottom to find
+the answer.
+
+* Same lesson as the time windows: small models drop or invent arguments,
+  so Samara reads "older than a year" from the question itself
+  (`older_than` on the alerts recipe) and puts the oldest first.
+* A table of 467 rows is not an answer. Alert lists now show 25; the CSV
+  keeps them all.
+
+
 ## 2026-11-11: finding a dashboard by widget title, four fails in a row
 
 One new check (`find_dashboard`, 840e367), asked live on qwen3-vl-4b. Each

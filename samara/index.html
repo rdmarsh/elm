@@ -580,15 +580,16 @@ function lmLink(t, col, row) {
 }
 
 function renderTable(ev) {
+  const show = Math.min(ev.show || ev.rows.length, ev.rows.length);   // the first N; sorting picks which N
   const block = document.createElement("div");
   block.className = "table-block";
   block.innerHTML = `
     <div class="table-head"><strong>${esc(ev.title)}</strong></div>${ev.chart ? renderCharts(ev) : ""}
     <div class="table-scroll"><table><thead><tr>${ev.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody></tbody></table></div>
-    <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > ev.rows.length ? ` (showing first ${ev.rows.length})` : ""} · click a heading to sort</div>`;
+    <div class="note">${ev.total} row${ev.total === 1 ? "" : "s"}${ev.total > show ? ` (showing first ${show}${ev.show ? "; the CSV has all of them" : ""})` : ""} · click a heading to sort</div>`;
   const tbody = $("tbody", block);
   // Sorted as row numbers, so each row keeps its links.
-  const draw = order => tbody.innerHTML = order.map(i =>
+  const draw = order => tbody.innerHTML = order.slice(0, show).map(i =>
     `<tr>${ev.rows[i].map((v, j) => { const text = cellText(v, ev.columns[j]);
       const href = lmLink(ev, j, i);
       const html = href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text);
@@ -615,15 +616,16 @@ let health = null;
 const slug = s => s.replace(/[^\w-]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "samara";
 
 function tableMarkdown(t) {
+  const show = Math.min(t.show || t.rows.length, t.rows.length);
   const cell = (v, j) => cellText(v, t.columns[j]).replace(/\|/g, "\\|");
   return [`**${t.title}**`, "",
     `| ${t.columns.join(" | ")} |`,
     `| ${t.columns.map(() => "---").join(" | ")} |`,
-    ...t.rows.map((r, i) => `| ${r.map((v, j) => {
+    ...t.rows.slice(0, show).map((r, i) => `| ${r.map((v, j) => {
       const href = lmLink(t, j, i);
       return href ? `[${cell(v, j).replace(/[[\]]/g, "\\$&")}](${href})` : cell(v, j);
     }).join(" | ")} |`),
-    t.total > t.rows.length ? `\n(${t.total} rows, first ${t.rows.length} shown)` : ""].join("\n");
+    t.total > show ? `\n(${t.total} rows, first ${show} shown${t.show ? "; the CSV has all of them" : ""})` : ""].join("\n");
 }
 
 // ISO date order and a 24-hour clock, with the zone, e.g. 2026-10-26 22:26:04 AEDT:

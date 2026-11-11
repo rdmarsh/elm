@@ -53,8 +53,10 @@ def markdown_table(event):
     cell = lambda v: "" if v is None else str(v).replace("|", "\\|").replace("\n", " ")
     lines = ["| " + " | ".join(event["columns"]) + " |",
              "|" + "---|" * len(event["columns"])]
-    lines += ["| " + " | ".join(cell(v) for v in row) + " |" for row in event["rows"]]
-    return f"**{event['title']}** ({event['total']} rows)\n\n" + "\n".join(lines)
+    rows = event["rows"][:event.get("show") or None]
+    lines += ["| " + " | ".join(cell(v) for v in row) + " |" for row in rows]
+    shown = f", first {len(rows)} shown" if len(rows) < event["total"] else ""
+    return f"**{event['title']}** ({event['total']} rows{shown})\n\n" + "\n".join(lines)
 
 
 @functools.cache

@@ -358,6 +358,12 @@ recipe = ["alerts", "open_alerts", "critical_alerts"]
 fact = ["$ELM AlertList -c -s0 -F 'cleared:false,severity>:3'"]
 
 [[case]]
+q = "Show me the critical alerts that are older than a year"
+recipe = ["alerts"]
+fact = ["$ELM AlertList -c -s0 -F 'cleared:false,severity:4,startEpoch<:now-12M'"]
+says = ["oldest first|more than a year"]
+
+[[case]]
 q = "How many alerts cleared yesterday?"
 recipe = ["alerts"]
 fact = ["$ELM AlertList -c -s0 -F 'cleared:true,endEpoch:{yesterday}'"]
