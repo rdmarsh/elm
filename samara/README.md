@@ -57,7 +57,7 @@ labelled so: check those.
 | Topic | For example |
 |---|---|
 | Everything at once | give me a health summary · what needs my attention first? |
-| Devices | is DEVICE okay? · which devices are down? · is DEVICE collecting everything? · which collector monitors DEVICE? |
+| Devices | is DEVICE okay? · has DEVICE alerted today? · which devices are down? · is DEVICE collecting everything? · which collector monitors DEVICE? |
 | Alerts | how many alerts are open? · show me errors or worse · are we having a lot of alerts today? · what alerts is nobody looking at? |
 | Common problems | are any certificates expiring? · what disks are about to fill up? · any NTP or time problems? |
 | Collectors | are all our collectors up? · which collectors need upgrading? · is COLLECTOR keeping up? |

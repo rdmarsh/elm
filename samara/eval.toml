@@ -47,6 +47,17 @@ fact = ["$ELM AlertListByDeviceId --id $($ELM -f values DeviceList -s1 -F 'displ
 q = "is {device2} okay?"
 recipe = ["device_health"]
 
+# One device's alerts by time or severity: both ran device_health, whose
+# summary answered neither (qwen3-vl-4b, 2026-11-11).
+[[case]]
+q = "has {device} alerted today?"
+recipe = ["device_alerts"]
+fact = ["$ELM AlertListByDeviceId --id $($ELM -f values DeviceList -s1 -F 'displayName:\"{device}\"' -f id) -c -s0 -F 'startEpoch>:now/d,cleared:*'"]
+
+[[case]]
+q = "show me the latest critical alert for {device}"
+recipe = ["device_alerts"]
+
 [[case]]
 q = "is {device} up?"
 recipe = ["device_health", "find_device"]

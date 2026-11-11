@@ -97,6 +97,10 @@ the answer.
   (`older_than` on the alerts recipe) and puts the oldest first.
 * A table of 467 rows is not an answer. Alert lists now show 25; the CSV
   keeps them all.
+* Same day, same portal: "has DEVICE alerted today?" and "the latest
+  critical alert for DEVICE" both ran device_health and got its summary,
+  which answered neither. No recipe covered one device's alerts by time or
+  severity; device_alerts does now, with the alerts recipe's options.
 
 
 ## 2026-11-11: finding a dashboard by widget title, four fails in a row

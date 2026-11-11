@@ -57,8 +57,8 @@ recipes.yaml, one entry per recipe:
                 device in LM, from each row's Device_id (null: no link);
                 {Dashboard: dashboard} links to a dashboard the same way.
                 show: N puts only the first N rows on the page and in the
-                copied Markdown; the CSV has them all (467 critical alerts
-                was a page of scrolling, 2026-11-11)
+                copied Markdown (default elm_tools.SHOW_ROWS, 25); the CSV has
+                them all (467 critical alerts was a page of scrolling, 2026-11-11)
 """
 
 import json
@@ -316,8 +316,15 @@ TIMEISH = re.compile(r"\b(since|ago|before|after|recent\w*|lately|last|past|this
 OLDER = re.compile(r"\b(?:older than|(?:open|going|active)\s+(?:for\s+)?(?:more|longer) than|over)\s+(?:an?|one|1)\s+"
                    r"(day|week|month|year)\b|\b(?:an?|one|1)\s+(day|week|month|year)\s+old\b", re.I)
 OLDEST = re.compile(r"\b(older|oldest|longest)\b", re.I)
-HAPPENED = re.compile(r"\b(happen\w*|going on|changed|new)\b", re.I)
+HAPPENED = re.compile(r"\b(happen\w*|going on|changed|new|alerted)\b", re.I)
 ALERT_RECIPES = {"alerts", "open_alerts", "critical_alerts", "alerts_unacknowledged"}
+# The recipes whose options from_question fills in from the question's words.
+OPTIONED = {"alerts", "device_alerts"}
+# "has DEVICE alerted today?", "the latest critical alert on DEVICE": about the
+# device's alerts, not its health, when the question has a time, an age, a
+# severity or one of these words.
+DEVICE_ALERTS = re.compile(r"\b(alerted|latest|newest|most recent|last alert|started|fired|cleared|critical|errors?|warnings?)\b",
+                           re.I)
 # The health recipe picked for a question its sibling answers: (picked, words, run instead).
 SIBLINGS = [
     ("collector_health", re.compile(r"\b(keep(ing)? up|overload\w*|(falling|fallen|fell|gets?) behind|"
@@ -410,28 +417,33 @@ def from_question(question, args):
             # qwen3-vl-4b, and "has DEVICE stopped collecting data?" device_health on
             # qwen3-8b (2026-11-07): the question's own words name the other recipe.
             args["recipe"] = instead
+    older = OLDER.search(question)
+    window = next((v for k, v in WINDOWS if re.search(k, question, re.I)), None)
+    if args.get("device") and args.get("recipe") in ALERT_RECIPES | {"new_alerts"}:
+        # A portal alert recipe with a device would be refused as not about one device.
+        args["recipe"] = "device_alerts"
+    if args.get("recipe") == "device_health" and (window or older or DEVICE_ALERTS.search(question)):
+        args["recipe"] = "device_alerts"
     worse = WORSE.search(question)
     if worse and args.get("recipe") in ALERT_RECIPES:
         # "show me errors or worse" ran critical_alerts on two models, and a
         # third left out the severity (2026-11-05): the alerts recipe, at that
         # severity and up, is the answer.
         args["recipe"] = "alerts"
-    window = next((v for k, v in WINDOWS if re.search(k, question, re.I)), None)
     if args.get("recipe") == "new_alerts" and window not in (None, "last_24_hours"):
         # new_alerts is the last 24 hours, whatever was asked: "what's happened in
         # the last hour?" is the alerts recipe over that hour.
         args = {"recipe": "alerts", "started": window, **({"sort": args["sort"]} if "sort" in args else {})}
-    older = OLDER.search(question)
     if older and args.get("recipe") in ALERT_RECIPES - {"alerts_unacknowledged"}:
         # The alerts recipe has the age filter; critical_alerts and open_alerts do not.
         args["recipe"] = "alerts"
-    if OLDEST.search(question) and args.get("recipe") in ALERT_RECIPES:
+    if OLDEST.search(question) and args.get("recipe") in ALERT_RECIPES | {"device_alerts"}:
         args["oldest_first"] = True
     if args.get("recipe") in ("alerts_unacknowledged", "open_alerts") and CLEARED.search(question):
         # "How many alerts cleared yesterday?" ran alerts_unacknowledged, which
         # only has open ones (qwen3-vl-4b, 2026-11-05).
         args["recipe"] = "alerts"
-    if args.get("recipe") != "alerts":
+    if args.get("recipe") not in OPTIONED:
         return args
     if older:
         args["older_than"] = (older[1] or older[2]).lower()
@@ -452,8 +464,10 @@ def from_question(question, args):
         # ended=last_hour (qwen3-4b-instruct-2507, 2026-11-05).
         args.pop("started", None)
         args["ended"] = window
-    elif window and not args.get("started") and not args.get("ended") and HAPPENED.search(question):
-        # "what's happened in the last hour?" with no window would be every open alert.
+    elif window and not args.get("started") and not args.get("ended") and (
+            HAPPENED.search(question) or STARTED.search(question) or args["recipe"] == "device_alerts"):
+        # "what's happened in the last hour?" with no window would be every open alert;
+        # "what alerts did DEVICE have yesterday?" is the ones that started then.
         args["started"] = window
     if args.get("state") == "open" and (args.get("started") or args.get("ended")) and not OPEN.search(question):
         del args["state"]   # the window's own state applies: any for started, cleared for ended
@@ -700,8 +714,10 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
             text += "\n\n" + said
         note, table = elm_tools.show_table(session, t["title"].format(**records, **fill), rows, t["columns"],
                                            t.get("links"))
-        if t.get("show") and table["total"] > t["show"]:
-            table["show"] = t["show"]
+        if t.get("show"):
+            table.pop("show", None)
+            if table["total"] > t["show"]:
+                table["show"] = t["show"]
         if t.get("chart") and table["total"]:
             # Drawn by the page from these rows, so a chart can only show what the portal returned.
             table["chart"] = t["chart"] if isinstance(t["chart"], list) else [t["chart"]]

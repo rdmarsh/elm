@@ -8,7 +8,7 @@
 
 - name: device_health
   topic: Devices
-  asks: ["is DEVICE okay?", "what's wrong with DEVICE?", "what alerts are open on DEVICE?", "how many open alerts does DEVICE have, by severity?", "what's the latest alert on DEVICE?", "is DEVICE down and since when?", "why didn't DEVICE alert?"]
+  asks: ["is DEVICE okay?", "what's wrong with DEVICE?", "what alerts are open on DEVICE?", "how many open alerts does DEVICE have, by severity?", "is DEVICE down and since when?", "why didn't DEVICE alert?"]
   covers: "one device now: up or down, its open alerts, downtime and collector"
   params: [device]
   steps:
@@ -676,7 +676,6 @@
       + "\($alerts | map(select(.acked)) | length | commas) acknowledged." end
   table:
     title: Open critical alerts, {first} first
-    show: 25
     columns: [Device, Alert, Started, Acknowledged]
     links: {Device: device}
     rows: |
@@ -694,7 +693,8 @@
   # it never writes a time filter (they got the times wrong, 2026-11-01).
   # LM returns no rows when an endEpoch range ends in the future, so a period
   # still going ("today") is one-sided: >: its start (2026-11-01).
-  options:
+  # device_alerts has the same options (the anchor).
+  options: &alert_options
     started:
       about: "when the alerts started, if the question says (\"started yesterday\", \"new this week\"); not for what cleared, which is ended"
       field: startEpoch
@@ -774,11 +774,54 @@
          | map("\(.n) (\(.c))") | join(", ")) + "." end
   table:
     title: "{Alerts}{qual}, {first} first"
-    show: 25
     columns: [Device, Severity, Alert, Started, Cleared, Acknowledged, In downtime]
     links: {Device: device}
     rows: |
       $alerts | sort_by(.startEpoch) | if first == "newest" then reverse else . end | map({Device: .monitorObjectName, Device_id: device_id, Severity: (.severity | sev),
+        Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
+        Started: (.startEpoch | at), Cleared: (if .cleared then (.endEpoch | at) else "still open" end),
+        Acknowledged: ack, "In downtime": (if .sdted then "yes" else "no" end)})
+
+- name: device_alerts
+  topic: Devices
+  asks: ["has DEVICE alerted today?", "what's the latest critical alert on DEVICE?", "what alerts did DEVICE have yesterday?",
+         "which warnings started on DEVICE this week?", "which alerts on DEVICE are older than a month?"]
+  # One device's alerts by time, age or severity: "has DEVICE alerted today?"
+  # and "the latest critical alert for DEVICE" ran device_health, whose summary
+  # answered neither (qwen3-vl-4b, 2026-11-11).
+  covers: "{alerts}{qual} on one device"
+  params: [device]
+  options: *alert_options
+  steps:
+    - as: alerts
+      run: AlertListByDeviceId
+      params: {id: "{device[id]}"}
+      filter: "{options}"
+      fields: [severity, cleared, startEpoch, endEpoch, sdted, acked, ackComment, ackedBy, ackedEpoch, resourceTemplateName, instanceName, dataPointName]
+      size: all
+      says: "fetched its {alerts}{qual}"
+  summary: |
+    def name: [.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ");
+    $device[0].displayName as $d
+    | if ($alerts | length) == 0 then "\($d) has no \(0 | n(which) | ltrimstr("0 "))\(qual)."
+    else ($alerts | map(.severity) | unique | length) as $sevs
+      | ($alerts | map(.cleared) | unique) as $cl
+      | ($alerts | max_by(.startEpoch)) as $last
+      | "\($d) has \($alerts | length | n(which))\(qual): "
+      # One alert: the latest says its severity and whether it cleared.
+      + ([(if ($alerts | length) == 1 then empty elif $sevs > 1 then ($alerts | severities) elif (which | test("critical|error|warning")) then empty
+           else "all \($alerts[0].severity | sev)" end),
+          (if ($alerts | length) == 1 then empty elif ($cl | length) > 1
+           then "\($alerts | map(select(.cleared | not)) | length | commas) still open, \($alerts | map(select(.cleared)) | length | commas) cleared"
+           elif (qual | test("still open|that (have )?cleared")) then empty elif $cl[0] then "all cleared" else "all still open" end),
+          "\($alerts | map(select(.acked)) | length | commas) acknowledged"] | join("; "))
+      + ". \(if ($alerts | length) == 1 then "It" else "The latest" end) started \($last.startEpoch | at): \($last | name) (\($last.severity | sev)"
+      + (if $last.cleared then ", cleared \($last.endEpoch | at))." else ", still open)." end) end
+  table:
+    title: "{Alerts}{qual} on {device[displayName]}, {first} first"
+    columns: [Severity, Alert, Started, Cleared, Acknowledged, In downtime]
+    rows: |
+      $alerts | sort_by(.startEpoch) | if first == "newest" then reverse else . end | map({Severity: (.severity | sev),
         Alert: ([.resourceTemplateName, .instanceName, .dataPointName] | map(select(. != null and . != "")) | join(" / ")),
         Started: (.startEpoch | at), Cleared: (if .cleared then (.endEpoch | at) else "still open" end),
         Acknowledged: ack, "In downtime": (if .sdted then "yes" else "no" end)})
@@ -839,7 +882,6 @@
       + (($alerts | map(select(.startEpoch < now - 30 * 86400)) | length) as $k | if $k > 0 then " \($k) are over 30 days old." else "" end) end
   table:
     title: Open alerts with no acknowledgement for more than a day, oldest first
-    show: 25
     columns: [Device, Severity, Alert, Started]
     links: {Device: device}
     rows: |
@@ -1050,7 +1092,6 @@
       + ", on \($alerts | map(.monitorObjectName) | unique | length | commas) different devices or checks." end
   table:
     title: Alerts that started in the last 24 hours, newest first
-    show: 25
     columns: [Device, Alert, Severity, Started, Open]
     links: {Device: device}
     rows: |

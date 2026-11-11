@@ -59,6 +59,7 @@ SAMPLE_ROWS = 5
 MAX_SAMPLE_CHARS = 6000  # a full CollectorList row alone can be several KB
 MAX_TOOL_TEXT = 15000    # characters of tool output handed back to the model
 MAX_TABLE_ROWS = 2000    # rows sent to the browser per table
+SHOW_ROWS = 25           # rows the page and the Markdown copy show; the CSV has them all
 PAGING_PARAMS = {"fields", "size", "offset", "filter"}
 
 # Removed from every row before the model, jq or the page can see it. With a
@@ -722,6 +723,8 @@ def show_table(session, title, expression, columns, links=None):
         "total": len(rows),
         "expression": expression,
     }
+    if len(rows) > SHOW_ROWS:
+        table["show"] = SHOW_ROWS
     if links:
         ok = lambda v: v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
         table["links"] = {c: {"to": to, "ids": [ok(r.get(f"{c}_id")) for r in rows[:MAX_TABLE_ROWS]]}
