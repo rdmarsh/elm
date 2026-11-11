@@ -101,6 +101,12 @@ the answer.
   critical alert for DEVICE" both ran device_health and got its summary,
   which answered neither. No recipe covered one device's alerts by time or
   severity; device_alerts does now, with the alerts recipe's options.
+* Same portal: "which collectors are out of date?" failed. LM left the
+  `feature` key off every CollectorVersionList row there (the test portal
+  has it, null on most rows), elm warned "no row has feature", and fetch
+  refused it as a bad field: a guard written for the model's queries
+  tripped a recipe's. The model's own retry without `feature` worked, but
+  the page still said "Could not reach the portal".
 
 
 ## 2026-11-11: finding a dashboard by widget title, four fails in a row

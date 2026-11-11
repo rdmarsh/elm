@@ -622,7 +622,8 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                 lines, shown = [], f"{step['run']}: nothing to fetch"
                 for i, row in enumerate(items):
                     params = {k: str(v).format(**records, row=row) for k, v in step.get("params", {}).items()}
-                    got, _, _, one = elm_tools.fetch(step["run"], fields=step.get("fields"), params=params, size=0)
+                    got, _, _, one = elm_tools.fetch(step["run"], fields=step.get("fields"), params=params, size=0,
+                                                     absent_ok=True)
                     lines += [json.dumps(json.loads(line) | {"of": row}) for line in got]
                     shown = one if i == 0 else f"{shown.split('  # ')[0]}  # and {i} more like it"
                 keep(step["as"], lines, shown, step["as"], step["run"])
@@ -631,7 +632,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                 lines, shown = [], None
                 for i, (value, option) in enumerate(per):
                     got, first, total = fetch_all(step["run"], filter=step["filter"].format(**records, options=option),
-                                                  fields=step.get("fields"))
+                                                  fields=step.get("fields"), absent_ok=True)
                     if total:
                         cut.append(f"{step['as']} {value!r}: {len(got)} rows, "
                                    + ("possibly more" if total.startswith(">") else f"of {total}"))
@@ -649,7 +650,7 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                 for n in [None] + step["narrow"]:
                     tried = n["filter"].format(**records, options=chosen) if n else wanted
                     over, _, _, check = elm_tools.fetch(step["run"], filter=tried, fields=step.get("fields"),
-                                                        size=1, offset=OVER)
+                                                        size=1, offset=OVER, absent_ok=True)
                     events.append({"type": "step", "command": check,
                                    "result": f"{'over' if over else 'under'} {OVER:,}"})
                     if not over:
@@ -658,7 +659,10 @@ def run_recipe(session, recipe=None, device=None, group=None, collector=None, pe
                     wanted = tried
                     narrowed[step["as"]] = n["covers"]
                     says_now[step["as"]] = n["says"]
-            kw = {"filter": wanted,
+            # absent_ok: LM leaves some keys off every row on some portals
+            # (CollectorVersionList's feature, 2026-11-11), and jq reads a
+            # missing key as null.
+            kw = {"filter": wanted, "absent_ok": True,
                   "fields": step.get("fields"),
                   "params": {k: str(v).format(**records) for k, v in step.get("params", {}).items()} or None}
             if step.get("size") == "all":

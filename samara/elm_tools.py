@@ -417,11 +417,13 @@ class Refused(Exception):
 READER = threading.local()
 
 
-def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, total=False, sort=None):
+def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, total=False, sort=None, absent_ok=False):
     """Run one elm query; return (jsonl lines, stderr, removed, shown), or the -C value for total.
 
     The lines are redacted, so neither the model, jq nor the page sees a
     secret; the caller stores them with session.add. Raises Refused on failure.
+    absent_ok: a field no row has is not a failure (a recipe, whose jq reads
+    a missing key as null).
     """
     args = build_elm_args(command, filter, fields, size, offset, params, total, sort)
     if never(command):
@@ -449,13 +451,15 @@ def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, tota
                           f"administrator would have to allow {command}. Show no commands and no file paths.", step)
         raise Refused(f"elm failed (exit {proc.returncode}):\n{truncate(stderr, 3000)}", step)
 
-    unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line or "Warning: no row has" in line]
+    unknown = [line for line in stderr.splitlines() if "Warning: unknown field" in line
+               or ("Warning: no row has" in line and not absent_ok)]
     if unknown:
         # Refused, not warned: LM sent back no such field (elm refuses most
         # before sending), or a field only other kinds of record have. A small
         # model read past the warning and told the reader the data was missing
         # (qwen3-8b, 2026-10-28); a refusal makes it ask again with a real name.
-        step = {"type": "step", "command": shown, "result": "failed"}
+        step = {"type": "step", "command": shown,
+                "result": "failed: " + "; ".join(u.split("Warning: ", 1)[1] for u in unknown)}
         raise Refused(f"Refused, nothing saved: {command}: {'; '.join(u.split('Warning: ', 1)[1] for u in unknown)}. "
                       f"Ask again with fields these records have (describe_command {command} lists them).", step)
     if total:
