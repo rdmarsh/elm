@@ -113,7 +113,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path in ("/", "/index.html"):
+        # ?q= is read by the page (a link that asks a question), not here.
+        if self.path.split("?", 1)[0] in ("/", "/index.html"):
             data = (HERE / "index.html").read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")

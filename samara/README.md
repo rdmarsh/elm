@@ -41,6 +41,13 @@ text, tables as Markdown tables, and the queries behind it -- ready to copy into
 a ticket, a wiki page or a chat, or to download as `.md`; **CSV** downloads its
 tables for spreadsheet work. The title goes back to a fresh page.
 
+A link can ask a question: `http://localhost:8080/?q=which+collectors+are+down`
+opens Samara and asks it, so a doc of morning checks can be a list of links,
+one question each, every click a fresh answer. The link button under an answer
+copies its link, and the address bar always holds the latest question. A
+linked question starts a conversation of its own: a follow-up such as "the
+first one" makes a link that lacks what it followed.
+
 It runs in a Docker container on the user's own machine, so nobody needs elm,
 Python or jq installed.
 

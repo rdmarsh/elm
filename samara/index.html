@@ -313,6 +313,7 @@ const ICON = {
   source: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 1.5 8l4 4M10.5 4l4 4-4 4M9 2.5 7 13.5"/></svg>`,
   bug: `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="9.5" rx="3.5" ry="4.5"/><path d="M6 5a2 2 0 0 1 4 0M8 5.5V14M4.5 8H2M4.5 11.5H2.5M11.5 8H14M11.5 11.5h2M5.5 5.5 4 4M10.5 5.5 12 4"/></svg>`,
   copy: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg>`,
+  link: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5a3 3 0 0 0 4.2 0l2.5-2.5a3 3 0 0 0-4.2-4.2L8 3.8M9.5 6.5a3 3 0 0 0-4.2 0L2.8 9a3 3 0 0 0 4.2 4.2l1-1"/></svg>`,
   check: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg>`,
   md: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M4 11V6l2 2.5L8 6v5M11 6v3.5M11 10l1.5-1.5M11 10 9.5 8.5"/></svg>`,
   up: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 7v7H2V7h3ZM5 7l2.6-5a1.5 1.5 0 0 1 2.4 1.5L9.4 6.5h3.4a1.5 1.5 0 0 1 1.5 1.8l-1 4.5a1.5 1.5 0 0 1-1.5 1.2H5"/></svg>`,
@@ -407,6 +408,12 @@ function renderGuide(h) {
 }
 renderGuide({});
 
+// A link that asks a question when opened: ?q=which+collectors+are+down.
+// One question per link. It starts a conversation of its own, so a follow-up
+// ("the first one") makes a link that lacks what it followed.
+const questionLink = q => `${location.origin}${location.pathname}?q=${encodeURIComponent(q).replace(/%20/g, "+")}`;
+const linked = (new URLSearchParams(location.search).get("q") || "").trim().slice(0, 2000);
+
 fetch("/api/health").then(r => r.json()).then(h => {
   health = h;
   const problems = [];
@@ -434,7 +441,7 @@ fetch("/api/health").then(r => r.json()).then(h => {
       + `anything else is refused before a request is sent.<br>`
       + h.allowed.map(c => `<code>${esc(c)}</code>`).join(" ");
   });
-}).catch(() => {});
+}).catch(() => {}).then(() => { if (linked && !current) ask(linked, 0); });
 
 // A table cell: an alert severity as a pill, anything else as text.
 const SEVERITIES = new Set(["critical", "error", "warning"]);
@@ -796,6 +803,9 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   document.body.classList.add("has-results");
   showGuide(false);
   input.value = "";
+  // The address bar asks the latest question: a refresh asks it again, and
+  // the address is a link to paste into a doc ("morning checks").
+  if (!harder) try { history.replaceState(null, "", questionLink(question)); } catch {}
   if (harder) { level = harder; atTop = next.top; } else { level = 0; atTop = false; }
   setPlaceholder();
   // Only the newest answer can be retried or extended: the server forgets the
@@ -820,6 +830,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
     <div class="turn-foot">
       <span class="exports">
         <button class="link ico copy" type="button" title="Copy this answer as Markdown" aria-label="Copy this answer as Markdown" hidden>${ICON.copy}</button>
+        <button class="link ico share" type="button" title="Copy a link that asks this question" aria-label="Copy a link that asks this question" hidden>${ICON.link}</button>
         <button class="link ico csv" type="button" title="Download the tables as CSV" aria-label="Download the tables as CSV" hidden>${ICON.csv}</button>
         <button class="link ico md-toggle" type="button" title="Show the Markdown, to read or download" aria-label="Show the Markdown" aria-pressed="false" hidden>${ICON.source}</button>
         <button class="link ico debug" type="button" title="Copy everything about this answer, for a bug report" aria-label="Copy for a bug report" hidden>${ICON.bug}</button>
@@ -958,6 +969,14 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
       showMarkdown(true); box.select(); note.textContent = "Press ctrl/cmd-C to copy";
     }
   });
+  $(".share", turn).addEventListener("click", async e => {
+    const b = e.currentTarget, url = questionLink(question);
+    try {
+      await navigator.clipboard.writeText(url);
+      b.innerHTML = ICON.check; b.title = "Link copied"; announce("Link copied");
+      setTimeout(() => { b.innerHTML = ICON.link; b.title = "Copy a link that asks this question"; }, 2000);
+    } catch { prompt("Copy this link", url); }
+  });
   $(".download", turn).addEventListener("click", () =>
     saveFile(slug(question) + ".md", box.value, "text/markdown"));
   $(".csv", turn).addEventListener("click", () => {
@@ -970,6 +989,7 @@ async function ask(question, harder, next) {   // next: {model, top} of the step
   await stream(t, $(".part", turn), { question, harder }, ev => {
     t.md.answer = ev.markdown; t.md.source = ev.source; t.md.unfound = ev.unfound;
     $(".copy", turn).hidden = false;
+    $(".share", turn).hidden = false;
     $(".md-toggle", turn).hidden = false;
     $(".more-detail", turn).hidden = false;
     $(".rate", turn).hidden = !(health && health.log);

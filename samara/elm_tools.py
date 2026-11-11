@@ -17,6 +17,8 @@ import sys
 import tempfile
 import threading
 from collections import Counter
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 
@@ -542,6 +544,32 @@ def cannot_answer(reason):
 RECIPE_NAMES = set()   # filled in by recipes.py, so a recipe asked for as a command is pointed at it
 
 
+TIME_KEY = re.compile(r"(Epoch|On|DateTime)$")
+
+
+def readable_times(row, tz):
+    """row with "<key>_local": "3 Nov 2026, 18:32 AEDT" beside each timestamp.
+
+    For the model's sample only. qwen3-vl-4b turned releaseEpoch 1793691170
+    into "11 Nov 2026, 14:29 AEST" (it was 3 Nov, 18:32 AEDT), and
+    1782986901 (2 Jul 2026) into 28 Jul 2023 (2026-11-11). It copies a date well; it cannot work
+    one out. Seconds or milliseconds; 0 (never, not yet) is left alone.
+    """
+    try:
+        zone = ZoneInfo(tz) if tz else None
+    except Exception:
+        zone = None
+    out = {}
+    for k, v in row.items():
+        out[k] = v
+        if not (TIME_KEY.search(k) and isinstance(v, int) and not isinstance(v, bool)):
+            continue
+        secs = v / 1000 if 10**12 <= v < 10**13 else v
+        if 10**9 <= secs < 4 * 10**9:
+            out[k + "_local"] = datetime.fromtimestamp(secs, zone).astimezone(zone).strftime("%d %b %Y, %H:%M %Z")
+    return out
+
+
 def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params=None, total=False, sort=None, **extra):
     """Run one read-only elm query and store the rows as a dataset.
 
@@ -584,7 +612,7 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
     for line in lines[:SAMPLE_ROWS]:   # keep the sample small enough to stay valid JSON after truncate()
         if rows and sample_chars + len(line) > MAX_SAMPLE_CHARS:
             break
-        rows.append(json.loads(line))
+        rows.append(readable_times(json.loads(line), session.tz or usable_tz(os.environ.get("TZ"))))
         sample_chars += len(line)
     field_names = sorted({k for line in lines[:200] for k in json.loads(line)})
     limit = size or MAX_ROWS
@@ -605,6 +633,10 @@ def run_elm(session, command, filter=None, fields=None, size=0, offset=0, params
         counts = tally(lines)
         if counts:
             result["counts"] = counts
+    if any(k.endswith("_local") for row in rows for k in row):
+        result["time_note"] = ("Each *_local field is that timestamp in the reader's time zone, added to "
+                               "this sample only (not in the dataset): quote it, never work a date out from "
+                               "the number. In jq, use strflocaltime.")
     if result["may_have_more"]:
         result["note"] = f"Hit the {limit}-row page limit; fetch the next page with offset={offset + limit}."
     if unsorted:

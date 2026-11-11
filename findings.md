@@ -107,6 +107,14 @@ the answer.
   refused it as a bad field: a guard written for the model's queries
   tripped a recipe's. The model's own retry without `feature` worked, but
   the page still said "Could not reach the portal".
+* The retry's dates were made up: releaseEpoch 1793691170 became
+  "2026-11-11 14:29 AEST" (3 Nov, 18:32 AEDT), an hour after the question
+  was asked, and 1782986901 became 28 Jul 2023 (2 Jul 2026). A 4B model
+  cannot turn an epoch into a date. Recipes format dates in jq; the model's
+  own queries now get a readable time beside each epoch in their sample.
+* Same day: "Dig deeper" on it asked AlertList for displayName and message,
+  fields AlertList does not have, read describe_command, and sent the same
+  bad query three more times before giving up.
 
 
 ## 2026-11-11: finding a dashboard by widget title, four fails in a row

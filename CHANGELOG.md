@@ -19,8 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Samara's README has a "What Samara can answer" section: a sample by topic, what it cannot do, and where the full list is.
 - Samara's page has **What can I ask?** under the box: a guide that opens with the questions to try first, then lists every built-in check's question under a heading (Devices, Alerts, Collectors, Groups and customers ...), what Samara cannot do, and who to tell when an answer is wrong. It is built from `recipes.yaml` (each recipe's new `topic` and first `asks`), so a new recipe appears in it by itself. A question naming a device, group, collector or person goes in the box with that word selected to type over. `SAMARA_CONTACT` (an email address or a link) adds how to reach whoever runs it.
 
+- A link can ask Samara a question: `/?q=which+collectors+are+down` opens the page and asks it, for a doc of morning checks with one link per check. A link button under each answer copies its link, and the address bar holds the latest question, so a refresh asks it again.
+
 ### Changed
 
+- Samara adds each timestamp in the reader's time zone ("releaseEpoch_local": "03 Nov 2026, 18:32 AEDT") beside the number in the sample rows a model's own query gives it, and tells it to quote that, not work a date out: qwen3-vl-4b put collector 41.2's release (3 Nov) an hour after the question was asked, and 39.5's (2 Jul 2026) in 2023. Fields ending in Epoch, On or DateTime, in seconds or milliseconds; 0 is left alone. The datasets jq reads are unchanged.
 - Samara answers "critical alerts older than a year" (and "open for more than a week", "a month old"): the alerts check takes an age (more than a day, week, month or year since it started), which Samara reads from the question itself. It went to the critical alerts check, which has no age, and listed all 467 open critical alerts, newest first. A question about old alerts (older, oldest, longest) puts the oldest first.
 - Samara's answer about alerts by time, age or severity gives the severity and open/cleared breakdowns only when they are mixed: "14 critical alerts still open that started more than a year ago" no longer goes on "14 critical; 14 still open, 0 cleared".
 - The Markdown copy of a Samara table puts a cell's line breaks on one line: an acknowledgement note of several lines split its row.
