@@ -15,7 +15,9 @@
 #                        e.g. Ollama at http://host.docker.internal:11434/v1
 #   --effort, -e LEVEL   low | medium | high | xhigh | max (default: high)
 #   --profile, -p NAME   elm credential profile (default: ai)
-#   --port NUM           port on this machine (default: 8080)
+#   --port NUM           port on this machine (default: 8080 for ai; for
+#                        ai-NAME, 8200-8999 from a checksum of the name, the
+#                        same on every machine, so a link stays good)
 #   --build              build the image first, from the repo root; with
 #                        PYTHON_VERSION=3.12 exported, on that Python (for a
 #                        TLS-inspecting proxy whose CA Python 3.13 rejects)
@@ -60,6 +62,7 @@
 #   run.sh                                   # prompts, then starts
 #   run.sh -y                                # image defaults, no questions
 #   run.sh -m sonnet -e medium -y            # dearer line, less thinking
+#   run.sh --profile ai-preprod -y           # its own port (run.sh says which)
 #   run.sh --profile ai-preprod --port 8081 -y
 #   run.sh -m qwen3:8b,sonnet --url http://host.docker.internal:11434/v1 -y
 #
@@ -87,7 +90,7 @@ MODEL=${SAMARA_MODEL:-${ELM_ASK_MODEL:-}}
 URL=${SAMARA_MODEL_URL:-}
 EFFORT=
 PROFILE=ai
-PORT=8080
+PORT=
 BUILD=0
 ASK=1
 DRY_RUN=0
@@ -141,6 +144,19 @@ esac
     echo "Copy ai.example.ini there as ai-$PROFILE.ini and put a read-only API token in it." >&2
     exit 1
 }
+
+# One port per profile, worked out from its name: the same on every machine,
+# so a doc of ?q= links works for everyone who runs Samara, and a portal
+# keeps its port whatever order they are started in. cksum is POSIX: macOS
+# and Linux agree. 8200 up: models.sh uses 808x-810x. Two names can share a
+# port (a few in 800); the check before docker run names the clash.
+if [[ -z "$PORT" ]]; then
+    if [[ $PROFILE == ai ]]; then
+        PORT=8080
+    else
+        PORT=$(( 8200 + $(printf %s "$PROFILE" | cksum | cut -d' ' -f1) % 800 ))
+    fi
+fi
 
 [[ -f "$CREDS_DIR/$PROFILE.ini" || $DRY_RUN -eq 1 ]] || {
     echo "No profile '$PROFILE' in $CREDS_DIR." >&2
@@ -272,6 +288,19 @@ elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && docker image inspect elm
     IMAGE=elm-ask   # built before the rename: use it until the next --build
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1 && [[ $DRY_RUN -eq 0 ]]; then
     echo "No '$IMAGE' image yet. Run with --build (or: docker build -f samara/dockerfile -t $IMAGE .)" >&2
+    exit 1
+fi
+
+# A Samara already on this port: say which profile it serves, not Docker's
+# "port is already allocated".
+if [[ $DRY_RUN -eq 0 ]] && running=$(curl -fs --max-time 2 "http://127.0.0.1:$PORT/api/health" 2>/dev/null); then
+    other=$(printf %s "$running" | grep -o '"profile": *"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/')
+    other=${other:-another profile}
+    if [[ ${other%.ini} == "$PROFILE" ]]; then
+        echo "Samara for $PROFILE is already running: http://127.0.0.1:$PORT/" >&2
+    else
+        echo "Port $PORT is taken by Samara for ${other%.ini}. Start $PROFILE with --port NUM." >&2
+    fi
     exit 1
 fi
 

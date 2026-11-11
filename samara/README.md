@@ -41,8 +41,8 @@ text, tables as Markdown tables, and the queries behind it -- ready to copy into
 a ticket, a wiki page or a chat, or to download as `.md`; **CSV** downloads its
 tables for spreadsheet work. The title goes back to a fresh page.
 
-A link can ask a question: `http://localhost:8080/?q=which+collectors+are+down`
-opens Samara and asks it, so a doc of morning checks can be a list of links,
+A link can ask a question: `http://127.0.0.1:8080/?q=which+collectors+are+down`
+opens Samara and asks it (the port is the profile's: see Choosing the profile), so a doc of morning checks can be a list of links,
 one question each, every click a fresh answer. The link button under an answer
 copies its link, and the address bar always holds the latest question. A
 linked question starts a conversation of its own: a follow-up such as "the
@@ -250,7 +250,7 @@ lms load qwen/qwen3-vl-4b --context-length 32768    # 16384 on a 16 GB Mac
 samara/run.sh --build -y -m qwen/qwen3-vl-4b --url http://host.docker.internal:1234/v1
 ```
 
-The browser opens `http://127.0.0.1:8080` once Samara answers (`--no-open`
+The browser opens Samara (`http://127.0.0.1:8080` for `ai`; another profile has its own port) once it answers (`--no-open`
 to skip), and Samara has the model read its prompt straight away, so the
 first question is as quick as the rest (both only when run.sh is started from
 a terminal: `models.sh` runs do neither). Load the model yourself first:
@@ -319,7 +319,7 @@ export ANTHROPIC_API_KEY=...        # once per terminal, or see below
 samara/run.sh                # asks, then starts
 samara/run.sh -y             # no questions, image defaults
 samara/run.sh -m sonnet -e medium -y
-samara/run.sh --profile ai-preprod --port 8081 -y
+samara/run.sh --profile ai-preprod -y    # its own port: run.sh prints the URL
 ```
 
 Asked for the model, it offers the three model lines by number (cheapest first,
@@ -403,8 +403,12 @@ profiles in `elm --list`. The
 page footer names the portal and the profile, and its "N allowed commands" is a
 button that lists them.
 
-One Samara talks to one portal. For several, run one container per profile on
-different ports (e.g. `ai-prod` on 8080, `ai-preprod` on 8081).
+One Samara talks to one portal. For several, run one per profile: each gets
+its own port, worked out from the profile's name (8200-8999, from `cksum`), so
+it is the same on every machine and a doc of `?q=` links works for anyone
+who runs Samara. `ai` stays on 8080; `run.sh` prints the URL, and `--port`
+picks another. Two names can land on one port: `run.sh` then says which
+profile holds it, and `--port` gets round it.
 
 ## Settings
 
