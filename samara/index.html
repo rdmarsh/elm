@@ -617,7 +617,9 @@ const slug = s => s.replace(/[^\w-]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) 
 
 function tableMarkdown(t) {
   const show = Math.min(t.show || t.rows.length, t.rows.length);
-  const cell = (v, j) => cellText(v, t.columns[j]).replace(/\|/g, "\\|");
+  // A line break ends a Markdown table row: an acknowledgement note of several
+  // lines split its row in the copy (2026-11-11).
+  const cell = (v, j) => cellText(v, t.columns[j]).replace(/\|/g, "\\|").replace(/\s*\n\s*/g, " ");
   return [`**${t.title}**`, "",
     `| ${t.columns.join(" | ")} |`,
     `| ${t.columns.map(() => "---").join(" | ")} |`,

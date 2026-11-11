@@ -757,10 +757,19 @@
       says: "fetched the {alerts}{qual}"
   summary: |
     if ($alerts | length) == 0 then "Found no \(0 | n(which) | ltrimstr("0 "))\(qual)."
-    else "Found \($alerts | length | n(which))\(qual): \($alerts | severities); "
-      + "\($alerts | map(select(.cleared | not)) | length | commas) still open, \($alerts | map(select(.cleared)) | length | commas) cleared; "
-      + "\($alerts | map(select(.acked)) | length | commas) acknowledged; "
-      + "\($alerts | map(select(.sdted)) | length | commas) on things in scheduled downtime. Most on: "
+    # A breakdown only says something when it is mixed: "14 critical; 14 still
+    # open, 0 cleared" under "critical alerts still open" (2026-11-11).
+    else ($alerts | map(.severity) | unique | length) as $sevs
+      | ($alerts | map(.cleared) | unique) as $cl
+      | "Found \($alerts | length | n(which))\(qual): "
+      + ([(if $sevs > 1 then ($alerts | severities) elif (which | test("critical|error|warning")) then empty
+           else "all \($alerts[0].severity | sev)" end),
+          (if ($cl | length) > 1
+           then "\($alerts | map(select(.cleared | not)) | length | commas) still open, \($alerts | map(select(.cleared)) | length | commas) cleared"
+           elif (qual | test("still open|that (have )?cleared")) then empty elif $cl[0] then "all cleared" else "all still open" end),
+          "\($alerts | map(select(.acked)) | length | commas) acknowledged",
+          "\($alerts | map(select(.sdted)) | length | commas) on things in scheduled downtime"] | join("; "))
+      + ". Most on: "
       + ($alerts | group_by(.monitorObjectName) | map({n: .[0].monitorObjectName, c: length}) | sort_by(-.c) | .[:3]
          | map("\(.n) (\(.c))") | join(", ")) + "." end
   table:
