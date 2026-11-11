@@ -98,6 +98,13 @@ PERSON goes in the box with that word selected to type over.
   wide rights is never the one the assistant uses by accident. Samara only
   offers and runs the commands that profile allows, and the model cannot choose
   another profile or config file.
+- **Some commands, never.** Users, API tokens and roles, the audit log, contact
+  details, integrations, device configs, discovery credentials and collector
+  installers and logs are never run, whatever the profile allows (`NEVER` in
+  `elm_tools.py`). A long `allowed_commands` is easy to get wrong: `Device*`
+  also lets in `DeviceConfigSourceConfigList`, a device's running config. If
+  the profile lets one in, Samara will not start and names it; `ai.example.ini`
+  denies the same commands in `denied_commands`, which elm itself enforces.
 - **An allowlist limits commands, not data.** Several allowed commands carry
   people's names: `SDTList` has the `admin` who created the downtime, `AlertList`
   has `ackedBy`, `OpsNoteList` has `createdBy`. Asked for "a list of users",
@@ -125,7 +132,8 @@ PERSON goes in the box with that word selected to type over.
    token can really reach): copy [`ai.example.ini`](../ai.example.ini) to
    `~/.config/logicmonitor/credentials/ai.ini`, fill in an API token whose
    LogicMonitor role is read-only, and adjust `allowed_commands` if you need to.
-   The page tells you if the profile is missing or has no `allowed_commands`.
+   The page tells you if the profile is missing, has no `allowed_commands`, or
+   allows a command Samara never runs. Copy its `denied_commands` too.
 
 ## Build
 

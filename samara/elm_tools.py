@@ -7,6 +7,7 @@ paging and the command's own documented parameters -- never global flags such
 as -f api/curl/wget, which would print the signed Authorization header.
 """
 
+import fnmatch
 import json
 import os
 import re
@@ -39,6 +40,19 @@ ELM_CONFIG = os.environ.get("ELM_CONFIG")             # --config PATH (wins over
 # still set by allowed_commands and the token's LM role.
 AI_PROFILE = re.compile(r"ai(-[^/]+)?")
 ELM_CACERT = os.environ.get("ELM_CACERT")        # --cacert PATH for TLS-inspecting proxies
+# Commands Samara never runs, whatever the profile allows: users, tokens and
+# roles, the audit log, contact details, integrations, device configs,
+# discovery credentials, collector installers and logs. ai.example.ini denies
+# the same in denied_commands; this is for a profile that lets one in by
+# mistake (a wildcard in a long allowed_commands): Samara will not start with
+# it, and refuses each query anyway.
+NEVER = ["AccessGroup*", "Admin*", "ApiToken*", "AuditLog*", "CollectorDownloadToken*", "CollectorInstaller",
+         "CollectorLogFile*", "DebugCommandResult", "DeviceConfigSource*", "EscalationChain*", "Integration*",
+         "Netscan*", "PortalInfo", "RecipientGroup*", "Role*"]
+
+
+def never(command):
+    return any(fnmatch.fnmatchcase(command, p) for p in NEVER)
 
 MAX_ROWS = 1000          # LM's page cap; -s0 means "up to 1000"
 SAMPLE_ROWS = 5
@@ -235,7 +249,9 @@ def profile_status():
         listing = subprocess.run(ELM_CMD + ["--list"], capture_output=True, text=True, timeout=60).stdout
         exists = name in {line.lstrip("* ").split()[0] for line in listing.splitlines() if line.strip()}
     help_text = subprocess.run(ELM_CMD + global_args() + ["--help"], capture_output=True, text=True, timeout=60)
-    restricted = "Restricted profile:" in help_text.stdout
+    # "allows only:", not the heading: a profile with denied_commands alone
+    # has the heading too, and can run everything else.
+    restricted = "allows only:" in help_text.stdout
     lines = help_text.stdout.split("Commands:", 1)[-1].split("Restricted profile:", 1)[0].splitlines()
     allowed = {line.split()[0] for line in lines if line.startswith("  ") and line.split()[0] in COMMANDS}
 
@@ -252,6 +268,10 @@ def profile_status():
     elif not restricted:
         problem = (f"Profile '{name}' has no allowed_commands, so it can run every command. "
                    f"Add allowed_commands (see ai.example.ini).")
+    elif let_in := sorted(c for c in allowed if never(c)):
+        problem = (f"Profile '{name}' allows {', '.join(let_in)}, which Samara never runs. Take "
+                   f"{'it' if len(let_in) == 1 else 'them'} out of allowed_commands, or add denied_commands "
+                   f"(see ai.example.ini).")
     return {"name": name, "account": account, "exists": exists, "restricted": restricted,
             "allowed": sorted(allowed), "problem": problem}
 
@@ -403,6 +423,10 @@ def fetch(command, filter=None, fields=None, size=0, offset=0, params=None, tota
     secret; the caller stores them with session.add. Raises Refused on failure.
     """
     args = build_elm_args(command, filter, fields, size, offset, params, total, sort)
+    if never(command):
+        raise Refused(f"{command} is never run by Samara; no request was sent. Tell the person, in plain "
+                      f"words, that this tool does not look at that information.",
+                      {"type": "step", "command": f"elm {command}", "result": "failed: never run by Samara"})
     # Shell-quoted, so the page can offer the queries as a script to paste and rerun.
     shown = "elm " + shlex.join(args)
     # --halt-on-api-error: without it a failed request (a TLS proxy's CA

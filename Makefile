@@ -508,7 +508,7 @@ ALLOWHOME = h=$$(mktemp -d) && c=$$h/.config/logicmonitor/credentials && mkdir -
 ALLOWDONE = rc=$$? ; rm -rf $$h ; exit $$rc
 
 .PHONY: testallow
-testallow: testbinary ## Test allowed_commands in a profile (offline)
+testallow: testbinary ## Test allowed_commands and denied_commands in a profile (offline)
 	@echo testing: a command the profile does not allow exits 3 ; $(ALLOWHOME) && { $(testbin) -p limited AdminList -s1 >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
 	@echo testing: the refusal names the profile and the command to run ; $(ALLOWHOME) && $(testbin) -p limited AdminList -s1 2>&1 | grep -q "Profile 'limited' allows only" && $(testbin) -p limited AdminList -s1 2>&1 | grep -q 'elm -p limited AdminList -s1' ; $(ALLOWDONE)
 	@echo testing: --info and --help are refused for it too ; $(ALLOWHOME) && { $(testbin) -p limited AdminList --info >/dev/null 2>&1 ; test $$? -eq 3 ; } && { $(testbin) -p limited AdminList --help >/dev/null 2>&1 ; test $$? -eq 3 ; } ; $(ALLOWDONE)
@@ -519,6 +519,10 @@ testallow: testbinary ## Test allowed_commands in a profile (offline)
 	@echo testing: the refusal says how to ask for the command ; $(ALLOWHOME) && $(testbin) -p limited AdminList -s1 2>&1 | grep -q "add 'AdminList' to allowed_commands" ; $(ALLOWDONE)
 	@echo testing: a profile that allows nothing says so in --help ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\nallowed_commands = []\n" > $$c/locked.ini && chmod 600 $$c/locked.ini && $(testbin) -p locked --help | grep -q 'none allowed by this profile' ; $(ALLOWDONE)
 	@echo testing: a broken profile names the file ; $(ALLOWHOME) && printf "access_id = no quotes SHOULDNOTLEAK\n" > $$c/broken.ini && chmod 600 $$c/broken.ini && { $(testbin) -p broken DeviceList -s1 2>&1 | grep -q 'cannot parse .*broken.ini: invalid syntax at line 1' ; } && ! $(testbin) -p broken DeviceList -s1 2>&1 | grep -q SHOULDNOTLEAK ; $(ALLOWDONE)
+	@echo testing: denied_commands wins over an allowed wildcard ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\nallowed_commands = ['*']\ndenied_commands = ['Admin*']\n" > $$c/denying.ini && chmod 600 $$c/denying.ini && { $(testbin) -p denying AdminList -s1 >/dev/null 2>&1 ; test $$? -eq 3 ; } && $(testbin) -p denying AdminList -s1 2>&1 | grep -q 'AdminList is in denied_commands' && $(testbin) -p denying MetricsUsage --info | grep -q '^GET ' ; $(ALLOWDONE)
+	@echo testing: denied commands are left out of --help and named in it ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\nallowed_commands = ['*']\ndenied_commands = ['Admin*']\n" > $$c/denying.ini && chmod 600 $$c/denying.ini && ! $(testbin) -p denying --help | grep -q '^  AdminList' && $(testbin) -p denying --help | grep -q "never runs: Admin\*" ; $(ALLOWDONE)
+	@echo testing: denied_commands without allowed_commands ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\ndenied_commands = ['PortalInfo']\n" > $$c/denyonly.ini && chmod 600 $$c/denyonly.ini && { $(testbin) -p denyonly PortalInfo --info >/dev/null 2>&1 ; test $$? -eq 3 ; } && $(testbin) -p denyonly AdminList --info | grep -q '^GET ' && $(testbin) --list | grep -q 'denyonly  (denies: 1 pattern)' ; $(ALLOWDONE)
+	@echo testing: denied_commands = None is an error ; $(ALLOWHOME) && printf "access_id = 'x'\naccess_key = 'x'\naccount_name = 'example'\ndenied_commands = None\n" > $$c/nulldeny.ini && chmod 600 $$c/nulldeny.ini && { $(testbin) -p nulldeny DeviceList --info >/dev/null 2>&1 ; test $$? -eq 1 ; } ; $(ALLOWDONE)
 	@echo testing: elm --list skips example profiles ; $(ALLOWHOME) && printf "access_id = 'x'\n" > $$c/ai.example.ini && ! $(testbin) --list | grep -q 'example' ; $(ALLOWDONE)
 	@echo "$(OK_STRING) $@"
 

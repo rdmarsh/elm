@@ -231,6 +231,21 @@ restricted profiles. Patterns are shell-style (`Device*`) and case-sensitive;
 The list has to stay on one line: the `.ini` format elm uses has no multi-line
 values.
 
+A long allow list is easy to get wrong: one wildcard too many (`'Admin*'`, or
+`'*'`) lets in commands the profile was never meant for. `denied_commands` names
+the ones it must never run, and wins over `allowed_commands`:
+
+```ini
+allowed_commands = ['Device*', 'Alert*', 'MetricsUsage']
+denied_commands = ['Admin*', 'ApiToken*', 'AuditLog*', 'PortalInfo', 'DeviceConfigSource*']
+```
+
+A denied command is refused the same way (exit 3, no request sent), and the
+message says it is denied on purpose rather than how to allow it. `--help` leaves
+it out and names the patterns, and `elm --list` shows `(denies: N patterns)`. It
+works without `allowed_commands` too, as "everything but these". `[]` or no line
+denies nothing; `None` is an error.
+
 [`ai.example.ini`](ai.example.ini) is a suggested profile for AI assistants:
 44 commands for everyday questions about devices, alerts, SDTs, collectors and
 websites, leaving out anything that exposes users, API tokens, contact details,
