@@ -83,6 +83,27 @@ What it adds up to:
   the evals tie.
 
 
+## 2026-11-11: finding a dashboard by widget title, four fails in a row
+
+One new check (`find_dashboard`, 840e367), asked live on qwen3-vl-4b. Each
+retest failed a new way before it worked:
+
+* A quoted widget title held a group's name ("... Cisco ASA ..."): the router
+  found the group and the model ran the group check. Quoted text in a widget
+  question is now the title, never a name.
+* LM's `~` filter finds nothing with a `(` in the value; `[(]` works. Every
+  title ending "(Trend)" or "(Real-time)" came back empty.
+* The model called the check by its own name as a tool: "Unknown tool".
+  Now a recipe name used as a tool runs as that recipe.
+* "Free Memory Pool" in a title made Samara refuse the check as being about
+  memory. Words in quotes no longer count as the topic.
+
+Then it answered: 11 dashboards had all four titles asked for. Lesson: a
+small model reads every word as a hint, including words inside quotes.
+Also from it: `denied_commands` in elm (09667e7), as a wildcard in a long
+allow list (`Device*`) quietly let in device running configs.
+
+
 ## 2026-11-10: a 10,000-row sample hid two thirds of the critical alerts
 
 On a portal with over 9,000 open alerts, the health summary fetched what LM
