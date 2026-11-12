@@ -83,27 +83,41 @@ What it adds up to:
   the evals tie.
 
 
-## 2026-11-12: a company the portal does not have, refused as off topic
+## 2026-11-12: a customer's name after "the", refused as off topic
 
-"Tell me about the zenith company" (qwen3-vl-4b, the test portal, which has
-no group by that name): the model refused with the off-topic sentence, was
-sent back once for looking nothing up, and refused again. The reader got
-"I can only answer questions about this LogicMonitor portal." for what, on
-a provider's portal, is a question about a customer.
+"Tell me about the zenith company" (qwen3-vl-4b, the test portal, where
+zenith is a customer group at Org/customer/zenith): the model refused with
+the off-topic sentence, was sent back once for looking nothing up, and
+refused again. The reader got "I can only answer questions about this
+LogicMonitor portal." about one of the portal's own customers.
 
-* Two holes. "company" was not a portal word, so the send-back was the
-  generic "look it up or say the same again" rather than "this is on topic",
-  and the second refusal was not turned into Samara's "none of my checks
-  covers it". And with no name found, there was nothing to look up anyway:
-  the true answer is "there is no such group", which the model cannot know.
-* Fix: company, customer, client and tenant are portal words now, and when
-  a question names one that no group, device or collector name contains,
-  Samara says so itself, with no model call. It holds back unless it can be
-  sure: not when the group list failed to load, and not when the word is
-  part of a longer name the portal has.
-* Same lesson as read-only requests: when code can know the answer, it
-  should give it. A 4B model asked about something absent reaches for the
-  nearest stock sentence.
+* The router never found the group. A name right after "the" did not
+  count, so that "is the firewall blocking ...?" would not run a group
+  named firewall, and nobody was expected to say "the acme". But "the acme
+  company" is how people say it. With no name found, the model got no hint.
+* "company" was not a portal word either, so the send-back was the generic
+  "look it up or say the same again" rather than "this is on topic", and
+  the second refusal was not turned into Samara's "none of my checks
+  covers it".
+* First fix (70e17fd), made before we knew the group existed: company,
+  customer, client and tenant are portal words, and a company the portal
+  really has no name for gets Samara's own answer, "no group or customer
+  called zenith", with no model call. It holds back unless it can be sure:
+  not when the group list failed to load, and not when any group, device
+  or collector name contains the word. That check reads the portal's names,
+  not the router's hits, so it stayed quiet here, which was right.
+* Real fix (cb104fb): "the" before company, customer, client or tenant
+  no longer stops a name counting. "What's wrong with devices in the
+  zenith company" then goes straight to group_health. Before it, the model
+  guessed zenith was a device and ran device_health first (0 rows).
+* That answer had a second gap: "3 down (3 with their collector down)"
+  never named the collector, the one thing to fix. group_health now starts
+  with each down collector and how many of the group's devices it takes
+  with it, and its table has a Collector column.
+* Lessons: when code can know the answer, it should give it, since a 4B
+  model asked about something it was given no hint for reaches for the
+  nearest stock sentence. And check the portal before writing down why
+  something failed: "the portal has no such group" was a guess, and wrong.
 
 
 ## 2026-11-11: "older than a year" was dropped
