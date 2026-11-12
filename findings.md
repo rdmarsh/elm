@@ -83,6 +83,29 @@ What it adds up to:
   the evals tie.
 
 
+## 2026-11-12: a company the portal does not have, refused as off topic
+
+"Tell me about the zenith company" (qwen3-vl-4b, the test portal, which has
+no group by that name): the model refused with the off-topic sentence, was
+sent back once for looking nothing up, and refused again. The reader got
+"I can only answer questions about this LogicMonitor portal." for what, on
+a provider's portal, is a question about a customer.
+
+* Two holes. "company" was not a portal word, so the send-back was the
+  generic "look it up or say the same again" rather than "this is on topic",
+  and the second refusal was not turned into Samara's "none of my checks
+  covers it". And with no name found, there was nothing to look up anyway:
+  the true answer is "there is no such group", which the model cannot know.
+* Fix: company, customer, client and tenant are portal words now, and when
+  a question names one that no group, device or collector name contains,
+  Samara says so itself, with no model call. It holds back unless it can be
+  sure: not when the group list failed to load, and not when the word is
+  part of a longer name the portal has.
+* Same lesson as read-only requests: when code can know the answer, it
+  should give it. A 4B model asked about something absent reaches for the
+  nearest stock sentence.
+
+
 ## 2026-11-11: "older than a year" was dropped
 
 "Show me the critical alerts that are older than a year" (qwen3-vl-4b, a

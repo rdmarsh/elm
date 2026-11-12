@@ -300,6 +300,54 @@ def hint(hits):
     return "(Samara found in the portal: " + "; ".join(said) + ".)"
 
 
+# "tell me about the acme company": in a provider's portal a company is a
+# customer, kept as a group. Asked about one the portal has no name for,
+# qwen3-vl-4b refused it as off topic, twice (2026-11-12). Samara says
+# what is true instead: there is no such group.
+ORG = r"(?:compan(?:y|ies)|customers?|clients?|tenants?)"
+ORG_BEFORE = re.compile(rf"(?<![\w.&'’-])([\w][\w.&'’-]*)\s+{ORG}\b", re.I)    # "the acme company"
+ORG_AFTER = re.compile(rf"\b{ORG}\s+(?:called|named)\s+[\"'“]?([\w][\w.&-]*)", re.I)   # "a customer called acme"
+NOT_NAMES = {"a", "an", "the", "which", "what", "whose", "each", "every", "our", "my", "your", "their", "his",
+             "her", "its", "this", "that", "these", "those", "any", "some", "one", "new", "old", "other", "same",
+             "big", "bigger", "biggest", "large", "largest", "main", "top", "worst", "best", "many", "much", "most",
+             "more", "how", "per", "by", "for", "of", "about", "with", "no", "and", "or", "own", "given", "single",
+             "specific", "particular", "different", "another", "first", "last", "key", "major", "current",
+             "existing", "managed", "enterprise", "internal", "external", "important", "busiest", "noisiest",
+             "only", "real", "inactive", "paying", "both", "either", "multiple", "several", "few", "lm",
+             "logicmonitor", "msp", "end"}
+
+
+def unknown_org(question, hits):
+    """The company or customer the question names that the portal has no name for, or None.
+
+    Only when nothing else was found, the group list loaded, and no group,
+    device or collector name has it in at all ("acme" in "acme-corp/web"
+    is left to the model): Samara says no only when it can be sure.
+    """
+    if hits:
+        return None
+    said = [m.group(1) for m in ORG_BEFORE.finditer(question)] + [m.group(1) for m in ORG_AFTER.finditer(question)]
+    for name in said:
+        name = re.sub(r"(?:'s|’s|')$", "", name).strip(".-")
+        if len(name) < MIN_NAME or name.isdigit() or name.lower() in NOT_NAMES | COMMON | NOBODY:
+            continue
+        known = [(n, k, label) for n, k, _, label in names() if k != "person"]
+        if not any(k == "group" for _, k, _ in known):
+            return None   # the groups could not be read: no way to be sure
+        if any(name.lower() in f"{n} {label or ''}".lower() for n, _, label in known):
+            return None
+        return name
+    return None
+
+
+def no_such_org(name, portal):
+    """Samara's answer for a company or customer the portal has no name for."""
+    where = portal or "This portal"
+    return (f"{where} has no group or customer called **{name}**: no group, device or collector name has "
+            f"it in. Customers are kept as groups here, so to see which ones there are, ask "
+            f"**show me the root groups**.")
+
+
 def read_only(verb, portal):
     """Samara's answer to a request to change something: no model, no query."""
     where = portal or "the portal"
