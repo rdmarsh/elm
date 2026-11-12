@@ -1388,7 +1388,7 @@
     - as: down
       run: DeviceList
       filter: hostStatus~dead
-      fields: [id, displayName, hostStatus, hostGroupIds, deviceType]
+      fields: [id, displayName, hostStatus, hostGroupIds, deviceType, collectorDescription]
       size: all
       says: fetched the devices that are down and kept the ones in this group or below it
     - as: alerts
@@ -1402,20 +1402,28 @@
     $group[0] as $g
     | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
     | ($down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))) as $in
-    | "\($g.fullPath) has \($g.numOfHosts | n("device")) (subgroups included). "
+    # A down collector first: it is why its devices are down, and the one thing
+    # to fix. "3 down (3 with their collector down)" left the reader to work
+    # that out, and never named the collector (2026-11-12).
+    | ($in | map(select(.hostStatus == "dead-collector")) | group_by(.collectorDescription)
+       | map("\(.[0].collectorDescription // "unknown") (\(length | n("device")) here)")) as $colls
+    | (if ($colls | length) > 0
+       then "\(if ($colls | length) == 1 then "Collector" else "Collectors" end) down: \($colls | join(", ")). " else "" end)
+    + "\($g.fullPath) has \($g.numOfHosts | n("device")) (subgroups included). "
     + "\($in | length | commas) down (\($in | map(select(.hostStatus == "dead")) | length | commas) not responding, "
     + "\($in | map(select(.hostStatus == "dead-collector")) | length | commas) with their collector down). "
     + (if ($alerts | length) == 0 then "No open alerts."
        else "\($alerts | length | n("open alert")) (\($alerts | severities)) on \($alerts | map(.monitorObjectName) | unique | length | n("device"))." end)
   table:
     title: Devices down in {group[fullPath]}
-    columns: [Device, Status]
+    columns: [Device, Status, Collector]
     links: {Device: device}
     rows: |
       $group[0] as $g
       | ([$g.id] + ($subgroups | map(select(.fullPath | startswith($g.fullPath + "/")) | .id))) as $ids
       | $down | map(select(.deviceType == 0 and (.hostGroupIds | split(",") | map(tonumber) | any(. as $i | $ids | index($i)))))
-      | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Device_id: .id, Status: (.hostStatus | state)})
+      | sort_by(.hostStatus, .displayName) | map({Device: .displayName, Device_id: .id, Status: (.hostStatus | state),
+                                                 Collector: .collectorDescription})
 
 - name: group_dashboards_reports
   topic: Groups and customers

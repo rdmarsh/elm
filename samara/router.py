@@ -217,7 +217,9 @@ def found(question):
             continue   # part of a quoted widget or dashboard title
         path = (label or "").lower().strip("/")
         if (kind == "group" and n != path and not re.search(r"\bgroups?\b", q)
-                and (path.count("/") >= GROUP_NAME_DEPTH or re.search(r"\bthe\s+$", q[:m.start()]))):
+                and (path.count("/") >= GROUP_NAME_DEPTH
+                     # "the acme company" is a name: "the" before a customer word does not count
+                     or (re.search(r"\bthe\s+$", q[:m.start()]) and not re.match(rf"\s+{ORG}\b", q[m.end():])))):
             continue   # a plain word, not a group's name: too deep, or "the firewall"
         taken.append((m.start(), m.end()))   # the same name may still be a device and a collector
         if not any(h["kind"] == kind and h["id"] == id_ for h in hits):
