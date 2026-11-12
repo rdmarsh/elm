@@ -51,6 +51,7 @@ cfgdir := $(HOME)/.config/logicmonitor/credentials
 bindir := $(HOME)/bin
 XDG_DATA_HOME ?= $(HOME)/.local/share
 compdir := $(XDG_DATA_HOME)/bash-completion/completions
+mandir := $(XDG_DATA_HOME)/man/man1
 cmddir := _cmds
 defdir := _defs
 jnjdir := _jnja
@@ -219,7 +220,7 @@ $(cmddir) $(defdir) $(cfgdir) $(bindir):
 	mkdir -p $@
 	@echo "$(OK_STRING) $@"
 
-$(compdir):
+$(compdir) $(mandir):
 	mkdir -p $@
 	@echo "$(OK_STRING) $@"
 
@@ -353,7 +354,7 @@ render: init ## Make python commands from templates and install requirements
 	$(MAKE) _render
 	@echo "$(OK_STRING) $@"
 
-_render: engine.$(PY) $(prog) elm-completion.bash $(cmddir)/__init__.$(PY)
+_render: engine.$(PY) $(prog) elm-completion.bash $(name).1 $(cmddir)/__init__.$(PY)
 
 $(cmddir)/__init__.$(PY): | $(cmddir)
 	touch $@
@@ -361,6 +362,15 @@ $(cmddir)/__init__.$(PY): | $(cmddir)
 
 elm-completion.bash: $(jnjdir)/elm-completion.bash.$(J2) $(defdir)/commands.$(JSN) | JINJA-exists
 	$(JINJA) $^ $(OUTPUT_OPTION)
+	@echo "$(OK_STRING) $@"
+
+# The man page: hand-written sections in the template, the COMMANDS section
+# from commands.json, the version from _version.py and the date it was last
+# committed (the release date; today's outside git). mandoc warns without one.
+$(name).1: $(jnjdir)/$(name).1.$(J2) $(defdir)/commands.$(JSN) _version.$(PY) | JINJA-exists
+	$(JINJA) -D version=$$(sed -n "s/^__version__ = '\(.*\)'/\1/p" _version.$(PY)) \
+	  -D date=$$(git log -1 --format=%cs -- _version.$(PY) 2>/dev/null | grep . || date +%F) \
+	  $(jnjdir)/$(name).1.$(J2) $(defdir)/commands.$(JSN) $(OUTPUT_OPTION)
 	@echo "$(OK_STRING) $@"
 
 $(prog): $(jnjdir)/$(prog).$(J2) $(defdir)/commands.$(JSN) $(CMDTARGETS) | JINJA-exists
@@ -400,6 +410,14 @@ $(compdir)/$(name): elm-completion.bash | $(compdir)
 	cp elm-completion.bash $(compdir)/$(name)
 	@echo "$(OK_STRING) bash completion installed to $(compdir)/$(name)"
 
+.PHONY: man
+man: $(mandir)/$(name).1 ## Install the man page to the XDG data dir
+	@man -w $(name) >/dev/null 2>&1 || { echo "$(WR_COLOR)Note:$(NO_COLOR) man does not look in $(XDG_DATA_HOME)/man yet. Add to ~/.bash_profile (the trailing colon keeps the system pages):" ; echo "export MANPATH=\"$(XDG_DATA_HOME)/man:\$$MANPATH\"" ; }
+
+$(mandir)/$(name).1: $(name).1 | $(mandir)
+	install -m 644 $< $@
+	@echo "$(OK_STRING) man page installed to $@"
+
 # Like all/build, install must run init first and then re-invoke make:
 # from a clean tree CMDTARGETS is computed before init creates _defs/, so a
 # plain prerequisite chain would build the binary with no command modules
@@ -424,7 +442,7 @@ install: init ## (Re)installs the script and modifies the path
 	@echo
 	@echo "$(OK_STRING) $@"
 
-_install: $(bindir)/$(name) cfg completion
+_install: $(bindir)/$(name) cfg completion man
 
 .PHONY: hooks
 hooks: ## Install git hooks (run once after cloning)
@@ -476,7 +494,7 @@ $(VENV): | PYTHON-exists
 # do not change
 
 .PHONY: test
-test: testbinary testdocs testbasic testallow testmulti testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
+test: testbinary testdocs testman testbasic testallow testmulti testfmts testfmtcont testpage testsqlite testverb testid ## Run quick and simple tests
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testlong
@@ -496,6 +514,23 @@ testbinary: ## Show which binary the tests run, and stop if it is older than its
 	@echo "testing: $(testbin) is $$($(testbin) --version), built $$(date -r $(testbin) '+%Y-%m-%d %H:%M'), tree $$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"
 	@newer=$$(find $(BINSOURCES) -type f -newer $(testbin) 2>/dev/null | head -3 | xargs) ; \
 	  test -z "$$newer" || { echo "$(ER_STRING) $(testbin) is older than its sources ($$newer): rebuild with make (or make install), then test" ; exit 1 ; }
+
+# Every global flag in elm --help must be in the man page: the flags are
+# typed by hand in _jnja/elm.py.j2 and again in _jnja/elm.1.j2, and this is
+# what keeps the second copy from going stale. Then the page must render
+# without warnings, with whichever of mandoc (macOS) or groff is there.
+.PHONY: testman
+testman: testbinary $(name).1 ## Check the man page covers every global flag and renders cleanly (offline)
+	@echo testing: every flag in elm --help is in $(name).1 ; \
+	  missing=$$($(testbin) --help | grep -oE -- '--[a-z][a-z_-]*' | sort -u | while read -r flag ; do \
+	    sed 's/\\-/-/g' $(name).1 | grep -qF -- "$$flag" || printf '%s ' "$$flag" ; done) ; \
+	  test -z "$$missing" || { echo "$(ER_STRING) not in _jnja/$(name).1.$(J2): $$missing" ; exit 1 ; }
+	@echo testing: $(name).1 renders without warnings ; \
+	  if command -v mandoc >/dev/null ; then out=$$(mandoc -T lint -W warning $(name).1 2>&1) ; \
+	  elif command -v groff >/dev/null ; then out=$$(groff -man -ww -z $(name).1 2>&1) ; \
+	  else echo "  (no mandoc or groff: skipped)" ; out= ; fi ; \
+	  test -z "$$out" || { echo "$$out" ; echo "$(ER_STRING) $(name).1 has warnings" ; exit 1 ; }
+	@echo "$(OK_STRING) $@"
 
 .PHONY: testdocs
 testdocs: _info ## Check AI-facing docs stay within their size budgets (offline; see mkinfo.py)
@@ -603,7 +638,7 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testoffline
-testoffline: testbinary testdocs testbasicoffline testallow testmulti ## Run every test that needs no credentials
+testoffline: testbinary testdocs testman testbasicoffline testallow testmulti ## Run every test that needs no credentials
 	@echo "$(OK_STRING) $@"
 
 .PHONY: testtext
@@ -791,6 +826,7 @@ clean: nomac ## Remove generated files
 	$(RM) -r $(pyiworkdir) $(pyidistdir)
 	$(RM) $(prog)
 	$(RM) engine.$(PY)
+	$(RM) $(name).1
 	$(RM) $(name).spec
 	@echo "$(OK_STRING) $@"
 

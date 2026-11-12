@@ -36,7 +36,9 @@ in the template instead.
                     Validate and install a browser-saved spec as the snapshot
                     (fallback for when the download is blocked; needs no network)
     make render     Generate _cmds/ from _jnja/ templates
-    make install    Build binary via PyInstaller into _dist/
+    make install    Build binary via PyInstaller into _dist/ (also installs
+                    completion and the man page)
+    make man        Install the man page (elm.1) to $XDG_DATA_HOME/man/man1
     make clean      Remove all generated files
     make test       Quick tests (several connect to LM)
     make testoffline
@@ -108,6 +110,12 @@ Run `make test` for the quick suite; `make testlong` for the slow ones;
   repo. make completion installs it to $XDG_DATA_HOME/bash-completion/completions/elm
   (default ~/.local/share/bash-completion/completions/elm). bash-completion
   2.x sources it automatically.
+- Man page: elm.1 is generated too (rendered from _jnja/elm.1.j2 by make
+  render; its COMMANDS section comes from _defs/commands.json). Not
+  committed. make man installs it to $XDG_DATA_HOME/man/man1 and prints the
+  MANPATH line if man cannot find it. The global flags are typed in both
+  _jnja/elm.py.j2 and _jnja/elm.1.j2: add a new flag to both, or make
+  testman fails.
 
 
 ## Credential profiles
@@ -163,9 +171,9 @@ At the start of any session involving live API calls:
 
 ## Known confusion points for AI tools
 
-- engine.py, elm.py, and elm-completion.bash are all generated files,
-  rendered from _jnja/engine.py.j2, _jnja/elm.py.j2, and
-  _jnja/elm-completion.bash.j2 respectively. None are committed to the
+- engine.py, elm.py, elm-completion.bash and elm.1 are all generated files,
+  rendered from _jnja/engine.py.j2, _jnja/elm.py.j2,
+  _jnja/elm-completion.bash.j2 and _jnja/elm.1.j2 respectively. None are committed to the
   repo. Fix bugs in the _jnja/ templates, not in the generated files directly.
 
 - _cmds/*.py files look like source but are generated artefacts.
@@ -231,6 +239,7 @@ assistant can execute them; do them in order, one at a time.
 - Edit files in _defs/ directly
 - Edit files in _build/ or _dist/
 - Edit elm-completion.bash directly — it is generated from _jnja/elm-completion.bash.j2
+- Edit elm.1 directly — it is generated from _jnja/elm.1.j2
 - Regenerate _cmds/ and commit without also committing the template
   change in _jnja/ that produced them
 - Share `-f api` output: its Authorization header carries the HMAC

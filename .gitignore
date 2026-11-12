@@ -142,6 +142,7 @@ elm
 elm.py
 engine.py
 elm-completion.bash
+elm.1
 _cmds/
 _defs/
 _build/

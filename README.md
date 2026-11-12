@@ -262,6 +262,26 @@ so give a restricted profile a token whose role matches.
 Run `make install` to build the binary and copy it to `~/bin`. If `~/bin` is
 not in your PATH, see the steps under [Quick Start](#quick-start) above.
 
+### Man page
+
+`make install` also installs a man page, so `man elm` covers the global
+options, the per-command options, profiles and `allowed_commands`, exit
+statuses, examples and every command, grouped by its section of the API.
+`make man` installs it on its own. To read it without installing, use
+`man ./elm.1` after `make render`.
+
+It goes in `~/.local/share/man/man1` (`$XDG_DATA_HOME/man/man1`), next to the
+bash completion. If `man elm` cannot find it there, `make man` says so and
+prints the line to add to `~/.bash_profile`:
+
+```bash
+export MANPATH="$HOME/.local/share/man:$MANPATH"
+```
+
+The page is generated (`_jnja/elm.1.j2`, with the commands from the API
+spec), so it lists every command the build has. `make testman` fails if a
+flag in `elm --help` is missing from it, or if it renders with warnings.
+
 ## Development
 
 After cloning, install the git hooks:
