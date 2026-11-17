@@ -78,6 +78,13 @@ columns. Repeat only for a list inside it
 .BR \-t ", " \-\-localtime
 Show epoch times in the results as local times.
 .TP
+.BR \-r ", " \-\-relative
+Add a field right after each time field, its name with
+.I Days
+on the end: the whole days since that time, negative if it is in the
+future, null for 0 ("never"). Use it with or without
+.BR \-t .
+.TP
 .BR \-d ", " \-\-diff
 With several profiles: show only the rows that are not the same on all of them.
 .TP

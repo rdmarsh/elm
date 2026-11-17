@@ -435,6 +435,10 @@ Options:
   -t, --localtime          Show epoch times in the results as local times
                            (2026-10-28 16:39:54 AEDT)
 
+  -r, --relative           Add FIELDDays right after each time field: whole
+                           days since it, negative if in the future, null for
+                           0 ("never")
+
   -d, --diff               With several profiles: show only the rows that are
                            not the same on all of them
 
@@ -901,6 +905,35 @@ $ elm -t -f txt AlertList -F 'cleared:false,startEpoch>:now-1h' -f startEpoch,en
   monitorObjectName      endEpoch  startEpoch
   web01                         0  2026-10-28 16:53:06 AEDT
 ```
+
+**`-r` (`--relative`) adds how long ago.** LM gives times as epochs, and
+neither a csv nor a template can easily turn one into "how long since", so
+`-r` adds it, to show unused users, API tokens and reports:
+
+```shell
+$ elm -r -t -f txt AdminList -f username,lastLoginOn
+  username    lastLoginOn               lastLoginOnDays
+  admin01     2026-10-30 14:44:25 AEDT               18
+  svc01       0                                     nan
+```
+
+- **Which fields:** the ones `-t` converts (a name that ends like a time,
+  a value that is a plausible time in seconds or milliseconds). Each gets a
+  new field right after it, its name with `Days` on the end. Top-level fields
+  only, as for `-t`.
+- **The number:** whole 24-hour periods since that time, not calendar days,
+  so no timezone is involved. It rounds toward 0: `0` is within a day either
+  side, `18` is 18 days ago, `-2` is two days from now (an SDT's end, say).
+  It is a number, so it sorts and compares (`jq 'select(.lastLoginOnDays > 90)'`).
+- **Never:** a 0 ("never logged in") gets null, not a huge number. In txt
+  and csv a column with a null shows `nan` or an empty cell, and its other
+  numbers can show as `18.0`; json shows `18` and `null`.
+- **One moment:** the time is read once, so every row, and every portal with
+  `-p a,b`, counts from the same moment.
+- **The source field is left alone:** use `-r` on its own (epoch and days)
+  or with `-t` (date and days).
+- **Output only:** `-F` and `-S` still use the API's values, and `-c` counts
+  the same.
 
 The same field list guards `-F`: a filter on a field the swagger does not list
 for that command is refused before anything is sent, because the API would

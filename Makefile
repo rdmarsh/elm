@@ -588,6 +588,8 @@ testbasic: testbasicoffline ## Test basic flags (the -f api/curl/wget/sqlite lin
 	@echo testing: -F a year is 1 Jan to 1 Jan ; a=$$($(testbin) -f api AlertList -F 'startEpoch:2026' -s1 2>/dev/null | grep -o 'filter=[^&]*') ; b=$$($(testbin) -f api AlertList -F 'startEpoch>:2026-01,startEpoch<2027-01' -s1 2>/dev/null | grep -o 'filter=[^&]*') ; [ -n "$$a" ] && [ "$$a" = "$$b" ]
 	@echo testing: -F a year-like number on a non-time field stays a number ; $(testbin) -f api AlertList -F 'severity:2026' -s1 2>/dev/null | grep -q 'severity%3A%222026%22'
 	@echo testing: -t shows epochs as local times ; $(testbin) -t -f csv AlertList -F 'cleared:false' -f startEpoch -s1 2>/dev/null | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} '
+	@echo testing: -r adds FIELDDays after each time, empty for 0 ; $(testbin) -r -f csv AlertList -F 'cleared:false' -f startEpoch,endEpoch -s1 2>/dev/null | tr -d '\r' | { read -r h ; read -r r ; [ "$$h" = endEpoch,endEpochDays,startEpoch,startEpochDays ] && echo "$$r" | grep -qE '^0,,[0-9]{10},[0-9]+$$' ; }
+	@echo testing: -r with -t converts the time but not its days ; $(testbin) -r -t -f csv AlertList -F 'cleared:false' -f startEpoch -s1 2>/dev/null | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8} [^,]*,[0-9]+$$'
 	@echo testing: curl format outputs curl command ; $(testbin) -f curl DeviceList -s1 2>/dev/null | grep -q '^curl '
 	@echo testing: wget format outputs wget command ; $(testbin) -f wget DeviceList -s1 2>/dev/null | grep -q '^wget '
 	@echo testing: sqlite format requires -o flag ; $(testbin) -f sqlite MetricsUsage 2>&1 | grep -q 'requires -o'

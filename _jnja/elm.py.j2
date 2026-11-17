@@ -400,7 +400,7 @@ Source, docs, and examples: https://github.com/rdmarsh/elm
 CRITICAL: flag position matters.
   elm [GLOBAL FLAGS] COMMAND [COMMAND FLAGS]
 
-Global flags (before COMMAND):  -p -d -e -t -l -f -o -s -H -I -v -i -k -a -V
+Global flags (before COMMAND):  -p -d -e -t -r -l -f -o -s -H -I -v -i -k -a -V
                                 --config --head --foot --cacert --ai
 Command flags (after COMMAND):  -s -o -f -F -S -c -C --info  plus the command's
                                 own parameters (--id, --deviceId, ...)
@@ -441,6 +441,7 @@ KEY GLOBAL FLAGS
   -p, --profile NAME  Select a credentials profile
   -f, --format FORMAT Output format (default: json)
   -t, --localtime     Show epoch times in the results as local times
+  -r, --relative      Add FIELDDays beside each time: whole days since it
   -V, --version       Show version and exit
   -h, --help          Show help and exit
 
@@ -490,7 +491,9 @@ TIMES (never work out an epoch: elm does it, in local time)
   /d /w /M and dates are periods: ':' is all of it, '>:' and '<' use its
   start, '>' and '<:' its end (startEpoch<:2026-03-31 includes the 31st).
   Fields in milliseconds are found and handled. -t shows epochs in results
-  as local times.
+  as local times. -r adds FIELDDays after each: whole days since it (never
+  work out an age either), negative if future, null for 0 ("never"):
+    elm -r -t AdminList -s0 -f username,lastLoginOn     # unused users
 
 OUTPUT FORMATS
   json  prettyjson  jsonl  csv  tsv  xml  prettyxml  html  prettyhtml
@@ -567,7 +570,7 @@ def _portals(names):
 
 class ELM(object):
     """Load config and hold the state for cli tool"""
-    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals=None, diff=False, explode=(), localtime=False):
+    def __init__(self, config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals=None, diff=False, explode=(), localtime=False, relative=False):
         self.config_file = config_file
         self.access_id = access_id
         self.access_key = access_key
@@ -587,6 +590,8 @@ class ELM(object):
         self.explode = explode
         # epochs in the results as local times (-t)
         self.localtime = localtime
+        # FIELDDays beside each epoch, days since it (-r)
+        self.relative = relative
 
 def enforce_config_perms(config_path):
     if not os.path.exists(config_path):
@@ -635,6 +640,7 @@ enforce_config_perms(config_file)
 @click.option('-p', '--profile',      default=None, metavar='NAME', help='Credentials profile name, shorthand for --config ~/.config/logicmonitor/credentials/<NAME>.ini. Comma-separated names (a,b) run the command on each')
 @click.option('-e', '--explode',      multiple=True, metavar='FIELD', help='One row per item of this list field, its keys as FIELD.key columns. Repeat only for a list inside it (-e a -e a.b)')
 @click.option('-t', '--localtime',    is_flag=True, default=False, help='Show epoch times in the results as local times (2026-10-28 16:39:54 AEDT)')
+@click.option('-r', '--relative',     is_flag=True, default=False, help='Add FIELDDays right after each time field: whole days since it, negative if in the future, null for 0 ("never")')
 @click.option('-d', '--diff',         is_flag=True, default=False, help='With several profiles: show only the rows that are not the same on all of them')
 @click.option('-i', '--access_id',    help='API token access id')
 @click.option('-k', '--access_key',   help='API token access key')
@@ -651,7 +657,7 @@ enforce_config_perms(config_file)
 @click.option('--cacert',             type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True), default=None, help='Path to CA certificate bundle for SSL verification')
 @click.version_option(__version__, '-V', '--version')
 @click.pass_context
-def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile, diff, explode, localtime):
+def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index, filename, head, foot, verbose, halt_on_api_error, cacert, profile, diff, explode, localtime, relative):
     """A cli interface for extracting LogicMonitor data via the api
 
     Default config: ~/.config/logicmonitor/credentials/config.ini
@@ -747,7 +753,7 @@ def cli(ctx, access_id, access_key, account_name, proxy, format, noheader, index
     logging.info('cacert: %s', cacert)
     logging.info('diff: %s', diff)
     logging.info('explode: %s', explode)
-    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals, diff, explode, localtime)
+    ctx.obj = ELM(config_file, access_id, access_key, account_name, format, noheader, index, filename, head, foot, halt_on_api_error, cacert, portals, diff, explode, localtime, relative)
 
 if __name__ == '__main__':
     cli()

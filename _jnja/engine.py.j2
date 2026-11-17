@@ -354,8 +354,7 @@ def report(elm, flags, obj, url, auth):
         click.echo(len(explode(project(flags, obj), elm.explode)) if elm.explode else len(obj['items']))
     else:
         items = project(flags, obj)
-        shown = localtime(items) if elm.localtime else items
-        output(explode(shown, elm.explode), elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
+        output(explode(as_shown(elm, items), elm.explode), elm.command, elm.filename, elm.format, elm.noheader, elm.index, elm.head, elm.foot)
         warn(flags, obj, items, known=elm.filter_fields)
         sort_hint(flags, items)
 
@@ -559,8 +558,7 @@ def rows(elm, flags, obj, profile):
         click.secho(f'{profile}: Error: no valid fields selected', fg='red', err=True)
         return [], False
     truncated = warn(flags, obj, items, profile, elm.filter_fields)
-    shown = localtime(items) if elm.localtime else items
-    return explode(shown, elm.explode, profile), truncated
+    return explode(as_shown(elm, items), elm.explode, profile), truncated
 
 
 def report_portals(elm, flags, results, failed):
@@ -934,15 +932,46 @@ def time_in_ms(elm, flags, resourcePath, creds):
 TIME_NAME = re.compile(r'(Epoch|On|(?<!up)Time|Timestamp|At)$')     # upTime is a duration
 
 
+def epoch_seconds(key, value):
+    """The time in seconds if key names a time and value is a plausible one, else None."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not TIME_NAME.search(key):
+        return None
+    seconds = value / 1000 if 1e12 <= value < 4e12 else value
+    return seconds if 1e9 <= seconds < 4e9 else None
+
+
 def localtime(items):
     def convert(key, value):
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not TIME_NAME.search(key):
-            return value
-        seconds = value / 1000 if 1e12 <= value < 4e12 else value
-        if not 1e9 <= seconds < 4e9:
-            return value
-        return time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(seconds))
+        seconds = epoch_seconds(key, value)
+        return value if seconds is None else time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(seconds))
     return [{k: convert(k, v) for k, v in item.items()} if isinstance(item, dict) else item for item in items]
+
+
+# -r: right after each field whose name ends like a time, FIELDDays: the whole
+# days (24 hours, no timezone) since that time, negative for a future one, both
+# rounded toward 0 (0 is within a day either side); None for a value -t would
+# leave alone (0 = "never"). It reads the raw epoch, so it runs before -t; "Days"
+# does not end like a time, so -t leaves it alone. NOW is taken once, so every
+# row and every profile (-p a,b, -d) counts from the same moment.
+NOW = time.time()
+
+
+def relative(items):
+    def add(item):
+        out = {}
+        for key, value in item.items():
+            out[key] = value
+            if TIME_NAME.search(key):
+                seconds = epoch_seconds(key, value)
+                out[key + 'Days'] = None if seconds is None else int((NOW - seconds) / 86400)
+        return out
+    return [add(item) if isinstance(item, dict) else item for item in items]
+
+
+def as_shown(elm, items):
+    """The rows as the output shows them: -r, then -t."""
+    items = relative(items) if elm.relative else items
+    return localtime(items) if elm.localtime else items
 
 
 def one_id(ctx, param, values):
