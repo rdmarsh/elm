@@ -40,6 +40,7 @@ Portal reports and backups
 - [Host SDTs](#host-sdts) — `tools/elm-host-sdts.sh`
 - [Duplicate devices](#duplicate-devices) — `tools/elm-duplicate-devices.py`
 - [Missing groups and devices](#missing-groups-and-devices) — `tools/elm-missing-refs.py`
+- [Stray spaces](#stray-spaces) — `tools/elm-whitespace.py`
 - [Every row, past 10,000](#every-row-past-10000) — `tools/elm-page.py`
 
 Profiles and tokens
@@ -659,6 +660,45 @@ so memory stays small. About a second for 600 devices on the test portal
 (2026-11-05), where it found the IP/FQDN pair it was written for and one more;
 paging was checked there with 100-device pages, not yet on a portal over
 10,000. It reads, never writes.
+
+## Stray spaces
+
+`tools/elm-whitespace.py` finds names, descriptions and properties with a space
+at the start or end. A value typed as `"NSW "` looks like `NSW` in the portal,
+but an AppliesTo, filter or report that asks for `NSW` misses it.
+
+It checks every text field of devices, groups, websites, collectors, alert
+rules, escalation chains, recipient groups, dashboards, widgets, reports, users,
+roles and netscans, and the name and value of each custom property. Spaces,
+tabs, non-breaking spaces and zero-width characters all count. Multi-line text
+and a few fields LM pads itself (widget unit labels, a user's last action) are
+left out.
+
+```shell
+tools/elm-whitespace.py                               # the whole portal
+tools/elm-whitespace.py -p portal01 DeviceList DeviceGroupList
+tools/elm-whitespace.py --all-properties              # system, auto and inherited too
+tools/elm-whitespace.py --jsonl | jq -r .field | sort | uniq -c
+```
+
+```
+command          id   name    field                          where  value
+DeviceList       101  web01   customProperties[site.id]      end    "NSW "
+DeviceGroupList  42   Azure   extra.services.VIRTUALMACHINE.deviceDisplayNameTemplate  end  "##system.azure.resourcename## "
+AdminList        7    user01  firstName                      start  " Alex"
+```
+
+The value is in JSON quotes so the space shows. A property name with a space is
+listed as `customProperties[NAME] (name)`.
+
+`--files` checks saved records instead of asking LM: `.json` (one record, a
+list, or `elm -f json` output), `.jsonl`, and `.xml` LogicModule exports, every
+one under a directory. Nothing is sent, so it works on a backup:
+
+```shell
+cd ~/backups && tools/elm-whitespace.py --files .          # everything saved
+tools/elm-whitespace.py --files devices devicegroups       # just those
+```
 
 ## Group paths
 
