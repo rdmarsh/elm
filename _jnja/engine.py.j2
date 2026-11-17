@@ -627,6 +627,15 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
         #number index from 1 instead of 0
         df.index = df.index + 1
 
+        #pandas makes a whole-number column float when a row has a null or
+        #lacks the key (18 -> 18.0); nullable Int64 keeps it whole. The
+        #2**53 cap skips values a float cannot hold exactly anyway.
+        for col in df.columns:
+            if df[col].dtype.kind == 'f':
+                values = df[col].dropna()
+                if len(values) and values.map(float.is_integer).all() and (values.abs() < 2**53).all():
+                    df[col] = df[col].astype('Int64')
+
         logging.debug('format: %s', format)
         logging.debug('noheader: %s', noheader)
         logging.debug('index: %s', index)
@@ -641,7 +650,9 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             # CamelCase command name to snake_case table name
             table = re.sub(r'(?<!^)(?=[A-Z])', '_', command).lower()
             # serialize any nested dict/list values to JSON strings for SQLite storage
-            df = df.map(lambda v: json.dumps(v) if isinstance(v, (dict, list)) else v)
+            #(object columns only: df.map would turn Int64 back into float)
+            for col in df.select_dtypes(include='object').columns:
+                df[col] = df[col].map(lambda v: json.dumps(v) if isinstance(v, (dict, list)) else v)
             df.insert(0, 'fetched_at', datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'))
             conn = sqlite3.connect(filename)
             try:
@@ -667,6 +678,16 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
 
         logging.debug('colheads: %s', colheads)
 
+        if format in ('jira', 'gfm', 'md', 'pipe'):
+            #workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
+            #(object columns only: df.map would turn Int64 back into float)
+            for col in df.select_dtypes(include='object').columns:
+                df[col] = df[col].map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
+
+        #tables show a missing value as a blank cell, not nan or <NA>; None
+        #(not '') so tabulate still right-aligns a number column
+        cells = df.astype(object).where(df.notna(), None)
+
         if format == 'csv':
             output = df.to_csv(header=not noheader, index=index)
             #to_csv adds a blank line to the end, this is to remove it
@@ -675,13 +696,11 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             output = df.to_csv(sep='\t', header=not noheader, index=index)
             output = output[:-1]
         elif format == 'html':
-            output = htmlmin.minify(df.to_html(header=not noheader, index=index, render_links=True, escape=False), remove_empty_space=True)
+            output = htmlmin.minify(df.astype(object).where(df.notna(), '').to_html(header=not noheader, index=index, render_links=True, escape=False), remove_empty_space=True)
         elif format == 'prettyhtml':
-            output = highlight(df.to_html(header=not noheader, index=index, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
+            output = highlight(df.astype(object).where(df.notna(), '').to_html(header=not noheader, index=index, render_links=True, escape=False), lexers.HtmlLexer(), formatters.TerminalFormatter())
         elif format == 'jira':
-            #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
-            df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
-            output = tabulate(df, headers=colheads, showindex=index, tablefmt="jira", floatfmt='.0f')
+            output = tabulate(cells, headers=colheads, showindex=index, tablefmt="jira", floatfmt='')
         elif format == 'json':
             output = json.dumps({command: items})
         elif format == 'jsonl':
@@ -702,31 +721,27 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
             # -f tab). See issue #55. They share a branch so they cannot drift
             # apart again -- note "simple" needed no pipe escaping, a real pipe
             # table does.
-            #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
-            df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
-            output = tabulate(df, headers=colheads, showindex=index, tablefmt="github", floatfmt='.0f')
+            output = tabulate(cells, headers=colheads, showindex=index, tablefmt="github", floatfmt='')
         elif format == 'latex':
             #to_latex also ends with a newline; same trailing blank line as jsonl
             output = df.to_latex(header=not noheader, index=index)[:-1]
         elif format == 'pipe':
-            #next line is a workaround for unescaped pipes bug: https://github.com/astanin/python-tabulate/issues/241
-            df = df.map(lambda s: s.replace('|','\\|') if isinstance(s, str) else s)
-            output = tabulate(df, headers=colheads, showindex=index, tablefmt="pipe", floatfmt='.0f')
+            output = tabulate(cells, headers=colheads, showindex=index, tablefmt="pipe", floatfmt='')
         elif format == 'rst':
-            output = tabulate(df, headers=colheads, showindex=index, tablefmt="rst", floatfmt='.0f')
+            output = tabulate(cells, headers=colheads, showindex=index, tablefmt="rst", floatfmt='')
         elif format == 'tab':
-            output = tabulate(df, headers=colheads, showindex=index, tablefmt="simple", floatfmt='.0f')
+            output = tabulate(cells, headers=colheads, showindex=index, tablefmt="simple", floatfmt='')
         elif format == 'values':
             # single field: one bare value per line; multiple fields: TSV, no headers
             if len(df.columns) == 1:
-                output = '\n'.join(df.iloc[:, 0].astype(str))
+                output = '\n'.join(cells.iloc[:, 0].map(lambda v: '' if v is None else str(v)))
             else:
                 output = df.to_csv(sep='\t', header=False, index=False)[:-1]
         elif format == 'raw':
             output = items
         else:
             # fail to plain txt
-            output = tabulate(df, headers=colheads, showindex=index, tablefmt="plain", floatfmt='.0f')
+            output = tabulate(cells, headers=colheads, showindex=index, tablefmt="plain", floatfmt='')
 
         try:
             output_file = click.open_file(filename, mode='w')

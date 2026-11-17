@@ -914,7 +914,7 @@ neither a csv nor a template can easily turn one into "how long since", so
 $ elm -r -t -f txt AdminList -f username,lastLoginOn
   username    lastLoginOn               lastLoginOnDays
   admin01     2026-10-30 14:44:25 AEDT               18
-  svc01       0                                     nan
+  svc01       0
 ```
 
 - **Which fields:** the ones `-t` converts (a name that ends like a time,
@@ -925,9 +925,12 @@ $ elm -r -t -f txt AdminList -f username,lastLoginOn
   so no timezone is involved. It rounds toward 0: `0` is within a day either
   side, `18` is 18 days ago, `-2` is two days from now (an SDT's end, say).
   It is a number, so it sorts and compares (`jq 'select(.lastLoginOnDays > 90)'`).
-- **Never:** a 0 ("never logged in") gets null, not a huge number. In txt
-  and csv a column with a null shows `nan` or an empty cell, and its other
-  numbers can show as `18.0`; json shows `18` and `null`.
+- **Never:** a 0 ("never logged in") gets null, not a huge number: an
+  empty cell in the tables and csv, `null` in json.
+- **Older than:** to list only the users not seen in 90 days, filter on the
+  time itself; `FIELDDays` is added by elm, so LM cannot filter on it. A 0
+  ("never") is older than any date, so add `lastLoginOn>0` to leave those out:
+  `elm -r -t AdminList -s0 -f username,lastLoginOn -F 'lastLoginOn<now-90d'`
 - **One moment:** the time is read once, so every row, and every portal with
   `-p a,b`, counts from the same moment.
 - **The source field is left alone:** use `-r` on its own (epoch and days)
