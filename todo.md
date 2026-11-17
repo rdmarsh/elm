@@ -5,6 +5,22 @@ Backlog of deferred work. Highest priority first.
 Larger, fully-specified work items live in `RECOMMENDATIONS.md` (the 2026-07
 audit follow-ups). This file is for everything else.
 
+## Whole numbers with a null turn into floats in csv, jsonl and txt
+
+Found 2026-11-17 with `-r`: `lastLoginOnDays` is `18` and `null` in json,
+but `18.0` in csv and jsonl, and the null shows as `nan` in txt. Not new and
+not only `-r`: `output()` builds `pd.DataFrame(items)`, and pandas makes any
+integer column with a null (or a key missing from some rows) float64.
+
+`pd.DataFrame(items, dtype=object)` keeps ints as ints and nulls as empty in
+csv and jsonl, but sqlite's `to_sql` would then make those columns TEXT (and
+appending to an existing table matters), and txt still shows `nan` for a
+missing key. Try nullable `Int64` on float columns whose values are all whole,
+or `dtype=object` everywhere but sqlite plus NaN -> None for tabulate.
+
+Mind the jsonl consumer (the `validate` repo): `18.0` -> `18` changes the
+bytes. Test csv, jsonl, txt, sqlite (new table and append), json unchanged.
+
 ## Verify paging on ActionChainsList / ActionRulesList
 
 `swagger.undocumented.json` now declares `size`/`offset`/`filter` for
