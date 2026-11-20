@@ -154,8 +154,8 @@ of these and elm sends the epoch. Every row below is what elm sends when "now"
 is Wed 28 Oct 2026 14:30, local time.
 
 **A moment: `now`, plus or minus an amount.** Units are `s` `m` `h` `d` `w`
-(fixed lengths) and `M` (calendar months). `m` is minutes, `M` months, as in
-Prometheus and Grafana. There are no years: use `12M`.
+(fixed lengths), `M` (calendar months) and `y` (calendar years, the same as
+`12M`). `m` is minutes, `M` months, as in Prometheus and Grafana.
 
 | You write | elm sends |
 |---|---|
@@ -164,10 +164,11 @@ Prometheus and Grafana. There are no years: use `12M`.
 | `startEpoch>:now-7d` | `>:` Wed 21 Oct 14:30 |
 | `startEpoch>:now-2w` | `>:` Wed 14 Oct 14:30 |
 | `startEpoch>:now-1M` | `>:` Mon 28 Sep 14:30 |
+| `startEpoch>:now-1y` | `>:` Tue 28 Oct 2025 14:30 |
 | `startDateTime<:now+7d` | `<:` Wed 4 Nov 14:30 (the future works too) |
 
-**A period: round down with `/d`, `/w` or `/M`.** This turns a moment into the
-day, week (Monday to Sunday) or month it falls in.
+**A period: round down with `/d`, `/w`, `/M` or `/y`.** This turns a moment
+into the day, week (Monday to Sunday), month or year it falls in.
 
 | You write | elm sends | Which is |
 |---|---|---|
@@ -177,6 +178,8 @@ day, week (Monday to Sunday) or month it falls in.
 | `startEpoch:now-1w/w` | `>:` Mon 19 Oct 00:00 and `<` Mon 26 Oct 00:00 | last week |
 | `startEpoch:now/M` | `>:` Thu 1 Oct 00:00 and `<` Sun 1 Nov 00:00 | this month |
 | `startEpoch:now-1M/M` | `>:` Tue 1 Sep 00:00 and `<` Thu 1 Oct 00:00 | last month |
+| `startEpoch:now/y` | `>:` Thu 1 Jan 2026 00:00 and `<` Fri 1 Jan 2027 00:00 | this year |
+| `startEpoch:now-1y/y` | `>:` Wed 1 Jan 2025 00:00 and `<` Thu 1 Jan 2026 00:00 | last year |
 
 **A date is a period too:** `YYYY`, `YYYY-MM`, `YYYY-MM-DD`, or with a time
 `YYYY-MM-DDTHH:MM`. No month names. A bare year counts only on a time field,

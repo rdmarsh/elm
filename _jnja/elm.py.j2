@@ -483,13 +483,13 @@ FILTER OPERATORS
 
 TIMES (never work out an epoch: elm does it, in local time)
   With now = Wed 28 Oct 14:30, a time field (startEpoch, createdOn) takes:
-  startEpoch>:now-1h      >: 28 Oct 13:30   units s m h d w M (m min, M month)
+  startEpoch>:now-1h      >: 28 Oct 13:30   units s m h d w M y (m min, M month)
   startDateTime<:now+7d   <: 4 Nov 14:30
-  startEpoch:now/d        28 Oct 00:00 to 29 Oct 00:00 (today; /w week)
+  startEpoch:now/d        28 Oct 00:00 to 29 Oct 00:00 (today; /w /M /y)
   startEpoch:now-1M/M     1 Sep to 1 Oct (last calendar month)
   startEpoch:2026-07      1 Jul to 1 Aug (also 2026, 2026-07-14, 2026-07-14T09:30)
-  /d /w /M and dates are periods: ':' is all of it, '>:' and '<' use its
-  start, '>' and '<:' its end (startEpoch<:2026-03-31 includes the 31st).
+  /d /w /M /y and dates are periods: ':' is all of it, '>:' and '<' use
+  its start, '>' and '<:' its end (startEpoch<:2026-03-31 includes the 31st).
   Fields in milliseconds are found and handled. -t shows epochs in results
   as local times. -r adds FIELDDays after each: whole days since it (never
   work out an age either), negative if future, null for 0 ("never"):

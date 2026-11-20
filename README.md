@@ -869,15 +869,15 @@ With "now" at Wed 28 Oct 2026 14:30:
 
 | You write | elm sends |
 |---|---|
-| `startEpoch>:now-1h` | `>:` 28 Oct 13:30 (`s m h d w M`; `m` minutes, `M` months) |
+| `startEpoch>:now-1h` | `>:` 28 Oct 13:30 (`s m h d w M y`; `m` minutes, `M` months) |
 | `startDateTime<:now+7d` | `<:` 4 Nov 14:30 |
 | `startEpoch:now/d` | `>:` 28 Oct 00:00 and `<` 29 Oct 00:00 (today) |
-| `startEpoch:now-1M/M` | `>:` 1 Sep and `<` 1 Oct (last month; `/w` is a week) |
+| `startEpoch:now-1M/M` | `>:` 1 Sep and `<` 1 Oct (last month; `/w` is a week, `/y` a year) |
 | `startEpoch:2026-07` | `>:` 1 Jul and `<` 1 Aug (also `2026`, `2026-07-14`, `2026-07-14T09:30`) |
 | `startEpoch>:now-1M/M` | `>:` 1 Sep (from the start of the period) |
 | `startEpoch<:now-1M/M` | `<` 1 Oct (up to its end) |
 
-`/d` `/w` `/M` and dates are periods. `:` means all of it; `>:` and `<` use
+`/d` `/w` `/M` `/y` and dates are periods. `:` means all of it; `>:` and `<` use
 its start, `>` and `<:` its end, as in Elasticsearch and Grafana date maths.
 Times are local, daylight saving included (set `TZ` for another zone). Every
 form, with what it sends:

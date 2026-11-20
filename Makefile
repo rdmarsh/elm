@@ -586,6 +586,7 @@ testbasic: testbasicoffline ## Test basic flags (the -f api/curl/wget/sqlite lin
 	@echo testing: -F a month after : is sent as its start and end ; $(testbin) -f api AlertList -F 'startEpoch:2026-07' -s1 2>/dev/null | grep -qE 'startEpoch%3E%3A%22[0-9]{10}%22%2CstartEpoch%3C%22[0-9]{10}%22'
 	@echo testing: -F an alert end past now is sent as now ; t=$$(date +%s) ; v=$$($(testbin) -f api AlertList -F 'endEpoch:now/d' -s1 2>/dev/null | grep -oE 'endEpoch%3C%3A%22[0-9]{10}' | grep -oE '[0-9]{10}$$') ; [ -n "$$v" ] && [ $$v -ge $$t ] && [ $$v -le $$((t+30)) ]
 	@echo testing: -F a year is 1 Jan to 1 Jan ; a=$$($(testbin) -f api AlertList -F 'startEpoch:2026' -s1 2>/dev/null | grep -o 'filter=[^&]*') ; b=$$($(testbin) -f api AlertList -F 'startEpoch>:2026-01,startEpoch<2027-01' -s1 2>/dev/null | grep -o 'filter=[^&]*') ; [ -n "$$a" ] && [ "$$a" = "$$b" ]
+	@echo testing: -F last year as now-1y/y is the same as the year ; y=$$(( $$(date +%Y) - 1 )) ; a=$$($(testbin) -f api AlertList -F 'startEpoch:now-1y/y' -s1 2>/dev/null | grep -o 'filter=[^&]*') ; b=$$($(testbin) -f api AlertList -F "startEpoch:$$y" -s1 2>/dev/null | grep -o 'filter=[^&]*') ; [ -n "$$a" ] && [ "$$a" = "$$b" ]
 	@echo testing: -F a year-like number on a non-time field stays a number ; $(testbin) -f api AlertList -F 'severity:2026' -s1 2>/dev/null | grep -q 'severity%3A%222026%22'
 	@echo testing: -t shows epochs as local times ; $(testbin) -t -f csv AlertList -F 'cleared:false' -f startEpoch -s1 2>/dev/null | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} '
 	@echo testing: -r adds FIELDDays after each time, empty for 0 ; $(testbin) -r -f csv AlertList -F 'cleared:false' -f startEpoch,endEpoch -s1 2>/dev/null | tr -d '\r' | { read -r h ; read -r r ; [ "$$h" = endEpoch,endEpochDays,startEpoch,startEpochDays ] && echo "$$r" | grep -qE '^0,,[0-9]{10},[0-9]+$$' ; }
@@ -626,7 +627,7 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: --ai points at --info ; $(testbin) --ai | grep -q 'elm COMMAND --info'
 	@echo testing: -F field not in the swagger is refused, with a suggestion ; $(testbin) AlertList -F sevrity:4 2>&1 | grep -q "no field 'sevrity' in AlertList (did you mean severity?"
 	@echo testing: -F refuses a mistyped operator ; $(testbin) DeviceList -F 'displayName:~x' 2>&1 | grep -q "':~' in 'displayName:~x' is not an operator"
-	@echo testing: -F refuses a relative time with an unknown unit ; $(testbin) AlertList -F 'startEpoch>:now-1y' 2>&1 | grep -q 'is not a relative time'
+	@echo testing: -F refuses a relative time with an unknown unit ; $(testbin) AlertList -F 'startEpoch>:now-1q' 2>&1 | grep -q 'is not a relative time'
 	@echo testing: -F refuses now after : without a period ; $(testbin) AlertList -F 'startEpoch:now' 2>&1 | grep -q 'matches one second'
 	@echo testing: -F refuses a time range with its bounds swapped ; $(testbin) AlertList -F 'startEpoch>:now-1d,startEpoch<:now-2d' 2>&1 | grep -q 'are the bounds the wrong way round'
 	@echo testing: -F refuses an alert end after now ; $(testbin) AlertList -F 'endEpoch>:now+1h' 2>&1 | grep -q 'endEpoch after now matches no alert'

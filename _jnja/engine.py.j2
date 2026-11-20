@@ -768,10 +768,11 @@ def output(items, command, filename='-', format='json', noheader=False, index=Fa
 # (seconds or milliseconds) before sending.
 TIME_CLAUSES = []
 COMPARE = ('>:', '<:', '>', '<')
-# s m h d w as in Prometheus, systemd and Grafana (m is minutes); M is a
-# calendar month. /d /w /M make a period: that day, week (from Monday) or month.
+# s m h d w as in Prometheus, systemd and Grafana (m is minutes); M and y are a
+# calendar month and year. /d /w /M /y make a period: that day, week (from
+# Monday), month or year.
 UNITS = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
-RELATIVE = re.compile(r'now((?:[+-]\d+[smhdwM])*)(?:/([dwM]))?')
+RELATIVE = re.compile(r'now((?:[+-]\d+[smhdwMy])*)(?:/([dwMy]))?')
 DATE = re.compile(r'(\d{4})-(\d{2})(?:-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?)?')
 
 
@@ -786,24 +787,25 @@ def local_epoch(year, month, day, hour=0, minute=0, second=0):
 def relative_period(value):
     """'now-1h' as (t, t); 'now/d', 'now-1M/M' as the (start, end) of that day or month.
 
-    Units s m h d w M as in Prometheus, systemd and Grafana (m minutes, M
-    months). /d /w /M make it a period, as in Elasticsearch and Grafana date
-    maths: today, this week (from Monday), this month.
+    Units s m h d w M y as in Grafana (m minutes, M months, y years). /d /w
+    /M /y make it a period, as in Elasticsearch and Grafana date maths:
+    today, this week (from Monday), this month, this year.
     """
     from dateutil.relativedelta import relativedelta
     import datetime
     match = RELATIVE.fullmatch(value)
     if not match:
         raise click.BadParameter(
-            f"{value!r} is not a relative time: use now, now-N or now+N with s, m, h, d, w "
-            "or M (m is minutes, M months), optionally /d, /w or /M for that day, week or "
-            "month: now-1h, now+7d, now-1M/M")
-    # s m h d w are fixed seconds, as in Prometheus; M moves the calendar date
+            f"{value!r} is not a relative time: use now, now-N or now+N with s, m, h, d, w, "
+            "M or y (m is minutes, M months), optionally /d, /w, /M or /y for that day, "
+            "week, month or year: now-1h, now+7d, now-1M/M, now+1y")
+    # s m h d w are fixed seconds, as in Prometheus; M and y move the calendar date
     t = int(time.time())
-    for sign, number, unit in re.findall(r'([+-])(\d+)([smhdwM])', match.group(1)):
+    for sign, number, unit in re.findall(r'([+-])(\d+)([smhdwMy])', match.group(1)):
         n = int(number) if sign == '+' else -int(number)
-        if unit == 'M':
-            moved = datetime.datetime.fromtimestamp(t) + relativedelta(months=n)
+        if unit in 'My':
+            moved = datetime.datetime.fromtimestamp(t) + relativedelta(
+                months=n if unit == 'M' else 12 * n)
             t = local_epoch(*moved.timetuple()[:6])
         else:
             t += n * UNITS[unit]
@@ -812,7 +814,8 @@ def relative_period(value):
     day = datetime.datetime.fromtimestamp(t).replace(hour=0, minute=0, second=0)
     start, step = {'d': (day, relativedelta(days=1)),
                    'w': (day - datetime.timedelta(days=day.weekday()), relativedelta(weeks=1)),
-                   'M': (day.replace(day=1), relativedelta(months=1))}[match.group(2)]
+                   'M': (day.replace(day=1), relativedelta(months=1)),
+                   'y': (day.replace(month=1, day=1), relativedelta(years=1))}[match.group(2)]
     # local wall-clock midnights, so a period across a daylight-saving change is right
     return local_epoch(*start.timetuple()[:3]), local_epoch(*(start + step).timetuple()[:3])
 
