@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-21
+
 ### Added
 
 - `y` for years in `-F` times, as in Grafana: `endDateTime<:now+1y` (a calendar year on, the same as `now+12M`), and `/y` for a year as a period (`startEpoch:now/y` this year, `startEpoch:now-1y/y` last year).
@@ -924,7 +926,8 @@ shell completion (#5), jira/markdown/rst/tab output formats (#11, #13, #15), fil
 output (#9), filter validation (#18, #3), HTML output, SOCKS5 proxy support, v2/v3
 API support, and the initial release.
 
-[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/rdmarsh/elm/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/rdmarsh/elm/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/rdmarsh/elm/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/rdmarsh/elm/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/rdmarsh/elm/compare/v1.14.0...v1.14.1
