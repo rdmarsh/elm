@@ -619,6 +619,7 @@ testbasicoffline: testhelp ## Test basic flags, no request sent    (offline)
 	@echo testing: -s before command hints at --size ; $(testbin) -s 5 DeviceList 2>&1 | grep -q 'for --size put it after'
 	@echo testing: -f before command hints at --fields ; $(testbin) -f id DeviceList 2>&1 | grep -q 'for --fields put it after'
 	@echo testing: global flag after command gets a hint ; $(testbin) DeviceList -H 2>&1 | grep -q 'Hint: -H is a global option: put it before'
+	@echo testing: -s after a command with no --size is not sent to --proxy ; $(testbin) LogAlerts -s1 2>&1 | grep -q 'Hint: LogAlerts has no -s (--size). Before the command name, -s is --proxy'
 	@echo testing: -o after command hints at --filename ; $(testbin) DeviceList -o out.csv 2>&1 | grep -q 'for --filename put it before'
 	@echo testing: format name as --fields gets a hint ; $(testbin) DeviceList -f csv 2>&1 | grep -q 'for --format put it before'
 	@echo testing: --info shows path, notes and fields ; $(testbin) AlertList --info | grep -q '^GET /alert/alerts' && $(testbin) AlertList --info | grep -q '^Notes' && $(testbin) AlertList --info | grep -q '^  severity: integer'

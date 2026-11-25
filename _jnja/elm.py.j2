@@ -155,7 +155,16 @@ def _add_position_hint(error, group, ctx, command_name, before_command):
         return f'elm {command_name} {usage}' if before_command else f'elm {usage} {command_name}'
 
     hint = None
-    if isinstance(error, click.NoSuchOption) and error.option_name in there:
+    # -o/-s after the command name are --offset/--size, which a command only
+    # has if its endpoint pages. Without them, moving the flag
+    # would change what it means, so say what is missing instead.
+    command_side = {'-o': '--offset', '-s': '--size'}
+    if (isinstance(error, click.NoSuchOption) and not before_command
+            and error.option_name in command_side and error.option_name in there):
+        flag = error.option_name
+        hint = (f'{command_name} has no {flag} ({command_side[flag]}). '
+                f'Before the command name, {flag} is {_long_flag(there[flag])}')
+    elif isinstance(error, click.NoSuchOption) and error.option_name in there:
         flag = error.option_name
         kind = 'a command' if before_command else 'a global'
         hint = f'{flag} is {kind} option: put it {side} the command name, e.g. {placed(flag)}'

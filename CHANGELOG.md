@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `-s` or `-o` after a command that does not page (such as `elm LogAlerts -s1`) no longer hints to move it before the command name, where it means `--proxy` or `--filename`. The hint now says the command has no `--size` or `--offset`.
+
 ## [1.17.0] - 2026-11-21
 
 ### Added
