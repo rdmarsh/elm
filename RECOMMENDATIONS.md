@@ -1,7 +1,7 @@
 # RECOMMENDATIONS
 
 Agreed follow-up work from the 2026-07 project audit, in priority order
-(smallest risk first). Written so that any AI assistant or contributor can
+(smallest risk first), and from the 2026-11 audit (at the end). Written so that any AI assistant or contributor can
 pick up an item and complete it without further context.
 
 ## Rules — read before doing ANY item
@@ -11,10 +11,11 @@ pick up an item and complete it without further context.
    anything in `_cmds/`, `_defs/`, `_build/`, `_dist/`. Fix the source instead:
    `_jnja/*.j2` templates, the `Makefile`, or `swagger.undocumented.json`.
 3. After changing a template or the Makefile, rebuild and test:
-   `make && make testbasic`. `make testbasic` is fully **offline** — it never
-   contacts LogicMonitor — but it does need the built binary
-   (`_dist/elm/elm`) and a default `config` profile to exist.
-4. Do **one item at a time**. Run `make testbasic` before considering an item
+   `make && make testoffline`. It sends no request (dummy credentials do) but
+   needs the built binary (`_dist/elm/elm`). `make testbasic` is not fully
+   offline: its `-f api/curl/wget/sqlite` lines need the live `config`
+   profile (see CLAUDE.md, Testing). Corrected 2026-11-22.
+4. Do **one item at a time**. Run `make testoffline` before considering an item
    done. If a test fails and the fix isn't obvious, stop and report — do not
    pile on more changes.
 5. Add a CHANGELOG.md entry under `## [Unreleased]` for every user-visible
@@ -404,6 +405,11 @@ tools (e.g. `tools/elm-datasource-matrix.py`) robust. Needs live testing
 against a real rate limit; design (max retries, wait cap, message to stderr)
 to be agreed with the maintainer first.
 
+2026-11 audit: more pressing now. Samara's recipes send many requests in a
+row (an `each` step fetches once per item, up to `MOST_EACH`), so one
+question can meet the limit where the CLI rarely did, and a 429 then fails
+the whole answer. Still needs the maintainer and a live test first.
+
 ## [defer] 16. Dependency upgrades (click 7→8, tabulate 0.8→0.9)
 
 `click~=7.1.2` is a 2020 release and no longer receives fixes; `tabulate` 0.9
@@ -477,3 +483,121 @@ property") instead of a blind pass/FAIL/TIMEOUT. That is a genuinely useful,
 separate tool, not a rewrite of the existing three scripts. Needs maintainer
 scoping (which debug commands, what output format, one host vs. a list) before
 any implementation — do not start without the maintainer.
+
+---
+
+# 2026-11 audit
+
+A second audit, run 2026-11-22 after 1.17.0, over what changed since July:
+Samara above all, then the elm templates. The same rules and status legend
+apply. Items 19-22 are ready; do them in order, one at a time. Samara has no
+`make` target: after each item, start it with `samara/run.sh` (or
+`python samara/app.py` with `ELM_HOME` set) and check the page still answers.
+
+Looked at and found sound: allowed_commands/denied_commands fail closed and
+match command names exactly (`_jnja/elm.py.j2`, `_profile_patterns`,
+`LazyGroup.invoke`); every request has a timeout (`engine.py.j2`); the page
+escapes everything it inserts (`samara/index.html`, `esc`, `inline`); recipes
+read free text only to match words or to name a collector. Not covered:
+`samara/agent.py`, `samara/router.py` and `tools/` were only skimmed, and the
+binary was not rebuilt or tested (a sandbox build overwrites the macOS one).
+
+## [ ] 19. Samara: refuse other Host and Origin headers (DNS rebinding)
+
+**Problem:** `samara/app.py` (`Handler.do_GET`, `Handler.do_POST`) answers any
+request that reaches the port, whatever its `Host` or `Origin` header.
+Binding to 127.0.0.1 (run.sh publishes `127.0.0.1:$PORT:8080`) stops other
+machines, not other web sites: a page the reader visits can make its own
+domain resolve to 127.0.0.1 (DNS rebinding), and the browser then treats
+Samara as that page's own origin. It can POST questions to `/api/ask` and
+read the answers and tables, and read `/api/health` (portal name, profile,
+allowed commands). Without rebinding, any site can still send a blind POST
+(`Content-Type: text/plain` needs no preflight) that runs queries and writes
+to the question log through `/api/feedback`.
+
+**Change:** in `app.py`, before handling any GET or POST:
+
+- Take the hostname from the `Host` header (drop the port; handle
+  `[::1]:8083`). Allow `127.0.0.1`, `localhost`, `::1`, plus the names in a
+  new `SAMARA_HOSTNAMES` setting (comma-separated, read with
+  `elm_tools.setting`) for a shared server behind a proxy
+  (`samara/shared-server.md`). Anything else: 403 with a JSON error naming
+  the setting. Ignore the port: run.sh maps each profile to its own host
+  port, and the port is not what rebinding changes.
+- For POST, if an `Origin` header is present, its hostname must pass the
+  same check; otherwise 403. A missing Origin (curl, eval.py) is allowed.
+
+Document `SAMARA_HOSTNAMES` in `samara/README.md` and `shared-server.md`, and
+add a CHANGELOG entry under Security.
+
+**Check:** `curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example'
+http://127.0.0.1:PORT/api/health` gives 403; the same without `-H` gives 200;
+a POST to `/api/ask` with `-H 'Origin: http://evil.example'` gives 403;
+`samara/eval.py` still runs; the page still loads and answers.
+
+## [ ] 20. Samara over MCP: show_table hands the model the withheld free text
+
+**Problem:** on the web page, `show_table` (`samara/elm_tools.py`) builds the
+table from the real rows, because only the reader sees it: descriptions,
+notes, ack comments and property values stay out of the model's copy
+(`FREE_TEXT_FIELDS`, `withhold`), which is what stops planted text (device
+luna, `samara/questions.md`) from being repeated as fact. `samara/mcp_server.py`
+(`call_tool`) turns that same table into Markdown and returns it to the
+model ("Put this table in your reply as it is"), and does the same for a
+recipe's table. Over MCP (`qlm`, Claude Code) the model therefore reads every
+withheld value; `run_jq` withholds it, but
+`show_table(expression='$d1 | map({d: .description})')` does not. The README
+does not say so.
+
+**Change:** let the caller choose which copy a table is built from. Add a
+module-level `TABLES_SEEN_BY_MODEL = False` in `elm_tools.py`; `show_table`
+passes `model=TABLES_SEEN_BY_MODEL` to `_jq`. `mcp_server.py` sets it to
+`True` at import. Tables over MCP then show "(withheld; ...)" in free-text
+columns: change `WITHHELD`'s wording there, or add one line to the MCP
+reply, so the reader is not told to look at a page that does not exist.
+Add a sentence to the qlm section of `samara/README.md`.
+
+**Check:** with `qlm` (or the MCP server driven by hand), ask about luna; the
+injection text in its description and `test.note` must not appear in the
+tool result. The web page's tables must still show the real values.
+
+## [ ] 21. Samara: show_table's errors echo withheld values to the model
+
+**Problem:** smaller than item 20, on the web page. `show_table` runs the
+model's expression over the real rows, and its errors go back to the model:
+
+- the column check (`elm_tools.py`, "no key ... it makes ...") lists every key
+  the expression produced, and keys can be made from values
+  (`map({(.description): 1})`);
+- a jq error quotes the value it failed on (`Cannot iterate over string
+  ("...")`), from `_jq`'s `raise ValueError(f"jq error: ...")`.
+
+Unlikely by accident, but it is a way round the withholding.
+
+**Change:** in `show_table`, on any failure (jq error, not an array, column
+mismatch), build the error from a second run of the same expression over the
+model copies (`_jq(session, expression, model=True)`) and report what that
+run says. Only a run that succeeds uses the real rows. The happy path is
+unchanged.
+
+**Check:** on a dataset with a description, `show_table(expression=
+'$d1 | map({(.description): 1})', columns=['x'])` must not name the
+description in the error; `'$d1[0].description | error'` likewise.
+
+## [ ] 22. Samara: /api/ask and /api/feedback trust the shape of the body
+
+**Problem:** `samara/app.py` catches only `ValueError` and `KeyError` while
+reading the body. A JSON array instead of an object (`AttributeError` on
+`.get`), or a list where a number goes (`int([1])`, `TypeError`), escapes
+as an unhandled exception and the connection drops with no answer. The
+`Content-Length` is trusted too: a negative one makes `rfile.read(-1)` wait
+for EOF, and a huge one is read whole.
+
+**Change:** in both handlers, refuse a `Content-Length` that is missing,
+negative or over a cap (say 1 MB: the feedback transcript is capped at
+200,000 characters) with 400 or 413; check `isinstance(body, dict)`; catch
+`TypeError` and `AttributeError` with the others.
+
+**Check:** `curl -d '[]'`, `-d '{"question":"x","harder":[1]}'` and
+`-H 'Content-Length: -1'` each get a 400 and the server keeps running.
+

@@ -48,17 +48,6 @@ chains/rules data is available.
 Context: same class as GitHub issue #47 (LM swagger omits paging params on
 several list endpoints).
 
-## Whole numbers print as 1.0 when a column has gaps
-
-pandas turns a number column with any missing value into floats, so ids and
-counts print as `1.0`, `2.0` in csv, the tables and jsonl whenever some rows
-lack the field. Long-standing (any field absent from some records), but `-e`
-makes it common: `-e groups.members` with one empty list prints every member
-id as a float (seen 2026-10-11 in a faked test). A fix such as converting
-whole-valued float columns to pandas' nullable `Int64` in `output()` changes
-existing output, including the jsonl a downstream repo reads, so test it
-against current output first; maybe together with pandas 3.
-
 ## pandas 3 (needed for Python 3.15)
 
 pandas 2.3 has no Python 3.15 wheels and will not get them, so on 3.15 `make`
@@ -105,12 +94,6 @@ require every listed profile to set `allowed_commands`, let the model choose a
 profile only from that list (never an arbitrary `--profile`/`--config`), and say
 in each answer which portal it came from. Parked until there is a real need.
 
-## Samara: grow the checked question set
-
-Started 2026-10-26 in `samara/questions.md` (injection tests and the
-memory case, with results). Next: confirm the "Not run yet" answers by hand
-against a known portal and add their check commands, then aim for 10-20.
-
 ## An elm CLI container image (parked 2026-09-18)
 
 For people who cannot install elm (no Python, locked-down Windows laptops), ship
@@ -125,34 +108,13 @@ GitHub Action on a release tag) would let anyone `docker pull` it; the image mus
 hold no credentials, and the README should point at the credentials mount and
 the Windows path/quoting differences. Parked: useful, not urgent.
 
-## Samara: show the allowed commands in the page (idea)
+## Samara: report_check (ready)
 
-The footer says "44 allowed commands" but not which. Cheapest version: a title
-attribute so hovering lists them; fuller version: make it a link to a small
-page or panel listing each allowed command with its summary (the data is
-already in `profile_status()["allowed"]` and `_defs/commands.json`). Only worth
-it if people ask "what can I ask about?".
-
-## Samara: other model providers, and Claude Code (idea)
-
-Samara calls the Claude API directly, so it needs API credit even for someone
-who already pays for Claude Code or ChatGPT. Two ways round that, neither
-started:
-
-- **An MCP server** wrapping `samara/elm_tools.py` (the read-only elm
-  tools, secret stripping and the allowed_commands check). Claude Code and
-  Claude Desktop could then query LM through a subscription instead of API
-  tokens, with no web page to host. Probably the cheapest useful next step.
-- **Other providers** (OpenAI and friends): tool-calling APIs are close enough
-  that swapping the client and reshaping the tool definitions is most of the
-  work, but each provider needs its own testing against the question set.
-  `ANTHROPIC_BASE_URL` already covers an Anthropic-compatible gateway.
-
-## Samara: report_check (after the recipe-split comparison)
-
-Agreed 2026-11-05. Add once branch `samara-recipe-split` has been compared
-with main on the same models, so the comparison tests one change at a time.
-A sixth tool, `report_check`, alongside device_check and the others:
+Agreed 2026-11-05, waiting on the recipe-split comparison. That ran on
+2026-11-07 (findings.md: do not merge the split), so this can start. It was
+planned as a sixth tool, `report_check`, beside the split's device_check and
+the others; with the split not merged, it is three new recipes in
+`recipes.yaml` for main's one `recipe` tool:
 
 - `reports_scheduled`: which reports run on a schedule, how often, and when
   each last ran.
